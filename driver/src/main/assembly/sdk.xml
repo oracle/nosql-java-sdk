@@ -1,0 +1,51 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+  <id>sdk</id>
+  <includeBaseDirectory>true</includeBaseDirectory>
+  <formats>
+    <format>zip</format>
+    <format>tar.gz</format>
+  </formats>
+
+  <fileSets>
+    <!-- top-level text/license files, etc -->
+    <fileSet>
+      <directory>${project.basedir}/..</directory>
+      <includes>
+        <include>README.md</include>
+        <include>LICENSE.txt</include>
+        <include>THIRD_PARTY_LICENSES.txt</include>
+        <include>CHANGELOG.md</include>
+      </includes>
+    </fileSet>
+
+    <!-- examples -->
+    <fileSet>
+      <directory>${project.basedir}/../examples/src/main/java</directory>
+      <outputDirectory>examples</outputDirectory>
+      <excludes>
+        <exclude>DocSnippets.java</exclude>
+        <exclude>HelloWorld.java</exclude>
+      </excludes>
+    </fileSet>
+
+    <!-- doc -->
+    <fileSet>
+      <directory>${project.basedir}/../driver/target/apidocs</directory>
+      <outputDirectory>doc/javadoc</outputDirectory>
+      <includes>
+        <include>**</include>
+      </includes>
+    </fileSet>
+
+  </fileSets>
+
+  <dependencySets>
+    <dependencySet>
+      <outputFileNameMapping>${artifact.artifactId}.${artifact.extension}</outputFileNameMapping>
+      <outputDirectory>lib</outputDirectory>
+    </dependencySet>
+  </dependencySets>
+
+</assembly>

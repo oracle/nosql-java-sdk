@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.oracle.nosql.sdk</groupId>
+    <artifactId>nosql-java-sdk</artifactId>
+    <version>5.2.20</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>nosqldriver</artifactId>
+  <packaging>jar</packaging>
+
+  <organization>
+    <name>Oracle Corporation</name>
+    <url>http://www.oracle.com/</url>
+  </organization>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+   <timestamp>${maven.build.timestamp}</timestamp>
+   <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
+   <copyright>Copyright (c) 2011, 2020 Oracle and/or its affiliates.  All rights reserved.</copyright>
+   <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
+
+   <!--  deploy -->
+   <maven.deploy.skip>false</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+
+    <!-- jackson core - JSON processing -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.11.2</version>
+    </dependency>
+
+    <!-- Netty - networking -->
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-all</artifactId>
+      <version>4.1.45.Final</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Bouncycastle - request signing in cloud -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk15on</artifactId>
+      <version>1.66</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk15on</artifactId>
+      <version>1.66</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- test -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>${project.artifactId}</finalName>
+    <plugins>
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.1.0</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <!--<verbose>true</verbose>-->
+          <fork>true</fork>
+        </configuration>
+      </plugin>
+      <plugin>
+        <!-- test plugin -->
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.0.0-M5</version>
+        <configuration>
+          <workingDirectory>${project.build.directory}/test-run</workingDirectory>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <addDefaultEntries>false</addDefaultEntries>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+              <addBuildEnvironmentEntries>true</addBuildEnvironmentEntries>
+              <addClasspath>true</addClasspath>
+              <mainClass>oracle.nosql.driver.DriverMain</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>3.0.0-M1</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>3.0.0</version>
+      </plugin>
+
+      <!-- source jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- javadoc -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <source>1.8</source>
+          <!-- exclude these packages.
+               TODO: the this list should include
+               oracle.nosql.driver.ops.serde. The problem is that if added
+               javadoc fails as it tries to operate on files in that package anyway.
+               May need to post-process the doc to remove the package and link.
+          -->
+          <excludePackageNames>oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util</excludePackageNames>
+          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
+          <show>public</show>
+          <header><![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]></header>
+          <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
+          <link>${java.apidoc}</link>
+          <additionalOptions>
+            <additionalOption>-author</additionalOption>
+          </additionalOptions>
+          <!-- put output in target/apidocs -->
+          <reportOutputDirectory>
+            ${project.build.directory}/apidocs
+          </reportOutputDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>javadoc-jar</id>
+            <goals>
+              <goal>jar</goal>
+              <goal>javadoc</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- create the tar.gz and .zip archives in package phase -->
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <!-- this drives the name of the tar.gz and zip files generated -->
+          <finalName>oracle-nosql-java-sdk-${project.version}</finalName>
+          <!-- assembly id is "sdk," don't append it to the archive names -->
+          <appendAssemblyId>false</appendAssemblyId>
+          <descriptors>
+            <descriptor>src/main/assembly/sdk.xml</descriptor>
+          </descriptors>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
