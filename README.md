@@ -1,9 +1,5 @@
 # Oracle NoSQL SDK for Java
 
-## Requirements
-
-Java versions 8 and higher are supported.
-
 ## Overview
 
 The Oracle NoSQL SDK for Java provides interfaces,
@@ -21,10 +17,19 @@ environment-specific classes and methods, mostly related to authentication
 and authorization. The API documentation clearly notes environment-specific
 information.
 
-See also:
+## Documentation
+
+See [Oracle NoSQL SDK for Java javadoc](https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnjv/index.html) for the latest API documentation.
+
+General documentation about the Oracle NoSQL Database and the Oracle NoSQL Database Cloud Service can be found in these locations:
 
 * [Oracle NoSQL Database Cloud Service](https://docs.oracle.com/en/cloud/paas/nosql-cloud/nosql_dev.html)
 * [Oracle NoSQL Database](https://www.oracle.com/database/technologies/related/nosql.html)
+
+## Requirements
+
+Java versions 8 and higher are supported.
+
 
 ## Examples
 
@@ -141,15 +146,14 @@ nosqldriver.jar
 The [THIRD\_PARTY\_LICENSES](THIRD_PARTY_LICENSES.txt) file contains third
 party notices and licenses.
 
-## Documentation
-
-API documentation is contained in the doc directory.
-
-
 ## Help
 
+* Open an issue in the [Issues](https://github.com/oracle/nosql-java-sdk/issues) page
 * Post your question on the [Oracle NoSQL Database Community](https://community.oracle.com/community/groundbreakers/database/nosql_database).
 * [Email to nosql\_sdk\_help\_grp@oracle.com](mailto:nosql_sdk_help_grp@oracle.com)
 
 When requesting help please be sure to include as much detail as possible,
 including version of the SDK and **simple**, standalone example code as needed.
+
+## Contributing
+See [CONTRIBUTING](./CONTRIBUTING.md) for details.
