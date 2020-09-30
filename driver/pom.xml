@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.oracle.nosql.sdk</groupId>
     <artifactId>nosql-java-sdk</artifactId>
-    <version>5.2.20</version>
+    <version>5.2.21</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -122,6 +122,9 @@
               <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
               <addBuildEnvironmentEntries>true</addBuildEnvironmentEntries>
               <addClasspath>true</addClasspath>
+              <!--  drop version from dependent jar files in manifest class path -->
+              <classpathLayoutType>custom</classpathLayoutType>
+               <customClasspathLayout>$${artifact.artifactId}.$${artifact.extension}</customClasspathLayout>
               <mainClass>oracle.nosql.driver.DriverMain</mainClass>
             </manifest>
           </archive>
