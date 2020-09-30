@@ -157,3 +157,6 @@ including version of the SDK and **simple**, standalone example code as needed.
 
 ## Contributing
 See [CONTRIBUTING](./CONTRIBUTING.md) for details.
+
+## Security
+See [SECURITY](./SECURITY.md) for details.

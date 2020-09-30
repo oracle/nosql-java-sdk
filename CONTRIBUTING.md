@@ -1,23 +1,26 @@
-# Contributing
 
-Oracle welcomes contributions to this repository from anyone. If you want to submit a pull request to fix a bug or enhance code, please first open an issue and link to that issue when you submit your pull request. If you have any questions about a possible contribution, feel free to open an issue too.
+# Contributing to the Oracle NoSQL SDK for Java repository
 
-## Contributing to the Oracle NoSQL SDK for Java repository
+We welcome your contributions! There are multiple ways to contribute.
 
-Pull requests can be made under
-[The Oracle Contributor Agreement](https://www.oracle.com/technetwork/community/oca-486395.html) (OCA).
+## Issues
+
+For bugs or enhancement requests, please file a GitHub issue unless it's security related. When filing a bug remember that the better written the bug is, the more likely it is to be fixed. If you think you've found a security vulnerability, do not raise a GitHub issue and follow the instructions on our [Security Policy](./SECURITY.md).
+
+## Contributing Code
+
+We welcome your code contributions. To get started, you will need to sign the [Oracle Contributor Agreement](https://www.oracle.com/technetwork/community/oca-486395.html) (OCA).
 
 For pull requests to be accepted, the bottom of your commit message must have
-the following line using your name and e-mail address as it appears in the
-OCA Signatories list.
+the following line using the name and e-mail address you used for the OCA.
 
-```
+```text
 Signed-off-by: Your Name <you@example.org>
 ```
 
 This can be automatically added to pull requests by committing with:
 
-```
+```text
 git commit --signoff
 ```
 
@@ -35,4 +38,8 @@ by your fix.
 1. Submit the pull request. *Do not leave the pull request blank*. Explain exactly
 what your changes are meant to do and provide simple steps on how to validate
 your changes. Ensure that you reference the issue you created as well.
-We will assign the pull request to 2-3 people for review before it is merged.
+1. We will assign the pull request to 2-3 people for review before it is merged.
+
+## Code of Conduct
+
+Follow the [Golden Rule](https://en.wikipedia.org/wiki/Golden_Rule). If you'd like more specific guidelines see the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/1/4/code-of-conduct/)
