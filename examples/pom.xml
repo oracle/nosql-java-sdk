@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.oracle.nosql.sdk</groupId>
     <artifactId>nosql-java-sdk</artifactId>
-    <version>5.2.21</version>
+    <version>5.2.22</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>nosql-java-sdk-examples</artifactId>
@@ -28,7 +28,7 @@
     <dependency>
       <groupId>com.oracle.nosql.sdk</groupId>
       <artifactId>nosqldriver</artifactId>
-      <version>5.2.21</version>
+      <version>5.2.22</version>
     </dependency>
   </dependencies>
 

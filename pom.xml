@@ -6,7 +6,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosql-java-sdk</artifactId>
-  <version>5.2.21</version>
+  <version>5.2.22</version>
   <packaging>pom</packaging>
   <name>nosql-java-sdk</name>
   <url>https://github.com/oracle/nosql-java-sdk</url>

@@ -200,14 +200,11 @@ public class PreparedStatement {
     }
 
     /**
-     * Sets the named variable in the map of variables to use for the query.
-     * Existing variables with the same name are silently overwritten. The
-     * names and types are validated when the query is executed.
+     * Binds an external variable to a given value. The variable is identified
+     * by its name.
      *
-     * @param name the variable name used in the query statement
-     *
+     * @param name the name of the variable
      * @param value the value
-     *
      * @return this
      */
     public PreparedStatement setVariable(String name, FieldValue value) {
@@ -218,11 +215,43 @@ public class PreparedStatement {
 
         if (variables != null && variables.get(name) == null) {
             throw new IllegalArgumentException(
-                "The query doesn't contain the variable: " + name);
+                "The query does not contain the variable: " + name);
         }
 
         boundVariables.put(name, value);
         return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * Binds an external variable to a given value. The variable is identified
+     * by its position within the query string. The variable that appears first
+     * in the query text has position 1, the variable that appears second has
+     * position 2 and so on.
+     *
+     * @param pos the position of the variable
+     * @param value the value
+     * @return this
+     */
+    public PreparedStatement setVariable(int pos, FieldValue value) {
+
+        if (variables == null) {
+            String name = "#" + pos;
+            return setVariable(name, value);
+        }
+
+        int searchId = pos - 1;
+
+        for (Map.Entry<String, Integer> entry : variables.entrySet()) {
+            int id = entry.getValue();
+            if (id == searchId) {
+                return setVariable(entry.getKey(), value);
+            }
+        }
+
+        throw new IllegalArgumentException(
+            "There is no external variable at position " +  pos);
     }
 
     /**
