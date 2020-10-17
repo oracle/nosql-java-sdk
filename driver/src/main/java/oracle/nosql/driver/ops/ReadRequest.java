@@ -59,4 +59,12 @@ public abstract class ReadRequest extends Request {
                  " requires table name"));
         }
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        return true;
+    }
 }

@@ -223,8 +223,6 @@ public class PreparedStatement {
     }
 
     /**
-     * @hidden
-     *
      * Binds an external variable to a given value. The variable is identified
      * by its position within the query string. The variable that appears first
      * in the query text has position 1, the variable that appears second has

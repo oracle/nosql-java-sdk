@@ -57,4 +57,12 @@ public abstract class WriteRequest extends Request {
                  " requires table name"));
         }
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesWrites() {
+        return true;
+    }
 }

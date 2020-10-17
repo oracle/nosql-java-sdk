@@ -226,6 +226,29 @@ public class WriteMultipleRequest extends Request {
 
     /**
      * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        int numops = operations.size();
+        for (int x=0; x<numops; x++) {
+            Request r = operations.get(x).getRequest();
+            if (r.doesReads()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesWrites() {
+        return true;
+    }
+
+    /**
+     * @hidden
      * Internal use only
      *
      * A wrapper of WriteRequest that contains an additional flag

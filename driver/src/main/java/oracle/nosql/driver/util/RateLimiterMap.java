@@ -71,8 +71,14 @@ public class RateLimiterMap {
             RateLimiter wrl = new SimpleRateLimiter(writeUnits, durationSeconds);
             limiterMap.put(lowerTable, new Entry(rrl, wrl));
         } else {
-            rle.readLimiter.setLimitPerSecond(readUnits);
-            rle.writeLimiter.setLimitPerSecond(writeUnits);
+            if (rle.readLimiter.getLimitPerSecond() != readUnits) {
+                rle.readLimiter.setLimitPerSecond(readUnits);
+                rle.readLimiter.reset();
+            }
+            if (rle.writeLimiter.getLimitPerSecond() != writeUnits) {
+                rle.writeLimiter.setLimitPerSecond(writeUnits);
+                rle.writeLimiter.reset();
+            }
         }
     }
 
@@ -122,4 +128,27 @@ public class RateLimiterMap {
         return (limiterMap.get(tableName.toLowerCase()) != null);
     }
 
+
+    /**
+     * Clear all rate limiters from map.
+     */
+    public void clear() {
+        limiterMap.clear();
+    }
+
+    /**
+     * @hidden
+     *
+     * Allow tests to reset limiters in map
+     *
+     * @param tableName name or OCID of the table
+     */
+    public synchronized void reset(String tableName) {
+        String lowerTable = tableName.toLowerCase();
+        Entry rle = limiterMap.get(lowerTable);
+        if (rle != null) {
+            rle.readLimiter.reset();
+            rle.writeLimiter.reset();
+        }
+    }
 }

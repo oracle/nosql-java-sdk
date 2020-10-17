@@ -15,6 +15,7 @@ import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
+import static oracle.nosql.driver.util.BinaryProtocol.READ_KB_LIMIT;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -26,9 +27,12 @@ import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -127,12 +131,12 @@ public class Client {
     /*
      * Internal rate limiting: cloud only
      */
-    private final RateLimiterMap rateLimiterMap;
+    private RateLimiterMap rateLimiterMap;
 
     /*
      * Keep an internal map of tablename to last limits update time
      */
-    private final Map<String, AtomicLong> tableLimitUpdateMap;
+    private Map<String, AtomicLong> tableLimitUpdateMap;
 
     /* update table limits once every 10 minutes */
     private static long LIMITER_REFRESH_NANOS = 600_000_000_000L;
@@ -142,6 +146,11 @@ public class Client {
      * is unavailable
      */
     private static final int SEC_ERROR_DELAY_MS = 100;
+
+    /*
+     * singe thread executor for updating table limits
+     */
+    private ExecutorService threadPool;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -198,14 +207,18 @@ public class Client {
                 "Must configure AuthorizationProvider to use HttpClient");
         }
 
-        if (config.getRateLimitingEnabled()) {
+        /* StoreAccessTokenProvider == onprem */
+        if (config.getRateLimitingEnabled() &&
+            !(authProvider instanceof StoreAccessTokenProvider)) {
             logInfo(logger, "Starting client with rate limiting enabled");
             rateLimiterMap = new RateLimiterMap();
             tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
+            threadPool = Executors.newSingleThreadExecutor();
         } else {
             logInfo(logger, "Starting client with no rate limiting");
             rateLimiterMap = null;
             tableLimitUpdateMap = null;
+            threadPool = null;
         }
     }
 
@@ -222,6 +235,9 @@ public class Client {
         httpClient.shutdown();
         if (authProvider != null) {
             authProvider.close();
+        }
+        if (threadPool != null) {
+            threadPool.shutdown();
         }
     }
 
@@ -327,7 +343,7 @@ public class Client {
         boolean checkReadUnits = false;
         boolean checkWriteUnits = false;
 
-        // if the request itself specifies rate limiters, use them
+        /* if the request itself specifies rate limiters, use them */
         RateLimiter readLimiter = kvRequest.getReadRateLimiter();
         if (readLimiter != null) {
             checkReadUnits = true;
@@ -337,7 +353,7 @@ public class Client {
             checkWriteUnits = true;
         }
 
-        // if not, see if we have limiters in our map for the given table
+        /* if not, see if we have limiters in our map for the given table */
         if (rateLimiterMap != null &&
             readLimiter == null && writeLimiter == null) {
             String tableName = kvRequest.getTableName();
@@ -345,12 +361,37 @@ public class Client {
                 readLimiter = rateLimiterMap.getReadLimiter(tableName);
                 writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
                 if (readLimiter == null && writeLimiter == null) {
-                    backgroundUpdateLimiters(tableName);
+                    if (kvRequest.doesReads() || kvRequest.doesWrites()) {
+                        backgroundUpdateLimiters(tableName);
+                    }
                 } else {
+                    checkReadUnits = kvRequest.doesReads();
                     kvRequest.setReadRateLimiter(readLimiter);
+                    checkWriteUnits = kvRequest.doesWrites();
                     kvRequest.setWriteRateLimiter(writeLimiter);
                 }
             }
+        }
+
+        /*
+         * If the request is a query, and it has unlimited readKB, and there's
+         * a valid read rate limiter, set the max read KB to the larger of
+         * 10KB or read rate limit. This helps very large queries to not
+         * overuse resources when rate limiting is in effect.
+         */
+        if (readLimiter != null && kvRequest instanceof QueryRequest &&
+            ((QueryRequest)kvRequest).getMaxReadKB() == 0) {
+            /* factor in request rate limiter percentage (100.0 == full) */
+            double rlPercent = kvRequest.getRateLimiterPercentage();
+            int maxKB =
+                (int)((rlPercent * readLimiter.getLimitPerSecond()) / 100.0);
+            if (maxKB < 10) {
+                maxKB = 10;
+            }
+            if (maxKB > READ_KB_LIMIT) {
+                maxKB = READ_KB_LIMIT;
+            }
+            ((QueryRequest)kvRequest).setMaxReadKB(maxKB);
         }
 
         final long startTime = System.currentTimeMillis();
@@ -362,8 +403,10 @@ public class Client {
 
             if (readLimiter != null && checkReadUnits == true) {
                 try {
-                    // this may sleep for a while, up to thisIterationTimeoutMs
-                    // and may throw TimeoutException
+                    /*
+                     * this may sleep for a while, up to thisIterationTimeoutMs
+                     * and may throw TimeoutException
+                     */
                     rateDelayedMs += readLimiter.consumeUnitsWithTimeout(
                         0, thisIterationTimeoutMs, false);
                 } catch (Exception e) {
@@ -373,8 +416,10 @@ public class Client {
             }
             if (writeLimiter != null && checkWriteUnits == true) {
                 try {
-                    // this may sleep for a while, up to thisIterationTimeoutMs
-                    // and may throw TimeoutException
+                    /*
+                     * this may sleep for a while, up to thisIterationTimeoutMs
+                     * and may throw TimeoutException
+                     */
                     rateDelayedMs += writeLimiter.consumeUnitsWithTimeout(
                         0, thisIterationTimeoutMs, false);
                 } catch (Exception e) {
@@ -486,12 +531,12 @@ public class Client {
                                        kvRequest);
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
-                    // update rate limiter settings for table
+                    /* update rate limiter settings for table */
                     TableLimits tl = ((TableResult)res).getTableLimits();
                     updateRateLimiters(((TableResult)res).getTableName(), tl);
                 }
 
-                // consume rate limiter units based on actual usage
+                /* consume rate limiter units based on actual usage */
                 rateDelayedMs += consumeLimiterUnits(readLimiter,
                                     res.getReadUnitsInternal(),
                                     kvRequest, thisIterationTimeoutMs);
@@ -541,23 +586,23 @@ public class Client {
 
                 if (re instanceof WriteThrottlingException &&
                     writeLimiter != null) {
-                    // ensure we check write limits next loop
+                    /* ensure we check write limits next loop */
                     checkWriteUnits = true;
-                    // set limiter to its limit, if not over already
+                    /* set limiter to its limit, if not over already */
                     if (writeLimiter.getCurrentRate() < 100.0) {
                         writeLimiter.setCurrentRate(100.0);
                     }
-                    // call retry handler to manage sleep/delay
+                    /* call retry handler to manage sleep/delay */
                 }
                 if (re instanceof ReadThrottlingException &&
                     readLimiter != null) {
-                    // ensure we check read limits next loop
+                    /* ensure we check read limits next loop */
                     checkReadUnits = true;
-                    // set limiter to its limit, if not over already
+                    /* set limiter to its limit, if not over already */
                     if (readLimiter.getCurrentRate() < 100.0) {
                         readLimiter.setCurrentRate(100.0);
                     }
-                    // call retry handler to manage sleep/delay
+                    /* call retry handler to manage sleep/delay */
                 }
 
                 logFine(logger, "Retryable exception: " +
@@ -670,17 +715,19 @@ public class Client {
         }
         try {
             if (rl instanceof SimpleRateLimiter && usePercent > 0.0) {
-                // "true" == "consume units, even on timeout"
+                /* "true" == "consume units, even on timeout" */
                 return ((SimpleRateLimiter)rl).consumeUnitsWithTimeout(
                                                     units, timeoutMs,
                                                     true, usePercent);
             } else {
-                // "true" == "consume units, even on timeout"
+                /* "true" == "consume units, even on timeout" */
                 return rl.consumeUnitsWithTimeout(units, timeoutMs, true);
             }
         } catch (TimeoutException e) {
-            // Do not throw: the operation succeeded.
-            // We just delayed a while.
+            /*
+             * Do not throw: the operation succeeded.
+             * We just delayed a while.
+             */
             return timeoutMs;
         }
     }
@@ -707,18 +754,25 @@ public class Client {
             return false;
         }
 
-        // Create or update rate limiters in map
-        // Note: noSQL cloud service has a "burst" availability of
-        // 300 seconds. But we don't know if or how many other clients
-        // may have been using this table, and a duration of 30 seconds
-        // allows for more predictable usage. Also, it's better to
-        // use a reasonable hardcoded value here than to try to explain
-        // the subtleties of it in docs for configuration. In the end
-        // this setting is probably fine for all uses.
+        /*
+         * Create or update rate limiters in map
+         * Note: noSQL cloud service has a "burst" availability of
+         * 300 seconds. But we don't know if or how many other clients
+         * may have been using this table, and a duration of 30 seconds
+         * allows for more predictable usage. Also, it's better to
+         * use a reasonable hardcoded value here than to try to explain
+         * the subtleties of it in docs for configuration. In the end
+         * this setting is probably fine for all uses.
+         */
+
+        /* allow tests to override this hardcoded setting */
+        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
+                                     .intValue();
+
         rateLimiterMap.update(tableName,
                             (double)limits.getReadUnits(),
                             (double)limits.getWriteUnits(),
-                            30 /*durationSeconds*/);
+                            durationSeconds);
 
         final String msg = String.format("Updated table '%s' to have " +
             "RUs=%d and WUs=%d per second",
@@ -784,7 +838,7 @@ public class Client {
 
             processNotOKResponse(status, content);
 
-            // TODO: Generate and handle bad status other than 400
+            /* TODO: Generate and handle bad status other than 400 */
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
         } finally {
@@ -914,13 +968,12 @@ public class Client {
             return;
         }
         setTableNeedsRefresh(tableName, false);
-        logInfo(logger,
-            "Starting short-lived background thread to update " +
-            "limits for table '" + tableName + "'");
-        /* start a short-lived background thread to query table limits */
-        Thread t = new Thread(() -> {updateTableLimiters(tableName);});
-        t.setDaemon(true);
-        t.start();
+
+        try {
+            threadPool.execute(() -> {updateTableLimiters(tableName);});
+        } catch (RejectedExecutionException e) {
+            setTableNeedsRefresh(tableName, true);
+        }
     }
 
     /*
@@ -955,7 +1008,7 @@ public class Client {
 
         logInfo(logger, "GetTableRequest completed for table '" +
             tableName + "'");
-        // update/add rate limiters for table
+        /* update/add rate limiters for table */
         if (updateRateLimiters(tableName, res.getTableLimits())) {
             logInfo(logger, "background thread added limiters for table '" +
                 tableName + "'");
@@ -1033,4 +1086,43 @@ public class Client {
             System.out.println("DRIVER: " + msg);
         }
     }
+
+    /**
+     * @hidden
+     *
+     * Allow tests to reset limiters in map
+     *
+     * @param tableName name or OCID of the table
+     */
+    public void resetRateLimiters(String tableName) {
+        if (rateLimiterMap != null) {
+            rateLimiterMap.reset(tableName);
+        }
+    }
+
+    /**
+     * @hidden
+     *
+     * Allow tests to enable/disable rate limiting
+     * This method is not thread safe, and should only be
+     * executed by one thread when no other operations are
+     * in progress.
+     */
+    public void enableRateLimiting(boolean enable) {
+        if (enable == true && rateLimiterMap == null) {
+            rateLimiterMap = new RateLimiterMap();
+            tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
+            threadPool = Executors.newSingleThreadExecutor();
+        } else if (enable == false && rateLimiterMap != null) {
+            rateLimiterMap.clear();
+            rateLimiterMap = null;
+            tableLimitUpdateMap.clear();
+            tableLimitUpdateMap = null;
+            if (threadPool != null) {
+                threadPool.shutdown();
+                threadPool = null;
+            }
+        }
+    }
+
 }

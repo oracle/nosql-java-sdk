@@ -199,7 +199,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public TableResult tableRequest(TableRequest request) {
         checkClient();
         TableResult res = (TableResult) client.execute(request);
-        // update rate limiters, if table has limits
+        /* update rate limiters, if table has limits */
         client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
     }
@@ -208,7 +208,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public TableResult getTable(GetTableRequest request) {
         checkClient();
         TableResult res = (TableResult) client.execute(request);
-        // update rate limiters, if table has limits
+        /* update rate limiters, if table has limits */
         client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
     }
@@ -377,4 +377,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         }
     }
 
+    /**
+     * @hidden
+     * For testing use
+     */
+    public Client getClient() {
+        return client;
+    }
 }

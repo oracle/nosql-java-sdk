@@ -208,6 +208,32 @@ public class QueryRequest extends Request {
 
     /**
      * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        /*
+         * Currently there is no easy/dependable mechanism to tell if
+         * a query will do reads or writes. So we assume the most likely
+         * case. TODO: update this when we have better info
+         */
+        return true;
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesWrites() {
+        /*
+         * Currently there is no easy/dependable mechanism to tell if
+         * a query will do reads or writes. So we assume the most likely
+         * case. TODO: update this when we have better info
+         */
+        return false;
+    }
+
+    /**
+     * @hidden
      * @return the shard id
      */
     public int getShardId() {

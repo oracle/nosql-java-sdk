@@ -227,4 +227,12 @@ public class MultiDeleteRequest extends Request {
             range.validate();
         }
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        return true;
+    }
 }

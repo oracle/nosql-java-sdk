@@ -450,4 +450,12 @@ public class PutRequest extends WriteRequest {
                 "may be specified");
         }
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        return (option != null || getReturnRow());
+    }
 }

@@ -237,4 +237,12 @@ public class DeleteRequest extends WriteRequest {
     public Serializer createDeserializer(SerializerFactory factory) {
         return factory.createDeleteDeserializer();
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesReads() {
+        return (matchVersion != null || getReturnRow());
+    }
 }

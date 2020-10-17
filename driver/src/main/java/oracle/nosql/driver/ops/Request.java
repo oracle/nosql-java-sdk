@@ -125,6 +125,22 @@ public abstract class Request {
 
     /**
      * @hidden
+     * @return true if the request expects to do reads (incur read units)
+     */
+    public boolean doesReads() {
+        return false;
+    }
+
+    /**
+     * @hidden
+     * @return true if the request expects to do writes (incur write units)
+     */
+    public boolean doesWrites() {
+        return false;
+    }
+
+    /**
+     * @hidden
      * Internal use only
      * Sets the compartment id or name to use for the operation.
      *
@@ -265,6 +281,9 @@ public abstract class Request {
      * @return percentage to use. 0.0 means full limits (same as 100.0).
      */
     public double getRateLimiterPercentage() {
+        if (rateLimiterPercentage <= 0.0) {
+            return 100.0;
+        }
         return rateLimiterPercentage;
     }
 
