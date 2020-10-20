@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.oracle.nosql.sdk</groupId>
     <artifactId>nosql-java-sdk</artifactId>
-    <version>5.2.22</version>
+    <version>5.2.23</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>nosql-java-sdk-examples</artifactId>
@@ -28,7 +28,7 @@
     <dependency>
       <groupId>com.oracle.nosql.sdk</groupId>
       <artifactId>nosqldriver</artifactId>
-      <version>5.2.22</version>
+      <version>5.2.23</version>
     </dependency>
   </dependencies>
 
@@ -40,6 +40,13 @@
         <version>3.1.1</version>
         <configuration>
           <reResolve>false</reResolve>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.0.0-M1</version>
+        <configuration>
+          <skip>true</skip>
         </configuration>
       </plugin>
     </plugins>
