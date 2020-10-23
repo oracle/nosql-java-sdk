@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.oracle.nosql.sdk</groupId>
     <artifactId>nosql-java-sdk</artifactId>
-    <version>5.2.23</version>
+    <version>5.2.23-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -23,13 +23,11 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-   <timestamp>${maven.build.timestamp}</timestamp>
-   <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-   <copyright>Copyright (c) 2011, 2020 Oracle and/or its affiliates.  All rights reserved.</copyright>
-   <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
-
-   <!--  deploy -->
-   <maven.deploy.skip>false</maven.deploy.skip>
+    <timestamp>${maven.build.timestamp}</timestamp>
+    <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
+    <copyright>Copyright (c) 2011, 2020 Oracle and/or its affiliates.  All rights reserved.</copyright>
+    <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
+    <maven.deploy.skip>false</maven.deploy.skip>
   </properties>
 
   <dependencies>
@@ -148,58 +146,14 @@
         <version>3.0.0</version>
       </plugin>
 
-      <!-- source jar -->
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.0</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
       </plugin>
 
-      <!-- javadoc -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.2.0</version>
-        <configuration>
-          <source>1.8</source>
-          <!-- exclude these packages.
-               TODO: the this list should include
-               oracle.nosql.driver.ops.serde. The problem is that if added
-               javadoc fails as it tries to operate on files in that package anyway.
-               May need to post-process the doc to remove the package and link.
-          -->
-          <excludePackageNames>oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util</excludePackageNames>
-          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
-          <show>public</show>
-          <header><![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]></header>
-          <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
-          <link>${java.apidoc}</link>
-          <additionalOptions>
-            <additionalOption>-author</additionalOption>
-          </additionalOptions>
-          <!-- put output in target/apidocs -->
-          <reportOutputDirectory>
-            ${project.build.directory}/apidocs
-          </reportOutputDirectory>
-        </configuration>
-        <executions>
-          <execution>
-            <id>javadoc-jar</id>
-            <goals>
-              <goal>jar</goal>
-              <goal>javadoc</goal>
-            </goals>
-            <phase>package</phase>
-          </execution>
-        </executions>
       </plugin>
 
       <!-- create the tar.gz and .zip archives in package phase -->
@@ -210,6 +164,8 @@
           <finalName>oracle-nosql-java-sdk-${project.version}</finalName>
           <!-- assembly id is "sdk," don't append it to the archive names -->
           <appendAssemblyId>false</appendAssemblyId>
+          <!-- don't deploy at this time -->
+          <attach>false</attach>
           <descriptors>
             <descriptor>src/main/assembly/sdk.xml</descriptor>
           </descriptors>

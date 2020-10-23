@@ -6,7 +6,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosql-java-sdk</artifactId>
-  <version>5.2.23</version>
+  <version>5.2.23-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>nosql-java-sdk</name>
   <url>https://github.com/oracle/nosql-java-sdk</url>
@@ -17,7 +17,6 @@
   </modules>
 
   <profiles>
-
     <!-- skip tests -->
     <profile>
       <id>xtest</id>
@@ -35,6 +34,8 @@
     </profile>
   </profiles>
 
+  <!-- INSERT DISTRIBUTION MANAGEMENT -->
+
   <build>
     <defaultGoal>clean compile</defaultGoal>
     <pluginManagement>
@@ -47,6 +48,59 @@
             <target>1.8</target>
           </configuration>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.2.0</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!-- javadoc -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.2.0</version>
+          <configuration>
+            <source>1.8</source>
+            <!-- exclude these packages.
+                 TODO: the this list should include
+                 oracle.nosql.driver.ops.serde. The problem is that if added
+                 javadoc fails as it tries to operate on files in that package anyway.
+                 May need to post-process the doc to remove the package and link.
+            -->
+            <excludePackageNames>oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util</excludePackageNames>
+            <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
+            <show>public</show>
+            <header><![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]></header>
+            <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
+            <link>${java.apidoc}</link>
+            <additionalOptions>
+              <additionalOption>-author</additionalOption>
+            </additionalOptions>
+            <!-- put output in target/apidocs -->
+            <reportOutputDirectory>
+              ${project.build.directory}/apidocs
+            </reportOutputDirectory>
+          </configuration>
+          <executions>
+            <execution>
+              <id>javadoc-jar</id>
+              <goals>
+                <goal>jar</goal>
+                <goal>javadoc</goal>
+              </goals>
+              <phase>package</phase>
+            </execution>
+          </executions>
+        </plugin>
+
         <plugin>
           <artifactId>maven-assembly-plugin</artifactId>
           <version>3.1.1</version>
