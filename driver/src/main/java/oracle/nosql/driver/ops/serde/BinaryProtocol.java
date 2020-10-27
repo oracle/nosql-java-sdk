@@ -459,8 +459,15 @@ public class BinaryProtocol {
                 int readKb = readInt(in);
                 int writeKb = readInt(in);
                 int storageGB = readInt(in);
-                TableLimits limits = new TableLimits(readKb, writeKb, storageGB);
-                result.setTableLimits(limits);
+                /*
+                 * on-prem tables may return all 0 because of protocol
+                 * limitations that lump the schema with limits. Return
+                 * null to user for those cases.
+                 */
+                if (!(readKb == 0 && writeKb == 0 && storageGB == 0)) {
+                    result.setTableLimits(
+                        new TableLimits(readKb, writeKb, storageGB));
+                }
                 result.setSchema(readString(in));
             }
             result.setOperationId(readString(in));

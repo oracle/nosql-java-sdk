@@ -4,14 +4,9 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>com.oracle.nosql.sdk</groupId>
-    <artifactId>nosql-java-sdk</artifactId>
-    <version>5.2.23-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
-  </parent>
-
+  <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
+  <version>5.2.23-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -28,7 +23,28 @@
     <copyright>Copyright (c) 2011, 2020 Oracle and/or its affiliates.  All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
+    <netty.version>4.1.52.Final</netty.version>
+    <jackson.version>2.11.2</jackson.version>
+    <bouncy.version>1.66</bouncy.version>
   </properties>
+
+  <profiles>
+    <!-- skip tests -->
+    <profile>
+      <id>xtest</id>
+      <properties>
+        <maven.test.skip>true</maven.test.skip>
+      </properties>
+    </profile>
+
+    <!-- skip javadoc -->
+    <profile>
+      <id>xdoc</id>
+      <properties>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+      </properties>
+    </profile>
+  </profiles>
 
   <dependencies>
 
@@ -36,36 +52,36 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>2.11.2</version>
+      <version>${jackson.version}</version>
     </dependency>
 
     <!-- Netty - networking -->
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
-      <version>4.1.52.Final</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-codec-http</artifactId>
-      <version>4.1.52.Final</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-handler</artifactId>
-      <version>4.1.52.Final</version>
+      <version>${netty.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-handler-proxy</artifactId>
-      <version>4.1.52.Final</version>
+      <version>${netty.version}</version>
     </dependency>
 
     <!-- Bouncycastle - request signing in cloud -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk15on</artifactId>
-      <version>1.66</version>
+      <version>${bouncy.version}</version>
       <exclusions>
         <exclusion>
           <groupId>*</groupId>
@@ -77,7 +93,7 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk15on</artifactId>
-      <version>1.66</version>
+      <version>${bouncy.version}</version>
       <exclusions>
         <exclusion>
           <groupId>*</groupId>

@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - For successful operations, retry stats can be retrieved using Result.getRetryStats().
   - Otherwise, the original Request may have retry stats available via Request.getRetryStats() (for example, after an exception was thrown).
 
+### Fixed
+- Ensure that TableLimits is always null in TableResult on-premise.
+
 ### Changed
 - DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed 1-second delay) and may be extended.
 - Updated examples to use doTableRequest() instead of tableRequest() followed by waitForCompletion().

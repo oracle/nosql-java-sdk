@@ -11,28 +11,14 @@
   <name>nosql-java-sdk</name>
   <url>https://github.com/oracle/nosql-java-sdk</url>
 
+  <properties>
+    <maven.deploy.skip>false</maven.deploy.skip>
+  </properties>
+
   <modules>
     <module>driver</module>
     <module>examples</module>
   </modules>
-
-  <profiles>
-    <!-- skip tests -->
-    <profile>
-      <id>xtest</id>
-      <properties>
-        <maven.test.skip>true</maven.test.skip>
-      </properties>
-    </profile>
-
-    <!-- skip javadoc -->
-    <profile>
-      <id>xdoc</id>
-      <properties>
-        <maven.javadoc.skip>true</maven.javadoc.skip>
-      </properties>
-    </profile>
-  </profiles>
 
   <!-- INSERT DISTRIBUTION MANAGEMENT -->
 
