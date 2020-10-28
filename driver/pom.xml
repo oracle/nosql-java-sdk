@@ -26,14 +26,56 @@
     <netty.version>4.1.52.Final</netty.version>
     <jackson.version>2.11.2</jackson.version>
     <bouncy.version>1.66</bouncy.version>
+   <!-- by default, skip tests; tests require a profile -->
+   <maven.test.skip>true</maven.test.skip>
   </properties>
 
   <profiles>
-    <!-- skip tests -->
+
+    <!-- test profiles used with the test target -->
     <profile>
-      <id>xtest</id>
+      <id>test-cloudsim</id>
       <properties>
-        <maven.test.skip>true</maven.test.skip>
+        <maven.test.skip>false</maven.test.skip>
+        <secure>false</secure>
+        <onprem>false</onprem>
+        <serverType>cloudsim</serverType>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>test-onprem</id>
+      <properties>
+        <maven.test.skip>false</maven.test.skip>
+        <secure>false</secure>
+        <onprem>true</onprem>
+        <serverType>onprem</serverType>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>test-onprem-secure</id>
+      <properties>
+        <maven.test.skip>false</maven.test.skip>
+        <secure>true</secure>
+        <onprem>true</onprem>
+        <serverType>onprem</serverType>
+      </properties>
+    </profile>
+
+    <!-- these tests require no server; new tests of that nature go here -->
+    <profile>
+      <id>test-local</id>
+      <properties>
+        <maven.test.skip>false</maven.test.skip>
+        <local>true</local>
+        <serverType>none</serverType>
+        <included.tests>
+          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java,
+          UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
+          HandleConfigTest.java, JsonTest.java, ValueTest.java
+        </included.tests>
       </properties>
     </profile>
 
@@ -106,7 +148,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.11</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -132,6 +174,15 @@
         <version>3.0.0-M5</version>
         <configuration>
           <workingDirectory>${project.build.directory}/test-run</workingDirectory>
+          <systemPropertyVariables>
+            <test.serverType>${serverType}</test.serverType>
+            <test.secure>${secure}</test.secure>
+            <test.onprem>${onprem}</test.onprem>
+            <test.local>${local}</test.local>
+          </systemPropertyVariables>
+          <includes>
+            <include>${included.tests}</include>
+          </includes>
         </configuration>
       </plugin>
       <plugin>
