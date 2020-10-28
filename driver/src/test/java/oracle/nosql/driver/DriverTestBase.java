@@ -219,6 +219,19 @@ public class DriverTestBase {
         return new KeyPairInfo(key, certString, keypair.getPublic());
     }
 
+    /**
+     * Assert whether given content contains expected string. The assertion is
+     * case insensitive.
+     * @param content content to examine
+     * @param expected expected string
+     */
+    protected static void assertThat(String content, String expected) {
+        if (!content.toLowerCase().contains(expected.toLowerCase())) {
+            throw new IllegalArgumentException(
+                content + " doesn't contains " + expected);
+        }
+    }
+
     private static Provider getBouncyCastleProvider()
         throws Exception {
 

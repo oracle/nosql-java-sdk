@@ -7,10 +7,8 @@
 
 package oracle.nosql.driver.iam;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -50,8 +48,7 @@ public class SignatureProviderTest extends DriverTestBase {
             provider.getAuthorizationString(request);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("no service host", iae.getMessage(),
-                       containsString("service host"));
+            assertThat(iae.getMessage(), "service host");
         }
         provider.setServiceHost(new NoSQLHandleConfig("http://test"));
         String authzString = provider.getAuthorizationString(request);
@@ -85,6 +82,7 @@ public class SignatureProviderTest extends DriverTestBase {
     }
 
     @Test
+    @SuppressWarnings("unused")
     public void testRegionProvider()
         throws Exception {
 

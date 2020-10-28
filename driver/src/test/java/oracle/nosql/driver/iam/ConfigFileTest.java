@@ -7,11 +7,9 @@
 
 package oracle.nosql.driver.iam;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -89,8 +87,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse(config.getPath(), "non-existent");
             fail("expected");
         } catch (IllegalStateException e) {
-            assertThat("non-existent profile", e.getMessage(),
-                       containsString("No profile"));
+            assertThat(e.getMessage(), "No profile");
         }
     }
 
@@ -103,8 +100,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse("nonexistent_file");
             fail("expected");
         } catch (FileNotFoundException e) {
-            assertThat("non-existent profile", e.getMessage(),
-                       containsString("such file"));
+            assertThat(e.getMessage(), "such file");
         }
 
         /* no default profile */
@@ -133,8 +129,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse(noleading.getPath());
             fail("expected");
         } catch (IllegalStateException e) {
-            assertThat("no leading profile", e.getMessage(),
-                       containsString("without specifying a profile"));
+            assertThat(e.getMessage(), "without specifying a profile");
         }
 
         /* line with no value */
@@ -148,8 +143,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse(novalue.getPath());
             fail("expected");
         } catch (IllegalStateException e) {
-            assertThat("no value", e.getMessage(),
-                       containsString("no key-value pair"));
+            assertThat(e.getMessage(), "no key-value pair");
         }
 
         /* line with empty key */
@@ -163,8 +157,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse(nokey.getPath());
             fail("expected");
         } catch (IllegalStateException e) {
-            assertThat("no key", e.getMessage(),
-                       containsString("no key"));
+            assertThat(e.getMessage(), "no key");
         }
 
         /* empty profile name */
@@ -177,8 +170,7 @@ public class ConfigFileTest extends DriverTestBase {
             OCIConfigFileReader.parse(noprofileName.getPath());
             fail("expected");
         } catch (IllegalStateException e) {
-            assertThat("empty profile", e.getMessage(),
-                       containsString("empty profile name"));
+            assertThat(e.getMessage(), "empty profile name");
         }
     }
 
@@ -198,6 +190,7 @@ public class ConfigFileTest extends DriverTestBase {
     }
 
     @Test
+    @SuppressWarnings("unused")
     public void testRegionProvider()
         throws Exception {
 

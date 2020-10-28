@@ -7,10 +7,8 @@
 
 package oracle.nosql.driver.iam;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -97,8 +95,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
             supplier = new FileKeyPairSupplier("non-existent", null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("key doesn't exist", iae.getMessage(),
-                       containsString("exist"));
+            assertThat(iae.getMessage(), "exist");
         }
 
         try {
@@ -107,8 +104,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
                 "non-existent-passphrase");
             fail("expected");
         } catch (IllegalStateException ise) {
-            assertThat("no passphrase", ise.getMessage(),
-                       containsString("Unable to read"));
+            assertThat(ise.getMessage(), "Unable to read");
         }
 
         passphraseFile = new File(getTestDir(), "wrong-pass");
@@ -119,8 +115,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
                 passphraseFile.getAbsolutePath());
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("incorrect passphrase", iae.getMessage(),
-                       containsString("passphrase is incorrect"));
+            assertThat(iae.getMessage(), "passphrase is incorrect");
         }
 
         String k = new String(Files.readAllBytes(new File(key).toPath()));
@@ -136,8 +131,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
             supplier = new FixedKeyPairSupplier(k, null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("incorrect format", iae.getMessage(),
-                       containsString("in PEM format"));
+            assertThat(iae.getMessage(), "in PEM format");
         }
     }
 

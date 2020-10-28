@@ -7,9 +7,7 @@
 
 package oracle.nosql.driver.iam;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 import static oracle.nosql.driver.iam.OCIConfigFileProvider.*;
 
@@ -63,8 +61,7 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("malformatted tenant id", iae.getMessage(),
-                       containsString("does not match"));
+            assertThat(iae.getMessage(), "does not match");
         }
 
         /* no tenant id */
@@ -75,8 +72,7 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("non tenant id", npe.getMessage(),
-                       containsString("missing tenantId"));
+            assertThat(npe.getMessage(), "missing tenantId");
         }
 
         /* malformatted user id */
@@ -88,8 +84,7 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("malformatted user id", iae.getMessage(),
-                       containsString("does not match"));
+            assertThat(iae.getMessage(), "does not match");
         }
 
         /* no user id */
@@ -100,8 +95,7 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("non user id", npe.getMessage(),
-                       containsString("missing userId"));
+            assertThat(npe.getMessage(), "missing userId");
         }
     }
 
@@ -151,8 +145,7 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider.getPrivateKey();
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("non-existent", iae.getMessage(),
-                       containsString("not find private key"));
+            assertThat(iae.getMessage(), "not find private key");
         }
 
         /* non tenant id in config */
@@ -169,8 +162,7 @@ public class UserProfileProviderTest extends DriverTestBase {
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("non-existent", npe.getMessage(),
-                       containsString("missing " + TENANCY_PROP));
+            assertThat(npe.getMessage(), "missing " + TENANCY_PROP);
         }
 
         /* non user id in config */
@@ -187,8 +179,7 @@ public class UserProfileProviderTest extends DriverTestBase {
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("non-existent", npe.getMessage(),
-                       containsString("missing " + USER_PROP));
+            assertThat(npe.getMessage(), "missing " + USER_PROP);
         }
 
         /* non fingerprint in config */
@@ -205,8 +196,7 @@ public class UserProfileProviderTest extends DriverTestBase {
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("non-existent", npe.getMessage(),
-                       containsString("missing " + FINGERPRINT_PROP));
+            assertThat(npe.getMessage(), "missing " + FINGERPRINT_PROP);
         }
     }
 }

@@ -7,9 +7,7 @@
 
 package oracle.nosql.driver.iam;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -171,6 +169,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     }
 
     @Test
+    @SuppressWarnings("unused")
     public void testDefaultCertificateSupplier()
         throws Exception {
 
@@ -181,8 +180,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                 (char[]) null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("error private key", iae.getMessage(),
-                       containsString("Private key must be in PEM"));
+            assertThat(iae.getMessage(), "Private key must be in PEM");
         }
 
         try {
@@ -192,8 +190,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                 (char[]) null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("invalid certificate", iae.getMessage(),
-                       containsString("Invalid certificate"));
+            assertThat(iae.getMessage(), "Invalid certificate");
         }
 
         try {
@@ -203,8 +200,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                 (char[]) null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("unable to read", iae.getMessage(),
-                       containsString("Unable to read private key"));
+            assertThat(iae.getMessage(), "Unable to read private key");
         }
 
         try {
@@ -214,8 +210,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                 (char[]) null);
             fail("expected");
         } catch (IllegalArgumentException iae) {
-            assertThat("unable to read", iae.getMessage(),
-                       containsString("Unable to read certificate"));
+            assertThat(iae.getMessage(), "Unable to read certificate");
         }
     }
 
@@ -244,8 +239,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("no key pair", npe.getMessage(),
-                       containsString("key pair not present"));
+            assertThat(npe.getMessage(), "key pair not present");
         }
 
         CertificateSupplier noCert = new CertificateSupplier() {
@@ -269,8 +263,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("no cert", npe.getMessage(),
-                       containsString("certificate not present"));
+            assertThat(npe.getMessage(), "certificate not present");
         }
 
         CertificateFactory fact = CertificateFactory.getInstance("X.509");
@@ -297,8 +290,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             provider.getKeyId();
             fail("expected");
         } catch (NullPointerException npe) {
-            assertThat("no cert", npe.getMessage(),
-                       containsString("key not present"));
+            assertThat(npe.getMessage(), "key not present");
         }
     }
 
@@ -329,8 +321,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
         } catch (IllegalArgumentException iae) {
-            assertThat("error getting token", iae.getMessage(),
-                       containsString("Failed to get"));
+            assertThat(iae.getMessage(), "Failed to get");
         }
     }
 
