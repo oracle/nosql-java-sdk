@@ -6,7 +6,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.2.23-SNAPSHOT</version>
+  <version>5.2.24-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -166,6 +166,8 @@
         <configuration>
           <!--<verbose>true</verbose>-->
           <fork>true</fork>
+          <source>1.8</source>
+          <target>1.8</target>
         </configuration>
       </plugin>
       <plugin>
@@ -198,7 +200,9 @@
               <addClasspath>true</addClasspath>
               <!--  drop version from dependent jar files in manifest class path -->
               <classpathLayoutType>custom</classpathLayoutType>
-               <customClasspathLayout>$${artifact.artifactId}.$${artifact.extension}</customClasspathLayout>
+              <customClasspathLayout>
+                $${artifact.artifactId}.$${artifact.extension}
+              </customClasspathLayout>
               <mainClass>oracle.nosql.driver.DriverMain</mainClass>
             </manifest>
           </archive>
@@ -214,13 +218,62 @@
       </plugin>
 
       <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-source-plugin</artifactId>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
 
+      <!-- javadoc -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <source>8</source>
+          <detectJavaApiLink>false</detectJavaApiLink>
+          <!-- exclude these packages.
+               TODO: the this list should include
+               oracle.nosql.driver.ops.serde. The problem is that if added
+               javadoc fails as it tries to operate on files in that package anyway.
+               May need to post-process the doc to remove the package and link.
+          -->
+          <excludePackageNames>
+            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util
+          </excludePackageNames>
+          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
+          <show>public</show>
+          <header>
+            <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
+          </header>
+          <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
+          <link>${java.apidoc}</link>
+          <additionalOptions>
+            <additionalOption>-author</additionalOption>
+            <additionalOption>--frames</additionalOption>
+          </additionalOptions>
+          <!-- put output in target/apidocs -->
+          <reportOutputDirectory>
+            ${project.build.directory}/apidocs
+          </reportOutputDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>javadoc-jar</id>
+            <goals>
+              <goal>jar</goal>
+              <goal>javadoc</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <!-- create the tar.gz and .zip archives in package phase -->
