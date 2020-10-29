@@ -28,7 +28,10 @@
     <bouncy.version>1.66</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
+   <javac>javac</javac>
   </properties>
+
+  <!-- INSERT DISTRIBUTION MANAGEMENT -->
 
   <profiles>
 
@@ -86,8 +89,10 @@
         <maven.javadoc.skip>true</maven.javadoc.skip>
       </properties>
     </profile>
-  </profiles>
 
+    <!-- INSERT RELEASE PROFILE -->
+
+  </profiles>
   <dependencies>
 
     <!-- jackson core - JSON processing -->
@@ -164,10 +169,11 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.1</version>
         <configuration>
-          <!--<verbose>true</verbose>-->
           <fork>true</fork>
           <source>1.8</source>
           <target>1.8</target>
+          <!-- this is parameterized to allow it to be overridden -->
+          <executable>${javac}</executable>
         </configuration>
       </plugin>
       <plugin>
