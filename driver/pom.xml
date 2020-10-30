@@ -286,8 +286,11 @@
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
-          <!-- this drives the name of the tar.gz and zip files generated -->
-          <finalName>oracle-nosql-java-sdk-${project.version}</finalName>
+          <!--
+              Drop the version on the name of the tar.gz and zip files generated.
+              Add it to the archive name when released.
+          -->
+          <finalName>oracle-nosql-java-sdk</finalName>
           <!-- assembly id is "sdk," don't append it to the archive names -->
           <appendAssemblyId>false</appendAssemblyId>
           <!-- don't deploy at this time -->

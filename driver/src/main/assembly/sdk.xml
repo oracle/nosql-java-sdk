@@ -17,6 +17,8 @@
         <include>LICENSE.txt</include>
         <include>THIRD_PARTY_LICENSES.txt</include>
         <include>CHANGELOG.md</include>
+        <include>CONTRIBUTING.md</include>
+        <include>SECURITY.md</include>
       </includes>
     </fileSet>
 
@@ -34,11 +36,11 @@
     <fileSet>
       <directory>${project.basedir}/../driver/target/apidocs</directory>
       <outputDirectory>doc/javadoc</outputDirectory>
+      <fileMode>0644</fileMode>
       <includes>
         <include>**</include>
       </includes>
     </fileSet>
-
   </fileSets>
 
   <dependencySets>
