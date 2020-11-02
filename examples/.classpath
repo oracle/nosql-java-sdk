@@ -2,10 +2,18 @@
 <classpath>
   <classpathentry kind="src" path="src/main/java" including="**/*.java"/>
   <classpathentry kind="output" path="target/classes"/>
-  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
+  <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
   <classpathentry kind="src" path="/nosqldriver"/>
   <classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-core/2.11.2/jackson-core-2.11.2.jar"/>
-  <classpathentry kind="var" path="M2_REPO/io/netty/netty-all/4.1.45.Final/netty-all-4.1.45.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-buffer/4.1.52.Final/netty-buffer-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-common/4.1.52.Final/netty-common-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec-http/4.1.52.Final/netty-codec-http-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-transport/4.1.52.Final/netty-transport-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-resolver/4.1.52.Final/netty-resolver-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec/4.1.52.Final/netty-codec-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler/4.1.52.Final/netty-handler-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler-proxy/4.1.52.Final/netty-handler-proxy-4.1.52.Final.jar"/>
+  <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec-socks/4.1.52.Final/netty-codec-socks-4.1.52.Final.jar"/>
   <classpathentry kind="var" path="M2_REPO/org/bouncycastle/bcprov-jdk15on/1.66/bcprov-jdk15on-1.66.jar"/>
   <classpathentry kind="var" path="M2_REPO/org/bouncycastle/bcpkix-jdk15on/1.66/bcpkix-jdk15on-1.66.jar"/>
 </classpath>

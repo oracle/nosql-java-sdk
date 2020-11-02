@@ -9,6 +9,7 @@ package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -17,6 +18,9 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.Test;
 
@@ -79,6 +83,38 @@ public class SignatureProviderTest extends DriverTestBase {
 
         /* the new signature string should be cached */
         assertNotEquals(authzString, provider.getAuthorizationString(request));
+
+        /*
+         * Exercise concurrent refresh schedule. The refresh might be scheduled
+         * by NoSQLHandle.getAuthorizationString or the refresh task itself.
+         * Start two threads to call the common getSignatureDetailsInternal
+         * simultaneously that would schedule a refresh to simulate this case.
+         */
+        CountDownLatch startFlag = new CountDownLatch(1);
+        Set<Thread> threads = new HashSet<Thread>();
+        for (int i = 0; i < 2; i++) {
+            Thread exerciseTask = new Thread() {
+
+                @Override
+                public void run() {
+                    try {
+                        startFlag.await();
+                        assertNotNull(provider.getSignatureDetailsInternal());
+                    } catch (InterruptedException e) {
+                    }
+                }
+            };
+            exerciseTask.start();
+            threads.add(exerciseTask);
+        }
+
+        startFlag.countDown();
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+            }
+        }
     }
 
     @Test

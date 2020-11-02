@@ -591,13 +591,11 @@ public class SignatureProvider
             return sigDetails;
         }
 
-        sigDetails = getSignatureDetailsInternal();
-        signatureCache.put(CACHE_KEY, sigDetails);
-        scheduleRefresh();
-        return sigDetails;
+        return getSignatureDetailsInternal();
     }
 
-    private SignatureDetails getSignatureDetailsInternal() {
+    /* visible for testing */
+    synchronized SignatureDetails getSignatureDetailsInternal() {
         String date = createFormatter().format(new Date());
         String keyId = provider.getKeyId();
 
@@ -619,7 +617,11 @@ public class SignatureProvider
                                          RSA,
                                          signature,
                                          SINGATURE_VERSION);
-        return new SignatureDetails(sigHeader, date);
+
+        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
+        signatureCache.put(CACHE_KEY, sigDetails);
+        scheduleRefresh();
+        return sigDetails;
     }
 
     String signingContent(String date) {
@@ -651,11 +653,7 @@ public class SignatureProvider
         @Override
         public void run() {
             try {
-                SignatureDetails sigDetails = getSignatureDetailsInternal();
-                if (sigDetails != null) {
-                    signatureCache.put(CACHE_KEY, sigDetails);
-                    scheduleRefresh();
-                }
+                getSignatureDetailsInternal();
             } catch (Exception e) {
                 /*
                  * Ignore the failure of refresh. The driver would try to

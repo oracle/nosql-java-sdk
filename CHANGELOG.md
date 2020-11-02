@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Fixed
 - Ensure that TableLimits is always null in TableResult on-premise.
+- Fixed a problem where SignatureProvider.getAuthorizationString may fail due to an IllegalStateException with error "Timer already cancelled".
+
 
 ### Changed
 - DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed 1-second delay) and may be extended.
