@@ -169,7 +169,6 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     }
 
     @Test
-    @SuppressWarnings("unused")
     public void testDefaultCertificateSupplier()
         throws Exception {
 

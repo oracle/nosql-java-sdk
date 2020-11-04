@@ -6,7 +6,7 @@
   <version>5.2.24-SNAPSHOT</version>
   <artifactId>nosql-java-sdk-examples</artifactId>
   <name>Oracle NoSQL Database Java Examples</name>
-  <description>Oracle NoSQL Database Java Examples</description>
+  <description>Java examples for Oracle NoSQL Database</description>
   <url>TBD</url>
   <packaging>jar</packaging>
 

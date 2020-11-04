@@ -8,8 +8,19 @@
   <artifactId>nosql-java-sdk</artifactId>
   <version>5.2.24-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>nosql-java-sdk</name>
+  <name>Oracle NoSQL SDK</name>
+  <description>
+    This project contains the SDK for Oracle NoSQL Database
+  </description>
   <url>https://github.com/oracle/nosql-java-sdk</url>
+
+  <licenses>
+    <license>
+      <name>The Universal Permissive License (UPL), Version 1.0</name>
+      <url>http://www.oracle.com/technetwork/licenses/upl-license-2927578.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
 
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>

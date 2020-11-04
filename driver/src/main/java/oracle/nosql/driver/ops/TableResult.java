@@ -473,6 +473,13 @@ public class TableResult extends Result {
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());
+            } catch (TableNotFoundException tnf) {
+                /*
+                 * The operation was probably a drop. There was an operationId,
+                 * which means that the table existed when the original
+                 * request was made. Throwing tnf doesn't add value here.
+                 */
+                state = State.DROPPED;
             }
         }
     }

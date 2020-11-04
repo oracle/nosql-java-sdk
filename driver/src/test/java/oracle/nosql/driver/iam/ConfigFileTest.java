@@ -190,7 +190,6 @@ public class ConfigFileTest extends DriverTestBase {
     }
 
     @Test
-    @SuppressWarnings("unused")
     public void testRegionProvider()
         throws Exception {
 

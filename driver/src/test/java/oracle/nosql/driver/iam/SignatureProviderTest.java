@@ -118,7 +118,6 @@ public class SignatureProviderTest extends DriverTestBase {
     }
 
     @Test
-    @SuppressWarnings("unused")
     public void testRegionProvider()
         throws Exception {
 
