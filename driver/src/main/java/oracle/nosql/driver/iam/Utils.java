@@ -97,6 +97,8 @@ class Utils {
         "https://auth.{0}.oraclegovcloud.com");
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclegovcloud.uk");
+    private final static MessageFormat OC8_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud8.com");
 
     static {
         /* OC1 */
@@ -114,8 +116,11 @@ class Utils {
         IAM_URI.put("lhr", OC1_EP_BASE.format(new Object[] {"uk-london-1"}));
         IAM_URI.put("ams", OC1_EP_BASE.format(new Object[] {"eu-amsterdam-1"}));
         IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
+        IAM_URI.put("cwl", OC1_EP_BASE.format(new Object[] {"uk-cardiff-1"}));
+        IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
 
         IAM_URI.put("gru", OC1_EP_BASE.format(new Object[] {"sa-saopaulo-1"}));
+        IAM_URI.put("scl", OC1_EP_BASE.format(new Object[] {"sa-santiago-1"}));
 
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
@@ -134,6 +139,9 @@ class Utils {
 
         /* OC4 */
         IAM_URI.put("ltn", OC4_EP_BASE.format(new Object[] {"uk-gov-london-1"}));
+
+        /* OC8 */
+        IAM_URI.put("nja", OC8_EP_BASE.format(new Object[] {"ap-chiyoda-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -147,6 +155,9 @@ class Utils {
             }
             if (Region.isOC4Region(regionIdOrCode)) {
                 return OC4_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC8Region(regionIdOrCode)) {
+                return OC8_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 

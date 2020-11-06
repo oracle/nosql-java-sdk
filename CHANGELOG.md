@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - RetryStats: New object allows the application to see how much time and for what reasons an operation was internally retried.
   - For successful operations, retry stats can be retrieved using Result.getRetryStats().
   - Otherwise, the original Request may have retry stats available via Request.getRetryStats() (for example, after an exception was thrown).
+- Cloud only. New regions: ap-chiyoda-1, me-dubai-1, uk-cardiff-1 and sa-santiago-1
 
 ### Fixed
 - Ensure that TableLimits is always null in TableResult on-premise.

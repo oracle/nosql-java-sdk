@@ -330,8 +330,6 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             assertEquals(r.endpoint(),
                          "https://nosql." + r.getRegionId() +
                          ".oci.oraclecloud.com");
-        }
-        for (Region r : Region.getOC1Regions()) {
             assertEquals(Utils.getIAMURL(r.getRegionId()),
                          "https://auth." + r.getRegionId() + ".oraclecloud.com");
         }
@@ -339,21 +337,25 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             assertEquals(r.endpoint(),
                          "https://nosql." + r.getRegionId() +
                          ".oci.oraclegovcloud.com");
-        }
-        for (Region r : Region.getOC4Regions()) {
-            assertEquals(r.endpoint(),
-                         "https://nosql." + r.getRegionId() +
-                         ".oci.oraclegovcloud.uk");
-        }
-        for (Region r : Region.getGovRegions()) {
             assertEquals(Utils.getIAMURL(r.getRegionId()),
                          "https://auth." + r.getRegionId() +
                          ".oraclegovcloud.com");
         }
         for (Region r : Region.getOC4Regions()) {
+            assertEquals(r.endpoint(),
+                         "https://nosql." + r.getRegionId() +
+                         ".oci.oraclegovcloud.uk");
             assertEquals(Utils.getIAMURL(r.getRegionId()),
                          "https://auth." + r.getRegionId() +
                          ".oraclegovcloud.uk");
+        }
+        for (Region r : Region.getOC8Regions()) {
+            assertEquals(r.endpoint(),
+                         "https://nosql." + r.getRegionId() +
+                         ".oci.oraclecloud8.com");
+            assertEquals(Utils.getIAMURL(r.getRegionId()),
+                         "https://auth." + r.getRegionId() +
+                         ".oraclecloud8.com");
         }
 
         /* test IAM URI by airport code */
@@ -384,6 +386,10 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                     "https://auth.eu-amsterdam-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("jed"),
                     "https://auth.me-jeddah-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("cwl"),
+                    "https://auth.uk-cardiff-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("dxb"),
+                    "https://auth.me-dubai-1.oraclecloud.com");
 
         assertEquals(Utils.getIAMURL("iad"),
                     "https://auth.us-ashburn-1.oraclecloud.com");
@@ -398,6 +404,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         assertEquals(Utils.getIAMURL("gru"),
                     "https://auth.sa-saopaulo-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("scl"),
+                    "https://auth.sa-santiago-1.oraclecloud.com");
 
         assertEquals(Utils.getIAMURL("lfi"),
                     "https://auth.us-langley-1.oraclegovcloud.com");
@@ -413,5 +421,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         assertEquals(Utils.getIAMURL("ltn"),
                     "https://auth.uk-gov-london-1.oraclegovcloud.uk");
+
+        assertEquals(Utils.getIAMURL("nja"),
+                     "https://auth.ap-chiyoda-1.oraclecloud8.com");
     }
 }
