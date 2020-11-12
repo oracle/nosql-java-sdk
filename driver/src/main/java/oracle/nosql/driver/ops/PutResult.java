@@ -116,10 +116,11 @@ public class PutResult extends WriteResult {
     }
 
     /**
-     * Returns the value generated if the operation created a new value for
-     * an identity column. If the table has no identity columns this value
-     * is null. If it has an identity column and a value was generated for
-     * that column, it is non-null.
+     * Returns the value generated if the operation created a new value. This
+     * can happen if the table contains an identity column or string column
+     * declared as a generated UUID. If the table has no such columns this
+     * value is null. If a value was generated for the operation, it is
+     * non-null.
      *
      * @return the generated value
      *
