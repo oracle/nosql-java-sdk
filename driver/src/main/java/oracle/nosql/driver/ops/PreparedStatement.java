@@ -81,6 +81,19 @@ public class PreparedStatement {
      */
     private Map<String, FieldValue> boundVariables;
 
+
+    /*
+     * The namespace returned from a prepared query result, if any.
+     */
+    private String namespace;
+
+
+    /*
+     * The table name returned from a prepared query result, if any.
+     */
+    private String tableName;
+
+
     /**
      * @hidden
      * Constructs a PreparedStatement. Construction is hidden to eliminate
@@ -96,6 +109,8 @@ public class PreparedStatement {
      * @param numIterators num iterators in plan
      * @param numRegisters num registers in the plan
      * @param externalVars external variables for the query
+     * @param namespace namespace, if any, from deserialization
+     * @param tableName table name, if any, from deserialization
      */
     public PreparedStatement(
         String sqlText,
@@ -105,7 +120,9 @@ public class PreparedStatement {
         PlanIter driverPlan,
         int numIterators,
         int numRegisters,
-        Map<String, Integer> externalVars) {
+        Map<String, Integer> externalVars,
+        String namespace,
+        String tableName) {
 
         /* 10 is arbitrary. TODO: put magic number in it for validation? */
         if (proxyStatement == null || proxyStatement.length < 10) {
@@ -121,6 +138,8 @@ public class PreparedStatement {
         this.numIterators = numIterators;
         this.numRegisters = numRegisters;
         this.variables = externalVars;
+        this.namespace = namespace;
+        this.tableName = tableName;
     }
 
     /**
@@ -139,7 +158,9 @@ public class PreparedStatement {
                                      driverQueryPlan,
                                      numIterators,
                                      numRegisters,
-                                     variables);
+                                     variables,
+                                     namespace,
+                                     tableName);
     }
 
     /**
@@ -340,5 +361,21 @@ public class PreparedStatement {
      */
     public TopologyInfo topologyInfo() {
         return topologyInfo;
+    }
+
+    /**
+     * @hidden
+     * @return namespace from prepared statement, if any
+     */
+    public String getNamespace() {
+        return namespace;
+    }
+
+    /**
+     * @hidden
+     * @return table name from prepared statement, if any
+     */
+    public String getTableName() {
+        return tableName;
     }
 }

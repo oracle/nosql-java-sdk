@@ -70,6 +70,23 @@ class PrepareRequestSerializer extends BinaryProtocol implements Serializer {
         ByteInputStream in,
         short serialVersion)  throws IOException {
 
+        /*
+         * Extract the table name and namespace from the prepared query.
+         * This dips into the portion of the prepared query that is
+         * normally opaque
+         *
+         * int (4 byte)
+         * byte[] (32 bytes -- hash)
+         * byte (number of tables)
+         * namespace (string)
+         * tablename (string)
+         */
+        int savedOffset = in.getOffset();
+        in.skip(37); // 4 + 32 + 1
+        String namespace = readString(in);
+        String tableName = readString(in);
+        in.setOffset(savedOffset);
+
         byte[] proxyStatement = readByteArrayWithInt(in);
 
         int numIterators = 0;
@@ -110,6 +127,8 @@ class PrepareRequestSerializer extends BinaryProtocol implements Serializer {
                                      driverPlan,
                                      numIterators,
                                      numRegisters,
-                                     externalVars);
+                                     externalVars,
+                                     namespace,
+                                     tableName);
     }
 }

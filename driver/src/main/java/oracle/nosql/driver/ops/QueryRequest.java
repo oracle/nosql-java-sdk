@@ -643,19 +643,6 @@ public class QueryRequest extends Request {
     }
 
     /**
-     * Sets the table name for a query operation.
-     * This is used by rate limiting logic to manage internal rate limiters.
-     *
-     * @param tableName the name (or OCID) of the table
-     *
-     * @return this
-     */
-    public QueryRequest setTableName(String tableName) {
-        super.setTableNameInternal(tableName);
-        return this;
-    }
-
-    /**
      * @hidden
      */
     @Override
@@ -696,5 +683,16 @@ public class QueryRequest extends Request {
             throw new IllegalArgumentException(
                 "Either statement or prepared statement should be set");
         }
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public String getTableName() {
+        if (preparedStatement == null) {
+            return null;
+        }
+        return preparedStatement.getTableName();
     }
 }
