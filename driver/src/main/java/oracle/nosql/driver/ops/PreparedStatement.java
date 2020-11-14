@@ -85,14 +85,22 @@ public class PreparedStatement {
     /*
      * The namespace returned from a prepared query result, if any.
      */
-    private String namespace;
+    private final String namespace;
 
 
     /*
      * The table name returned from a prepared query result, if any.
      */
-    private String tableName;
+    private final String tableName;
 
+    /*
+     * the operation code for the query.
+     */
+    private final byte operation;
+
+    /* The one operation code we care about */
+    /* "5" == PrepareCallback.QueryOperation.SELECT */
+    private final byte OPCODE_SELECT = 5;
 
     /**
      * @hidden
@@ -111,6 +119,7 @@ public class PreparedStatement {
      * @param externalVars external variables for the query
      * @param namespace namespace, if any, from deserialization
      * @param tableName table name, if any, from deserialization
+     * @param operation operation code for the query
      */
     public PreparedStatement(
         String sqlText,
@@ -122,7 +131,8 @@ public class PreparedStatement {
         int numRegisters,
         Map<String, Integer> externalVars,
         String namespace,
-        String tableName) {
+        String tableName,
+        byte operation) {
 
         /* 10 is arbitrary. TODO: put magic number in it for validation? */
         if (proxyStatement == null || proxyStatement.length < 10) {
@@ -140,6 +150,7 @@ public class PreparedStatement {
         this.variables = externalVars;
         this.namespace = namespace;
         this.tableName = tableName;
+        this.operation = operation;
     }
 
     /**
@@ -160,7 +171,8 @@ public class PreparedStatement {
                                      numRegisters,
                                      variables,
                                      namespace,
-                                     tableName);
+                                     tableName,
+                                     operation);
     }
 
     /**
@@ -377,5 +389,14 @@ public class PreparedStatement {
      */
     public String getTableName() {
         return tableName;
+    }
+
+    /**
+     * @hidden
+     * @return true if the query does writes
+     */
+    public boolean doesWrites() {
+        /* if it's not SELECT, it does writes */
+        return operation != OPCODE_SELECT;
     }
 }

@@ -212,9 +212,7 @@ public class QueryRequest extends Request {
     @Override
     public boolean doesReads() {
         /*
-         * Currently there is no easy/dependable mechanism to tell if
-         * a query will do reads or writes. So we assume the most likely
-         * case. TODO: update this when we have better info
+         * Just about every permutation of query does reads
          */
         return true;
     }
@@ -224,12 +222,10 @@ public class QueryRequest extends Request {
      */
     @Override
     public boolean doesWrites() {
-        /*
-         * Currently there is no easy/dependable mechanism to tell if
-         * a query will do reads or writes. So we assume the most likely
-         * case. TODO: update this when we have better info
-         */
-        return false;
+        if (preparedStatement == null) {
+            return false;
+        }
+        return preparedStatement.doesWrites();
     }
 
     /**

@@ -536,6 +536,13 @@ public class Client {
                     updateRateLimiters(((TableResult)res).getTableName(), tl);
                 }
 
+                if (rateLimiterMap != null && readLimiter == null) {
+                    readLimiter = getQueryRateLimiter(kvRequest, true);
+                }
+                if (rateLimiterMap != null && writeLimiter == null) {
+                    writeLimiter = getQueryRateLimiter(kvRequest, false);
+                }
+
                 /* consume rate limiter units based on actual usage */
                 rateDelayedMs += consumeLimiterUnits(readLimiter,
                                     res.getReadUnitsInternal(),
@@ -695,6 +702,40 @@ public class Client {
             "Request timed out after " + kvRequest.getNumRetries() +
             (kvRequest.getNumRetries() == 1 ? " retry." : " retries.") +
             kvRequest.getRetryStats(), exception);
+    }
+
+    /**
+     * Returns a rate limiter for a query operation, if the query op has
+     * a prepared statement and a limiter exists in the rate limiter map
+     * for the query table.
+     */
+    private RateLimiter getQueryRateLimiter(Request request, boolean read) {
+        if (rateLimiterMap == null || !(request instanceof QueryRequest)) {
+            return null;
+        }
+
+        /*
+         * If we're asked for a write limiter, and the request doesn't
+         * do writes, return null
+         */
+        if (read == false && ((QueryRequest)request).doesWrites() == false) {
+            return null;
+        }
+
+        /*
+         * We sometimes may only get a prepared statement after the
+         * first query response is returned. In this case, we can get
+         * the tablename from the request and apply rate limiting.
+         */
+        String tableName = ((QueryRequest)request).getTableName();
+        if (tableName == null || tableName == "") {
+            return null;
+        }
+
+        if (read) {
+            return rateLimiterMap.getReadLimiter(tableName);
+        }
+        return rateLimiterMap.getWriteLimiter(tableName);
     }
 
 

@@ -80,11 +80,13 @@ class PrepareRequestSerializer extends BinaryProtocol implements Serializer {
          * byte (number of tables)
          * namespace (string)
          * tablename (string)
+         * operation (1 byte)
          */
         int savedOffset = in.getOffset();
         in.skip(37); // 4 + 32 + 1
         String namespace = readString(in);
         String tableName = readString(in);
+        byte operation = in.readByte();
         in.setOffset(savedOffset);
 
         byte[] proxyStatement = readByteArrayWithInt(in);
@@ -129,6 +131,7 @@ class PrepareRequestSerializer extends BinaryProtocol implements Serializer {
                                      numRegisters,
                                      externalVars,
                                      namespace,
-                                     tableName);
+                                     tableName,
+                                     operation);
     }
 }
