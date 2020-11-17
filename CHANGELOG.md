@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - Rate Limiting (cloud only):
-  - Cloud only: new method NoSQLHandleConfig.setRateLimitingEnabled() to enable automatic internal rate limiting based on table read and write throughput limits.
+  - New method NoSQLHandleConfig.setRateLimitingEnabled() to enable automatic internal rate limiting based on table read and write throughput limits.
   - If rate limiting is enabled:
     - NoSQLHandleConfig.setDefaultRateLimitingPercentage() can control how much of a table's full limits this client handle can consume (default = 100%).
     - Result classes now have a getRateLimitDelayedMs() method to return the amount of time an operation was delayed due to internal rate limiting.
