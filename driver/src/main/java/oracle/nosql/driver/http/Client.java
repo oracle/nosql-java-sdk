@@ -373,27 +373,6 @@ public class Client {
             }
         }
 
-        /*
-         * If the request is a query, and it has unlimited readKB, and there's
-         * a valid read rate limiter, set the max read KB to the larger of
-         * 10KB or read rate limit. This helps very large queries to not
-         * overuse resources when rate limiting is in effect.
-         */
-        if (readLimiter != null && kvRequest instanceof QueryRequest &&
-            ((QueryRequest)kvRequest).getMaxReadKB() == 0) {
-            /* factor in request rate limiter percentage (100.0 == full) */
-            double rlPercent = kvRequest.getRateLimiterPercentage();
-            int maxKB =
-                (int)((rlPercent * readLimiter.getLimitPerSecond()) / 100.0);
-            if (maxKB < 10) {
-                maxKB = 10;
-            }
-            if (maxKB > READ_KB_LIMIT) {
-                maxKB = READ_KB_LIMIT;
-            }
-            ((QueryRequest)kvRequest).setMaxReadKB(maxKB);
-        }
-
         final long startTime = System.currentTimeMillis();
         kvRequest.setStartTimeMs(startTime);
 
