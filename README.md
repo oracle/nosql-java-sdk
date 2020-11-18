@@ -17,27 +17,57 @@ environment-specific classes and methods, mostly related to authentication
 and authorization. The API documentation clearly notes environment-specific
 information.
 
+## Requirements
+
+Java versions 8 and higher are supported.
+
+## Installation
+
+The Oracle NoSQL SDK for Java can be included in a project in 2 ways:
+
+1. Include a dependency in a Maven project
+2. Download from GitHub
+
+### Install as a Project Dependency
+
+This dependency can be used to include the SDK and its dependencies in your
+project. The version changes with each release.
+
+```
+<dependency>
+  <groupId>com.oracle.nosql.sdk</groupId>
+  <artifactId>nosqldriver</artifactId>
+  <version>5.2.25</version>
+</dependency>
+```
+
+### Download from GitHub
+
+You can download the Oracle NoSQL SDK for Java as an archive from
+[GitHub](https://github.com/oracle/nosql-java-sdk/releases). The archive
+contains the runtime library and its dependencies, examples, and
+API documentation.
+
 ## Documentation
 
-See [Oracle NoSQL SDK for Java javadoc](https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnjv/index.html) for the latest API documentation.
+See [Oracle NoSQL SDK for Java javadoc](https://oracle.github.io/nosql-java-sdk/) for the latest API documentation.
 
 General documentation about the Oracle NoSQL Database and the Oracle NoSQL Database Cloud Service can be found in these locations:
 
 * [Oracle NoSQL Database Cloud Service](https://docs.oracle.com/en/cloud/paas/nosql-cloud/nosql_dev.html)
 * [Oracle NoSQL Database](https://www.oracle.com/database/technologies/related/nosql.html)
 
-## Requirements
+## Connect to the Oracle NoSQL Database
 
-Java versions 8 and higher are supported.
+There are 3 environments, or services that can be used by the Oracle NoSQL
+SDK for Java:
 
+1. Oracle NoSQL Database Cloud Service
+2. Oracle NoSQL Database On-premise
+3. Oracle NoSQL Database Cloud Simulator
 
-## Examples
-
-Several example programs are provided in the examples directory to
-illustrate the API. These examples can be run against the Oracle NoSQL
-Database, the NoSQL Database Cloud Service or an instance of the Oracle
-NoSQL Cloud Simulator. The code that differentiates among the configurations
-is in the file Common.java and can be examined to understand the differences.
+The next sections describe how to connect to each and what information is
+required.
 
 ### Connecting to the Oracle NoSQL Database Cloud Service
 
@@ -56,18 +86,13 @@ You should have the following information in hand:
 4. Private key file
 5. Optional private key pass phrase
 
-Set Up Example Credentials. Credentials can be provided directly in API or in a
-configuration file. The default configuration in examples/Common.java uses
-a configuration file in ~/.oci.config with the following contents:
+### Connecting to the Oracle NoSQL Database On-premise
 
-    [DEFAULT]
-    tenancy=<User OCID>
-    user=<Tenancy OCID>
-    fingerprint=<Public key fingerprint>
-    key_file=<PEM private key file>
-    pass_phrase=<Private key passphrase>
-
-See instructions in examples/Common.java for details.
+The on-premise configuration requires a running instance of Oracle NoSQL
+Database. In addition a running proxy service is required. See
+[Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.2/admin/proxy-and-driver.html)
+for proxy configuration information.
 
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
 
@@ -77,15 +102,285 @@ The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
 
-### Connecting to the Oracle NoSQL Database On-premise
+## Quickstart
 
-The on-premise configuration requires a running instance of Oracle NoSQL
-Database. In addition a running proxy service is required. See
-[Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.2/admin/proxy-and-driver.html)
-for proxy configuration information.
+The following is a quick start tutorial to run a simple program in all supported
+environments. It requires access to the Oracle NoSQL Database Cloud Service,
+a running on-premise Oracle NoSQL Database instance, or a running Oracle
+NoSQL Cloud Simulator instance. As a standalone program it will run most easily
+using a download version of the Oracle NoSQL SDK for Java.
 
-### Compile and Run Examples
+1. Copy this example into a local file named Quickstart.java
+2. If using directly-supplied cloud service credentials edit the file, adding
+credentials in the appropriate SignatureProvider constructor. The default cloud
+service behavior looks for credentials in $HOME/.oci/config.
+3. Compile
+```
+$ javac -cp <path-to-nosqldriver.jar> Quickstart.java
+```
+4. Run
+Using the cloud service on region us-ashburn-1
+```
+$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloud -endpoint us-ashburn-1
+```
+Using a non-secure on-premise service on endpoint http://localhost:8090
+```
+$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http://localhost:8090
+```
+Using a Cloud Simulator instance on endpoint http://localhost:8080
+```
+$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsi -endpoint http://localhost:8080
+```
+
+
+```
+/*-
+ * Copyright (c) 2011, 2020 Oracle and/or its affiliates.  All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
+import java.io.IOException;
+
+import oracle.nosql.driver.AuthorizationProvider;
+import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.NoSQLHandleFactory;
+import oracle.nosql.driver.iam.SignatureProvider;
+import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.GetRequest;
+import oracle.nosql.driver.ops.GetResult;
+import oracle.nosql.driver.ops.PutRequest;
+import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableRequest;
+import oracle.nosql.driver.values.MapValue;
+
+/**
+ * A simple quickstart program to demonstrate Oracle NoSQL Database.
+ * It does these things:
+ * - create a table
+ * - put a row
+ * - get a row
+ * - drop the table
+ *
+ * See the examples for more interesting operations. This quickstart is
+ * intended to illustrate connecting to a service and performing a few
+ * operations.
+ *
+ * This program can be run against:
+ *  1. the cloud service
+ *  2. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  not secure.
+ *  3. the cloud simulator (CloudSim)
+ *
+ * To run:
+ *   java -cp .:../lib/nosqldriver.jar Quickstart \
+ *      -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region>
+ *
+ * The endpoint and arguments vary with the environment.
+ *
+ * This quick start does not directly support a secure on-premise
+ * environment. See the examples for details on that environment.
+ */
+public class Quickstart {
+
+    private String endpoint;
+    private String service;
+
+    private Quickstart(String[] args) {
+        /*
+         * parse arguments
+         */
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-service")) {
+                service = args[++i];
+            } else if (args[i].equals("-endpoint")) {
+                endpoint = args[++i];
+            } else {
+                System.err.println("Unknown argument: " + args[i]);
+                usage();
+            }
+        }
+        if (service == null || endpoint == null) {
+            System.err.println("-service and -endpoint are required");
+            usage();
+        }
+    }
+
+    private static void usage() {
+        System.err.println(
+            "Usage: java -cp <path-to-nosqldriver.jar> Quickstart \\ \n" +
+            " -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region>");
+        System.exit(1);
+    }
+
+    private NoSQLHandle getHandle() {
+        NoSQLHandleConfig config = new NoSQLHandleConfig(endpoint);
+        configureAuth(config);
+        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
+        System.out.println("Acquired handle for service " + service +
+                           " at endpoint " + endpoint);
+        return handle;
+    }
+
+    /*
+     * This method contains all service-specific code in this program
+     */
+    private void configureAuth(NoSQLHandleConfig config) {
+        if (service.equals("cloud")) {
+            try {
+                /* By default, look for credentials in $HOME/.oci/config */
+                SignatureProvider authProvider = new SignatureProvider();
+
+                /*
+                 * Credentials can be provided directly by editing the
+                 * appropriate information into the parameters below
+                   authProvider = new SignatureProvider(tenantId,       // OCID
+                                                        userId,         // OCID
+                                                        fingerprint, // String
+                                                        privateKeyFile, // File
+                                                        passphrase);  // char[]
+                */
+                config.setAuthorizationProvider(authProvider);
+            } catch (IOException ioe) {
+                System.err.println("Unable to configure authentication: " +
+                                   ioe);
+                System.exit(1);
+            }
+        } else if (service.equals("onprem")) {
+            config.setAuthorizationProvider(new StoreAccessTokenProvider());
+        } else if (service.equals("cloudsim")) {
+            /* cloud simulator */
+            config.setAuthorizationProvider(new AuthorizationProvider() {
+                    @Override
+                    public String getAuthorizationString(Request request) {
+                        return "Bearer cloudsim";
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                });
+        } else {
+            System.err.println("Unknown service: " + service);
+            usage();
+        }
+    }
+
+    public static void main(String[] args) {
+
+        final String tableName = "JavaQuickstart";
+
+        /*
+         * The Quickstart instance configures and acquires a handle
+         */
+        Quickstart qs = new Quickstart(args);
+
+        /*
+         * Configure and get a NoSQLHandle. All service specific configuration
+         * is handled here
+         */
+        NoSQLHandle handle = qs.getHandle();
+        try {
+
+            /*
+             * Create a simple table with an integer key, string name and
+             * JSON data
+             */
+            final String createTableStatement =
+                "create table if not exists " + tableName +
+                "(id integer, name string, data json, primary key(id))";
+
+            TableRequest tableRequest = new TableRequest()
+                .setStatement(createTableStatement)
+                .setTableLimits(new TableLimits(10, 10, 10));
+            /* this call will succeed or throw an exception */
+            handle.doTableRequest(tableRequest,
+                                  60000, /* wait up to 60 sec */
+                                  1000); /* poll once per second */
+
+            System.out.println("Created table " + tableName + " ...");
+
+            /*
+             * Construct a row to put
+             */
+            MapValue value = new MapValue()
+                .put("id", 123)
+                .put("name", "joe")
+                .putFromJson("data", "{\"a\": 1, \"b\": 2}", null);
+
+            PutRequest putRequest = new PutRequest()
+                .setValue(value)
+                .setTableName(tableName);
+
+            PutResult putRes = handle.put(putRequest);
+
+            System.out.println("Put row, result " + putRes);
+
+            /*
+             * Get a row using the primary key
+             */
+            MapValue key = new MapValue().put("id", 123);
+            GetRequest getRequest = new GetRequest()
+                .setKey(key)
+                .setTableName(tableName);
+            GetResult getRes = handle.get(getRequest);
+
+            System.out.println("Got row, result " + getRes);
+
+            /*
+             * Drop the table
+             */
+            tableRequest = new TableRequest()
+                .setStatement("drop table if exists " + tableName);
+
+            handle.doTableRequest(tableRequest,
+                                  60000,
+                                  1000);
+            System.out.println("Dropped table " + tableName + ", done...");
+        } finally {
+            /* Shutdown handle so the process can exit. */
+            handle.close();
+        }
+    }
+}
+
+```
+
+## Examples
+
+Several example programs are provided in the examples directory to
+illustrate the API. They can be found in the release download from GitHub or
+directly in [GitHub NoSQL Examples](https://github.com/oracle/nosql-java-sdk/tree/master/examples). These examples can be run against the Oracle NoSQL
+Database, the NoSQL Database Cloud Service or an instance of the Oracle
+NoSQL Cloud Simulator. The code that differentiates among the configurations
+is in the file Common.java and can be examined to understand the differences.
+
+### Running Examples from a Repository Clone
+
+Examples can be run directly from a clone of the [GitHub Repository](https://oracle.github.io/nosql-java-sdk/). Once the clone has been built (mvn compile) examples can
+be run in this manner
+
+Run BasicTableExample using a cloud simulator instance on endpoint
+localhost:8080
+
+```
+$ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
+  -Dexec.args="http://localhost:8080"
+```
+
+Run BasicTableExample using an on-premise  instance on endpoint
+localhost:8090
+
+```
+$ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
+  -Dexec.args="http://localhost:8090 -useKVProxy"
+```
+
+### Compile and Run Examples using a Downloaded Release
 
 Compile Examples:
 
@@ -93,7 +388,21 @@ Compile Examples:
     $ javac -cp ../lib/nosqldriver.jar *.java
 
 
-#### Run against the Oracle NoSQL Database Cloud Service
+#### Run using the Oracle NoSQL Database Cloud Service
+
+This requires Oracle Cloud credentials.  Credentials can be provided directly in
+API or in a configuration file. The default configuration in
+examples/Common.java uses a configuration file in ~/.oci.config with the
+following contents:
+
+    [DEFAULT]
+    tenancy=<User OCID>
+    user=<Tenancy OCID>
+    fingerprint=<Public key fingerprint>
+    key_file=<PEM private key file>
+    pass_phrase=<Private key passphrase>
+
+Run the example using an Oracle Cloud region endpoint.
 
     $ java -cp .:../lib/nosqldriver.jar BasicTableExample <region>
         e.g.
@@ -101,15 +410,7 @@ Compile Examples:
 
 The region argument will change depending on which region you use.
 
-#### Run against the Oracle NoSQL Database Cloud Simulator
-
-Run against the Oracle NoSQL Cloud Simulator using its default endpoint
-of localhost:8080, assuming that the Cloud Simulator has been started. If
-started on a different host or port adjust the endpoint accordingly.
-
-    $ java -cp .:../lib/nosqldriver.jar BasicTableExample localhost:8080
-
-#### Run against the Oracle NoSQL Database On-premise
+#### Run using the Oracle NoSQL Database On-premise
 
 Running against the on-premise Oracle NoSQL Database on-premise requires
 a running instance of the database and running proxy service. See above.
@@ -134,6 +435,14 @@ Run the command:
          -Djavax.net.ssl.trustStore=driver.trust -cp .:../lib/nosqldriver.jar \
          BasicTableExample https://localhost:443 -useKVProxy -user driver \
         -password Driver.User@01
+
+#### Run using the Oracle NoSQL Database Cloud Simulator
+
+Run against the Oracle NoSQL Cloud Simulator using its default endpoint
+of localhost:8080, assuming that the Cloud Simulator has been started. If
+started on a different host or port adjust the endpoint accordingly.
+
+    $ java -cp .:../lib/nosqldriver.jar BasicTableExample localhost:8080
 
 ## Licenses
 

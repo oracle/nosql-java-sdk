@@ -28,7 +28,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpRequest;
@@ -204,6 +203,11 @@ public class HttpClient {
         poolHandler =
             new HttpClientChannelPoolHandler(this);
 
+        /*
+         * TODO: FixedChannelPool has a method to return the number of
+         * channels it has -- acquiredChannelCount(). Look at exposing
+         * this somehow.
+         */
         pool = new FixedChannelPool(b,
                                     poolHandler, /* pool handler */
                                     poolHandler, /* health checker */
@@ -212,10 +216,6 @@ public class HttpClient {
                                     connectionPoolSize,
                                     poolMaxPending,
                                     true); /* do health check on release */
-    }
-
-    ChannelPool getPool() {
-        return pool;
     }
 
     SslContext getSslContext() {
@@ -285,7 +285,6 @@ public class HttpClient {
      */
     public void shutdown() {
         pool.close();
-        poolHandler.close();
         workerGroup.shutdownGracefully().syncUninterruptibly();
     }
 

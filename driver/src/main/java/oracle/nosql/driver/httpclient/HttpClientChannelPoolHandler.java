@@ -10,8 +10,6 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import java.net.InetSocketAddress;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 
@@ -42,13 +40,6 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
 
     private final HttpClient client;
 
-    /*
-     * Debugging -- use these to ensure proper acquire/release calls.
-     * TODO: keep these or not?
-     */
-    private final AtomicInteger count = new AtomicInteger(0);
-    private final AtomicInteger createCount = new AtomicInteger(0);
-
     /**
      * Creates an instance of this object
      *
@@ -57,12 +48,6 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
      */
     HttpClientChannelPoolHandler(HttpClient client) {
         this.client = client;
-    }
-
-    @Override
-    public void channelAcquired(Channel ch) {
-        //logFine(client.getLogger(), "Channel acquired: " + ch);
-        count.incrementAndGet();
     }
 
     /**
@@ -105,53 +90,14 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                            client.getProxyUsername(),
                            client.getProxyPassword()));
         }
-        count.incrementAndGet();
-        createCount.incrementAndGet();
+    }
+
+    @Override
+    public void channelAcquired(Channel ch) {
     }
 
     @Override
     public void channelReleased(Channel ch) {
-        /*
-         * no need to log this -- it happens on every release. What would be
-         * nice is to log when a channel is destroyed, but that doesn't seem
-         * possible
-         */
-        //logFine(client.getLogger(), "Channel release: " + ch);
-        count.decrementAndGet();
-    }
-
-    /*
-     * Maybe remove the count-based debugging
-     */
-    void close() {
-        int chCount = count.get();
-        logInfo(client.getLogger(),
-                "HttpClient " + client.getName() +
-                ", close pool handler, create count, ref count: "
-                + createCount.get() + ", " + chCount);
-        if (chCount > 0) {
-            logInfo(client.getLogger(),
-                    "HttpClient " + client.getName() +
-                    ", possible channel leak, count is non-zero: " + chCount);
-        }
-    }
-
-    /**
-     * Returns the number of channels that are in active use. Note that this is
-     * less than or equal to the number of channels currently in the pool.
-     */
-    int getCount() {
-        return count.get();
-    }
-
-    /**
-     * Returns the total number of channels that were created over the lifetime
-     * of the pool. This could be greater than the max number of connections
-     * configured for the pool if unhealthy connections are replaced with new
-     * healthy ones.
-     */
-    int getCreateCount() {
-        return createCount.get();
     }
 
     /**

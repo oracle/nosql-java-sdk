@@ -11,6 +11,11 @@
   <version>5.2.24-SNAPSHOT</version>
   <packaging>jar</packaging>
 
+  <organization>
+    <name>Oracle Corporation</name>
+    <url>http://www.oracle.com/</url>
+  </organization>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -32,7 +37,28 @@
 
   <profiles>
 
-    <!-- test profiles used with the test target -->
+    <!-- test profiles used with the test target
+         Running tests requires a running on-premise service and httpproxy
+         or a running cloud simulator. Required information:
+            o endpoint
+         Examples:
+           mvn -Ptest-cloudsim test -DargLine="test.endpoint=http://localhost:8080"
+           mvn -Ptest-onprem test -DargLine="test.endpoint=http://localhost:8090"
+
+        These tests are not designed to work directly against the cloud service
+        as they require a high rate of DDL operations and generally use more
+        resource than a user might want to use in the cloud.
+
+        A secure, onprem configuration requires more information:
+          1. user name and password
+          2. trust store and optional password for the SSL certificate to use to
+          communicate with the proxy
+        These are also passed as system properties, e.g.:
+          mvn -Ptest-onprem-secure test -DargLine="-Dtest.endpoint=<secure-endpoint> -Dtest.user=<username> -Dtest.password=<user-password> -Dtest.trust=<path-to-trust-store> -Dtest.trust.password=<trust-store-password>"
+
+        Individual test methods can be traced by adding "-Dtest.trace=true" to
+        the argLine string
+    -->
     <profile>
       <id>test-cloudsim</id>
       <properties>
@@ -40,6 +66,14 @@
         <secure>false</secure>
         <onprem>false</onprem>
         <serverType>cloudsim</serverType>
+        <!-- exclude non-server tests and on-premise tests -->
+        <excluded.tests>
+          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java,
+          UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          OnPremiseTest.java
+        </excluded.tests>
       </properties>
     </profile>
 
@@ -50,6 +84,13 @@
         <secure>false</secure>
         <onprem>true</onprem>
         <serverType>onprem</serverType>
+        <!-- exclude non-server tests -->
+        <excluded.tests>
+          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java,
+          UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
+          HandleConfigTest.java, JsonTest.java, ValueTest.java
+        </excluded.tests>
       </properties>
     </profile>
 
@@ -60,6 +101,13 @@
         <secure>true</secure>
         <onprem>true</onprem>
         <serverType>onprem</serverType>
+        <!-- exclude non-server tests -->
+        <excluded.tests>
+          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java,
+          UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
+          HandleConfigTest.java, JsonTest.java, ValueTest.java
+        </excluded.tests>
       </properties>
     </profile>
 
@@ -188,6 +236,9 @@
           <includes>
             <include>${included.tests}</include>
           </includes>
+          <excludes>
+            <exclude>${excluded.tests}</exclude>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>
