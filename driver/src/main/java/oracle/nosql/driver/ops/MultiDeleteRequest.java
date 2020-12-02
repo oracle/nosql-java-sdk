@@ -235,4 +235,12 @@ public class MultiDeleteRequest extends Request {
     public boolean doesReads() {
         return true;
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean doesWrites() {
+        return true;
+    }
 }

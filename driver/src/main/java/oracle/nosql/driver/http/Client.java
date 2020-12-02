@@ -15,7 +15,6 @@ import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
-import static oracle.nosql.driver.util.BinaryProtocol.READ_KB_LIMIT;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -728,6 +727,25 @@ public class Client {
         if (rl == null || units <= 0) {
             return 0;
         }
+
+        /*
+         * The logic consumes units (and potentially delays) _after_ a
+         * successful operation for a few reasons:
+         * 1) We don't know the actual number of units an op uses unitl
+         *    after the operation successfully finishes
+         * 2) Delaying after the op keeps the application from immediately
+         *    trying the next op and ending up waiting along with other
+         *    client threads until the rate goes below the limit, at which
+         *    time all client threads would continue at once. By waiting
+         *    after a successful op, client threads will get staggered
+         *    better to avoid spikes in throughput and oscillation that
+         *    can result from it.
+         * 3) For operations that use less than 100% of the limits (i.e.
+         *    they set a usePercent to less than 100), this is the only place
+         *    where the delay time may be longer, because the pre-operation
+         *    "wait for below the limit" limiter checks do not take usePercent
+         *    into account.
+         */
 
         double usePercent = request.getRateLimiterPercentage();
         if (usePercent == 0.0) {

@@ -375,10 +375,9 @@ public class SimpleRateLimiter implements RateLimiter {
          * the logic will only consume the given amount, but will
          * return a sleep time proportional to the usePercent
          */
-        long nanosAdded = 0;
         long infunits = (long)((double)units / usePercent);
         long inflatedNanos = infunits * nanosPerUnit;
-        nanosAdded = inflatedNanos - nanosNeeded;
+        long nanosAdded = inflatedNanos - nanosNeeded;
 
         /*
          * if the new last nano is less than now, the consume
@@ -409,6 +408,15 @@ public class SimpleRateLimiter implements RateLimiter {
         int sleepMs = (int)((usedNanos + inflatedNanos) / 1_000_000L);
         if (sleepMs == 0) {
             sleepMs = 1;
+        }
+
+        /*
+         * if this was called to get the time before the limiter is below its
+         * limit, adjust the time based on usePercentage (this is easier to
+         * adjust for here instead of trying to factor it into the math above).
+         */
+        if (units == 0) {
+            sleepMs = (int)((double)sleepMs / usePercent);
         }
 
         if (alwaysConsume) {
@@ -512,6 +520,27 @@ public class SimpleRateLimiter implements RateLimiter {
                 }
             }
         }
+    }
+
+
+    /**
+     * @hidden
+     * Consumes units and returns the time to sleep.
+     *
+     * Note this method returns immediately in all cases. It returns
+     * the number of milliseconds to sleep.
+     *
+     * @param units number of units to attempt to consume
+     * @return number of milliseconds to sleep.
+     *         If the return value is zero, the consume succeeded under the
+     *         limit and no sleep is necessary.
+     */
+    public int consumeExternally(long units) {
+        /* If disabled, just return success */
+        if (nanosPerUnit <= 0) {
+            return 0;
+        }
+        return consumeInternalFull(units, 0, true, System.nanoTime());
     }
 
 }
