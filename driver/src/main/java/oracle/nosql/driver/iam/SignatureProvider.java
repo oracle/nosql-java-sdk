@@ -99,6 +99,9 @@ public class SignatureProvider
     implements AuthorizationProvider, RegionProvider {
 
     private static final String SIGNING_HEADERS = "(request-target) host date";
+    private static final String SIGNING_HEADERS_WITH_OBO =
+        "(request-target) host date opc-obo-token";
+    private static final String OBO_TOKEN_HEADER = "opc-obo-token";
 
     /* Cache key name */
     private static final String CACHE_KEY = "signature";
@@ -112,6 +115,9 @@ public class SignatureProvider
     /* User profile and key providers */
     private final AuthenticationProfileProvider provider;
     private final PrivateKeyProvider privateKeyProvider;
+
+    /* Delegation token specified for signing */
+    private String delegationToken;
 
     private final LruCache<String, SignatureDetails> signatureCache;
 
@@ -378,6 +384,79 @@ public class SignatureProvider
     }
 
     /**
+     * Creates a SignatureProvider using an instance principal with a
+     * delegation token. This constructor may be used when calling the
+     * Oracle NoSQL Database Cloud Service from an Oracle Cloud compute
+     * instance. It authenticates with the instance principal and uses a
+     * security token issued by IAM to do the actual request signing.
+     * The delegation token allows the instance to assume the privileges
+     * of the user for which the token was created.
+     * <p>
+     * When using an instance principal the compartment id (OCID) must be
+     * specified on each request or defaulted by using
+     * {@link NoSQLHandleConfig#setDefaultCompartment}. If the compartment id
+     * is not specified for an operation an exception will be thrown.
+     * <p>
+     * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
+     *
+     * @param delegationToken this token allows an instance to assume the
+     * privileges of a specific user and act on-behalf-of that user
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithInstancePrincipalForDelegation(String delegationToken) {
+
+        SignatureProvider provider = new SignatureProvider(
+            InstancePrincipalsProvider.builder().build());
+        provider.setDelegationToken(delegationToken);
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using an instance principal with a
+     * delegation token. This constructor may be used when calling the
+     * Oracle NoSQL Database Cloud Service from an Oracle Cloud compute
+     * instance. It authenticates with the instance principal and uses a
+     * security token issued by IAM to do the actual request signing.
+     * The delegation token allows the instance to assume the privileges
+     * of the user for which the token was created.
+     * <p>
+     * When using an instance principal the compartment id (OCID) must be
+     * specified on each request or defaulted by using
+     * {@link NoSQLHandleConfig#setDefaultCompartment}. If the compartment id
+     * is not specified for an operation an exception will be thrown.
+     * <p>
+     * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
+     *
+     * @param iamAuthUri The URI is usually detected automatically, specify
+     * the URI if you need to overwrite the default, or encounter the
+     * <code>Invalid IAM URI</code> error.
+     * @param region the region to use, it may be null
+     * @param delegationToken this token allows an instance to assume the
+     * privileges of a specific user and act on-behalf-of that user
+     * @param logger the logger used by the SignatureProvider.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithInstancePrincipalForDelegation(String iamAuthUri,
+                                                 Region region,
+                                                 String delegationToken,
+                                                 Logger logger) {
+
+        SignatureProvider provider = new SignatureProvider(
+            InstancePrincipalsProvider.builder()
+            .setFederationEndpoint(iamAuthUri)
+            .setLogger(logger)
+            .setRegion(region)
+            .build());
+        provider.setLogger(logger);
+        provider.setDelegationToken(delegationToken);
+        return provider;
+    }
+
+    /**
      * Creates a SignatureProvider using a resource principal. This
      * constructor may be used when calling the Oracle NoSQL Database
      * Cloud Service from other Oracle Cloud service resource such as
@@ -486,6 +565,9 @@ public class SignatureProvider
         headers.add(AUTHORIZATION, sigDetails.getSignatureHeader());
         headers.add(DATE, sigDetails.getDate());
 
+        if (delegationToken != null) {
+            headers.add(OBO_TOKEN_HEADER, delegationToken);
+        }
         String compartment = request.getCompartment();
         if (compartment == null) {
             /*
@@ -579,6 +661,11 @@ public class SignatureProvider
         return rpp.getClaim(key);
     }
 
+    /* visible for testing */
+    void setDelegationToken(String token) {
+        this.delegationToken = token;
+    }
+
     private void logMessage(Level level, String msg) {
         if (logger != null) {
             logger.log(level, msg);
@@ -611,8 +698,10 @@ public class SignatureProvider
             return null;
         }
 
+        String signingHeader = (delegationToken == null)
+            ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
         String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
-                                         SIGNING_HEADERS,
+                                         signingHeader,
                                          keyId,
                                          RSA,
                                          signature,
@@ -631,6 +720,11 @@ public class SignatureProvider
         .append(HOST).append(HEADER_DELIMITER)
         .append(serviceHost).append("\n")
         .append(DATE).append(HEADER_DELIMITER).append(date);
+
+        if (delegationToken != null) {
+            sb.append("\n").append(OBO_TOKEN_HEADER)
+              .append(HEADER_DELIMITER).append(delegationToken);
+        }
         return sb.toString();
     }
 

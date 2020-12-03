@@ -8,6 +8,7 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -22,9 +23,12 @@ import java.util.Collections;
 
 import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.FreePortLocator;
+import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.TableRequest;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -34,6 +38,9 @@ import org.junit.Test;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders;
 
 public class InstancePrincipalsProviderTest extends DriverTestBase {
     private static final FreePortLocator portLocator =
@@ -166,6 +173,43 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setTenantId(tenantId)
             .build();
         assertEquals("ST$" + securityToken(), provider.getKeyId());
+    }
+
+    @Test
+    public void testDelegationToken()
+        throws Exception {
+
+        CertificateSupplier leaf = new DefaultCertificateSupplier(
+            getURLDetails(base + "/instance?cert.pem"),
+            getURLDetails(base + "/instance?key.pem"),
+            (char[]) null);
+
+        CertificateSupplier inter = new DefaultCertificateSupplier(
+            getURLDetails(base + "/instance?intermediate.pem"),
+            null,
+            (char[]) null);
+
+        InstancePrincipalsProvider provider =
+            InstancePrincipalsProvider.builder()
+            .setFederationEndpoint(base)
+            .setLeafCertificateSupplier(leaf)
+            .setIntermediateCertificateSuppliers(Collections.singleton(inter))
+            .setTenantId(tenantId)
+            .build();
+
+        SignatureProvider sp = new SignatureProvider(provider);
+        String delegationToken = "fake-token";
+        sp.setServiceHost(new NoSQLHandleConfig("http://test"));
+        sp.setDelegationToken(delegationToken);
+
+        Request request = new TableRequest();
+        request.setCompartmentInternal("compartment");
+        String authzString = sp.getAuthorizationString(request);
+        assertTrue(authzString.contains("opc-obo-token"));
+
+        HttpHeaders headers = new DefaultHttpHeaders();
+        sp.setRequiredHeaders(authzString, request, headers);
+        assertEquals(headers.get("opc-obo-token"), delegationToken);
     }
 
     @Test
