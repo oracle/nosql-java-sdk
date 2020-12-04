@@ -38,6 +38,20 @@ public class BinaryValue extends FieldValue {
         this.value = value;
     }
 
+    /**
+     * Creates a new instance from a Base64 encoded string.
+     *
+     * @param value the value to use
+     *
+     * @throws IllegalArgumentException if the value is not a valid Base64
+     * encoded value.
+     */
+    public BinaryValue(String value) {
+        super();
+        requireNonNull(value, "BinaryValue: value must be non-null");
+        this.value = decodeBase64(value);
+    }
+
     @Override
     public Type getType() {
         return Type.BINARY;
@@ -116,6 +130,9 @@ public class BinaryValue extends FieldValue {
      * @param binString the encoded input string
      *
      * @return the decoded array
+     *
+     * @throws IllegalArgumentException if the value is not a valid Base64
+     * encoded value.
      */
     public static byte[] decodeBase64(String binString) {
         requireNonNull(binString,

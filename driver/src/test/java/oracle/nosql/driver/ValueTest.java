@@ -932,6 +932,28 @@ public class ValueTest extends DriverTestBase {
         }
     }
 
+    /*
+     * Test BinaryValue constructor that takes a Base64-encoded string
+     */
+    @Test
+    public void testBinary() throws Exception {
+        final String testString = "abcdefg";
+        final byte[] byteValue = testString.getBytes();
+        final String encodedString = BinaryValue.encodeBase64(byteValue);
+
+        BinaryValue value1 = new BinaryValue(byteValue);
+        BinaryValue value2 = new BinaryValue(encodedString);
+
+        assertEquals(value1, value2);
+
+        try {
+            value1 = new BinaryValue(testString);
+            fail("Cast to BinaryValue should have failed");
+        } catch (IllegalArgumentException e) {
+            // success
+        }
+    }
+
     private void assertSize(FieldValue val, int size) {
         /* Leave for future debugging:
          * System.out.println("assertSize: " + val + ", " +

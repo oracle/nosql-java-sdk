@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Cloud only: Added new SignatureProvider constructors to allow use of an instance
 principal with a delegation token for authorization and authentication:
  - SignatureProvider.createInstancePrincipalForDelegation()
+ - BinaryValue constructor to create BinaryValue from a Base64-encoded string
 
 ### Fixed
 - Ensure that TableLimits is always null in TableResult on-premise.
