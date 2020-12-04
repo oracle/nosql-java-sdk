@@ -140,8 +140,7 @@ public class SimpleRateLimiter implements RateLimiter {
          * complete the consume.
          * note this call immediately consumes the units
          */
-        int msToSleep = consumeInternal(units, 0, false,
-                                        System.nanoTime(), 100.0);
+        int msToSleep = consumeInternal(units, 0, false, System.nanoTime());
 
         /* sleep for the requested time. */
         uninterruptibleSleep(msToSleep);
@@ -150,44 +149,14 @@ public class SimpleRateLimiter implements RateLimiter {
         return msToSleep;
     }
 
-    /**
-     * @hidden
-     * Similar method allowing for a per-operation use percentage
-     */
-    public int consumeUnits(long units, double usePercent) {
-        if (usePercent <= 0.0) {
-            throw new IllegalArgumentException("usePercent must be positive");
-        }
-        int msToSleep = consumeInternal(units, 0, false,
-                                        System.nanoTime(), usePercent);
-        uninterruptibleSleep(msToSleep);
-        return msToSleep;
-    }
-
     @Override
     public int consumeUnitsWithTimeout(long units, int timeoutMs,
         boolean alwaysConsume)
         throws TimeoutException {
 
-        return consumeUnitsWithTimeout(units, timeoutMs,
-                                       alwaysConsume, 100.0);
-    }
-
-
-    /**
-     * @hidden
-     * Similar method allowing for a per-operation use percentage
-     */
-    public int consumeUnitsWithTimeout(long units, int timeoutMs,
-        boolean alwaysConsume, double usePercent)
-        throws TimeoutException {
-
         if (timeoutMs < 0) {
             throw new IllegalArgumentException(
                 "timeoutMs must be 0 or positive");
-        }
-        if (usePercent <= 0.0) {
-            throw new IllegalArgumentException("usePercent must be positive");
         }
 
         /*
@@ -195,7 +164,7 @@ public class SimpleRateLimiter implements RateLimiter {
          * complete the consume.
          */
         int msToSleep = consumeInternal(units, timeoutMs,
-            alwaysConsume, System.nanoTime(), usePercent);
+                                        alwaysConsume, System.nanoTime());
         if (msToSleep == 0) {
             return 0;
         }
@@ -219,6 +188,7 @@ public class SimpleRateLimiter implements RateLimiter {
         return msToSleep;
     }
 
+
     /**
      * Returns the time to sleep to consume units.
      *
@@ -234,7 +204,6 @@ public class SimpleRateLimiter implements RateLimiter {
      * @param alwaysConsume if true, units will be consumed regardless of
      *        return value.
      * @param nowNanos current time per System.nanoTime()
-     * @param usePercent percentage of total limits to make available
      * @return number of milliseconds to sleep.
      *         If timeoutMs is positive, and the return value is greater
      *         than or equal to timeoutMs, consume failed and the app should
@@ -242,30 +211,13 @@ public class SimpleRateLimiter implements RateLimiter {
      *         If the return value is zero, the consume succeeded under the
      *         limit and no sleep is necessary.
      */
-    private int consumeInternal(long units, int timeoutMs,
-        boolean alwaysConsume, long nowNanos, double usePercent) {
+    private synchronized int consumeInternal(long units, int timeoutMs,
+        boolean alwaysConsume, long nowNanos) {
 
         /* If disabled, just return success */
         if (nanosPerUnit <= 0) {
             return 0;
         }
-
-        if (usePercent == 100.0) {
-            return consumeInternalFull(units, timeoutMs,
-                        alwaysConsume, nowNanos);
-        }
-
-        return consumeInternalPercent(units, timeoutMs,
-                alwaysConsume, nowNanos, usePercent);
-    }
-
-    /**
-     * Do internal limiting operations at 100% usage.
-     * This is functionally the same as consumeInternalPercent(), but
-     * cleaner and more efficient (far less math).
-     */
-    private synchronized int consumeInternalFull(long units, int timeoutMs,
-        boolean alwaysConsume, long nowNanos) {
 
         /* determine how many nanos we need to add based on units requested */
         long nanosNeeded = units * nanosPerUnit;
@@ -287,11 +239,11 @@ public class SimpleRateLimiter implements RateLimiter {
         }
 
         /*
-         * if the new last nano is less than now, the consume
+         * if the limiter is currently under its limit, the consume
          * succeeds immediately (no sleep required).
          */
-        if (newLast <= nowNanos) {
-             /* consume the units */
+        if (lastNano <= nowNanos) {
+            /* consume the units */
             lastNano = newLast;
             return 0;
         }
@@ -303,120 +255,9 @@ public class SimpleRateLimiter implements RateLimiter {
          * other consume calls may come in after this one and push the
          * "at the limit time" further out.
          */
-        int sleepMs = (int)((newLast - nowNanos) / 1_000_000L);
+        int sleepMs = (int)((lastNano - nowNanos) / 1_000_000L);
         if (sleepMs == 0) {
             sleepMs = 1;
-        }
-
-        if (alwaysConsume) {
-            /*
-             * if we're told to always consume the units no matter what,
-             * consume the units
-             */
-            lastNano = newLast;
-        } else if (timeoutMs == 0) {
-            /* if the timeout is zero, consume the units */
-            lastNano = newLast;
-        } else if (sleepMs < timeoutMs) {
-            /*
-             * if the given timeout is more than the amount of time to
-             * sleep, consume the units
-             */
-            lastNano = newLast;
-        }
-
-        return sleepMs;
-    }
-
-
-    /**
-     * Do internal limiting operations with a given percent usage.
-     * This is functionally the same as consumeInternalFull(), but
-     * allows for usage of only a percentage of the total limits.
-     */
-    private synchronized int consumeInternalPercent(long units, int timeoutMs,
-        boolean alwaysConsume, long nowNanos, double usePercent) {
-
-        usePercent = usePercent / 100.0;
-
-        /* determine how many nanos we need to add based on units requested */
-        long nanosNeeded = (long)((double)(units * nanosPerUnit) / usePercent);
-
-        /* ensure we never use more from the past than duration allows */
-        long maxPast = nowNanos - durationNanos;
-        if (lastNano < maxPast) {
-            lastNano = maxPast;
-        }
-
-        /* compute the new "last nano used" */
-        long newLast = lastNano + nanosNeeded;
-
-        /* if units < 0, we're "returning" them */
-        if (units < 0) {
-            /* consume the units */
-            lastNano = newLast;
-            return 0;
-        }
-
-        /*
-         * how many nanos can we use from the past
-         * we can only use a percentage of available past units
-         */
-        long pastNanos = 0;
-        if (lastNano < nowNanos) {
-            pastNanos = (long)((double)(nowNanos - lastNano) * usePercent);
-        }
-
-        /*
-         * inflate the amount we want to consume inversely
-         * proportional to the use percentage.
-         * for example, if units=30 and percent=10, try to
-         * consume 300.
-         * the logic will only consume the given amount, but will
-         * return a sleep time proportional to the usePercent
-         */
-        long infunits = (long)((double)units / usePercent);
-        long inflatedNanos = infunits * nanosPerUnit;
-        long nanosAdded = inflatedNanos - nanosNeeded;
-
-        /*
-         * if the new last nano is less than now, the consume
-         * succeeds immediately (no sleep required).
-         */
-        if ((nanosAdded + nanosNeeded) < pastNanos) {
-            /* consume the units */
-            lastNano = newLast;
-            return 0;
-        }
-
-        /* how many nanos are already used (past current time) */
-        long usedNanos = 0;
-        if (lastNano > nowNanos) {
-            usedNanos = lastNano - nowNanos;
-        }
-
-        /* total nanos we still need */
-        inflatedNanos = (nanosAdded + nanosNeeded) - pastNanos;
-
-        /*
-         * determine the amount of time that the caller needs to sleep
-         * for this limiter to go below its limit. Note that the limiter
-         * is not guaranteed to be below the limit after this time, as
-         * other consume calls may come in after this one and push the
-         * "at the limit time" further out.
-         */
-        int sleepMs = (int)((usedNanos + inflatedNanos) / 1_000_000L);
-        if (sleepMs == 0) {
-            sleepMs = 1;
-        }
-
-        /*
-         * if this was called to get the time before the limiter is below its
-         * limit, adjust the time based on usePercentage (this is easier to
-         * adjust for here instead of trying to factor it into the math above).
-         */
-        if (units == 0) {
-            sleepMs = (int)((double)sleepMs / usePercent);
         }
 
         if (alwaysConsume) {
@@ -441,24 +282,7 @@ public class SimpleRateLimiter implements RateLimiter {
 
     @Override
     public boolean tryConsumeUnits(long units) {
-        if (consumeInternal(units, 1, false,
-                            System.nanoTime(), 100.0) == 0) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * @hidden
-     * Similar method allowing for a per-operation use percentage
-     */
-    public boolean tryConsumeUnits(long units, double usePercent) {
-        if (usePercent <= 0.0) {
-            throw new IllegalArgumentException("usePercent must be positive");
-        }
-
-        if (consumeInternal(units, 1, false,
-                            System.nanoTime(), usePercent) == 0) {
+        if (consumeInternal(units, 1, false, System.nanoTime()) == 0) {
             return true;
         }
         return false;
@@ -477,7 +301,7 @@ public class SimpleRateLimiter implements RateLimiter {
     @Override
     public void consumeUnitsUnconditionally(long units) {
         /* consume units, ignore amount of time to sleep */
-        consumeInternal(units, 0, true, System.nanoTime(), 100.0);
+        consumeInternal(units, 0, true, System.nanoTime());
     }
 
     public double getCapacity() {
@@ -540,7 +364,7 @@ public class SimpleRateLimiter implements RateLimiter {
         if (nanosPerUnit <= 0) {
             return 0;
         }
-        return consumeInternalFull(units, 0, true, System.nanoTime());
+        return consumeInternal(units, 0, true, System.nanoTime());
     }
 
 }

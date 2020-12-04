@@ -69,7 +69,6 @@ import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
-import oracle.nosql.driver.util.SimpleRateLimiter;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -379,6 +378,11 @@ public class Client {
             long thisTime = System.currentTimeMillis();
             int thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
 
+            /*
+             * Check rate limiters before executing the request.
+             * Wait for read and/or write limiters to be below their limits
+             * before continuing. Be aware of the timeout given.
+             */
             if (readLimiter != null && checkReadUnits == true) {
                 try {
                     /*
@@ -524,10 +528,10 @@ public class Client {
                 /* consume rate limiter units based on actual usage */
                 rateDelayedMs += consumeLimiterUnits(readLimiter,
                                     res.getReadUnitsInternal(),
-                                    kvRequest, thisIterationTimeoutMs);
+                                    thisIterationTimeoutMs);
                 rateDelayedMs += consumeLimiterUnits(writeLimiter,
                                     res.getWriteUnitsInternal(),
-                                    kvRequest, thisIterationTimeoutMs);
+                                    thisIterationTimeoutMs);
                 res.setRateLimitDelayedMs(rateDelayedMs);
 
                 /* copy retry stats to Result on successful operation */
@@ -716,13 +720,12 @@ public class Client {
         return rateLimiterMap.getWriteLimiter(tableName);
     }
 
-
     /**
      * Comsume rate limiter units after successful operation.
      * @return the number of milliseconds delayed due to rate limiting
      */
-    private int consumeLimiterUnits(RateLimiter rl, long units,
-                                    Request request, int timeoutMs) {
+    private int consumeLimiterUnits(RateLimiter rl,
+                                    long units, int timeoutMs) {
 
         if (rl == null || units <= 0) {
             return 0;
@@ -730,7 +733,7 @@ public class Client {
 
         /*
          * The logic consumes units (and potentially delays) _after_ a
-         * successful operation for a few reasons:
+         * successful operation for a couple reasons:
          * 1) We don't know the actual number of units an op uses unitl
          *    after the operation successfully finishes
          * 2) Delaying after the op keeps the application from immediately
@@ -740,32 +743,12 @@ public class Client {
          *    after a successful op, client threads will get staggered
          *    better to avoid spikes in throughput and oscillation that
          *    can result from it.
-         * 3) For operations that use less than 100% of the limits (i.e.
-         *    they set a usePercent to less than 100), this is the only place
-         *    where the delay time may be longer, because the pre-operation
-         *    "wait for below the limit" limiter checks do not take usePercent
-         *    into account.
          */
 
-        double usePercent = request.getRateLimiterPercentage();
-        if (usePercent == 0.0) {
-            usePercent = config.getDefaultRateLimitingPercentage();
-        }
         try {
-            if (rl instanceof SimpleRateLimiter && usePercent > 0.0) {
-                /* "true" == "consume units, even on timeout" */
-                return ((SimpleRateLimiter)rl).consumeUnitsWithTimeout(
-                                                    units, timeoutMs,
-                                                    true, usePercent);
-            } else {
-                /* "true" == "consume units, even on timeout" */
-                return rl.consumeUnitsWithTimeout(units, timeoutMs, true);
-            }
+            return rl.consumeUnitsWithTimeout(units, timeoutMs, false);
         } catch (TimeoutException e) {
-            /*
-             * Do not throw: the operation succeeded.
-             * We just delayed a while.
-             */
+            /* Don't throw - operation succeeded. Just return timeoutMs. */
             return timeoutMs;
         }
     }
@@ -807,14 +790,19 @@ public class Client {
         int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
                                      .intValue();
 
-        rateLimiterMap.update(tableName,
-                            (double)limits.getReadUnits(),
-                            (double)limits.getWriteUnits(),
-                            durationSeconds);
+        double RUs = (double)limits.getReadUnits();
+        double WUs = (double)limits.getWriteUnits();
 
+        /* if there's a specified rate limiter percentage, use that */
+        double rlPercent = config.getDefaultRateLimitingPercentage();
+        if (rlPercent > 0.0) {
+            RUs = (RUs * rlPercent) / 100.0;
+            WUs = (WUs * rlPercent) / 100.0;
+        }
+
+        rateLimiterMap.update(tableName, RUs, WUs, durationSeconds);
         final String msg = String.format("Updated table '%s' to have " +
-            "RUs=%d and WUs=%d per second",
-            tableName, limits.getReadUnits(), limits.getWriteUnits());
+            "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
         logInfo(logger, msg);
 
         return true;
@@ -1146,7 +1134,8 @@ public class Client {
      * executed by one thread when no other operations are
      * in progress.
      */
-    public void enableRateLimiting(boolean enable) {
+    public void enableRateLimiting(boolean enable, double usePercent) {
+        config.setDefaultRateLimitingPercentage(usePercent);
         if (enable == true && rateLimiterMap == null) {
             rateLimiterMap = new RateLimiterMap();
             tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();

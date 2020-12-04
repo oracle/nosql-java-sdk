@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 import io.netty.handler.ssl.SslContext;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
-import oracle.nosql.driver.ops.Request;
 
 /**
  * NoSQLHandleConfig groups parameters used to configure a {@link
@@ -834,9 +833,6 @@ public class NoSQLHandleConfig implements Cloneable {
      * full table limits. This only applies if rate limiting is enabled using
      * {@link #setRateLimitingEnabled}.
      * <p>
-     * Rate limiter use percentage can also be set on a per-request
-     * basis using {@link Request#setRateLimiterPercentage}.
-     * <p>
      * The default for this value is 100.0 (full table limits).
      *
      * @param percent the percentage of table limits to use. This value
@@ -1205,7 +1201,7 @@ public class NoSQLHandleConfig implements Cloneable {
                 return region.endpoint();
             }
         } catch (IllegalArgumentException iae) {
-            // ignore
+            /* ignore */
         }
         return endpoint;
     }

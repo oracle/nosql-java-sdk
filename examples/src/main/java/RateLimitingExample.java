@@ -53,8 +53,6 @@ public class RateLimitingExample {
         /*
          * Note: the amount of table limits used by this client can be
          * configured using config.setDefaultRateLimitingPercentage().
-         * This example doesn't use this, as each request sets its own
-         * table usage percentage individually.
          */
 
         /*
@@ -96,7 +94,6 @@ public class RateLimitingExample {
                 true, /* writes */
                 50, /* WUs limit */
                 2000, /* maxRows */
-                100.0, /* usePercent */
                 tableName,
                 minSize,
                 maxSize);
@@ -109,20 +106,6 @@ public class RateLimitingExample {
                 false, /* reads */
                 50, /* RUs limit */
                 2000, /* maxRows */
-                100.0, /* usePercent */
-                tableName,
-                minSize,
-                maxSize);
-
-            /*
-             * Do more read ops, using a portion of the table limits
-             */
-            doRateLimitedOps(handle,
-                10 /* seconds */,
-                false, /* reads */
-                50, /* RUs limit */
-                2000, /* maxRows */
-                30.0, /* usePercent */
                 tableName,
                 minSize,
                 maxSize);
@@ -152,29 +135,11 @@ public class RateLimitingExample {
      * given rate limits.
      */
     private static void doRateLimitedOps(NoSQLHandle handle, int numSeconds,
-        boolean doWrites, int limit, int maxRows, double usePercent,
+        boolean doWrites, int limit, int maxRows,
         String tableName, int minSize, int maxSize) {
 
         PutRequest putRequest = new PutRequest().setTableName(tableName);
         GetRequest getRequest = new GetRequest().setTableName(tableName);
-
-        /*
-         * The amount of table limits to use can be set on a per-request
-         * basis, if desired. The value represents the percentage of
-         * the table limits to use, with 100.0 being "full table limits".
-         * Using this, many different clients can share the limits of
-         * a table by dividing up usage. Or, some requests can have a
-         * higher "priority" by using a higher percentage of limits than
-         * other requests.
-         *
-         * If setRateLimiterPercentage() isn't called, the default is the
-         * value passed to NoSQLHandleConfig.setDefaultRateLimitingPercentage()
-         * if set - if not set, the default is 100.0 (full table limits).
-         *
-         * This example just uses the same given percentage for all requests.
-         */
-        putRequest.setRateLimiterPercentage(usePercent);
-        getRequest.setRateLimiterPercentage(usePercent);
 
         MapValue key = new MapValue();
         MapValue value = new MapValue();
@@ -224,7 +189,7 @@ public class RateLimitingExample {
                     unitsUsed += gres.getReadUnits();
                     delayMs += gres.getRateLimitDelayedMs();
                 }
-            // we should not get throttling exceptions
+            /* we should not get throttling exceptions */
             } catch (WriteThrottlingException wte) {
                 System.err.println("Got unexpected write throttling exception");
                 throw wte;
@@ -237,16 +202,15 @@ public class RateLimitingExample {
         numSeconds = (int)((System.currentTimeMillis() - startTime) / 1000);
 
         unitsUsed = unitsUsed / numSeconds;
-        usePercent = usePercent / 100.0;
 
-        if (unitsUsed < (int)((double)limit * usePercent * 0.8) ||
-            unitsUsed > (int)((double)limit * usePercent * 1.2)) {
+        if (unitsUsed < (int)((double)limit * 0.8) ||
+            unitsUsed > (int)((double)limit * 1.2)) {
             final String msg;
             if (doWrites) {
-                msg = "Writes: expected around " + limit * usePercent +
+                msg = "Writes: expected around " + limit +
                     " WUs, got " + unitsUsed;
             } else {
-                msg = "Reads: expected around " + limit * usePercent +
+                msg = "Reads: expected around " + limit +
                     " RUs, got " + unitsUsed;
             }
             throw new RuntimeException(msg);
@@ -254,8 +218,7 @@ public class RateLimitingExample {
 
         System.out.println(((doWrites)?"Writes":"Reads") +
             ": average usage = " + unitsUsed +
-            ((doWrites)?"WUs":"RUs") + " (expected around " +
-            (int)((double)limit * usePercent) + ")");
+            ((doWrites)?"WUs":"RUs") + " (expected around " + limit + ")");
 
         System.out.println(
             "Total rate limiter delay time = " + delayMs + "ms");

@@ -20,6 +20,7 @@ import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.WriteThrottlingException;
+import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -45,10 +46,22 @@ import org.junit.Test;
 public class RateLimiterTest extends ProxyTestBase {
 
     @Test
-    public void basicRateLimitingTest() throws Exception {
+    public void basicInternalTest() throws Exception {
         testLimiters(false, 500, 200, 200, 10, 100.0);
+    }
+
+    @Test
+    public void basicExternalTest() throws Exception {
         testLimiters(true, 500, 200, 200, 10, 100.0);
+    }
+
+    @Test
+    public void basicInternalPercentTest() throws Exception {
         testLimiters(false, 500, 200, 200, 10, 20.0);
+    }
+
+    @Test
+    public void basicExternalPercentTest() throws Exception {
         testLimiters(true, 500, 200, 200, 10, 20.0);
     }
 
@@ -64,11 +77,12 @@ public class RateLimiterTest extends ProxyTestBase {
         final boolean verbose = Boolean.getBoolean("test.verbose");
 
         /* clear any previous rate limiters */
-        ((NoSQLHandleImpl)handle).getClient().enableRateLimiting(false);
+        Client client = ((NoSQLHandleImpl)handle).getClient();
+        client.enableRateLimiting(false, 100.0);
 
         /* configure our handle for rate limiting */
         if (useExternalLimiters == false) {
-            ((NoSQLHandleImpl)handle).getClient().enableRateLimiting(true);
+            client.enableRateLimiting(true, usePercent);
         }
 
         /* limit bursts in tests */
@@ -194,9 +208,6 @@ public class RateLimiterTest extends ProxyTestBase {
                     putRequest.setValue(value);
                     putRequest.setReadRateLimiter(null);
                     putRequest.setWriteRateLimiter(wlim);
-                    if (!useExternalLimiters) {
-                        putRequest.setRateLimiterPercentage(usePercent);
-                    }
                     PutResult pres = handle.put(putRequest);
                     writeUnitsUsed += pres.getWriteUnits();
                     totalDelayedMs += pres.getRateLimitDelayedMs();
@@ -210,9 +221,6 @@ public class RateLimiterTest extends ProxyTestBase {
                     getRequest.setKey(key);
                     getRequest.setReadRateLimiter(rlim);
                     getRequest.setWriteRateLimiter(null);
-                    if (!useExternalLimiters) {
-                        getRequest.setRateLimiterPercentage(usePercent);
-                    }
                     GetResult gres = handle.get(getRequest);
                     readUnitsUsed += gres.getReadUnits();
                     totalDelayedMs += gres.getRateLimitDelayedMs();
@@ -325,9 +333,6 @@ public class RateLimiterTest extends ProxyTestBase {
             }
             queryReq.setReadRateLimiter(rlim);
             queryReq.setWriteRateLimiter(wlim);
-            if (!useExternalLimiters) {
-                queryReq.setRateLimiterPercentage(usePercent);
-            }
             try {
                 do {
                     QueryResult res = handle.query(queryReq);

@@ -65,11 +65,6 @@ public abstract class Request {
      */
     private RateLimiter writeRateLimiter;
 
-    /**
-     * @hidden
-     */
-    private double rateLimiterPercentage;
-
     protected Request() {}
 
     /**
@@ -212,34 +207,6 @@ public abstract class Request {
     }
 
     /**
-     * Sets rate limiter percentage to use for this request.
-     * Cloud service only.
-     * <p>
-     * This setting controls how much of a table's limits this request has
-     * access to.
-     * <p>
-     * This setting is ignored if a rate limiter is set on this request
-     * using {@link #setReadRateLimiter} or {@link #setWriteRateLimiter}.
-     * <p>
-     * This is only used if internal rate limiting is enabled using
-     * {@link NoSQLHandleConfig#setRateLimitingEnabled}.
-     * <p>
-     * The default for this value is the value given to
-     * {@link NoSQLHandleConfig#setDefaultRateLimitingPercentage}, or 100.0
-     * if no default was set.
-     *
-     * @param percent the percentage of table limits to use. This value
-     *        must be positive.
-     */
-    public void setRateLimiterPercentage(double percent) {
-        if (percent <= 0.0) {
-            throw new IllegalArgumentException(
-                "rate limiter percentage must be positive");
-        }
-        rateLimiterPercentage = percent;
-    }
-
-    /**
      * Returns the read rate limiter instance used during this request.
      * Cloud service only.
      * <p>
@@ -273,18 +240,6 @@ public abstract class Request {
      */
     public RateLimiter getWriteRateLimiter() {
         return writeRateLimiter;
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @return percentage to use. 0.0 means full limits (same as 100.0).
-     */
-    public double getRateLimiterPercentage() {
-        if (rateLimiterPercentage <= 0.0) {
-            return 100.0;
-        }
-        return rateLimiterPercentage;
     }
 
     /**
