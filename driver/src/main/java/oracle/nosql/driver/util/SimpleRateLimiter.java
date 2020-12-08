@@ -98,6 +98,9 @@ public class SimpleRateLimiter implements RateLimiter {
 
     @Override
     public double getLimitPerSecond() {
+        if (nanosPerUnit == 0) {
+            return 0.0;
+        }
         return 1_000_000_000.0 / (double)nanosPerUnit;
     }
 

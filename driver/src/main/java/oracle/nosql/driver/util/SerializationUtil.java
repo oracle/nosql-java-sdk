@@ -14,7 +14,7 @@ import java.lang.reflect.Array;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Utility methods to facilitate serialization/deserialization
@@ -23,9 +23,6 @@ import java.nio.charset.Charset;
  * that is always sorted.
  */
 public class SerializationUtil {
-
-    /* TODO: Use StandardCharsets version in Java 8 */
-    private static final Charset utf8 = Charset.forName("UTF-8");
 
     public static final String EMPTY_STRING = new String();
 
@@ -208,7 +205,7 @@ public class SerializationUtil {
         }
         final byte[] bytes = new byte[length];
         in.readFully(bytes);
-        return utf8.decode(ByteBuffer.wrap(bytes)).toString();
+        return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     /**
@@ -277,7 +274,7 @@ public class SerializationUtil {
         if (value == null) {
             return writePackedInt(out, -1);
         }
-        final ByteBuffer buffer = utf8.encode(value);
+        final ByteBuffer buffer = StandardCharsets.UTF_8.encode(value);
         final int length = buffer.limit();
         int len = writePackedInt(out, length);
         if (length > 0) {

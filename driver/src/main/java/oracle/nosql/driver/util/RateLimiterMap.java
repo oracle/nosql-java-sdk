@@ -71,12 +71,18 @@ public class RateLimiterMap {
             RateLimiter wrl = new SimpleRateLimiter(writeUnits, durationSeconds);
             limiterMap.put(lowerTable, new Entry(rrl, wrl));
         } else {
-            if (rle.readLimiter.getLimitPerSecond() != readUnits) {
-                rle.readLimiter.setLimitPerSecond(readUnits);
+            /*
+             * Set existing limiters to new values. If the new values result in a
+             * different rate than previous, reset the limiters.
+             */
+            double prevRUs = rle.readLimiter.getLimitPerSecond();
+            double prevWUs = rle.writeLimiter.getLimitPerSecond();
+            rle.readLimiter.setLimitPerSecond(readUnits);
+            rle.writeLimiter.setLimitPerSecond(writeUnits);
+            if (rle.readLimiter.getLimitPerSecond() != prevRUs) {
                 rle.readLimiter.reset();
             }
-            if (rle.writeLimiter.getLimitPerSecond() != writeUnits) {
-                rle.writeLimiter.setLimitPerSecond(writeUnits);
+            if (rle.writeLimiter.getLimitPerSecond() != prevWUs) {
                 rle.writeLimiter.reset();
             }
         }
