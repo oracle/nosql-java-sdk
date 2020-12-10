@@ -188,7 +188,7 @@ public class TimestampUtil {
             return zdt.format(getDateTimeFormatter(fmt,
                                                    withZoneUTC,
                                                    optionalFracSecond,
-                                                   false));
+                                                   true));
         } catch (IllegalArgumentException iae) {
             throw new IllegalArgumentException("Failed to format the " +
                 "timestamp with pattern '" + fmt + "': " + iae.getMessage(),

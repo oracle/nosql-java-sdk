@@ -452,7 +452,7 @@ public class ValueTest extends DriverTestBase {
         }
 
         /* Test toJson(JsonOptions) */
-        text = "2017-07-15T15:18:59.123456789";
+        text = "2017-07-15T15:18:59.123456789Z";
         tsv = new TimestampValue(text);
 
         JsonOptions options = new JsonOptions().setTimestampAsString(true);
@@ -853,7 +853,7 @@ public class ValueTest extends DriverTestBase {
         assertSize(val, 12);
 
         val = new TimestampValue(tsText);
-        assertSize(val, 31);
+        assertSize(val, 32);
 
         val = BooleanValue.trueInstance();
         assertSize(val, 2);

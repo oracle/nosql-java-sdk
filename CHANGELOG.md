@@ -25,7 +25,7 @@ principal with a delegation token for authorization and authentication:
 ### Fixed
 - Ensure that TableLimits is always null in TableResult on-premise.
 - Fixed a problem where SignatureProvider.getAuthorizationString may fail due to an IllegalStateException with error "Timer already cancelled".
-
+- Add timezone offset to the string representation of a TimestampValue to properly conform to ISO 8601 format.
 
 ### Changed
 - DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed 1-second delay) and may be extended.
