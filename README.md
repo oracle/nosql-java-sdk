@@ -55,7 +55,7 @@ See [Oracle NoSQL SDK for Java javadoc](https://oracle.github.io/nosql-java-sdk/
 General documentation about the Oracle NoSQL Database and the Oracle NoSQL Database Cloud Service can be found in these locations:
 
 * [Oracle NoSQL Database Cloud Service](https://docs.oracle.com/en/cloud/paas/nosql-cloud/nosql_dev.html)
-* [Oracle NoSQL Database](https://www.oracle.com/database/technologies/related/nosql.html)
+* [Oracle NoSQL Database On Premise](https://docs.oracle.com/en/database/other-databases/nosql-database/)
 
 ## Connect to the Oracle NoSQL Database
 
@@ -378,6 +378,13 @@ localhost:8090
 ```
 $ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
   -Dexec.args="http://localhost:8090 -useKVProxy"
+```
+
+Run BasicTableExample using the cloud service on region us-ashburn-1
+
+```
+$ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
+  -Dexec.args="us-ashburn-1"
 ```
 
 ### Compile and Run Examples using a Downloaded Release

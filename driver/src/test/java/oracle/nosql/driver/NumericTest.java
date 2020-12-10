@@ -134,10 +134,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, longToIntOK);
         expValues.put(fname, (int)longToIntOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, longToIntFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use DOUBLE for Integer type */
         final double doubleToIntOK = 1.2345678E7d;
@@ -145,10 +145,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, doubleToIntOK);
         expValues.put(fname, (int)doubleToIntOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, doubleToIntFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use NUMBER for Integer type */
         final BigDecimal decimalToIntOK = BigDecimal.valueOf(Integer.MIN_VALUE);
@@ -156,10 +156,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, decimalToIntOK);
         expValues.put(fname, decimalToIntOK.intValue());
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, decimalToIntFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /*
          * Target KV field type: Long
@@ -174,7 +174,7 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, intToLongOK);
         expValues.put(fname, (long)intToLongOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         /* Use DOUBLE for Long type */
         final double doubleToLongOK = 1.234567890123E12d;
@@ -182,10 +182,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, doubleToLongOK);
         expValues.put(fname, (long)doubleToLongOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, doubleToLongFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use NUMBER for Long type */
         final BigDecimal decimalToLongOK = BigDecimal.valueOf(Long.MAX_VALUE);
@@ -193,10 +193,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, decimalToLongOK);
         expValues.put(fname, decimalToLongOK.longValue());
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, decimalToLongFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /*
          * Target KV field type: Float
@@ -212,10 +212,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, intToFloatOK);
         expValues.put(fname, (double)intToFloatOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, intToFloatFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use LONG for Float type */
         final long longToFloatOK = Long.MAX_VALUE;
@@ -223,10 +223,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, longToFloatOK);
         expValues.put(fname, (double)longToFloatOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, longToFloatFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use DOUBLE for Float type */
         final double doubleToFloatOK = -Float.MAX_VALUE;
@@ -234,10 +234,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, doubleToFloatOK);
         expValues.put(fname, doubleToFloatOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, doubleToFloatFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use NUMBER for Float type */
         float flt = 1.23456E2f;
@@ -247,10 +247,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, decimalToFloatOK);
         expValues.put(fname, (double)flt);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, decimalToFloatFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /*
          * Target KV field type: Double
@@ -265,7 +265,7 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, intToDoubleOK);
         expValues.put(fname, (double)intToDoubleOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         /* Use LONG for Double type */
         final long longToDoubleOK = Long.MAX_VALUE;
@@ -273,10 +273,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, longToDoubleOK);
         expValues.put(fname, (double)longToDoubleOK);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, longToDoubleFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /* Use NUMBER for Double type */
         double dbl = Double.MAX_VALUE;
@@ -286,10 +286,10 @@ public class NumericTest extends ProxyTestBase {
 
         value.put(fname, decimalToDoubleOK);
         expValues.put(fname, dbl);
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         value.put(fname, decimalToDoubleFail);
-        putAsOtherNuermicTypeTest(value, false);
+        putAsOtherNumericTypeTest(value, false);
 
         /*
          * Target KV field type: Number
@@ -303,19 +303,19 @@ public class NumericTest extends ProxyTestBase {
         final int intToNumberOK = Integer.MAX_VALUE;
         value.put(fname, intToNumberOK);
         expValues.put(fname, BigDecimal.valueOf(intToNumberOK));
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         /* Use LONG for Number type */
         final long longToNumberOK = Long.MAX_VALUE;
         value.put(fname, longToNumberOK);
         expValues.put(fname, BigDecimal.valueOf(longToNumberOK));
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
 
         /* Use DOUBLE for Number type */
         final double doubleToNumberOK = Double.MAX_VALUE;
         value.put(fname, doubleToNumberOK);
         expValues.put(fname, BigDecimal.valueOf(doubleToNumberOK));
-        putAsOtherNuermicTypeTest(value, true, expValues);
+        putAsOtherNumericTypeTest(value, true, expValues);
     }
 
     /*
@@ -398,21 +398,21 @@ public class NumericTest extends ProxyTestBase {
         assertTrue(expSucceed == delRes.getSuccess());
     }
 
-    private void putAsOtherNuermicTypeTest(MapValue value,
+    private void putAsOtherNumericTypeTest(MapValue value,
                                            boolean shouldSucceed) {
 
-        putAsOtherNuermicTypeTest(value, shouldSucceed, null);
+        putAsOtherNumericTypeTest(value, shouldSucceed, null);
     }
 
-    private void putAsOtherNuermicTypeTest(MapValue value,
+    private void putAsOtherNumericTypeTest(MapValue value,
                                            boolean shouldSucceed,
                                            Map<String, Object> expValues) {
 
-        runPutAsOtherNuermicTypeTest(value, false, shouldSucceed, expValues);
-        runPutAsOtherNuermicTypeTest(value, true, shouldSucceed, expValues);
+        runPutAsOtherNumericTypeTest(value, false, shouldSucceed, expValues);
+        runPutAsOtherNumericTypeTest(value, true, shouldSucceed, expValues);
     }
 
-    private void runPutAsOtherNuermicTypeTest(MapValue value,
+    private void runPutAsOtherNumericTypeTest(MapValue value,
                                               boolean numericAsNumber,
                                               boolean shouldSucceed,
                                               Map<String, Object> expValues){
