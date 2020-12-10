@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","url":"allpackages-index.html"},{"l":"oracle.nosql.driver"},{"l":"oracle.nosql.driver.iam"},{"l":"oracle.nosql.driver.kv"},{"l":"oracle.nosql.driver.ops"},{"l":"oracle.nosql.driver.ops.serde"},{"l":"oracle.nosql.driver.values"}]
