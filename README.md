@@ -299,7 +299,7 @@ public class Quickstart {
                 .setTableLimits(new TableLimits(10, 10, 10));
             /* this call will succeed or throw an exception */
             handle.doTableRequest(tableRequest,
-                                  60000, /* wait up to 60 sec */
+                                  20000, /* wait up to 20 sec */
                                   1000); /* poll once per second */
 
             System.out.println("Created table " + tableName + " ...");
@@ -338,7 +338,7 @@ public class Quickstart {
                 .setStatement("drop table if exists " + tableName);
 
             handle.doTableRequest(tableRequest,
-                                  60000,
+                                  20000,
                                   1000);
             System.out.println("Dropped table " + tableName + ", done...");
         } finally {
