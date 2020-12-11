@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unpublished
+
+### Fixed
+
 ## 5.2.25 - 2020-12-11
 
 ### Added
@@ -26,6 +30,10 @@ principal with a delegation token for authorization and authentication:
 - Ensure that TableLimits is always null in TableResult on-premise.
 - Fixed a problem where SignatureProvider.getAuthorizationString may fail due to an IllegalStateException with error "Timer already cancelled".
 - Add timezone offset to the string representation of a TimestampValue to properly conform to ISO 8601 format.
+- Fixed request timeout in README.md quickstart example. 60s would cause
+problems with some environments
+- Cloud only. Fixed issue where a handle wouldn't fully close because of a lingering
+thread, interfering with process exit
 
 ### Changed
 - DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed 1-second delay) and may be extended.

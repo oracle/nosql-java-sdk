@@ -603,6 +603,7 @@ public class SignatureProvider
 
     @Override
     public void close() {
+        signatureCache.stop(false);
         if (refresher != null) {
             refresher.cancel();
             refresher = null;
