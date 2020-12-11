@@ -226,6 +226,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.0.0-M5</version>
         <configuration>
+          <!-- uncomment below to write stdout to files
+               in target/surefire-reports -->
+          <!-- <redirectTestOutputToFile>true</redirectTestOutputToFile> -->
           <workingDirectory>${project.build.directory}/test-run</workingDirectory>
           <systemPropertyVariables>
             <test.serverType>${serverType}</test.serverType>
