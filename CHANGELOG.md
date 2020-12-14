@@ -3,10 +3,6 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unpublished
-
-### Fixed
-
 ## 5.2.25 - 2020-12-11
 
 ### Added

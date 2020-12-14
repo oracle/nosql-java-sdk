@@ -296,6 +296,8 @@
         <version>3.2.0</version>
         <configuration>
           <source>8</source>
+          <doctitle>${project.name} ${project.version}</doctitle>
+          <windowtitle>${project.name} ${project.version}</windowtitle>
           <detectJavaApiLink>false</detectJavaApiLink>
           <!-- exclude these packages.
                TODO: the this list should include

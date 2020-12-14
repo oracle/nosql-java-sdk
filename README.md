@@ -1,6 +1,6 @@
 # Oracle NoSQL SDK for Java
 
-## Overview
+## About
 
 The Oracle NoSQL SDK for Java provides interfaces,
 documentation, and examples to help develop Java
@@ -56,6 +56,10 @@ General documentation about the Oracle NoSQL Database and the Oracle NoSQL Datab
 
 * [Oracle NoSQL Database Cloud Service](https://docs.oracle.com/en/cloud/paas/nosql-cloud/nosql_dev.html)
 * [Oracle NoSQL Database On Premise](https://docs.oracle.com/en/database/other-databases/nosql-database/)
+
+## Changes
+
+See [CHANGELOG](./CHANGELOG.md) for changes in each release.
 
 ## Connect to the Oracle NoSQL Database
 
@@ -399,7 +403,7 @@ Compile Examples:
 
 This requires Oracle Cloud credentials.  Credentials can be provided directly in
 API or in a configuration file. The default configuration in
-examples/Common.java uses a configuration file in ~/.oci.config with the
+examples/Common.java uses a configuration file in ~/.oci/config with the
 following contents:
 
     [DEFAULT]
@@ -454,10 +458,6 @@ started on a different host or port adjust the endpoint accordingly.
 ## Licenses
 
 See the [LICENSE](LICENSE.txt) file.
-
-The following libraries in this download are Oracle
-libraries and are under the OTN developer license, as per the download:
-nosqldriver.jar
 
 The [THIRD\_PARTY\_LICENSES](THIRD_PARTY_LICENSES.txt) file contains third
 party notices and licenses.
