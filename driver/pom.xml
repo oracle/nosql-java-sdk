@@ -52,8 +52,6 @@
    <javac>javac</javac>
   </properties>
 
-  <!-- INSERT DISTRIBUTION MANAGEMENT -->
-
   <profiles>
 
     <!-- test profiles used with the test target
