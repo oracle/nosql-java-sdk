@@ -5,6 +5,25 @@
   <modelVersion>4.0.0</modelVersion>
   <name>Oracle NoSQL Database SDK for Java</name>
   <description>Java examples for Oracle NoSQL Database</description>
+  <url>https://github.com/oracle/nosql-java-sdk</url>
+  <licenses>
+    <license>
+      <name>The Universal Permissive License (UPL), Version 1.0</name>
+      <url>http://www.oracle.com/technetwork/licenses/upl-license-2927578.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>oracle</id>
+      <name>Oracle</name>
+      <organizationUrl>https://www.oracle.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git@github.com:oracle/nosql-java-sdk.git</connection>
+    <url>https://github.com/oracle/nosql-java-sdk</url>
+  </scm>
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
