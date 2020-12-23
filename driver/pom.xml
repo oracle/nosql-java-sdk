@@ -4,12 +4,14 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <name>Oracle NoSQL Database SDK for Java</name>
-  <description>Java examples for Oracle NoSQL Database</description>
+  <description>
+    This project contains the SDK used for Oracle NoSQL Database
+  </description>
   <url>https://github.com/oracle/nosql-java-sdk</url>
   <licenses>
     <license>
       <name>The Universal Permissive License (UPL), Version 1.0</name>
-      <url>http://www.oracle.com/technetwork/licenses/upl-license-2927578.html</url>
+      <url>https://www.oracle.com/downloads/licenses/upl-license1.html</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
