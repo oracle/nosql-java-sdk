@@ -1,5 +1,5 @@
 /*-
- * Copyright (C) 2011, 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
  *
  * This file was distributed by Oracle as part of a version of Oracle NoSQL
  * Database made available at:
