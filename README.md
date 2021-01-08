@@ -95,7 +95,7 @@ You should have the following information in hand:
 The on-premise configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.2/admin/proxy-and-driver.html)
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.3/admin/proxy-and-driver.html)
 for proxy configuration information.
 
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
