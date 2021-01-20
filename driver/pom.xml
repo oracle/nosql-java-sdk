@@ -46,9 +46,9 @@
     <copyright>Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.52.Final</netty.version>
-    <jackson.version>2.11.2</jackson.version>
-    <bouncy.version>1.66</bouncy.version>
+    <netty.version>4.1.58.Final</netty.version>
+    <jackson.version>2.12.1</jackson.version>
+    <bouncy.version>1.68</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>

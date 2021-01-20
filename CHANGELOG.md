@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unpublished
 
+### Changed
+- Updated copyrights to 2021
+- Updated versions of dependencies to latest releases
+- Updated links to Oracle NoSQL Database generic documentation to point to
+current documentation
+
+### Fixed
+- Description for the SDK in the pom file is now correct
+
 ## 5.2.25 - 2020-12-11
 
 ### Added
