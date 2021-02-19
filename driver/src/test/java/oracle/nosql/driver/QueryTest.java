@@ -13,6 +13,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -429,7 +430,7 @@ public class QueryTest extends ProxyTestBase {
                                  numRows /* numReadRows */,
                                  numRows /* numReadKeys */);
         expCnt = 5;
-        //maxReadKBs = new int[] {0, 4, 25, 37, 66};
+        /* maxReadKBs = new int[] {0, 4, 25, 37, 66}; */
         maxReadKBs = new int[] {0};
         for (int maxReadKB : maxReadKBs) {
            executeQuery(query, false /* keyOnly */, false/* indexScan */,
@@ -1041,6 +1042,89 @@ public class QueryTest extends ProxyTestBase {
         QueryRequest req = new QueryRequest().setPreparedStatement(prepRet);
         QueryResult res = handle.query(req);
         assertNotNull(res.getResults());
+    }
+
+    @Test
+    public void testPreparedLongRunning() {
+        final int numMajor = 1;
+        final int numPerMajor = 10;
+        final int recordKB = 2;
+
+        /* This test is only run in specific configurations */
+        assumeTrue(Boolean.getBoolean("test.longrunning"));
+
+        /* Load rows to table */
+        verbose("Loading rows into table...");
+        loadRowsToScanTable(numMajor, numPerMajor, recordKB);
+        verbose("Loaded all rows");
+        String longString = genString(1024);
+
+        /* Update using preparedStatement */
+        String query = "declare $sval string; $sid integer; $id integer;" +
+            "update testTable set longString = $sval " +
+            "where sid = $sid and id = $id returning sid";
+        PrepareRequest prepReq = new PrepareRequest()
+            .setStatement(query);
+        PrepareResult prepRet = handle.prepare(prepReq);
+
+        PreparedStatement ps = prepRet.getPreparedStatement();
+        assertNotNull(ps);
+
+        int total=0;
+        int passed=0;
+        int exceptions=0;
+        int timeouts=0;
+        int nullResults=0;
+        boolean lastPassed = false;
+
+        long runMs = Long.getLong("test.runms", 100000);
+        long delayMs = Long.getLong("test.delayms", 100);
+
+        /* run for N milliseconds, with M milliseconds delay between queries */
+        long startMs = System.currentTimeMillis();
+        while (true) {
+            lastPassed = false;
+            ps.setVariable("$sval", new StringValue(longString))
+                .setVariable("$sid", new IntegerValue(0))
+                .setVariable("$id", new IntegerValue(1));
+
+            try {
+                QueryRequest req = new QueryRequest()
+                                       .setPreparedStatement(prepRet);
+                total++;
+                verbose("Running query #" + total + "...");
+                QueryResult res = handle.query(req);
+                if (res == null) {
+                    verbose(" got null result");
+                    nullResults++;
+                } else {
+                    passed++;
+                    lastPassed = true;
+                }
+            } catch (RequestTimeoutException rte) {
+                /* timeouts are (possibly) expected */
+                timeouts++;
+                verbose(" got request timeout");
+            } catch (Exception e) {
+                exceptions++;
+                verbose(" got exception: " + e);
+            }
+            if ((System.currentTimeMillis() - startMs) > runMs) {
+                break;
+            }
+            try {
+                verbose("Sleeping for " + delayMs + "ms...");
+                Thread.sleep(delayMs);
+            } catch (Exception unused) {}
+        }
+        verbose("Finished: total=" + total + ", pass=" + passed +
+                ", timeouts=" + timeouts + ", exceptions=" + exceptions +
+                ", nullResults=" + nullResults);
+        assertTrue("Unexpected number of exceptions. Expected zero, got " +
+                   exceptions, exceptions == 0);
+        assertTrue("Unexpected number of null results. Expected zero, got " +
+                   nullResults, nullResults == 0);
+        assertTrue("Expected last request to pass, but it failed", lastPassed);
     }
 
     @Test
@@ -1766,7 +1850,7 @@ public class QueryTest extends ProxyTestBase {
             handle.query(req);
             fail("Query should have failed");
         } catch (IllegalArgumentException iae) {
-            // success
+            /* success */
         }
     }
 

@@ -536,4 +536,10 @@ public class ProxyTestBase {
             new GetTableRequest().setTableName(tableName);
         return handle.getTable(getTable);
     }
+
+    protected static void verbose(String msg) {
+        if (verbose) {
+            System.out.println(msg);
+        }
+    }
 }
