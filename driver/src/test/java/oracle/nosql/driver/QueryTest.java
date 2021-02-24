@@ -1418,7 +1418,8 @@ public class QueryTest extends ProxyTestBase {
             fail("Child tables not supported in table names");
         } catch (Exception e) {
             if (onprem) {
-                assertTrue(e instanceof TableNotFoundException);
+                assertTrue((e instanceof TableNotFoundException) ||
+                           (e instanceof IllegalArgumentException));
             } else {
                 assertTrue(e.getMessage().toLowerCase()
                            .contains("child tables"));
