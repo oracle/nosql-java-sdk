@@ -10,6 +10,7 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import java.net.InetSocketAddress;
+
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 
@@ -84,11 +85,17 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                               new HttpClientHandler(client.getLogger()));
 
         if (client.getProxyHost() != null) {
-            p.addFirst("proxyServer", new HttpProxyHandler(
-                           new InetSocketAddress(client.getProxyHost(),
-                                                 client.getProxyPort()),
-                           client.getProxyUsername(),
-                           client.getProxyPassword()));
+            InetSocketAddress sockAddr =
+                new InetSocketAddress(client.getProxyHost(),
+                                      client.getProxyPort());
+            HttpProxyHandler proxyHandler =
+                client.getProxyUsername() == null ?
+                new HttpProxyHandler(sockAddr) :
+                new HttpProxyHandler(sockAddr,
+                                     client.getProxyUsername(),
+                                     client.getProxyPassword());
+
+            p.addFirst("proxyServer", proxyHandler);
         }
     }
 

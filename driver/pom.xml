@@ -153,9 +153,6 @@
         <maven.javadoc.skip>true</maven.javadoc.skip>
       </properties>
     </profile>
-
-    <!-- INSERT RELEASE PROFILE -->
-
   </profiles>
   <dependencies>
 

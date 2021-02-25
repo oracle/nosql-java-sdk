@@ -682,8 +682,9 @@ public class Client {
 
         throw new RequestTimeoutException(timeoutMs,
             "Request timed out after " + kvRequest.getNumRetries() +
-            (kvRequest.getNumRetries() == 1 ? " retry." : " retries.") +
-            kvRequest.getRetryStats(), exception);
+            (kvRequest.getNumRetries() == 1 ? " retry. " : " retries. ") +
+            (kvRequest.getRetryStats() != null ?
+                kvRequest.getRetryStats() : ""), exception);
     }
 
     /**

@@ -48,6 +48,7 @@ class FederationRequestHelper {
     private static final String SIGNING_HEADERS =
         "date (request-target) content-length content-type x-content-sha256";
     private static final String APP_JSON = "application/json";
+    private static final String DEFAULT_FINGERPRINT = "SHA256";
 
     static String getSecurityToken(URI endpoint,
                                    int timeoutMs,
@@ -121,7 +122,8 @@ class FederationRequestHelper {
      *  ],
      *  "certificate": "certificate",
      *  "publicKey": "publicKey",
-     *  "purpose": "purpose"
+     *  "purpose": "purpose",
+     *  "fingerprintAlgorithm", "SHA-256"
      * }
      */
     static String getFederationRequestBody(String publicKey,
@@ -136,6 +138,7 @@ class FederationRequestHelper {
             gen.writeStringField("publicKey", publicKey);
             gen.writeStringField("certificate", certificate);
             gen.writeStringField("purpose", purpose);
+            gen.writeStringField("fingerprintAlgorithm", DEFAULT_FINGERPRINT);
 
             gen.writeFieldName("intermediateCertificates");
             gen.writeStartArray();
@@ -202,7 +205,7 @@ class FederationRequestHelper {
     }
 
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {
-        return String.format("%s/fed-x509/%s",
+        return String.format("%s/fed-x509-sha256/%s",
                              tenantId, Utils.getFingerPrint(pair));
     }
 

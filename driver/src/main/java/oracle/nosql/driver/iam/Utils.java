@@ -300,7 +300,7 @@ class Utils {
     }
 
     /**
-     * Gets the fingerprint of a certificate using Sha1.
+     * Gets the fingerprint of a certificate using SHA-256.
      * @param certificate the certificate
      * @return Fingerprint of the certificate
      * @throws Error if there is an error
@@ -313,7 +313,7 @@ class Utils {
         try {
             String pemCert = keyPair.getRawCertificate();
             byte[] encodedCertificate = getEncodedCertificate(pemCert);
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
             md.update(encodedCertificate);
             String fingerprint = getHex(md.digest());
 

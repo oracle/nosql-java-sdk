@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unpublished
+
+### Changed
+- Cloud only:
+  - Use SHA-256 to generate the fingerprint of instance principal certificate to
+ request IAM security token.
+
+### Fixed
+- Use correct netty constructor when using an HTTP proxy without a username or
+password
+
 ## 5.2.26 - 2021-02-09
 
 ### Changed
