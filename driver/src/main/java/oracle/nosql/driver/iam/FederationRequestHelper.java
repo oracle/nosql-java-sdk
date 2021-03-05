@@ -122,8 +122,8 @@ class FederationRequestHelper {
      *  ],
      *  "certificate": "certificate",
      *  "publicKey": "publicKey",
-     *  "purpose": "purpose",
-     *  "fingerprintAlgorithm", "SHA-256"
+     *  "purpose": "DEFAULT",
+     *  "fingerprintAlgorithm", "SHA256"
      * }
      */
     static String getFederationRequestBody(String publicKey,
