@@ -117,8 +117,9 @@ public class OCIConfigFileReader {
         if (profile != null &&
             !accumulator.configs.containsKey(profile)) {
 
-            throw new IllegalStateException(
-                "No profile named " + profile + " exists in the config file");
+            throw new IllegalArgumentException(
+                "No profile named " + profile +
+                " exists in the OCI configuration file");
         }
 
         return new OCIConfigFile(accumulator, profile);
@@ -167,6 +168,9 @@ public class OCIConfigFileReader {
         private boolean foundDefaultProfile = false;
 
         private void accept(String line) {
+            final String msg =
+                "Invalid line in OCI configuration file, expected " +
+                "\"key=value\" or \"[profile-name]\", found ";
             final String trimmedLine = line.trim();
 
             /* no blank lines */
@@ -185,8 +189,7 @@ public class OCIConfigFileReader {
                     .substring(1, trimmedLine.length() - 1).trim();
 
                 if (currentProfile.isEmpty()) {
-                    throw new IllegalStateException(
-                        "Cannot have empty profile name: " + line);
+                    throw new IllegalArgumentException(msg + "[]");
                 }
                 if (currentProfile.equals(DEFAULT_PROFILE_NAME)) {
                     foundDefaultProfile = true;
@@ -200,21 +203,18 @@ public class OCIConfigFileReader {
 
             final int splitIndex = trimmedLine.indexOf('=');
             if (splitIndex == -1) {
-                throw new IllegalStateException(
-                    "Found line with no key-value pair: " + line);
+                throw new IllegalArgumentException(msg + line);
             }
 
             final String key = trimmedLine.substring(0, splitIndex).trim();
             final String value = trimmedLine.substring(splitIndex + 1).trim();
             if (key.isEmpty()) {
-                throw new IllegalStateException(
-                    "Found line with no key: " + line);
+                throw new IllegalArgumentException(msg + line);
             }
 
             if (currentProfile == null) {
-                throw new IllegalStateException(
-                    "Config parse error, attempted to read configuration" +
-                    "without specifying a profile: " + line);
+                throw new IllegalArgumentException(
+                    "Invalid OCI configuration file: no profile specified");
             }
 
             configs.get(currentProfile).put(key, value);

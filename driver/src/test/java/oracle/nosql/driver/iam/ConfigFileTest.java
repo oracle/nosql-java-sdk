@@ -86,7 +86,7 @@ public class ConfigFileTest extends DriverTestBase {
         try {
             OCIConfigFileReader.parse(config.getPath(), "non-existent");
             fail("expected");
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException e) {
             assertThat(e.getMessage(), "No profile");
         }
     }
@@ -128,8 +128,8 @@ public class ConfigFileTest extends DriverTestBase {
         try {
             OCIConfigFileReader.parse(noleading.getPath());
             fail("expected");
-        } catch (IllegalStateException e) {
-            assertThat(e.getMessage(), "without specifying a profile");
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage(), "no profile specified");
         }
 
         /* line with no value */
@@ -142,8 +142,8 @@ public class ConfigFileTest extends DriverTestBase {
         try {
             OCIConfigFileReader.parse(novalue.getPath());
             fail("expected");
-        } catch (IllegalStateException e) {
-            assertThat(e.getMessage(), "no key-value pair");
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage(), "Invalid line in OCI");
         }
 
         /* line with empty key */
@@ -156,8 +156,8 @@ public class ConfigFileTest extends DriverTestBase {
         try {
             OCIConfigFileReader.parse(nokey.getPath());
             fail("expected");
-        } catch (IllegalStateException e) {
-            assertThat(e.getMessage(), "no key");
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage(), "Invalid line in OCI");
         }
 
         /* empty profile name */
@@ -169,8 +169,8 @@ public class ConfigFileTest extends DriverTestBase {
         try {
             OCIConfigFileReader.parse(noprofileName.getPath());
             fail("expected");
-        } catch (IllegalStateException e) {
-            assertThat(e.getMessage(), "empty profile name");
+        } catch (IllegalArgumentException e) {
+            assertThat(e.getMessage(), "Invalid line in OCI");
         }
     }
 
