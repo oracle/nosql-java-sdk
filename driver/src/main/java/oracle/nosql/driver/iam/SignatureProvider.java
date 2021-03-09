@@ -15,9 +15,13 @@ import static oracle.nosql.driver.iam.Utils.createFormatter;
 import static oracle.nosql.driver.iam.Utils.sign;
 import static oracle.nosql.driver.util.HttpConstants.*;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -399,8 +403,9 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param delegationToken this token allows an instance to assume the
-     * privileges of a specific user and act on-behalf-of that user
+     * @param delegationToken the string of delegation token that allows an
+     * instance to assume the privileges of a specific user and act
+     * on-behalf-of that user
      *
      * @return SignatureProvider
      */
@@ -433,8 +438,9 @@ public class SignatureProvider
      * the URI if you need to overwrite the default, or encounter the
      * <code>Invalid IAM URI</code> error.
      * @param region the region to use, it may be null
-     * @param delegationToken this token allows an instance to assume the
-     * privileges of a specific user and act on-behalf-of that user
+     * @param delegationToken the string of delegation token that allows an
+     * instance to assume the privileges of a specific user and act
+     * on-behalf-of that user
      * @param logger the logger used by the SignatureProvider.
      *
      * @return SignatureProvider
@@ -453,6 +459,97 @@ public class SignatureProvider
             .build());
         provider.setLogger(logger);
         provider.setDelegationToken(delegationToken);
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using an instance principal with a
+     * delegation token. This constructor may be used when calling the
+     * Oracle NoSQL Database Cloud Service from an Oracle Cloud compute
+     * instance. It authenticates with the instance principal and uses a
+     * security token issued by IAM to do the actual request signing.
+     * The delegation token allows the instance to assume the privileges
+     * of the user for which the token was created.
+     * <p>
+     * When using an instance principal the compartment id (OCID) must be
+     * specified on each request or defaulted by using
+     * {@link NoSQLHandleConfig#setDefaultCompartment}. If the compartment id
+     * is not specified for an operation an exception will be thrown.
+     * <p>
+     * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
+     *
+     * @param delegationTokenFile the file of delegation token that allows
+     * an instance to assume the privileges of a specific user and act
+     * on-behalf-of that user. Note that the file must only contains full
+     * string of the token.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithInstancePrincipalForDelegation(File delegationTokenFile) {
+
+        SignatureProvider provider = new SignatureProvider(
+            InstancePrincipalsProvider.builder().build());
+        String token;
+        try {
+            token = readFile(delegationTokenFile);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(
+                "Unable to read the token from " + delegationTokenFile, e);
+        }
+        provider.setDelegationToken(token);
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using an instance principal with a
+     * delegation token. This constructor may be used when calling the
+     * Oracle NoSQL Database Cloud Service from an Oracle Cloud compute
+     * instance. It authenticates with the instance principal and uses a
+     * security token issued by IAM to do the actual request signing.
+     * The delegation token allows the instance to assume the privileges
+     * of the user for which the token was created.
+     * <p>
+     * When using an instance principal the compartment id (OCID) must be
+     * specified on each request or defaulted by using
+     * {@link NoSQLHandleConfig#setDefaultCompartment}. If the compartment id
+     * is not specified for an operation an exception will be thrown.
+     * <p>
+     * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
+     *
+     * @param iamAuthUri The URI is usually detected automatically, specify
+     * the URI if you need to overwrite the default, or encounter the
+     * <code>Invalid IAM URI</code> error.
+     * @param region the region to use, it may be null
+     * @param delegationTokenFile the file of delegation token that allows
+     * an instance to assume the privileges of a specific user and act
+     * on-behalf-of that user. Note that the file must only contains full
+     * string of the token.
+     * @param logger the logger used by the SignatureProvider.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithInstancePrincipalForDelegation(String iamAuthUri,
+                                                 Region region,
+                                                 File delegationTokenFile,
+                                                 Logger logger) {
+
+        SignatureProvider provider = new SignatureProvider(
+            InstancePrincipalsProvider.builder()
+            .setFederationEndpoint(iamAuthUri)
+            .setLogger(logger)
+            .setRegion(region)
+            .build());
+        provider.setLogger(logger);
+        String token;
+        try {
+            token = readFile(delegationTokenFile);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(
+                "Unable to read the token from " + delegationTokenFile, e);
+        }
+        provider.setDelegationToken(token);
         return provider;
     }
 
@@ -526,7 +623,7 @@ public class SignatureProvider
 
         if (durationSeconds > MAX_ENTRY_LIFE_TIME) {
             throw new IllegalArgumentException(
-                "Access token cannot be cached longer than " +
+                "Signature cannot be cached longer than " +
                 MAX_ENTRY_LIFE_TIME + " seconds");
         }
         this.signatureCache =
@@ -664,6 +761,16 @@ public class SignatureProvider
 
     /* visible for testing */
     void setDelegationToken(String token) {
+        /* simple token format validation */
+        int dot1 = token.indexOf(".");
+        int dot2 = token.indexOf(".", dot1 + 1);
+        int dot3 = token.indexOf(".", dot2 + 1);
+
+        if (dot1 == -1 || dot2 == -1 || dot3 != -1) {
+            throw new IllegalArgumentException(
+                "Given string is not in the valid JWT token format\n" +
+                token);
+        }
         this.delegationToken = token;
     }
 
@@ -743,6 +850,21 @@ public class SignatureProvider
         refresher.schedule(new RefreshTask(), refreshIntervalMs);
     }
 
+    private static String readFile(File file)
+        throws IOException {
+
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(file),
+                                      StandardCharsets.UTF_8))) {
+
+           String line = null;
+           while ((line = reader.readLine()) != null) {
+               sb.append(line);
+           }
+        }
+        return sb.toString();
+    }
     private class RefreshTask extends TimerTask {
 
         @Override

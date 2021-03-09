@@ -198,9 +198,16 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .build();
 
         SignatureProvider sp = new SignatureProvider(provider);
-        String delegationToken = "fake-token";
+        String delegationToken = "token-header.token-payload.token-sig";
         sp.setServiceHost(new NoSQLHandleConfig("http://test"));
         sp.setDelegationToken(delegationToken);
+
+        try {
+            sp.setDelegationToken("bad-token");
+            fail("expected iae");
+        } catch (IllegalArgumentException iae) {
+            assertTrue(iae.getMessage().contains("not in the valid"));
+        }
 
         Request request = new TableRequest();
         request.setCompartmentInternal("compartment");
