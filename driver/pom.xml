@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.2.26</version>
+  <version>5.2.27-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -314,7 +314,7 @@
           <source>8</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>
-          <detectJavaApiLink>false</detectJavaApiLink>
+          <detectJavaApiLink>true</detectJavaApiLink>
           <!-- exclude these packages.
                TODO: the this list should include
                oracle.nosql.driver.ops.serde. The problem is that if added

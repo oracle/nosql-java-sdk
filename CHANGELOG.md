@@ -9,11 +9,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - Added new new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
     - SignatureProvider.createInstancePrincipalForDelegation(File delegationTokenFile)
     - SignatureProvider.createInstancePrincipalForDelegation(String iamAuthUri, Region region, File delegationTokenFile, Logger logger)
+- Added is* methods on FieldValue for convenience checking of whether an instance is
+of a given type, e.g. FieldValue.isInteger(), etc.
 
 ### Changed
 - Cloud only:
   - Use SHA-256 to generate the fingerprint of instance principal certificate to
  request IAM security token.
+ - The atomic value access methods in FieldValue such as getInt(), getLong(), etc will
+ now succeed for all type conversions that do not lose information, doing implicit
+ coercion. Previously they would throw ClassCastException if the FieldValue was not
+ of the specific type.
 
 ### Fixed
 - Use correct netty constructor when using an HTTP proxy without a username or

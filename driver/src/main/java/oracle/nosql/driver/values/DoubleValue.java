@@ -30,6 +30,18 @@ public class DoubleValue extends FieldValue {
         this.value = value;
     }
 
+    /**
+     * Creates a new instance from a String value
+     *
+     * @param value the value to use
+     *
+     * @throws NumberFormatException if the value is not a valid double
+     */
+    public DoubleValue(String value) {
+        super();
+        this.value = Double.parseDouble(value);
+    }
+
     @Override
     public Type getType() {
         return Type.DOUBLE;
@@ -77,6 +89,11 @@ public class DoubleValue extends FieldValue {
     @Override
     public BigDecimal getNumber() {
         return new BigDecimal(value);
+    }
+
+    @Override
+    public String getString() {
+        return toJson(null);
     }
 
     @Override

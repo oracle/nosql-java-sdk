@@ -10,6 +10,8 @@ package oracle.nosql.driver;
 import static oracle.nosql.driver.util.TimestampUtil.formatString;
 import static oracle.nosql.driver.util.TimestampUtil.parseString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -30,6 +32,7 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.FieldValue.Type;
 import oracle.nosql.driver.values.FieldValueEventHandler;
 import oracle.nosql.driver.values.IntegerValue;
+import oracle.nosql.driver.values.JsonNullValue;
 import oracle.nosql.driver.values.JsonOptions;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.LongValue;
@@ -379,8 +382,8 @@ public class ValueTest extends DriverTestBase {
         map2.put("a", "abc");
         try {
             map1.compareTo(map2);
-            fail("Expect to catch ClassCastException but not");
-        } catch (ClassCastException cce) {
+            fail("Expected NumberFormatException");
+        } catch (NumberFormatException cce) {
         }
     }
 
@@ -953,6 +956,137 @@ public class ValueTest extends DriverTestBase {
         } catch (IllegalArgumentException e) {
             // success
         }
+    }
+
+    /*
+     * Test type coercions, all in one place.
+     */
+    @Test
+    public void testTypeCoercion() {
+        FieldValue val = new IntegerValue(0);
+        assertTrue(val.isInteger());
+        assertFalse(val.isLong());
+        assertEquals(val.getInt(), (int)val.getLong());
+        val.getDouble();
+        String sval = val.getString();
+        assertEquals(val, new IntegerValue(sval));
+
+        val = new LongValue(100000);
+        assertFalse(val.isInteger());
+        assertTrue(val.isLong());
+        assertEquals(val.getInt(), (int)val.getLong());
+        val.getDouble();
+        sval = val.getString();
+        assertEquals(val, new LongValue(sval));
+
+        val.getTimestamp(); // will not throw
+
+        /* long value that can't be cast as integer */
+        val = new LongValue((long)Integer.MAX_VALUE + 10L);
+        try {
+            val.getInt();
+            fail("cast should have failed");
+        } catch (ArithmeticException ae) {
+            // success
+        }
+        sval = val.getString();
+        assertEquals(val, new LongValue(sval));
+
+        val = new DoubleValue(5.6);
+        assertFalse(val.isInteger());
+        assertTrue(val.isDouble());
+        assertNotNull((Object) val.getNumber());
+        sval = val.getString();
+        assertEquals(val, new DoubleValue(sval));
+
+        val = new NumberValue(new BigDecimal(777777778888888888999999.677999));
+        assertFalse(val.isInteger());
+        assertTrue(val.isNumber());
+        sval = val.getString();
+        assertEquals(val, new NumberValue(sval));
+
+        val = new StringValue("abc");
+        try {
+            val.getInt();
+            fail("should have thrown nfe");
+        } catch (NumberFormatException nfe) {}
+        try {
+            val.getDouble();
+            fail("should have thrown nfe");
+        } catch (NumberFormatException nfe) {}
+        try {
+            val.getNumber();
+            fail("should have thrown nfe");
+        } catch (NumberFormatException nfe) {}
+        assertFalse(val.getBoolean());
+        val = new StringValue("True");
+        assertTrue(val.getBoolean());
+        val = new StringValue("123456");
+        /* these all throw NFE is they don't convert */
+        val.getInt();
+        val.getLong();
+        val.getDouble();
+        val.getNumber();
+
+        val = new TimestampValue("2017-07-15T15:18:59.123456789");
+        assertTrue(val.isTimestamp());
+        assertFalse(val.isInteger());
+        val.getString();
+        val.getLong();
+        val.getNumber();
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
+
+        val = BooleanValue.trueInstance();
+        val.getString();
+        assertEquals(val, BooleanValue.getInstance(
+                         Boolean.parseBoolean(val.getString())));
+        assertTrue(val.isBoolean());
+        assertFalse(val.isLong());
+
+        val = new MapValue();
+        assertTrue(val.isMap());
+        assertFalse(val.isLong());
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
+
+        val = new ArrayValue();
+        assertTrue(val.isArray());
+        assertFalse(val.isLong());
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
+
+        val = new BinaryValue(new byte[3]);
+        assertTrue(val.isBinary());
+        assertFalse(val.isLong());
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
+
+        val = JsonNullValue.getInstance();
+        assertTrue(val.isJsonNull());
+        assertTrue(val.isAnyNull());
+        assertFalse(val.isNull());
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
+
+        val = NullValue.getInstance();
+        assertFalse(val.isJsonNull());
+        assertTrue(val.isAnyNull());
+        assertTrue(val.isNull());
+        try {
+            val.getInt();
+            fail("Should have thrown cce");
+        } catch (ClassCastException cce) {}
     }
 
     private void assertSize(FieldValue val, int size) {

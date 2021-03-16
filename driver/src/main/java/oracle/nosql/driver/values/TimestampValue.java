@@ -10,6 +10,7 @@ package oracle.nosql.driver.values;
 import static oracle.nosql.driver.util.TimestampUtil.formatString;
 import static oracle.nosql.driver.util.TimestampUtil.parseString;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 import oracle.nosql.driver.util.SizeOf;
@@ -126,6 +127,16 @@ public class TimestampValue extends FieldValue {
     @Override
     public long getLong() {
         return getValue().getTime();
+    }
+
+    /**
+     * Returns a BigDecimal value for this object based on its long value.
+     *
+     * @return the BigDecimal value
+     */
+    @Override
+    public BigDecimal getNumber() {
+        return new BigDecimal(getLong());
     }
 
     /**

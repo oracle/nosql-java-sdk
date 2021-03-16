@@ -35,6 +35,18 @@ public class NumberValue extends FieldValue {
         this.value = NumberUtil.serialize(value);
     }
 
+    /**
+     * Creates a new instance from a String value
+     *
+     * @param value the value to use
+     *
+     * @throws NumberFormatException if the value is not a valid BigDecimal
+     */
+    public NumberValue(String value) {
+        super();
+        this.value = NumberUtil.serialize(new BigDecimal(value));
+    }
+
     @Override
     public Type getType() {
         return Type.NUMBER;
@@ -111,6 +123,11 @@ public class NumberValue extends FieldValue {
             throw new ClassCastException("Object is not a numeric type");
         }
         return getValue().compareTo(otherVal);
+    }
+
+    @Override
+    public String getString() {
+        return toJson(null);
     }
 
     @Override

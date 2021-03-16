@@ -28,6 +28,18 @@ public class IntegerValue extends FieldValue {
         this.value = value;
     }
 
+    /**
+     * Creates a new instance from a String value
+     *
+     * @param value the value to use
+     *
+     * @throws NumberFormatException if the value is not a valid integer
+     */
+    public IntegerValue(String value) {
+        super();
+        this.value = Integer.parseInt(value);
+    }
+
     @Override
     public Type getType() {
         return Type.INTEGER;
@@ -69,6 +81,16 @@ public class IntegerValue extends FieldValue {
     }
 
     /**
+     * Returns a Double value for this object.
+     *
+     * @return the double value
+     */
+    @Override
+    public double getDouble() {
+        return value;
+    }
+
+    /**
      * Returns a BigDecimal value for this object.
      *
      * @return the BigDecimal value
@@ -76,6 +98,11 @@ public class IntegerValue extends FieldValue {
     @Override
     public BigDecimal getNumber() {
         return new BigDecimal(value);
+    }
+
+    @Override
+    public String getString() {
+        return toJson(null);
     }
 
     @Override

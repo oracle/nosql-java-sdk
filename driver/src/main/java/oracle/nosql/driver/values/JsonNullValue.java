@@ -45,6 +45,11 @@ public class JsonNullValue extends FieldValue {
     }
 
     @Override
+    public String getString() {
+        return toJson(null);
+    }
+
+    @Override
     public String toJson(JsonOptions options) {
         return "null";
     }

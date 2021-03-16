@@ -9,6 +9,8 @@ package oracle.nosql.driver.values;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
+import java.math.BigDecimal;
+
 import com.fasterxml.jackson.core.io.CharTypes;
 
 import oracle.nosql.driver.util.SizeOf;
@@ -43,6 +45,31 @@ public class StringValue extends FieldValue {
      */
     public String getValue() {
         return value;
+    }
+
+    @Override
+    public int getInt() {
+        return Integer.parseInt(value);
+    }
+
+    @Override
+    public double getDouble() {
+        return Double.parseDouble(value);
+    }
+
+    @Override
+    public long getLong() {
+        return Long.parseLong(value);
+    }
+
+    @Override
+    public BigDecimal getNumber() {
+        return new BigDecimal(value);
+    }
+
+    @Override
+    public boolean getBoolean() {
+        return Boolean.parseBoolean(value);
     }
 
     @Override

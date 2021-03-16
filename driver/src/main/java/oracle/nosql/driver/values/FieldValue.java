@@ -62,6 +62,18 @@ import oracle.nosql.driver.ops.serde.BinaryProtocol;
  * one another and will allow any lossless mapping without error. Mappings
  * default to the most efficient valid format.
  * <p>
+ * FieldValue has convenience interfaces to return values of atomic types such
+ * as number, string, and boolean. These interfaces will allow implicit type
+ * coercions (e.g. integer to long) as long as the coercion is lossless;
+ * otherwise ClassCastException is thrown. The determination of lossless is
+ * based on both type and actual value. For example a long can return an
+ * integer value as long as the value of the long is a valid integer value.
+ * String coercions always work for atomic types but an atomic type value
+ * cannot always be returned from a string. MapValue, ArrayValue, and
+ * BinaryValue cannot be coerced. BooleanValue can only be coerced to and
+ * from StringValue. If a coercion that can result in loss of information is
+ * desired it should be done manually by the application.
+ * <p>
  * FieldValue instances are not thread-safe. On input, they should not be reused
  * until the operation that uses them has returned.
  */
@@ -111,48 +123,65 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     public abstract Type getType();
 
     /**
-     * Returns an integer value for the field if the value is an
-     * IntegerValue
+     * Returns an integer value for the field if the value can be represented
+     * as a valid integer without loss of information. Numbers are coerced
+     * using Java rules and strings are parsed according to Java rules.
      *
      * @return an integer value
      *
-     * @throws ClassCastException if this is not an IntegerValue
+     * @throws ClassCastException if the coercion cannot be performed based
+     * on the type of the value
+     * @throws ArithmeticException if a numeric coercion would lose information
+     * @throws NumberFormatException if the underlying type is a StringValue
+     * and it cannot be coerced
      */
     public int getInt() {
         return asInteger().getValue();
     }
 
     /**
-     * Returns a long value for the field if the value is a
-     * LongValue or IntegerValue
+     * Returns a long value for the field if the value can be represented
+     * as a valid long without loss of information. Numbers are coerced
+     * using Java rules and strings are parsed according to Java rules.
      *
      * @return a long value
      *
-     * @throws ClassCastException if the value cannot be cast to long without
-     * loss of precision
+     * @throws ClassCastException if the coercion cannot be performed without
+     * loss of information
+     * @throws NumberFormatException if the underlying type is a StringValue
+     * and it cannot be coerced
      */
     public long getLong() {
         return asLong().getValue();
     }
 
     /**
-     * Returns a double value for the field if the value is a
-     * DoubleValue
+     * Returns a double value for the field if the value can be represented
+     * as a valid double without loss of information. Numbers are coerced
+     * using Java rules and strings are parsed according to Java rules.
      *
      * @return a double value
      *
-     * @throws ClassCastException if this is not a DoubleValue
+     * @throws ClassCastException if the coercion cannot be performed without
+     * loss of information
+     * @throws NumberFormatException if the underlying type is a StringValue
+     * and it cannot be coerced
      */
     public double getDouble() {
         return asDouble().getValue();
     }
 
     /**
-     * Returns a BigDecimal value for the field if the value is numeric
+     * Returns a BigDecimal value for the field if the value can be represented
+     * as a valid BigDecimal without loss of information. Numbers are coerced
+     * using Java rules and strings are parsed according to Java rules.
      *
-     * @return a number value
+     * @return a BigDecimal value
      *
-     * @throws ClassCastException if this is not numeric
+     * @throws ClassCastException if the coercion cannot be performed without
+     * loss of information
+     * @throws NumberFormatException if the underlying type is a StringValue
+     * and it cannot be coerced
      */
     public BigDecimal getNumber() {
         return asNumber().getValue();
@@ -184,23 +213,27 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     }
 
     /**
-     * Returns a boolean value for the field if the value is a boolean
+     * Returns a boolean value for the field if the value is a boolean or
+     * a string. If it is a StringValue the rules used for Java
+     * Boolean.parseBoolean() are applied.
      *
      * @return the boolean value
      *
-     * @throws ClassCastException if this is not a BooleanValue
+     * @throws ClassCastException if this is not a BooleanValue or
+     * StringValue
      */
     public boolean getBoolean() {
         return asBoolean().getValue();
     }
 
     /**
-     * Returns a String value for the field if the value is a
-     * StringValue
+     * Returns a String value for the field. The String value cannot be
+     * created for MapValue, ArrayValue and BinaryValue. String values that
+     * are coerced use Java rules for representation.
      *
      * @return a String value
      *
-     * @throws ClassCastException if this is not a StringValue
+     * @throws ClassCastException if this cannot be represented as a String
      */
     public String getString() {
         return asString().getValue();
@@ -211,7 +244,7 @@ public abstract class FieldValue implements Comparable<FieldValue> {
      *
      * @return a Timestamp value
      *
-     * @throws ClassCastException if this is not a Timestamp
+     * @throws ClassCastException if this is not a TimestampValue
      */
     public Timestamp getTimestamp() {
         return asTimestamp().getValue();
@@ -376,6 +409,97 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     }
 
     /**
+     * Returns whether this is an IntegerValue
+     *
+     * @return true if this FieldValue is of type IntegerValue, false otherwise
+     */
+    public boolean isInteger() {
+        return (getType() == Type.INTEGER);
+    }
+
+    /**
+     * Returns whether this is an LongValue
+     *
+     * @return true if this FieldValue is of type LongValue, false otherwise
+     */
+    public boolean isLong() {
+        return (getType() == Type.LONG);
+    }
+
+    /**
+     * Returns whether this is an DoubleValue
+     *
+     * @return true if this FieldValue is of type DoubleValue, false otherwise
+     */
+    public boolean isDouble() {
+        return (getType() == Type.DOUBLE);
+    }
+
+    /**
+     * Returns whether this is an NumberValue
+     *
+     * @return true if this FieldValue is of type NumberValue, false otherwise
+     */
+    public boolean isNumber() {
+        return (getType() == Type.NUMBER);
+    }
+
+    /**
+     * Returns whether this is an BinaryValue
+     *
+     * @return true if this FieldValue is of type BinaryValue, false otherwise
+     */
+    public boolean isBinary() {
+        return (getType() == Type.BINARY);
+    }
+
+    /**
+     * Returns whether this is an BooleanValue
+     *
+     * @return true if this FieldValue is of type BooleanValue, false otherwise
+     */
+    public boolean isBoolean() {
+        return (getType() == Type.BOOLEAN);
+    }
+
+    /**
+     * Returns whether this is an ArrayValue
+     *
+     * @return true if this FieldValue is of type ArrayValue, false otherwise
+     */
+    public boolean isArray() {
+        return (getType() == Type.ARRAY);
+    }
+
+    /**
+     * Returns whether this is an MapValue
+     *
+     * @return true if this FieldValue is of type MapValue, false otherwise
+     */
+    public boolean isMap() {
+        return (getType() == Type.MAP);
+    }
+
+    /**
+     * Returns whether this is an StringValue
+     *
+     * @return true if this FieldValue is of type StringValue, false otherwise
+     */
+    public boolean isString() {
+        return (getType() == Type.STRING);
+    }
+
+    /**
+     * Returns whether this is an TimestampValue
+     *
+     * @return true if this FieldValue is of type TimestampValue, false
+     * otherwise
+     */
+    public boolean isTimestamp() {
+        return (getType() == Type.TIMESTAMP);
+    }
+
+    /**
      * Returns whether this is an atomic value, that is, not an array or map
      * value.
      *
@@ -409,7 +533,7 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     /**
      * Returns whether this is an SQL NULL value.
      *
-     * @return Whether this is an SQL NULL value.
+     * @return true if this FieldValue is of type NullValue, false otherwise
      */
     public boolean isNull() {
         return this == NullValue.getInstance();
@@ -418,11 +542,22 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     /**
      * Returns whether this is a json null value.
      *
-     * @return Whether this is a json null value.
+     * @return true if this FieldValue is of type JsonNullValue, false otherwise
      */
     public boolean isJsonNull() {
         return this == JsonNullValue.getInstance();
     }
+
+    /**
+     * Returns whether this is either a JSON null or a SQL NULL value.
+     *
+     * @return true if this FieldValue is of type NullValue or JsonNullValue,
+     * false otherwise
+     */
+    public boolean isAnyNull() {
+        return isJsonNull() || isNull();
+    }
+
 
     /**
      * @hidden

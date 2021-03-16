@@ -10,6 +10,7 @@ package oracle.nosql.driver.values;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 
 import oracle.nosql.driver.util.SizeOf;
 
@@ -28,6 +29,18 @@ public class LongValue extends FieldValue {
     public LongValue(long value) {
         super();
         this.value = value;
+    }
+
+    /**
+     * Creates a new instance from a String value
+     *
+     * @param value the value to use
+     *
+     * @throws NumberFormatException if the value is not a valid long
+     */
+    public LongValue(String value) {
+        super();
+        this.value = Long.parseLong(value);
     }
 
     @Override
@@ -72,6 +85,16 @@ public class LongValue extends FieldValue {
     }
 
     /**
+     * Returns a Double value for this object.
+     *
+     * @return the double value
+     */
+    @Override
+    public double getDouble() {
+        return value;
+    }
+
+    /**
      * Returns a BigDecimal value for this object.
      *
      * @return the BigDecimal value
@@ -79,6 +102,27 @@ public class LongValue extends FieldValue {
     @Override
     public BigDecimal getNumber() {
         return new BigDecimal(value);
+    }
+
+    @Override
+    public int getInt() {
+        return java.lang.Math.toIntExact(value);
+    }
+
+    @Override
+    public String getString() {
+        return toJson(null);
+    }
+
+    /**
+     * Returns a Timestamp value for this object based on the Timestamp
+     * value of the long value
+     *
+     * @return the Timestamp value
+     */
+    @Override
+    public Timestamp getTimestamp() {
+        return new TimestampValue(value).getTimestamp();
     }
 
     @Override

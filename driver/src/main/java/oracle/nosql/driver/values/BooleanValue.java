@@ -57,6 +57,11 @@ public abstract class BooleanValue extends FieldValue {
     }
 
     @Override
+    public String getString() {
+        return toJson();
+    }
+
+    @Override
     public Type getType() {
         return Type.BOOLEAN;
     }
