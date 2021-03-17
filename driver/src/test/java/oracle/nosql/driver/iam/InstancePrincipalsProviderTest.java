@@ -288,8 +288,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "key pair not present");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "key pair not present");
         }
 
         CertificateSupplier noCert = new CertificateSupplier() {
@@ -312,8 +312,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "certificate not present");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "certificate not present");
         }
 
         CertificateFactory fact = CertificateFactory.getInstance("X.509");
@@ -339,8 +339,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "key not present");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "key not present");
         }
     }
 

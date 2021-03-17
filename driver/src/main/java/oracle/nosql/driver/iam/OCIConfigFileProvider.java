@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +17,6 @@ import java.util.function.Supplier;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.OCIConfigFileReader.OCIConfigFile;
-import oracle.nosql.driver.util.CheckNull;
 
 /**
  * @hidden
@@ -99,13 +100,13 @@ class OCIConfigFileProvider
 
     private OCIConfigFileProvider(OCIConfigFile configFile) {
         String fingerprint = configFile.get(FINGERPRINT_PROP);
-        CheckNull.requireNonNull(fingerprint, missing(FINGERPRINT_PROP));
+        requireNonNullIAE(fingerprint, missing(FINGERPRINT_PROP));
         String tenantId = configFile.get(TENANCY_PROP);
-        CheckNull.requireNonNull(tenantId, missing(TENANCY_PROP));
+        requireNonNullIAE(tenantId, missing(TENANCY_PROP));
         String userId = configFile.get(USER_PROP);
-        CheckNull.requireNonNull(userId, missing(USER_PROP));
+        requireNonNullIAE(userId, missing(USER_PROP));
         String pemFilePath = configFile.get(KEY_FILE_PROP);
-        CheckNull.requireNonNull(pemFilePath, missing(KEY_FILE_PROP));
+        requireNonNullIAE(pemFilePath, missing(KEY_FILE_PROP));
 
         /* passphrase is optional */
         String passPhrase = configFile.get(PASSPHRASE_PROP);
@@ -170,6 +171,7 @@ class OCIConfigFileProvider
     }
 
     private String missing(String propertyName) {
-        return "missing " + propertyName + " in config";
+        return "Required property " + propertyName +
+            " is missing from OCI configuration file";
     }
 }

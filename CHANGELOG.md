@@ -20,6 +20,9 @@ of a given type, e.g. FieldValue.isInteger(), etc.
  now succeed for all type conversions that do not lose information, doing implicit
  coercion. Previously they would throw ClassCastException if the FieldValue was not
  of the specific type.
+ - Some methods that would throw NullPointerException for missing or
+ invalid configurations now throw IllegalArgumentException. Related messages have
+ been clarified.
 
 ### Fixed
 - Use correct netty constructor when using an HTTP proxy without a username or

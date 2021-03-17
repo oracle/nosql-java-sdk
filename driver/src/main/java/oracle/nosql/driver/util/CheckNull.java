@@ -17,4 +17,13 @@ public class CheckNull {
     public static void requireNonNull(Object value, String message) {
         Objects.requireNonNull(value, message);
     }
+
+    /*
+     * throws IAE instead of NPE
+     */
+    public static void requireNonNullIAE(Object value, String message) {
+        if (value == null) {
+            throw new IllegalArgumentException(message);
+        }
+    }
 }

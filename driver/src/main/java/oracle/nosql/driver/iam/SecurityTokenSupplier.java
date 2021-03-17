@@ -8,6 +8,7 @@
 package oracle.nosql.driver.iam;
 
 import static oracle.nosql.driver.iam.Utils.*;
+import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.IOException;
 import java.net.URI;
@@ -26,7 +27,6 @@ import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Refreshable;
 
 import oracle.nosql.driver.iam.SignatureProvider.ResourcePrincipalClaimKeys;
-import oracle.nosql.driver.util.CheckNull;
 
 import com.fasterxml.jackson.core.JsonParser;
 
@@ -62,16 +62,16 @@ class SecurityTokenSupplier {
                           Logger logger) {
 
         this.federationEndpoint = URI.create(federationEndpoint + "/v1/x509");
-        CheckNull.requireNonNull(leafCertSupplier,
+        requireNonNullIAE(leafCertSupplier,
                                  "Certificate supplier cannot be null");
         this.leafCertSupplier = leafCertSupplier;
-        CheckNull.requireNonNull(keyPairSupplier,
+        requireNonNullIAE(keyPairSupplier,
                                  "Keypair supplier cannot be null");
         this.keyPairSupplier = keyPairSupplier;
         this.intermediateCertificateSuppliers = interCertificateSuppliers;
-        CheckNull.requireNonNull(tenantId, "Tenant id cannot be null");
+        requireNonNullIAE(tenantId, "Tenant id cannot be null");
         this.tenantId = tenantId;
-        CheckNull.requireNonNull(purpose, "Purpose cannot be null");
+        requireNonNullIAE(purpose, "Purpose cannot be null");
         this.purpose = purpose;
         this.currentToken = new SecurityToken(null, keyPairSupplier);
         this.timeoutMS = timeoutMS;
@@ -137,20 +137,20 @@ class SecurityTokenSupplier {
 
     private SecurityToken getSecurityTokenFromIAM() {
         KeyPair keyPair = keyPairSupplier.getKeyPair();
-        CheckNull.requireNonNull(keyPair, "Keypair for session not provided");
+        requireNonNullIAE(keyPair, "Keypair for session not provided");
 
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        CheckNull.requireNonNull(publicKey, "Public key not present");
+        requireNonNullIAE(publicKey, "Public key not present");
 
         CertificateSupplier.X509CertificateKeyPair certificateAndKeyPair =
             leafCertSupplier.getCertificateAndKeyPair();
-        CheckNull.requireNonNull(certificateAndKeyPair,
+        requireNonNullIAE(certificateAndKeyPair,
                                  "Certificate and key pair not present");
 
         X509Certificate leafCertificate = certificateAndKeyPair.getCertificate();
-        CheckNull.requireNonNull(leafCertificate,
+        requireNonNullIAE(leafCertificate,
                                  "Leaf certificate not present");
-        CheckNull.requireNonNull(certificateAndKeyPair.getKey(),
+        requireNonNullIAE(certificateAndKeyPair.getKey(),
                                  "Leaf certificate's private key not present");
 
         try {

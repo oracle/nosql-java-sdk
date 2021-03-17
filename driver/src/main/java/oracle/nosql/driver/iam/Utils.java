@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,8 +42,6 @@ import java.util.regex.Pattern;
 
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
-import oracle.nosql.driver.util.CheckNull;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -306,9 +306,9 @@ class Utils {
      * @throws Error if there is an error
      */
     static String getFingerPrint(X509CertificateKeyPair keyPair) {
-        CheckNull.requireNonNull(keyPair.getRawCertificate(),
-                                 "Unable to get certificate finger print, " +
-                                 "raw certificate is null");
+        requireNonNullIAE(keyPair.getRawCertificate(),
+                          "Unable to get certificate finger print, " +
+                          "raw certificate is null");
 
         try {
             String pemCert = keyPair.getRawCertificate();
@@ -367,8 +367,8 @@ class Utils {
      * @return the tenant id.
      */
     static String getTenantId(X509Certificate certificate) {
-        CheckNull.requireNonNull(certificate,
-                                 "Unable to get tenant id, certificate is null");
+        requireNonNullIAE(certificate,
+                          "Unable to get tenant id, certificate is null");
 
         X500Name name = new X500Name(
             certificate.getSubjectX500Principal().getName());

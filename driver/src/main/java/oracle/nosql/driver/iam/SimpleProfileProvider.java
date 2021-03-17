@@ -7,12 +7,13 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
+
 import java.io.InputStream;
 import java.util.function.Supplier;
 
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
-import oracle.nosql.driver.util.CheckNull;
 
 /**
  * @hidden
@@ -57,8 +58,10 @@ class SimpleProfileProvider
 
     @Override
     public String getKeyId() {
-        CheckNull.requireNonNull(tenantId, "missing tenantId");
-        CheckNull.requireNonNull(userId, "missing userId");
+        requireNonNullIAE(tenantId,
+                          "SimpleProfileProvider is missing tenantId");
+        requireNonNullIAE(userId,
+                          "SimpleProfileProvider is missing userId");
         if (!Utils.isValidOcid(getTenantId())) {
             throw new IllegalArgumentException(
                  "Tenant Id" + getTenantId() + "does not match OCID pattern");

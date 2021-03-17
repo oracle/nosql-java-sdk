@@ -71,8 +71,8 @@ public class UserProfileProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "missing tenantId");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "is missing tenantId");
         }
 
         /* malformatted user id */
@@ -94,8 +94,8 @@ public class UserProfileProviderTest extends DriverTestBase {
         try {
             provider.getKeyId();
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "missing userId");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "is missing userId");
         }
     }
 
@@ -161,8 +161,8 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider = new OCIConfigFileProvider(config.getPath(),
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "missing " + TENANCY_PROP);
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), TENANCY_PROP + " is missing");
         }
 
         /* non user id in config */
@@ -178,8 +178,8 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider = new OCIConfigFileProvider(config.getPath(),
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "missing " + USER_PROP);
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), USER_PROP + " is missing");
         }
 
         /* non fingerprint in config */
@@ -195,8 +195,8 @@ public class UserProfileProviderTest extends DriverTestBase {
             provider = new OCIConfigFileProvider(config.getPath(),
                                                  DEFAULT_PROFILE_NAME);
             fail("expected");
-        } catch (NullPointerException npe) {
-            assertThat(npe.getMessage(), "missing " + FINGERPRINT_PROP);
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), FINGERPRINT_PROP + " is missing");
         }
     }
 }

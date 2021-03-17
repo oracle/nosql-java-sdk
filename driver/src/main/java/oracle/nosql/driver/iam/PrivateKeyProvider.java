@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -26,8 +28,6 @@ import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
-
-import oracle.nosql.driver.util.CheckNull;
 
 /**
  * @hidden
@@ -81,7 +81,7 @@ class PrivateKeyProvider {
             PrivateKeyInfo keyInfo;
 
             if (object instanceof PEMEncryptedKeyPair) {
-                CheckNull.requireNonNull(
+                requireNonNullIAE(
                     passphrase,
                     "The provided private key requires a passphrase");
 
