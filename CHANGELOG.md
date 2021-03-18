@@ -27,6 +27,9 @@ of a given type, e.g. FieldValue.isInteger(), etc.
 ### Fixed
 - Use correct netty constructor when using an HTTP proxy without a username or
 password
+- Fixed a problem where the cloud service might succeed when dropping a table
+that does not exist without using "drop table if exists" when it should throw
+TableNotFoundException
 
 ## 5.2.26 - 2021-02-09
 

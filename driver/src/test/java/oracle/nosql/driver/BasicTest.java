@@ -85,6 +85,17 @@ public class BasicTest extends ProxyTestBase {
             assertNotNull(tres.getTableName());
             assertNull(tres.getTableLimits());
 
+            /* drop again without if exists -- should throw */
+            try {
+                tres = tableOperation(handle,
+                                      "drop table testusers",
+                                      null);
+                fail("operation should have thrown");
+            } catch (TableNotFoundException tnfe) {
+                // success
+            }
+
+
             /* Create a table */
             tres = tableOperation(
                 handle,
