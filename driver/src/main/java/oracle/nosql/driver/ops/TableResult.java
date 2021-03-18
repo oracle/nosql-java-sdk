@@ -381,13 +381,6 @@ public class TableResult extends Result {
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForState interrupted: " +
                                          ie.getMessage());
-            } catch (TableNotFoundException tnf) {
-                /* table not found is == DROPPED */
-                if (state == State.DROPPED) {
-                    return new TableResult().setState(State.DROPPED).
-                        setTableName(tableName);
-                }
-                throw tnf;
             }
         } while (!res.getTableState().equals(state));
 
@@ -473,13 +466,6 @@ public class TableResult extends Result {
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());
-            } catch (TableNotFoundException tnf) {
-                /*
-                 * The operation was probably a drop. There was an operationId,
-                 * which means that the table existed when the original
-                 * request was made. Throwing tnf doesn't add value here.
-                 */
-                state = State.DROPPED;
             }
         }
     }
