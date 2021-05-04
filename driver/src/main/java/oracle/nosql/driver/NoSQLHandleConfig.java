@@ -581,8 +581,8 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * Sets the default table request timeout. The default timeout is
-     * 5 seconds. The table request timeout can be specified independently
+     * Sets the default table request timeout.
+     * The table request timeout can be specified independently
      * of that specified by {@link #setRequestTimeout} because table requests can
      * take longer and justify longer timeouts. The default timeout is 10
      * seconds (10000 milliseconds).
@@ -1065,7 +1065,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Sets an HTTP proxy host to be used for the session. If a proxy host
      * is specified a proxy port must also be specified, using
      * {@link #setProxyPort}.
@@ -1080,10 +1079,10 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Sets an HTTP proxy user name if the configured proxy host requires
      * authentication. If a proxy host is not configured this configuration
-     * is ignored.
+     * is ignored. If a proxy user name is configure a proxy password must
+     * also be configured, using {@link #setProxyPassword}.
      *
      * @param proxyUsername the user name
      *
@@ -1095,10 +1094,9 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Sets an HTTP proxy password if the configured proxy host requires
-     * authentication. If a proxy user name is not configured this configuration
-     * is ignored.
+     * authentication. If a proxy password is configured a proxy user name 
+     * must also be configured using {@link #setProxyUsername}.
      *
      * @param proxyPassword the password
      *
@@ -1110,7 +1108,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Sets an HTTP proxy port to be used for the session. If a proxy port
      * is specified a proxy host must also be specified, using
      * {@link #setProxyHost}.

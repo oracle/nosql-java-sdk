@@ -3,7 +3,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unpublished
+## [Unreleased]
+
 ### Added
 - Cloud only:
   - Added new new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
@@ -30,8 +31,14 @@ password
 - Fixed a problem where the cloud service might succeed when dropping a table
 that does not exist without using "drop table if exists" when it should throw
 TableNotFoundException
+- Fixed javadoc for NoSQLHandleConfig.setTableRequestTimeout to remove incorrect statement
+- Unhide NoSQLHandleConfig methods to deal with an HTTP proxy
+ - setProxyHost
+ - setProxyPort
+ - setProxyUsername
+ - setProxyPassword
 
-## 5.2.26 - 2021-02-09
+## [5.2.26] - 2021-02-09
 
 ### Changed
 - Updated copyrights to 2021
@@ -42,7 +49,7 @@ current documentation
 ### Fixed
 - Description for the SDK in the pom file is now correct
 
-## 5.2.25 - 2020-12-11
+## [5.2.25] - 2020-12-11
 
 ### Added
 - Rate Limiting (cloud only):
@@ -74,7 +81,7 @@ thread, interfering with process exit
 - DefaultRetryHandler now uses incremental backoff mechanism (instead of fixed 1-second delay) and may be extended.
 - Updated examples to use doTableRequest() instead of tableRequest() followed by waitForCompletion().
 
-## 5.2.19 - 2020-09-17
+## [5.2.19] - 2020-09-17
 
 ### Added
 - Added NoSQLHandleConfig.get/setMaxContentLength() to allow on-premise
@@ -83,7 +90,7 @@ configuration of a maximum request/response size. It defaults to 32MB.
 ### Fixed
 - Added missing README.md file to release
 
-## 5.2.17 - 2020-08-14
+## [5.2.17] - 2020-08-14
 
 ### Added
 - Added NoSQLHandleConfig.setSSLProtocols() to allow the user to configure preferred SSL protocol
@@ -122,7 +129,7 @@ cases. This prevented use of an intermediate proxy such as Nginx, which validate
 - TableUsageRequest: added validation check that startTime, endTime and limit
 must not be negative value.
 
-## 5.2.11 - 2020-02-10
+## [5.2.11] - 2020-02-10
 
 ### Added
 - OCI Native support for the cloud service
@@ -135,14 +142,14 @@ must not be negative value.
 ### Removed
 - Removed support for IDCS based security in the cloud service
 
-## 5.1.15 - 2019-11-18
+## [5.1.15] - 2019-11-18
 
 ### Changed
 - Enabled SSL hostname verification
 - Reduced logging severityof bad http channels
 - Bundle newer versions of netty and Jackson libraries
 
-## 5.1.12 - 2019-08-20
+## [5.1.12] - 2019-08-20
 ### Fixed
 - Modified MapValue and handling of GetResult and QueryResult to maintain declaration order for fields. For queries, this is the order in which they are selected. For rows it is the declaration order from the initial table creation.
 
@@ -177,6 +184,6 @@ exact schema match is required on a put. The default behavior is false.
   some operations, classes and exceptions are specific to each environment. These are
   noted in updated javadoc.
 
-## 18.277 - 2018-10-04
+## [18.277] - 2018-10-04
 This was the initial release of the Java driver for the Oracle NoSQL Database
 Cloud Service.
