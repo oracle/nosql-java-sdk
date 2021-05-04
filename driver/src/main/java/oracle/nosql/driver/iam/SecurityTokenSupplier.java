@@ -50,6 +50,7 @@ class SecurityTokenSupplier {
     private final SessionKeyPairSupplier keyPairSupplier;
     private final String purpose;
     private volatile SecurityToken currentToken = null;
+    private long tokenExpirationRefreshWindow;
     private final Logger logger;
 
     SecurityTokenSupplier(String federationEndpoint,
@@ -73,7 +74,9 @@ class SecurityTokenSupplier {
         this.tenantId = tenantId;
         requireNonNullIAE(purpose, "Purpose cannot be null");
         this.purpose = purpose;
-        this.currentToken = new SecurityToken(null, keyPairSupplier);
+        this.currentToken = new SecurityToken(null,
+                                              tokenExpirationRefreshWindow,
+                                              keyPairSupplier);
         this.timeoutMS = timeoutMS;
         this.logger = logger;
     }
@@ -84,6 +87,17 @@ class SecurityTokenSupplier {
         }
 
         return refreshAndGetTokenInternal(true);
+    }
+
+    String getCurrentToken() {
+        if (currentToken.isValid(logger, false)) {
+            return currentToken.getSecurityToken();
+        }
+        return null;
+    }
+
+    void setTokenExpirationRefreshWindow(long refreshWindowMS) {
+        this.tokenExpirationRefreshWindow = refreshWindowMS;
     }
 
     private String refreshAndGetTokenInternal(boolean doFinalValidityCheck) {
@@ -176,7 +190,9 @@ class SecurityTokenSupplier {
                 Utils.base64EncodeNoChunking(certificateAndKeyPair),
                 intermediateStrings);
 
-            return new SecurityToken(securityToken, keyPairSupplier);
+            return new SecurityToken(securityToken,
+                                     tokenExpirationRefreshWindow,
+                                     keyPairSupplier);
         } catch (Exception e) {
             throw new IllegalArgumentException(
                 "Failed to get encoded x509 certificate", e);
@@ -206,11 +222,42 @@ class SecurityTokenSupplier {
         private final SessionKeyPairSupplier keyPairSupplier;
         private final String securityToken;
         private final Map<String, String> tokenClaims;
+        private long tokenExpirationRefreshWindow;
+        private long expiryMS = -1;
 
-        SecurityToken(String token, SessionKeyPairSupplier supplier) {
+        SecurityToken(String token,
+                      long refreshWindowMS,
+                      SessionKeyPairSupplier supplier) {
             this.securityToken = token;
             this.keyPairSupplier = supplier;
             this.tokenClaims = parseToken(token);
+            setTokenExpirationRefreshWindow(refreshWindowMS);
+        }
+
+        /*
+         * Parse expiration in token claims and set token expiration refresh
+         * window with specified refresh window. When given refresh window is
+         * larger than the overall lifetime of token, use half of token lifetime
+         * as refresh window instead.
+         */
+        private void setTokenExpirationRefreshWindow(long refreshWindowMS) {
+            if (tokenClaims == null) {
+                return;
+            }
+            if (expiryMS == -1) {
+                String exp = tokenClaims.get("exp");
+                if (exp == null) {
+                    return;
+                }
+                expiryMS = Long.parseLong(exp) * 1000;
+            }
+
+            long lifetime = expiryMS - System.currentTimeMillis();
+            if (lifetime < tokenExpirationRefreshWindow) {
+                tokenExpirationRefreshWindow = lifetime / 2;
+            } else {
+                tokenExpirationRefreshWindow = refreshWindowMS;
+            }
         }
 
         String getSecurityToken() {
@@ -221,23 +268,36 @@ class SecurityTokenSupplier {
             return tokenClaims.get(key);
         }
 
+        boolean isValid(Logger logger) {
+            return isValid(logger, true /* checkPublicKey */);
+        }
+
         /*
          * Return if the current token is still valid
          */
-        boolean isValid(Logger logger) {
+        boolean isValid(Logger logger, boolean checkPublicKey) {
             if (tokenClaims == null) {
                 logTrace(logger, "No security token cached");
                 return false;
             }
 
-            /* if token expired, return false */
-            String exp = tokenClaims.get("exp");
-            if (exp == null) {
+            if (expiryMS == -1) {
                 logTrace(logger, "Security token lack of expiration info");
                 return false;
             }
-            if ((Long.parseLong(exp) * 1000) < System.currentTimeMillis()) {
+
+            long now = System.currentTimeMillis();
+            if ((expiryMS - tokenExpirationRefreshWindow) < now) {
+                logTrace(logger,
+                         "Security token doesn't have enough lifetime" +
+                         ", tokenExpirationRefreshWindow=" +
+                         tokenExpirationRefreshWindow +
+                         ", expiry=" + expiryMS + ", now=" + now);
                 return false;
+            }
+
+            if (!checkPublicKey) {
+                return true;
             }
 
             /*
@@ -354,5 +414,24 @@ class SecurityTokenSupplier {
             parts[2] = jwt.substring(dot2 + 1);
             return parts;
         }
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     */
+    public interface SecurityTokenBasedProvider {
+
+        /**
+         * @hidden
+         * Set token expiration refresh window in milliseconds.
+         *
+         * When refreshing the signature, if the token would expire
+         * within the token expiration refresh window, fetch a new token
+         * before calculating the signature. When token lifetime is
+         * smaller than the specified window, half of token lifetime
+         * will be used.
+         */
+        void setTokenExpirationRefreshWindow(long refreshWindowMS);
     }
 }

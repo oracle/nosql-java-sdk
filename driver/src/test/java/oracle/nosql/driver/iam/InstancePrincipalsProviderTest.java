@@ -8,6 +8,7 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -62,7 +63,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         "\"opc-tag\": \"V1,ocid1.dynamicgroup.oc1..dgroup\"," +
         "\"ttype\": \"x509\"," +
         "\"opc-instance\": \"ocid1.instance.oc1.phx.instance\"," +
-        "\"exp\": 19888762000," +
+        "\"exp\": %s," +
         "\"opc-compartment\": \"TestTenant\"," +
         "\"iat\": 19888762000," +
         "\"jti\": \"jti\"," +
@@ -76,6 +77,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     /* security token response format */
     private static String TOKEN_RESPONSE = "{\"token\": \"%s\"}";
     private static boolean SERVER_ERROR = false;
+    private static boolean EXPIRING_TOKEN = false;
+    private static int REFRESH_WINDOW_SEC = 1;
 
     @BeforeClass
     public static void staticSetUp() throws Exception {
@@ -95,6 +98,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     @Before
     public void setUp() {
         SERVER_ERROR = false;
+        EXPIRING_TOKEN = false;
     }
 
     private static void configHttpServer() {
@@ -130,19 +134,28 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                     writeResponse(exchange,
                                   HttpURLConnection.HTTP_BAD_REQUEST,
                                   "error");
+                } else if (EXPIRING_TOKEN) {
+                    writeResponse(exchange, expiringTokenResponse());
+                } else {
+                    writeResponse(exchange, securityTokenResponse());
                 }
-                writeResponse(exchange, securityTokenResponse());
             }
         });
     }
 
     private static String securityTokenResponse() {
-
         return String.format(TOKEN_RESPONSE, securityToken());
     }
 
     private static String securityToken() {
         return securityToken(TOKEN_PAYLOAD, keypair.getPublicKey());
+    }
+
+    private static String expiringTokenResponse() {
+        return String.format(TOKEN_RESPONSE,
+                             expiringToken(TOKEN_PAYLOAD,
+                                           REFRESH_WINDOW_SEC,
+                                           keypair.getPublicKey()));
     }
 
     private static URLResourceDetails getURLDetails(String url)
@@ -199,8 +212,8 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         SignatureProvider sp = new SignatureProvider(provider);
         String delegationToken = "token-header.token-payload.token-sig";
-        sp.setServiceHost(new NoSQLHandleConfig("http://test"));
         sp.setDelegationToken(delegationToken);
+        sp.prepare(new NoSQLHandleConfig("http://test"));
 
         try {
             sp.setDelegationToken("bad-token");
@@ -373,6 +386,40 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         } catch (IllegalArgumentException iae) {
             assertThat(iae.getMessage(), "Failed to get");
         }
+    }
+
+    @Test
+    public void testValidateKey()
+        throws Exception {
+
+        EXPIRING_TOKEN = true;
+
+        CertificateSupplier leaf = new DefaultCertificateSupplier(
+            getURLDetails(base + "/instance?cert.pem"),
+            getURLDetails(base + "/instance?key.pem"),
+            (char[]) null);
+
+        CertificateSupplier inter = new DefaultCertificateSupplier(
+            getURLDetails(base + "/instance?intermediate.pem"),
+            null,
+            (char[]) null);
+
+        InstancePrincipalsProvider provider =
+            InstancePrincipalsProvider.builder()
+            .setFederationEndpoint(base)
+            .setLeafCertificateSupplier(leaf)
+            .setIntermediateCertificateSuppliers(Collections.singleton(inter))
+            .setTenantId(tenantId)
+            .build();
+        provider.setTokenExpirationRefreshWindow(REFRESH_WINDOW_SEC * 1000);
+        String keyId = provider.getKeyId();
+        long start = System.currentTimeMillis();
+        while ((System.currentTimeMillis() - start) < 3000) {
+            if (!provider.isKeyValid(keyId)) {
+                break;
+            }
+        }
+        assertFalse(provider.isKeyValid(keyId));
     }
 
     @Test

@@ -13,10 +13,10 @@ import java.io.InputStream;
  * @hidden
  * Internal use only
  * <p>
- * The provider to supplies key id and private key that ared used to generate
+ * The provider to supplies key id and private key that are used to generate
  * request signature.
  */
-interface AuthenticationProfileProvider {
+public interface AuthenticationProfileProvider {
 
     /**
      * Returns the keyId used to sign requests.
@@ -42,4 +42,13 @@ interface AuthenticationProfileProvider {
      * @return The passphrase as character array, or null if not applicable
      */
     char[] getPassphraseCharacters();
+
+    /**
+     * Check validity of key identified by given id.
+     * @param keyId key id
+     * @return true if key identified by given id is valid
+     */
+    default boolean isKeyValid(String keyId) {
+        return true;
+    }
 }

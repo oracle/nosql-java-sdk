@@ -8,6 +8,7 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -47,7 +48,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         "\"opc-tag\": \"V1,ocid1.dynamicgroup.oc1..dgroup\"," +
         "\"ttype\": \"x509\"," +
         "\"opc-instance\": \"ocid1.instance.oc1.phx.instance\"," +
-        "\"exp\": 19888762000," +
+        "\"exp\": %s," +
         "\"opc-compartment\": \"TestTenant\"," +
         "\"iat\": 19888762000," +
         "\"jti\": \"jti\"," +
@@ -194,7 +195,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         NoSQLHandleConfig config = new NoSQLHandleConfig(provider);
 
         /* only need for test, NoSQLHandle will set implicitly for users */
-        provider.setServiceHost(config);
+        provider.prepare(config);
 
         GetRequest request = new GetRequest();
         String signature = provider.getAuthorizationString(request);
@@ -206,5 +207,39 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         assertEquals(provider.getResourcePrincipalClaim(
                      ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
                      "tenantId");
+    }
+
+    @Test
+    public void testValidateKey()
+        throws Exception {
+
+        int refreshWindowSec = 1;
+        String token = expiringToken(TOKEN,
+                                     refreshWindowSec,
+                                     keypair.getPublicKey());
+        Path keyFile = Files.write(Paths.get(getTestDir(), "key.pem"),
+                                   keypair.getKey().getBytes(),
+                                   StandardOpenOption.CREATE);
+        SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
+            keyFile.toAbsolutePath().toString(), null);
+        File tokenFile = new File(getTestDir(), "token");
+        Files.write(tokenFile.toPath(), token.getBytes());
+        FileSecurityTokenSupplier fileSupplier =
+            new FileSecurityTokenSupplier(keySupplier,
+                                          tokenFile.getAbsolutePath(),
+                                          null);
+        ResourcePrincipalProvider rpProvider =
+            new ResourcePrincipalProvider(fileSupplier,
+                                          keySupplier,
+                                          Region.US_ASHBURN_1);
+        rpProvider.setTokenExpirationRefreshWindow((refreshWindowSec * 1000));
+        String keyId = rpProvider.getKeyId();
+        long start = System.currentTimeMillis();
+        while ((System.currentTimeMillis() - start) < 3000) {
+            if (!rpProvider.isKeyValid(keyId)) {
+                break;
+            }
+        }
+        assertFalse(rpProvider.isKeyValid(keyId));
     }
 }

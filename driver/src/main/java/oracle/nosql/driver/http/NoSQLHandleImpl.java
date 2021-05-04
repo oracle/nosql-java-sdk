@@ -146,7 +146,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             }
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
-            sigProvider.setServiceHost(config);
+            sigProvider.prepare(config);
             if (sigProvider.getLogger() == null) {
                 sigProvider.setLogger(logger);
             }

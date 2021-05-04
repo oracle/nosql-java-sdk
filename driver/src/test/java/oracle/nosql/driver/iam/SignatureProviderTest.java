@@ -54,7 +54,7 @@ public class SignatureProviderTest extends DriverTestBase {
         } catch (IllegalArgumentException iae) {
             assertThat(iae.getMessage(), "service host");
         }
-        provider.setServiceHost(new NoSQLHandleConfig("http://test"));
+        provider.prepare(new NoSQLHandleConfig("http://test"));
         String authzString = provider.getAuthorizationString(request);
 
         /* default cache duration about 5 mins, string should be the same */
@@ -75,7 +75,7 @@ public class SignatureProviderTest extends DriverTestBase {
             .build(),
             1 /* duration 1 seconds */,
             10 /* 10 ms */);
-        provider.setServiceHost(new NoSQLHandleConfig("http://test"));
+        provider.prepare(new NoSQLHandleConfig("http://test"));
 
         Request request = new TableRequest();
         String authzString = provider.getAuthorizationString(request);

@@ -29,6 +29,7 @@ import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
 import oracle.nosql.driver.util.HttpRequestUtil;
@@ -49,8 +50,10 @@ import io.netty.handler.codec.http.HttpHeaders;
  * compute instance. It authenticates with instance principal and uses security
  * token issued by IAM to do the actual request signing.
  */
-class InstancePrincipalsProvider
-    implements AuthenticationProfileProvider, RegionProvider {
+public class InstancePrincipalsProvider
+    implements AuthenticationProfileProvider,
+               RegionProvider,
+               SecurityTokenBasedProvider {
 
     protected final SecurityTokenSupplier tokenSupplier;
     protected final DefaultSessionKeySupplier sessionKeySupplier;
@@ -70,6 +73,11 @@ class InstancePrincipalsProvider
     }
 
     @Override
+    public boolean isKeyValid(String keyId) {
+        return keyId.equals("ST$" + tokenSupplier.getCurrentToken());
+    }
+
+    @Override
     public InputStream getPrivateKey() {
         return new ByteArrayInputStream(sessionKeySupplier.getPrivateKeyBytes());
     }
@@ -84,11 +92,17 @@ class InstancePrincipalsProvider
         return region;
     }
 
+    @Override
+    public void setTokenExpirationRefreshWindow(long refreshWindowMS) {
+        tokenSupplier.setTokenExpirationRefreshWindow(refreshWindowMS);
+    }
+
     public static InstancePrincipalsProviderBuilder builder() {
         return new InstancePrincipalsProviderBuilder();
     }
 
     /**
+     * @hidden
      * Cloud service only.
      * <p>
      * Builder of InstancePrincipalsProvider

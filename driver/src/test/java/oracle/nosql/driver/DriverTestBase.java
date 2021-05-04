@@ -111,7 +111,19 @@ public class DriverTestBase {
         os.close();
     }
 
+    protected static String securityToken(String payload, PublicKey publicKey) {
+        return securityToken(payload, "19888762000", publicKey);
+    }
+
+    protected static String expiringToken(String payload,
+                                          int expirySec,
+                                          PublicKey publicKey) {
+        long now = System.currentTimeMillis() / 1000;
+        return securityToken(payload, "" + (now + expirySec), publicKey);
+    }
+
     protected static String securityToken(String payload,
+                                          String expirySec,
                                           PublicKey publicKey) {
         String header = "{\"kid\": \"asw_oc1_2019-06-27\",\"alg\": \"RS256\"}";
         String signature = "pseudo-signature";
@@ -119,6 +131,7 @@ public class DriverTestBase {
         RSAPublicKey pk = (RSAPublicKey)publicKey;
         String tokenPayload = String.format(
             payload,
+            expirySec,
             encoder.encodeToString(pk.getModulus().toByteArray()),
             encoder.encodeToString(pk.getPublicExponent().toByteArray()));
 

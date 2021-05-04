@@ -22,19 +22,33 @@ import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
  * @hidden
  * Internal use only
  * <p>
- * This interface to supply security token for resource principal
+ * The class to supply security token for resource principal
  */
-interface ResourcePrincipalTokenSupplier {
+abstract class ResourcePrincipalTokenSupplier {
+    /* Refresh window before token is expired */
+    protected long tokenExpirationRefreshWindow;
 
     /**
      * Return the security token of resource principal.
      */
-    String getSecurityToken();
+    abstract String getSecurityToken();
 
     /**
      * Return the specific claim in security token by given key.
      */
-    String getStringClaim(String key);
+    abstract String getStringClaim(String key);
+
+    /**
+     * Return current cached token.
+     */
+    abstract String getCurrentToken();
+
+    /**
+     * Set token expiration refresh window.
+     */
+    void setTokenExpirationRefreshWindow(long refreshWindowMS) {
+        this.tokenExpirationRefreshWindow = refreshWindowMS;
+    }
 
     /**
      * @hidden
@@ -45,7 +59,7 @@ interface ResourcePrincipalTokenSupplier {
      * <code>com.oracle.bmc.auth.internal.FileBasedResourcePrincipalFederationClient</code>
      */
     static class FileSecurityTokenSupplier
-        implements ResourcePrincipalTokenSupplier {
+        extends ResourcePrincipalTokenSupplier {
 
         private final SessionKeyPairSupplier sessionKeyPairSupplier;
         private final String sessionTokenPath;
@@ -57,7 +71,9 @@ interface ResourcePrincipalTokenSupplier {
                                   Logger logger) {
             this.sessionKeyPairSupplier = sessKeyPairSupplier;
             this.sessionTokenPath = sessionTokenPath;
-            this.securityToken = new SecurityToken(null, sessionKeyPairSupplier);
+            this.securityToken = new SecurityToken(null,
+                                                   tokenExpirationRefreshWindow,
+                                                   sessionKeyPairSupplier);
             this.logger = logger;
         }
 
@@ -73,6 +89,14 @@ interface ResourcePrincipalTokenSupplier {
         public String getStringClaim(String key) {
             refreshAndGetSecurityToken();
             return securityToken.getStringClaim(key);
+        }
+
+        @Override
+        public String getCurrentToken() {
+            if (securityToken.isValid(logger, false)) {
+                return securityToken.getSecurityToken();
+            }
+            return null;
         }
 
         private String refreshAndGetSecurityToken() {
@@ -107,7 +131,9 @@ interface ResourcePrincipalTokenSupplier {
                     "Unable to read session token from " + sessionTokenPath, e);
             }
 
-            return new SecurityToken(sessToken, sessionKeyPairSupplier);
+            return new SecurityToken(sessToken,
+                                     tokenExpirationRefreshWindow,
+                                     sessionKeyPairSupplier);
         }
     }
 
@@ -121,13 +147,14 @@ interface ResourcePrincipalTokenSupplier {
      * <code>com.oracle.bmc.auth.internal.FixedContentResourcePrincipalFederationClient</code>
      */
     static class FixedSecurityTokenSupplier
-        implements ResourcePrincipalTokenSupplier {
+        extends ResourcePrincipalTokenSupplier {
 
         private final SecurityToken securityToken;
 
         FixedSecurityTokenSupplier(SessionKeyPairSupplier sessionKeySupplier,
                                    String sessionToken) {
             this.securityToken = new SecurityToken(sessionToken,
+                                                   tokenExpirationRefreshWindow,
                                                    sessionKeySupplier);
         }
 
@@ -139,6 +166,11 @@ interface ResourcePrincipalTokenSupplier {
         @Override
         public String getStringClaim(String key) {
             return securityToken.getStringClaim(key);
+        }
+
+        @Override
+        public String getCurrentToken() {
+            return securityToken.getSecurityToken();
         }
     }
 }

@@ -17,6 +17,7 @@ import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.ResourcePrincipalTokenSupplier.FileSecurityTokenSupplier;
 import oracle.nosql.driver.iam.ResourcePrincipalTokenSupplier.FixedSecurityTokenSupplier;
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FileKeyPairSupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FixedKeyPairSupplier;
@@ -65,7 +66,9 @@ import oracle.nosql.driver.iam.SessionKeyPairSupplier.FixedKeyPairSupplier;
  * </ul>
  */
 class ResourcePrincipalProvider
-    implements AuthenticationProfileProvider, RegionProvider {
+    implements AuthenticationProfileProvider,
+               RegionProvider,
+               SecurityTokenBasedProvider {
 
     /* Environment variable names used to fetch artifacts */
     private static final String OCI_RESOURCE_PRINCIPAL_VERSION =
@@ -165,6 +168,11 @@ class ResourcePrincipalProvider
     }
 
     @Override
+    public boolean isKeyValid(String keyId) {
+        return keyId.equals("ST$" + tokenSupplier.getCurrentToken());
+    }
+
+    @Override
     public InputStream getPrivateKey() {
         return new ByteArrayInputStream(sessionKeySupplier.getPrivateKeyBytes());
     }
@@ -177,6 +185,11 @@ class ResourcePrincipalProvider
     @Override
     public Region getRegion() {
         return region;
+    }
+
+    @Override
+    public void setTokenExpirationRefreshWindow(long refreshWindowMS) {
+        tokenSupplier.setTokenExpirationRefreshWindow(refreshWindowMS);
     }
 
     /**

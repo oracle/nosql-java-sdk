@@ -32,6 +32,7 @@ import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.LruCache;
 
@@ -110,8 +111,8 @@ public class SignatureProvider
     /* Cache key name */
     private static final String CACHE_KEY = "signature";
 
-    /* Maximum lifetime of signature 300 seconds */
-    protected static final int MAX_ENTRY_LIFE_TIME = 300;
+    /* Maximum lifetime of signature 240 seconds */
+    protected static final int MAX_ENTRY_LIFE_TIME = 240;
 
     /* Default refresh time before signature expiry, 10 seconds*/
     protected static final int DEFAULT_REFRESH_AHEAD = 10000;
@@ -608,8 +609,8 @@ public class SignatureProvider
     }
 
     /*
-     * The constructor that is able to set refresh time before AT expired,
-     * currently this is hidden for simplicity.
+     * The constructor that is able to set refresh time before signature
+     * expire, currently this is hidden for simplicity.
      */
     protected SignatureProvider(AuthenticationProfileProvider profileProvider,
                                 int durationSeconds,
@@ -633,6 +634,10 @@ public class SignatureProvider
         long durationMS = durationSeconds * 1000;
         if (durationMS > refreshAheadMs) {
             this.refreshIntervalMs = durationMS - refreshAheadMs;
+        }
+        if (this.provider instanceof SecurityTokenBasedProvider) {
+            ((SecurityTokenBasedProvider) provider)
+                .setTokenExpirationRefreshWindow(durationMS);
         }
     }
 
@@ -712,13 +717,26 @@ public class SignatureProvider
         return region;
     }
 
-    public SignatureProvider setServiceHost(NoSQLHandleConfig config) {
+    /**
+     * @hidden
+     * Internal use only.
+     * <p>
+     * Prepare SignatureProvider with given NoSQLHandleConfig. It configures
+     * service URL, creates and caches the signature as warm-up. This
+     * method should be called when the NoSQLHandle is created.
+     * @param config
+     * @return this
+     */
+    public SignatureProvider prepare(NoSQLHandleConfig config) {
         URL serviceURL = config.getServiceURL();
         if (serviceURL == null) {
             throw new IllegalArgumentException(
                 "Must set service URL first");
         }
         this.serviceHost = serviceURL.getHost();
+
+        /* creates and caches a signature as warm-up */
+        getSignatureDetailsInternal();
         return this;
     }
 
@@ -783,7 +801,18 @@ public class SignatureProvider
     private SignatureDetails getSignatureDetails() {
         SignatureDetails sigDetails = signatureCache.get(CACHE_KEY);
         if (sigDetails != null) {
-            return sigDetails;
+            if (provider instanceof UserAuthenticationProfileProvider) {
+                return sigDetails;
+            }
+
+            /*
+             * Check key id is still valid and same as latest one.
+             * For instance and resource principal, getKeyId check
+             * validity of security token and refresh if it's expired.
+             */
+            if (provider.isKeyValid(sigDetails.getKeyId())) {
+                return sigDetails;
+            }
         }
 
         return getSignatureDetailsInternal();
@@ -815,7 +844,8 @@ public class SignatureProvider
                                          signature,
                                          SINGATURE_VERSION);
 
-        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
+        SignatureDetails sigDetails =
+            new SignatureDetails(keyId, sigHeader, date);
         signatureCache.put(CACHE_KEY, sigDetails);
         scheduleRefresh();
         return sigDetails;
@@ -898,9 +928,19 @@ public class SignatureProvider
          */
         private String date;
 
-        SignatureDetails(String signatureHeader, String date) {
+        /* Id of key used to sign the request */
+        private String keyId;
+
+        SignatureDetails(String keyId,
+                         String signatureHeader,
+                         String date) {
+            this.keyId = keyId;
             this.signatureHeader = signatureHeader;
             this.date = date;
+        }
+
+        String getKeyId() {
+            return keyId;
         }
 
         String getDate() {

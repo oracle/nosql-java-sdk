@@ -24,6 +24,10 @@ of a given type, e.g. FieldValue.isInteger(), etc.
  - Some methods that would throw NullPointerException for missing or
  invalid configurations now throw IllegalArgumentException. Related messages have
  been clarified.
+ - Changed default duration of signature cache of SignatureProvider from 5 to 4 minutes
+ - NoSQLHandle creation now performs SignatureProvider warm-up that will pre-create
+ and cache the signature. Errors or delays occur during creating signature may
+ result in handle creation failure that would not have happened in previous releases (cloud service only)
 
 ### Fixed
 - Use correct netty constructor when using an HTTP proxy without a username or
@@ -37,6 +41,12 @@ TableNotFoundException
  - setProxyPort
  - setProxyUsername
  - setProxyPassword
+- Cloud service only, instance principal issues:
+  - Fixed an issue where the first request issued using instance principal may take
+ longer than 5 seconds and throw RequestTimeoutException if handle uses the default
+ request timeout.
+  - Fixed a problem where SignatureProvider with instance principal may use expired
+ security token issued by IAM to create signature, which causes InvalidAuthorizationException.
 
 ## [5.2.26] - 2021-02-09
 
