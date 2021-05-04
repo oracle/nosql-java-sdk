@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - Cloud only:
-  - Added new new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
+  - Added new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
     - SignatureProvider.createInstancePrincipalForDelegation(File delegationTokenFile)
     - SignatureProvider.createInstancePrincipalForDelegation(String iamAuthUri, Region region, File delegationTokenFile, Logger logger)
 - Added is* methods on FieldValue for convenience checking of whether an instance is
