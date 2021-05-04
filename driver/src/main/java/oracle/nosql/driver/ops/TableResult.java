@@ -10,7 +10,6 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
-import oracle.nosql.driver.TableNotFoundException;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
