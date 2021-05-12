@@ -59,7 +59,7 @@ import io.netty.handler.codec.http.HttpHeaders;
  * All of this information is required to authenticate and authorize access to
  * the service.
  * <p>
- * There are two mechanisms for providing authorization information:
+ * There are three mechanisms for providing authorization information:
  * <ol>
  * <li>Using a user's identity and optional profile. This authenticates and
  * authorizes the application based on a specific user identity.</li>
@@ -68,13 +68,25 @@ import io.netty.handler.codec.http.HttpHeaders;
  * {@link #createWithInstancePrincipal} and
  * <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
  * </li>
+ * <li>Using a Resource Principal, which is usually done when running
+ * in an OCI Function. See {@link #createWithResourcePrincipal} and
+ * <a href="https://docs.cloud.oracle.com/en-us/iaas/Content/Functions/Tasks/functionsaccessingociresources.htm">Accessing Other Oracle Cloud Infrastructure Resources from Running Functions</a>
+ * </li>
  * </ol>
  * <p>
- * The latter can be simpler to use when running on an OCI compute instance,
- * but limits the ability to use a compartment name vs OCID when naming
- * compartments and tables in {@link Request} classes and when naming tables
- * in queries. A specific user identity is best for naming flexibility,
- * allowing both compartment names and OCIDs.
+ * When using the first one, a User Principal, a default compartment is
+ * used and that is the root compartment of the user's tenancy. If a specific
+ * compartment is used (recommended) it can be specified as a default
+ * or per-request. In addition when using a User Principal compartments can
+ * be named by compartment name vs OCID when naming compartments and tables
+ * in {@link Request} classes and when naming tables in queries.
+ * <p>
+ * When using an Instance Principal or Resource Principal a compartment
+ * must be specified as there is no default for these principal types. In
+ * addition these principal types limit the ability to use a compartment
+ * name vs OCID when naming compartments and tables in {@link Request}
+ * classes and when naming tables
+ * in queries.
  * <p>
  * When using a specific user's identity there are several options to provide
  * the required information:
@@ -143,6 +155,9 @@ public class SignatureProvider
      * profile. The configuration file used is <code>~/.oci/config</code>. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
      * for details of the file's contents and format.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @throws IOException if error loading profile from OCI configuration file
      */
@@ -154,7 +169,10 @@ public class SignatureProvider
      * Creates a SignatureProvider using the specified profile. The
      * configuration file used is <code>~/.oci/config</code>. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
-     * for details of the file's contents and format
+     * for details of the file's contents and format.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @param profileName user profile name
      *
@@ -168,7 +186,10 @@ public class SignatureProvider
      * Creates a SignatureProvider using the specified config file and
      * profile. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
-     * for details of the file's contents and format
+     * for details of the file's contents and format.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @param configFile path of configuration file
      *
@@ -187,6 +208,9 @@ public class SignatureProvider
      * information. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm">Required Keys and OCIDs</a>
      * for details of the required parameters.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @param tenantId tenant id
      *
@@ -218,6 +242,9 @@ public class SignatureProvider
      * information. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm">Required Keys and OCIDs</a>
      * for details of the required parameters.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @param tenantId tenant id
      *
@@ -249,6 +276,9 @@ public class SignatureProvider
      * information. See
      * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/apisigningkey.htm">Required Keys and OCIDs</a>
      * for details of the required parameters.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
      *
      * @param tenantId tenant id
      *
@@ -724,7 +754,7 @@ public class SignatureProvider
      * Prepare SignatureProvider with given NoSQLHandleConfig. It configures
      * service URL, creates and caches the signature as warm-up. This
      * method should be called when the NoSQLHandle is created.
-     * @param config
+     * @param config the configuration
      * @return this
      */
     public SignatureProvider prepare(NoSQLHandleConfig config) {
