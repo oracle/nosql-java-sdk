@@ -1417,13 +1417,8 @@ public class QueryTest extends ProxyTestBase {
                            new TableLimits(10, 10, 10));
             fail("Child tables not supported in table names");
         } catch (Exception e) {
-            if (onprem) {
-                assertTrue((e instanceof TableNotFoundException) ||
-                           (e instanceof IllegalArgumentException));
-            } else {
-                assertTrue(e.getMessage().toLowerCase()
-                           .contains("child tables"));
-            }
+            assertTrue((e instanceof TableNotFoundException) ||
+                       (e instanceof IllegalArgumentException));
         }
     }
 
