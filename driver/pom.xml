@@ -61,8 +61,8 @@
          or a running cloud simulator. Required information:
             o endpoint
          Examples:
-           mvn -Ptest-cloudsim test -DargLine="test.endpoint=http://localhost:8080"
-           mvn -Ptest-onprem test -DargLine="test.endpoint=http://localhost:8090"
+           mvn -Ptest-cloudsim test -DargLine="-Dtest.endpoint=http://localhost:8080"
+           mvn -Ptest-onprem test -DargLine="-Dtest.endpoint=http://localhost:8090"
 
         These tests are not designed to work directly against the cloud service
         as they require a high rate of DDL operations and generally use more
@@ -127,6 +127,7 @@
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java
         </excluded.tests>
+        <maven.buildNumber.doCheck>false</maven.buildNumber.doCheck>
       </properties>
     </profile>
 
@@ -278,7 +279,31 @@
               </customClasspathLayout>
               <mainClass>oracle.nosql.driver.DriverMain</mainClass>
             </manifest>
+            <manifestEntries>
+              <Build-Id>${buildNumber}</Build-Id>
+            </manifestEntries>
           </archive>
+        </configuration>
+      </plugin>
+      <!-- this plugin is used to add Build-Id to the manifest -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>buildnumber-maven-plugin</artifactId>
+        <version>1.4</version>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals>
+              <goal>create</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- allow this to work with local changes, don't update the repo-->
+          <doCheck>false</doCheck>
+          <doUpdate>false</doUpdate>
+          <!-- shorten git changeset to first 8 characters-->
+          <shortRevisionLength>8</shortRevisionLength>
         </configuration>
       </plugin>
       <plugin>

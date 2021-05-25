@@ -68,15 +68,11 @@ public class DriverMain {
     }
 
     /**
-     * Pulls the version string from the manifest. See build.xml for
-     * how this is constructed.
+     * Pulls the version string from the manifest. The version is added
+     * by maven.
      */
     private static String findVersion() {
-        Attributes attrs = findAttributes();
-        if (attrs != null) {
-            return attrs.getValue(Attributes.Name.IMPLEMENTATION_VERSION);
-        }
-        return null;
+        return  NoSQLHandleConfig.class.getPackage().getImplementationVersion();
     }
 
     /**
@@ -106,7 +102,7 @@ public class DriverMain {
                 String title =
                     attrs.getValue(Attributes.Name.IMPLEMENTATION_TITLE);
                 if (title != null &&
-                    title.toLowerCase().contains("nosqldriver")) {
+                    title.toLowerCase().contains("sdk for java")) {
                     return attrs;
                 }
             }

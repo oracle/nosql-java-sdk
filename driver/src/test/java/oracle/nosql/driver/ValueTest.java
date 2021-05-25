@@ -55,16 +55,6 @@ import io.netty.buffer.Unpooled;
 public class ValueTest extends DriverTestBase {
 
     /**
-     * This tests that there's a version string available. It's not
-     * related to Value instances; it just needed a home.
-     */
-    @Test
-    public void testVersionString() {
-        final String version = System.getProperty("driverversion");
-        assertEquals(version, NoSQLHandleConfig.getLibraryVersion());
-    }
-
-    /**
      * Test "Infinity"
      */
     @Test
