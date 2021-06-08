@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.TimeToLive;
@@ -279,6 +280,16 @@ public class PutRequest extends WriteRequest {
         return super.getReturnRowInternal();
     }
 
+    /**
+     * Returns the durability setting for this operation.
+     * On-prem only.
+     *
+     * @return durability, if set. Otherwise null.
+     */
+    public Durability getDurability() {
+        return super.getDurabilityInternal();
+    }
+
     /* setters for WriteRequest fields */
 
     /**
@@ -304,6 +315,20 @@ public class PutRequest extends WriteRequest {
      */
     public PutRequest setReturnRow(boolean value) {
         super.setReturnRowInternal(value);
+        return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * on-prem only.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the kvstore server.
+     *
+     * @return this
+     */
+    public PutRequest setDurability(Durability durability) {
+        super.setDurabilityInternal(durability);
         return this;
     }
 

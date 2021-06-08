@@ -10,6 +10,7 @@ package oracle.nosql.driver.ops.serde;
 import static oracle.nosql.driver.http.Client.trace;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
 import static oracle.nosql.driver.util.BinaryProtocol.ACTIVE;
+import static oracle.nosql.driver.util.BinaryProtocol.AUTO_SCALING;
 import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT;
@@ -17,6 +18,12 @@ import static oracle.nosql.driver.util.BinaryProtocol.CREATING;
 import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPED;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPING;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NO_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.EVOLUTION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_ARGUMENT;
@@ -29,6 +36,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.INVALID_AUTHORIZATION;
 import static oracle.nosql.driver.util.BinaryProtocol.KEY_SIZE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_NOT_SUPPORTED;
+import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 import static oracle.nosql.driver.util.BinaryProtocol.READ_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT_EXCEEDED;
@@ -78,6 +86,7 @@ import java.util.Stack;
 import oracle.nosql.driver.BatchOperationNumberLimitException;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.DeploymentException;
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.EvolutionLimitException;
 import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.IndexExistsException;
@@ -111,6 +120,7 @@ import oracle.nosql.driver.ops.ReadRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableLimits.LimitsMode;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteRequest;
@@ -211,6 +221,13 @@ public class BinaryProtocol {
         out.writeByte(getConsistency(consistency));
     }
 
+    static void writeDurability(ByteOutputStream out,
+                                Durability durability)
+        throws IOException {
+
+        out.writeByte(getDurability(durability));
+    }
+
     static void writeTTL(ByteOutputStream out, TimeToLive ttl)
         throws IOException {
 
@@ -265,6 +282,25 @@ public class BinaryProtocol {
         throws IOException {
 
         out.writeByte(op.ordinal());
+    }
+
+    /**
+     * Writes the mode for TableLimits.
+     * @param out output
+     * @param mode table limits mode
+     * @throws IOException if exception
+     */
+    static void writeLimitsMode(ByteOutputStream out, LimitsMode mode)
+        throws IOException {
+
+        switch (mode) {
+        case PROVISIONED:
+            out.writeByte(PROVISIONED);
+            break;
+        case AUTO_SCALING:
+            out.writeByte(AUTO_SCALING);
+            break;
+        }
     }
 
     static void writeFieldRange(ByteOutputStream out,
@@ -348,6 +384,7 @@ public class BinaryProtocol {
         serializeRequest(writeRq, out);
         writeString(out, writeRq.getTableName());
         out.writeBoolean(writeRq.getReturnRowInternal());
+        writeDurability(out, writeRq.getDurabilityInternal());
     }
 
     /*
@@ -432,6 +469,7 @@ public class BinaryProtocol {
          */
         result.setExistingValue(readFieldValue(in).asMap());
         result.setExistingVersion(readVersion(in));
+        result.setExistingModificationTime(readLong(in));
     }
 
     static void deserializeGeneratedValue(ByteInputStream in,
@@ -459,6 +497,7 @@ public class BinaryProtocol {
                 int readKb = readInt(in);
                 int writeKb = readInt(in);
                 int storageGB = readInt(in);
+                LimitsMode mode = getLimitsMode(in.readByte());
                 /*
                  * on-prem tables may return all 0 because of protocol
                  * limitations that lump the schema with limits. Return
@@ -466,7 +505,7 @@ public class BinaryProtocol {
                  */
                 if (!(readKb == 0 && writeKb == 0 && storageGB == 0)) {
                     result.setTableLimits(
-                        new TableLimits(readKb, writeKb, storageGB));
+                        new TableLimits(readKb, writeKb, storageGB, mode));
                 }
                 result.setSchema(readString(in));
             }
@@ -592,6 +631,47 @@ public class BinaryProtocol {
         return EVENTUAL;
     }
 
+    private static int getDurability(Durability durability) {
+        if (durability == null) {
+            return 0;
+        }
+        int dur = 0;
+        switch (durability.getMasterSync()) {
+            case NO_SYNC:
+                dur = DURABILITY_NO_SYNC;
+                break;
+            case SYNC:
+                dur = DURABILITY_SYNC;
+                break;
+            case WRITE_NO_SYNC:
+                dur = DURABILITY_WRITE_NO_SYNC;
+                break;
+        }
+        switch (durability.getReplicaSync()) {
+            case NO_SYNC:
+                dur |= DURABILITY_NO_SYNC << 2;
+                break;
+            case SYNC:
+                dur |= DURABILITY_SYNC << 2;
+                break;
+            case WRITE_NO_SYNC:
+                dur |= DURABILITY_WRITE_NO_SYNC << 2;
+                break;
+        }
+        switch (durability.getReplicaAck()) {
+            case ALL:
+                dur |= DURABILITY_ALL << 4;
+                break;
+            case NONE:
+                dur |= DURABILITY_NONE << 4;
+                break;
+            case SIMPLE_MAJORITY:
+                dur |= DURABILITY_SIMPLE_MAJORITY << 4;
+                break;
+        }
+        return dur;
+    }
+
     static TableResult.State getTableState(int state) {
         switch (state) {
         case ACTIVE:
@@ -606,6 +686,17 @@ public class BinaryProtocol {
             return TableResult.State.UPDATING;
         default:
             throw new IllegalStateException("Unknown table state " + state);
+        }
+    }
+
+    static TableLimits.LimitsMode getLimitsMode(int mode) {
+        switch (mode) {
+        case PROVISIONED:
+            return TableLimits.LimitsMode.PROVISIONED;
+        case AUTO_SCALING:
+            return TableLimits.LimitsMode.AUTO_SCALING;
+        default:
+            throw new IllegalStateException("Unknown limits mode " + mode);
         }
     }
 

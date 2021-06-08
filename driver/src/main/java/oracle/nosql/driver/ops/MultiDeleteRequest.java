@@ -6,6 +6,7 @@
  */
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -40,6 +41,7 @@ public class MultiDeleteRequest extends Request {
     private byte[] continuationKey;
     private FieldRange range;
     private int maxWriteKB;
+    private Durability durability;
 
     /**
      * Cloud service only.
@@ -192,6 +194,30 @@ public class MultiDeleteRequest extends Request {
     public MultiDeleteRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
         return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * on-prem only.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the kvstore server.
+     *
+     * @return this
+     */
+    public MultiDeleteRequest setDurability(Durability durability) {
+        this.durability = durability;
+        return this;
+    }
+
+    /**
+     * Returns the durability setting for this operation.
+     * On-prem only.
+     *
+     * @return durability, if set. Otherwise null.
+     */
+    public Durability getDurability() {
+        return durability;
     }
 
     /**

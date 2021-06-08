@@ -44,6 +44,7 @@ class GetRequestSerializer extends BinaryProtocol implements Serializer {
             result.setValue(readFieldValue(in).asMap());
             result.setExpirationTime(readLong(in));
             result.setVersion(readVersion(in));
+            result.setModificationTime(readLong(in));
         }
         return result;
     }

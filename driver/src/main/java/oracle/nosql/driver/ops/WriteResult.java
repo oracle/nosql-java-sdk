@@ -19,6 +19,7 @@ import oracle.nosql.driver.values.MapValue;
 public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
+    private long existingModificationTime;
 
     protected WriteResult() {}
 
@@ -37,6 +38,14 @@ public class WriteResult extends Result {
      */
     public MapValue getExistingValueInternal() {
         return existingValue;
+    }
+
+    /**
+     * @hidden
+     * @return the modification time
+     */
+    public long getExistingModificationTimeInternal() {
+        return existingModificationTime;
     }
 
     /*
@@ -60,6 +69,17 @@ public class WriteResult extends Result {
      */
     public WriteResult setExistingValue(MapValue existingValue) {
         this.existingValue = existingValue;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param existingModificationTime the modification time
+     * @return this
+     */
+    public WriteResult setExistingModificationTime(
+        long existingModificationTime) {
+        this.existingModificationTime = existingModificationTime;
         return this;
     }
 }

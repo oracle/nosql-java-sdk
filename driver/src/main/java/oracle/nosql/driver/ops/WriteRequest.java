@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
@@ -24,11 +25,16 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 public abstract class WriteRequest extends Request {
 
     private boolean returnRow;
+    private Durability durability;
 
     protected WriteRequest() {}
 
     protected void setReturnRowInternal(boolean value) {
         this.returnRow = value;
+    }
+
+    protected void setDurabilityInternal(Durability durability) {
+        this.durability = durability;
     }
 
     /* getters are public for access by serializers */
@@ -39,6 +45,14 @@ public abstract class WriteRequest extends Request {
      */
     public boolean getReturnRowInternal() {
         return returnRow;
+    }
+
+    /**
+     * @hidden
+     * @return durability value
+     */
+    public Durability getDurabilityInternal() {
+        return durability;
     }
 
     /**

@@ -38,12 +38,21 @@ import oracle.nosql.driver.NoSQLHandle;
  */
 public class TableLimits {
 
+    /**
+     * Table limits option
+     */
+    public enum LimitsMode {
+        PROVISIONED,
+        AUTO_SCALING;
+    }
+
     private int readUnits;
     private int writeUnits;
     private int storageGB;
+    private LimitsMode mode;
 
     /**
-     * Constructs a TableLimits instance.
+     * Constructs a TableLimits instance for provisioned table.
      *
      * @param readUnits the desired throughput of read operation in terms of
      * read units. A read unit represents 1 eventually consistent read
@@ -61,9 +70,46 @@ public class TableLimits {
     public TableLimits(int readUnits,
                        int writeUnits,
                        int storageGB) {
+        this(readUnits, writeUnits, storageGB, LimitsMode.PROVISIONED);
+    }
+
+    /**
+     * Constructs a TableLimits instance for auto scaling table.
+     *
+     * @param storageGB the maximum storage to be consumed by the table, in
+     * gigabytes
+     */
+    public TableLimits(int storageGB) {
+        this(0, 0, storageGB, LimitsMode.AUTO_SCALING);
+    }
+
+    /**
+     * @hidden
+     * Limits constructor for read from response.
+     *
+     * @param readUnits the desired throughput of read operation in terms of
+     * read units. A read unit represents 1 eventually consistent read
+     * per second for data up to 1 KB in size. A read that is absolutely
+     * consistent is double that, consuming 2 read units for a read of up to
+     * 1 KB in size. See {@link Consistency}.
+     *
+     * @param writeUnits the desired throughput of write operation in terms of
+     * write units. A write unit represents 1 write per second of data up to
+     * 1 KB in size.
+     *
+     * @param storageGB the maximum storage to be consumed by the table, in
+     * gigabytes
+     *
+     * @param mode the limits mode used by the table.
+     */
+    public TableLimits(int readUnits,
+                       int writeUnits,
+                       int storageGB,
+                       LimitsMode mode) {
         this.readUnits = readUnits;
         this.writeUnits = writeUnits;
         this.storageGB = storageGB;
+        this.mode = mode;
     }
 
     /**
@@ -88,6 +134,14 @@ public class TableLimits {
      */
     public int getStorageGB() {
         return storageGB;
+    }
+
+    /**
+     * Returns the limits mode
+     * @return limits mode
+     */
+    public LimitsMode getMode() {
+        return mode;
     }
 
     /**
@@ -136,9 +190,25 @@ public class TableLimits {
      * @hidden
      */
     void validate() {
-        if (readUnits <= 0 || writeUnits <= 0 || storageGB <= 0) {
+        if (storageGB <= 0) {
             throw new IllegalArgumentException(
-                "TableLimits values must be non-negative");
+                "storageGB must be non-negative");
+        }
+        switch (mode) {
+        case PROVISIONED:
+            if (readUnits <= 0 || writeUnits <= 0) {
+                throw new IllegalArgumentException(
+                    "readUnits and writeUnits must be non-negative for " +
+                    "provisioned table");
+            }
+            break;
+        case AUTO_SCALING:
+            if (readUnits > 0 || writeUnits > 0) {
+                throw new IllegalArgumentException(
+                    "Cannot set readUnits or writeUnits for " +
+                    "auto scaling table");
+            }
+            break;
         }
     }
 }

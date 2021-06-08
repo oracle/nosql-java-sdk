@@ -52,6 +52,9 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
         /* The number of operations */
         writeInt(out, num);
 
+        /* Durability setting */
+        writeDurability(out, umRq.getDurability());
+
         /* Operations */
         for (OperationRequest op : umRq.getOperations()) {
             int start = out.getOffset();

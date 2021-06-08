@@ -217,6 +217,15 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
+         * Returns the previous modification time associated with the key if
+         * available.
+         * @return the modification time if set, in milliseconds sine Jan 1, 1970
+         */
+        public long getExistingModificationTime() {
+            return super.getExistingModificationTimeInternal();
+        }
+
+        /**
          * Returns the value generated if the operation created a new value.
          * This can happen if the table contains an identity column or string
          * column declared as a generated UUID. If the table has no such

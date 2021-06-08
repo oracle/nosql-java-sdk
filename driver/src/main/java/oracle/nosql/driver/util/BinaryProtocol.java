@@ -16,10 +16,12 @@ public final class BinaryProtocol {
 
     public static final short QUERY_V1 = 1;
 
+    public static final short V2 = 2;
+
     /**
      * Serial version of the protocol
      */
-    public static final short SERIAL_VERSION = 2;
+    public static final short SERIAL_VERSION = 3;
 
     /**
      * Serial version of the sub-protocol related to queries
@@ -87,6 +89,20 @@ public final class BinaryProtocol {
     public static final int EVENTUAL = 1;
 
     /**
+     * Durability.
+     * note 1-offset is to distinguish between 0 (not set)
+     * and a purposefully set value
+     */
+    /* sync policy */
+    public static final int DURABILITY_SYNC = 1;
+    public static final int DURABILITY_NO_SYNC = 2;
+    public static final int DURABILITY_WRITE_NO_SYNC = 3;
+    /* ack policy */
+    public static final int DURABILITY_ALL = 1;
+    public static final int DURABILITY_NONE = 2;
+    public static final int DURABILITY_SIMPLE_MAJORITY = 3;
+
+    /**
      * Table state
      */
     public static final int ACTIVE = 0;
@@ -94,6 +110,12 @@ public final class BinaryProtocol {
     public static final int DROPPED = 2;
     public static final int DROPPING = 3;
     public static final int UPDATING = 4;
+
+    /**
+     * Table Limits mode
+     */
+    public static final int PROVISIONED = 1;
+    public static final int AUTO_SCALING = 2;
 
     /**
      * Operation state

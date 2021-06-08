@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import oracle.nosql.driver.BatchOperationNumberLimitException;
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -40,6 +41,8 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  * @see NoSQLHandle#writeMultiple
  */
 public class WriteMultipleRequest extends Request {
+
+    private Durability durability;
 
     /* The list of requests */
     private final List<OperationRequest> operations;
@@ -155,6 +158,30 @@ public class WriteMultipleRequest extends Request {
     public void clear() {
         super.setTableNameInternal(null);
         operations.clear();
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * on-prem only.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the kvstore server.
+     *
+     * @return this
+     */
+    public WriteMultipleRequest setDurability(Durability durability) {
+        this.durability = durability;
+        return this;
+    }
+
+    /**
+     * Returns the durability setting for this operation.
+     * On-prem only.
+     *
+     * @return durability, if set. Otherwise null.
+     */
+    public Durability getDurability() {
+        return durability;
     }
 
     /**

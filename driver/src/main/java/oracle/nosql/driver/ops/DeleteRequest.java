@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Version;
@@ -140,6 +141,16 @@ public class DeleteRequest extends WriteRequest {
     }
 
     /**
+     * Returns the durability setting for this operation.
+     * On-prem only.
+     *
+     * @return durability, if set. Otherwise null.
+     */
+    public Durability getDurability() {
+        return super.getDurabilityInternal();
+    }
+
+    /**
      * Sets the table name to use for the operation. This is a required
      * parameter.
      *
@@ -149,6 +160,19 @@ public class DeleteRequest extends WriteRequest {
      */
     public DeleteRequest setTableName(String tableName) {
         super.setTableNameInternal(tableName);
+        return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * on-prem only.
+     *
+     * @param durability the durability value
+     *
+     * @return this
+     */
+    public DeleteRequest setDurability(Durability durability) {
+        super.setDurabilityInternal(durability);
         return this;
     }
 

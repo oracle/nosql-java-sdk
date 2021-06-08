@@ -26,6 +26,7 @@ public class GetResult extends Result {
     private MapValue value;
     private Version version;
     private long expirationTime;
+    private long modificationTime;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -69,6 +70,18 @@ public class GetResult extends Result {
     }
 
     /**
+     * Returns the modification time of the row.
+     * This value is valid only if the operation
+     * successfully returned a row ({@link #getValue} returns non-null).
+     *
+     * @return the modification time in milliseconds since January 1, 1970,
+     * or zero if the row does not exist
+     */
+    public long getModificationTime() {
+        return modificationTime;
+    }
+
+    /**
      * @hidden
      * Internal use only.
      *
@@ -95,6 +108,21 @@ public class GetResult extends Result {
      */
     public GetResult setExpirationTime(long expirationTime) {
         this.expirationTime = expirationTime;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     *
+     * Sets the modification time.
+     *
+     * @param modificationTime the modification time
+     *
+     * @return this
+     */
+    public GetResult setModificationTime(long modificationTime) {
+        this.modificationTime = modificationTime;
         return this;
     }
 

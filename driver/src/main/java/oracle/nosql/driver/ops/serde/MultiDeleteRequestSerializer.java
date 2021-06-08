@@ -29,6 +29,7 @@ class MultiDeleteRequestSerializer extends BinaryProtocol
         writeOpCode(out, OpCode.MULTI_DELETE);
         serializeRequest(mdRq, out);
         writeString(out, mdRq.getTableName());
+        writeDurability(out, mdRq.getDurability());
         writeFieldValue(out, mdRq.getKey());
         writeFieldRange(out, mdRq.getRange());
         writeInt(out, mdRq.getMaxWriteKB());
