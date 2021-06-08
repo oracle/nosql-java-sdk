@@ -11,8 +11,10 @@ import java.io.IOException;
 
 /**
  * Defines the durability characteristics associated with a standalone write
- * (put or update) operation, or in the case of {@link KVStore#execute
- * KVStore.execute} with a set of operations performed in a single transaction.
+ * (put or update) operation.
+ * <p>
+ * This is currently only supported in On-Prem installations. It is ignored
+ * in the cloud service.
  * <p>
  * The overall durability is a function of the {@link SyncPolicy} and {@link
  * ReplicaAckPolicy} in effect for the Master, and the {@link SyncPolicy} in
