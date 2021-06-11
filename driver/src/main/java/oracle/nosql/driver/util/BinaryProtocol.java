@@ -18,10 +18,14 @@ public final class BinaryProtocol {
 
     public static final short V2 = 2;
 
+    public static final short V3 = 3;
+
     /**
-     * Serial version of the protocol
+     * Default serial version of the protocol.
+     * Note the actual version used may be less if the
+     * driver is connected to an older proxy.
      */
-    public static final short SERIAL_VERSION = 3;
+    public static final short DEFAULT_SERIAL_VERSION = V3;
 
     /**
      * Serial version of the sub-protocol related to queries

@@ -10,6 +10,9 @@ package oracle.nosql.driver.http;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
@@ -149,6 +152,8 @@ public class Client {
      * singe thread executor for updating table limits
      */
     private ExecutorService threadPool;
+
+    private short serialVersion = DEFAULT_SERIAL_VERSION;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -837,10 +842,10 @@ public class Client {
         throws IOException {
 
         final ByteOutputStream bos = new ByteOutputStream(content);
-        BinaryProtocol.writeSerialVersion(bos);
+        bos.writeShort(serialVersion);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
-                      BinaryProtocol.getSerialVersion(),
+                      serialVersion,
                       bos);
     }
 
@@ -891,7 +896,7 @@ public class Client {
                 Result res = kvRequest.createDeserializer(factory).
                              deserialize(kvRequest,
                                          in,
-                                         BinaryProtocol.getSerialVersion());
+                                         serialVersion);
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1151,5 +1156,28 @@ public class Client {
                 threadPool = null;
             }
         }
+    }
+
+    /**
+     * @hidden
+     *
+     * Try to decrement the serial protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number.
+     */
+    public boolean decrementSerialVersion() {
+        if (serialVersion == V3) {
+            serialVersion = V2;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public short getSerialVersion() {
+        return serialVersion;
     }
 }

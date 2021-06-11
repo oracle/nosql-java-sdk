@@ -304,8 +304,8 @@ public class BasicTest extends ProxyTestBase {
         try {
             NoSQLHandleConfig config = new NoSQLHandleConfig(url);
             configAuth(config);
-            myhandle = getHandle(config);
             try {
+                myhandle = getHandle(config);
                 PutRequest putRequest = new PutRequest()
                     .setValue(new MapValue().put("id", 1))
                     .setTableName("testusers");

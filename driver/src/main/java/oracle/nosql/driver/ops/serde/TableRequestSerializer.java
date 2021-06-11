@@ -38,7 +38,7 @@ class TableRequestSerializer extends BinaryProtocol implements Serializer {
             out.writeInt(limits.getReadUnits());
             out.writeInt(limits.getWriteUnits());
             out.writeInt(limits.getStorageGB());
-            writeLimitsMode(out, limits.getMode());
+            writeLimitsMode(out, limits.getMode(), serialVersion);
             if (rq.getTableName() != null) {
                 /* table name may exist with limits */
                 out.writeBoolean(true);
@@ -57,6 +57,6 @@ class TableRequestSerializer extends BinaryProtocol implements Serializer {
                                    short serialVersion)
         throws IOException {
 
-        return deserializeTableResult(in);
+        return deserializeTableResult(in, serialVersion);
     }
 }

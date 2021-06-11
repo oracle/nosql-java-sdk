@@ -53,7 +53,7 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
         writeInt(out, num);
 
         /* Durability setting */
-        writeDurability(out, umRq.getDurability());
+        writeDurability(out, umRq.getDurability(), serialVersion);
 
         /* Operations */
         for (OperationRequest op : umRq.getOperations()) {
@@ -89,16 +89,17 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
         if (succeed) {
             int num = readInt(in);
             for (int i = 0; i < num; i++) {
-                umResult.addResult(createOperationResult(in));
+                umResult.addResult(createOperationResult(in, serialVersion));
             }
         } else {
             umResult.setFailedOperationIndex(in.readByte());
-            umResult.addResult(createOperationResult(in));
+            umResult.addResult(createOperationResult(in, serialVersion));
         }
         return umResult;
     }
 
-    private OperationResult createOperationResult(ByteInputStream in)
+    private OperationResult createOperationResult(ByteInputStream in,
+                                                  short serialVersion)
         throws IOException {
 
         OperationResult opResult = new OperationResult();
@@ -115,7 +116,7 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
         }
 
         /* Previous value and version */
-        deserializeWriteResponse(in, opResult);
+        deserializeWriteResponse(in, opResult, serialVersion);
 
         /* Generated value, if present */
         boolean hasGeneratedValue = in.readBoolean();

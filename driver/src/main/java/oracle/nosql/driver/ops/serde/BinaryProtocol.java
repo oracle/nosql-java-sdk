@@ -46,7 +46,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.RESOURCE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.RETRY_AUTHENTICATION;
 import static oracle.nosql.driver.util.BinaryProtocol.ROW_SIZE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.SECURITY_INFO_UNAVAILABLE;
-import static oracle.nosql.driver.util.BinaryProtocol.SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.SERVER_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.SERVICE_UNAVAILABLE;
 import static oracle.nosql.driver.util.BinaryProtocol.SIZE_LIMIT_EXCEEDED;
@@ -73,6 +72,8 @@ import static oracle.nosql.driver.util.BinaryProtocol.TYPE_TIMESTAMP;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
 import static oracle.nosql.driver.util.BinaryProtocol.UPDATING;
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 import static oracle.nosql.driver.util.BinaryProtocol.WRITE_LIMIT_EXCEEDED;
 
@@ -154,14 +155,6 @@ import oracle.nosql.driver.util.SerializationUtil;
  */
 public class BinaryProtocol {
 
-    /**
-     * Serial version of the protocol
-     * @return the version
-     */
-    public static short getSerialVersion() {
-        return SERIAL_VERSION;
-    }
-
     /*
      * Serialization
      */
@@ -222,10 +215,13 @@ public class BinaryProtocol {
     }
 
     static void writeDurability(ByteOutputStream out,
-                                Durability durability)
+                                Durability durability,
+                                short serialVersion)
         throws IOException {
 
-        out.writeByte(getDurability(durability));
+        if (serialVersion > V2) {
+            out.writeByte(getDurability(durability));
+        }
     }
 
     static void writeTTL(ByteOutputStream out, TimeToLive ttl)
@@ -263,16 +259,6 @@ public class BinaryProtocol {
     }
 
     /**
-     * Writes the (short) serial version
-     * @param out output
-     * @throws IOException if exception
-     */
-    public static void writeSerialVersion(ByteOutputStream out)
-        throws IOException {
-        out.writeShort(getSerialVersion());
-    }
-
-    /**
      * Writes the opcode for the operation.
      * @param out output
      * @param op opCode
@@ -290,8 +276,14 @@ public class BinaryProtocol {
      * @param mode table limits mode
      * @throws IOException if exception
      */
-    static void writeLimitsMode(ByteOutputStream out, LimitsMode mode)
+    static void writeLimitsMode(ByteOutputStream out,
+                                LimitsMode mode,
+                                short serialVersion)
         throws IOException {
+
+        if (serialVersion < V3) {
+            return;
+        }
 
         switch (mode) {
         case PROVISIONED:
@@ -378,13 +370,15 @@ public class BinaryProtocol {
      * Writes fields from WriteRequest
      */
     static void serializeWriteRequest(WriteRequest writeRq,
-                                      ByteOutputStream out)
+                                      ByteOutputStream out,
+                                      short serialVersion)
         throws IOException {
 
         serializeRequest(writeRq, out);
         writeString(out, writeRq.getTableName());
         out.writeBoolean(writeRq.getReturnRowInternal());
-        writeDurability(out, writeRq.getDurabilityInternal());
+        writeDurability(out, writeRq.getDurabilityInternal(),
+                        serialVersion);
     }
 
     /*
@@ -456,7 +450,8 @@ public class BinaryProtocol {
     }
 
     static void deserializeWriteResponse(ByteInputStream in,
-                                         WriteResult result)
+                                         WriteResult result,
+                                         short serialVersion)
         throws IOException {
 
         boolean returnInfo = in.readBoolean();
@@ -469,7 +464,11 @@ public class BinaryProtocol {
          */
         result.setExistingValue(readFieldValue(in).asMap());
         result.setExistingVersion(readVersion(in));
-        result.setExistingModificationTime(readLong(in));
+        if (serialVersion > V2) {
+            result.setExistingModificationTime(readLong(in));
+        } else {
+            result.setExistingModificationTime(0);
+        }
     }
 
     static void deserializeGeneratedValue(ByteInputStream in,
@@ -483,7 +482,8 @@ public class BinaryProtocol {
         result.setGeneratedValue(readFieldValue(in));
     }
 
-    static TableResult deserializeTableResult(ByteInputStream in)
+    static TableResult deserializeTableResult(ByteInputStream in,
+                                              short serialVersion)
         throws IOException {
 
         TableResult result = new TableResult();
@@ -497,7 +497,12 @@ public class BinaryProtocol {
                 int readKb = readInt(in);
                 int writeKb = readInt(in);
                 int storageGB = readInt(in);
-                LimitsMode mode = getLimitsMode(in.readByte());
+                LimitsMode mode;
+                if (serialVersion > V2) {
+                    mode = getLimitsMode(in.readByte());
+                } else {
+                    mode = LimitsMode.PROVISIONED;
+                }
                 /*
                  * on-prem tables may return all 0 because of protocol
                  * limitations that lump the schema with limits. Return

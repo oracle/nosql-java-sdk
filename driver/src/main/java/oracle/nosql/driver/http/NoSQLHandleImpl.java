@@ -13,8 +13,10 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
+import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -77,6 +79,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         configSslContext(config);
         configAuthProvider(logger, config);
         client = new Client(logger, config);
+
+        try {
+            /* attempt no-op, verify connection and serial version */
+            verifyConnectionAndSerialVersion();
+        } catch (Exception e) {
+            close();
+            throw e;
+        }
     }
 
     /**
@@ -383,5 +393,44 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     public Client getClient() {
         return client;
+    }
+
+    private void verifyConnectionAndSerialVersion() {
+        /*
+         * issue a getTable request for a (probably) nonexistent table.
+         * Expect a TableNotFound (or a successful response).
+         * If the request returns an IllegalArgumentException, attempt to
+         * decrement the serial protocol version and try again.
+         * This allows the client to work with older versions of the
+         * server/proxy.
+         */
+        try {
+            GetTableRequest getTable =
+                new GetTableRequest().setTableName("noop");
+            getTable(getTable);
+        } catch (IllegalArgumentException iae) {
+            /* onprem auth errors come through this path. */
+            /* TODO: different exceptions for onprem auth */
+            if (iae.getMessage().contains("Missing authentication")) {
+                throw iae;
+            }
+            /* decrement protocol version and try again */
+            if (client.decrementSerialVersion() == false) {
+                throw new NoSQLException("Cannot establish " +
+                    "communication with server: cannot determine protocol " +
+                    "version.");
+            }
+            verifyConnectionAndSerialVersion();
+        } catch (TableNotFoundException e) {
+            /* expected */
+        }
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public short getSerialVersion() {
+        return client.getSerialVersion();
     }
 }
