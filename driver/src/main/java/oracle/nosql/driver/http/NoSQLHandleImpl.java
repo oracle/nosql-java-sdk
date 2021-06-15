@@ -80,6 +80,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         configAuthProvider(logger, config);
         client = new Client(logger, config);
 
+        /* allow for tests to skip connection verification */
+        if (config.getSkipVerifyConnection()) {
+            return;
+        }
+
         try {
             /* attempt no-op, verify connection and serial version */
             verifyConnectionAndSerialVersion();

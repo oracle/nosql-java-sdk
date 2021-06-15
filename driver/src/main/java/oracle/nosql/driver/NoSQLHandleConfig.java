@@ -147,7 +147,7 @@ public class NoSQLHandleConfig implements Cloneable {
     private List<String> ciphers;
 
     /**
-     * The protocols used by the driver, or null if not configured
+     * The SSL protocols used by the driver, or null if not configured
      * by the user.
      */
     private List<String> protocols;
@@ -194,6 +194,11 @@ public class NoSQLHandleConfig implements Cloneable {
     private int proxyPort;
     private String proxyUsername;
     private String proxyPassword;
+
+    /*
+     * Internal use: skip connection verification on handle creation
+     */
+    private boolean skipVerifyConnection;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -1095,7 +1100,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets an HTTP proxy password if the configured proxy host requires
-     * authentication. If a proxy password is configured a proxy user name 
+     * authentication. If a proxy password is configured a proxy user name
      * must also be configured using {@link #setProxyUsername}.
      *
      * @param proxyPassword the password
@@ -1177,6 +1182,23 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public SslContext getSslContext() {
         return sslCtx;
+    }
+
+    /**
+     * @hidden
+     * allow tests to skip connection verification
+     */
+    public NoSQLHandleConfig setSkipVerifyConnection(boolean skip) {
+        this.skipVerifyConnection = true;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * For internal testing use
+     */
+    public boolean getSkipVerifyConnection() {
+        return this.skipVerifyConnection;
     }
 
     @Override
