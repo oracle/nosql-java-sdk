@@ -410,8 +410,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * server/proxy.
          */
         try {
+            /*
+             * Set a specific timeout in case the app set a smaller
+             * table timeout value (a timeout here will mean the
+             * handle creation will fail).
+             */
             GetTableRequest getTable =
-                new GetTableRequest().setTableName("noop");
+                new GetTableRequest().setTableName("noop")
+                                     .setTimeout(20000);
             getTable(getTable);
         } catch (IllegalArgumentException iae) {
             /* onprem auth errors come through this path. */
