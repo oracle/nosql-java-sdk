@@ -53,6 +53,7 @@ import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.WriteThrottlingException;
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -615,6 +616,13 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = re;
                 continue;
+            } catch (UnsupportedProtocolException upe) {
+                /* reduce protocol version and try again */
+                if (decrementSerialVersion() == true) {
+                    exception = upe;
+                    continue;
+                }
+                throw upe;
             } catch (NoSQLException nse) {
                 logFine(logger, "Client execute NoSQLException: " +
                         nse.getMessage());
@@ -624,6 +632,13 @@ public class Client {
                         e.getMessage());
                 throw e;
             } catch (IOException ioe) {
+                /* V2 proxy will return IOException here if V3 is used */
+                String msg = ioe.getMessage();
+                if (msg.contains("Invalid driver serial version") &&
+                    decrementSerialVersion() == true) {
+                    exception = ioe;
+                    continue;
+                }
                 /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
                 logInfo(logger, "Client execution IOException, name: " +

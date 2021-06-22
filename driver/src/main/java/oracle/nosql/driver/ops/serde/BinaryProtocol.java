@@ -71,6 +71,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.TYPE_STRING;
 import static oracle.nosql.driver.util.BinaryProtocol.TYPE_TIMESTAMP;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
+import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.UPDATING;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
@@ -112,6 +113,7 @@ import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.TableSizeException;
 import oracle.nosql.driver.TimeToLive;
 import oracle.nosql.driver.UnauthorizedException;
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -605,6 +607,9 @@ public class BinaryProtocol {
             return new SystemException(msg);
         case BAD_PROTOCOL_MESSAGE:
             return new IllegalArgumentException("Bad protocol message: " + msg);
+        case UNSUPPORTED_PROTOCOL:
+            /* note this is specifically for protocol version mismatches */
+            return new UnsupportedProtocolException(msg);
         case REQUEST_TIMEOUT:
             return new RequestTimeoutException(msg);
         case INVALID_AUTHORIZATION:

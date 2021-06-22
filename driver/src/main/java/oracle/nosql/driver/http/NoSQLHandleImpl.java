@@ -402,12 +402,13 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     private void verifyConnectionAndSerialVersion() {
         /*
-         * issue a getTable request for a (probably) nonexistent table.
+         * Issue a getTable request for a (probably) nonexistent table.
          * Expect a TableNotFound (or a successful response).
-         * If the request returns an IllegalArgumentException, attempt to
-         * decrement the serial protocol version and try again.
-         * This allows the client to work with older versions of the
-         * server/proxy.
+         * Internally, if the response returns an unsupported
+         * protocol exception, it will decrement the serial protocol version
+         * and try again. This allows the client to work with older versions
+         * of the server/proxy.
+         * This will also verify connectivity and auth configuration.
          */
         try {
             /*
@@ -419,19 +420,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 new GetTableRequest().setTableName("noop")
                                      .setTimeout(20000);
             getTable(getTable);
-        } catch (IllegalArgumentException iae) {
-            /* onprem auth errors come through this path. */
-            /* TODO: different exceptions for onprem auth */
-            if (iae.getMessage().contains("Missing authentication")) {
-                throw iae;
-            }
-            /* decrement protocol version and try again */
-            if (client.decrementSerialVersion() == false) {
-                throw new NoSQLException("Cannot establish " +
-                    "communication with server: cannot determine protocol " +
-                    "version.");
-            }
-            verifyConnectionAndSerialVersion();
         } catch (TableNotFoundException e) {
             /* expected */
         }

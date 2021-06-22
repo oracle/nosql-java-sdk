@@ -213,6 +213,10 @@ public final class BinaryProtocol {
     public static final int TENANT_DEPLOYMENT_LIMIT_EXCEEDED = 20;
     /* added in V2 */
     public static final int OPERATION_NOT_SUPPORTED = 21;
+    public static final int ETAG_MISMATCH = 22;
+    public static final int CANNOT_CANCEL_WORK_REQUEST = 23;
+    /* added in V3 */
+    public static final int UNSUPPORTED_PROTOCOL = 24;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

@@ -7,8 +7,6 @@
 
 package oracle.nosql.driver;
 
-import java.io.IOException;
-
 /**
  * Defines the durability characteristics associated with a standalone write
  * (put or update) operation.
@@ -180,6 +178,7 @@ public class Durability {
     /**
      * Returns the transaction synchronization policy to be used on the Master
      * when committing a transaction.
+     * @return the master transaction synchronization policy
      */
     public SyncPolicy getMasterSync() {
         return masterSync;
@@ -188,6 +187,7 @@ public class Durability {
     /**
      * Returns the transaction synchronization policy to be used by the replica
      * as it replays a transaction that needs an acknowledgment.
+     * @return the replica transaction synchronization policy
      */
     public SyncPolicy getReplicaSync() {
         return replicaSync;
@@ -196,6 +196,7 @@ public class Durability {
     /**
      * Returns the replica acknowledgment policy used by the master when
      * committing changes to a replicated environment.
+     * @return the replica acknowledgment policy
      */
     public ReplicaAckPolicy getReplicaAck() {
         return replicaAck;

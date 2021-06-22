@@ -1187,6 +1187,8 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * @hidden
      * allow tests to skip connection verification
+     * @param skip if true, don't verify connection on handle creation
+     * @return this
      */
     public NoSQLHandleConfig setSkipVerifyConnection(boolean skip) {
         this.skipVerifyConnection = true;
@@ -1196,6 +1198,7 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * @hidden
      * For internal testing use
+     * @return if true, don't verify connection on handle creation
      */
     public boolean getSkipVerifyConnection() {
         return this.skipVerifyConnection;
