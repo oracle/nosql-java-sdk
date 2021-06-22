@@ -133,7 +133,7 @@ $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http
 ```
 Using a Cloud Simulator instance on endpoint http://localhost:8080
 ```
-$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsi -endpoint http://localhost:8080
+$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsim -endpoint http://localhost:8080
 ```
 
 
