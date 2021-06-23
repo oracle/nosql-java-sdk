@@ -620,6 +620,9 @@ public class Client {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion() == true) {
                     exception = upe;
+                    logInfo(logger, "Got unsupported protocol error: " +
+                            "decrementing serial version to " +
+                            serialVersion + " and trying again.");
                     continue;
                 }
                 throw upe;
@@ -628,17 +631,20 @@ public class Client {
                         nse.getMessage());
                 throw nse; /* pass through */
             } catch (RuntimeException e) {
+                /* V2 proxy will return IAE here if V3 is used */
+                String msg = e.getMessage();
+                if (msg.contains("Invalid driver serial version") &&
+                    decrementSerialVersion() == true) {
+                    logInfo(logger, "Got invalid serial version: " +
+                            "decrementing serial version to " +
+                            serialVersion + " and trying again.");
+                    exception = e;
+                    continue;
+                }
                 logFine(logger, "Client execute runtime exception: " +
                         e.getMessage());
                 throw e;
             } catch (IOException ioe) {
-                /* V2 proxy will return IOException here if V3 is used */
-                String msg = ioe.getMessage();
-                if (msg.contains("Invalid driver serial version") &&
-                    decrementSerialVersion() == true) {
-                    exception = ioe;
-                    continue;
-                }
                 /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
                 logInfo(logger, "Client execution IOException, name: " +
