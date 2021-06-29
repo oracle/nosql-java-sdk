@@ -195,11 +195,6 @@ public class NoSQLHandleConfig implements Cloneable {
     private String proxyUsername;
     private String proxyPassword;
 
-    /*
-     * Internal use: skip connection verification on handle creation
-     */
-    private boolean skipVerifyConnection;
-
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
      * NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
@@ -1182,26 +1177,6 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public SslContext getSslContext() {
         return sslCtx;
-    }
-
-    /**
-     * @hidden
-     * allow tests to skip connection verification
-     * @param skip if true, don't verify connection on handle creation
-     * @return this
-     */
-    public NoSQLHandleConfig setSkipVerifyConnection(boolean skip) {
-        this.skipVerifyConnection = true;
-        return this;
-    }
-
-    /**
-     * @hidden
-     * For internal testing use
-     * @return if true, don't verify connection on handle creation
-     */
-    public boolean getSkipVerifyConnection() {
-        return this.skipVerifyConnection;
     }
 
     @Override

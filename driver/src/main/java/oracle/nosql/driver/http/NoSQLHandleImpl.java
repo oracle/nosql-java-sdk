@@ -13,10 +13,8 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
-import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
-import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -79,19 +77,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         configSslContext(config);
         configAuthProvider(logger, config);
         client = new Client(logger, config);
-
-        /* allow for tests to skip connection verification */
-        if (config.getSkipVerifyConnection()) {
-            return;
-        }
-
-        try {
-            /* attempt no-op, verify connection and serial version */
-            verifyConnectionAndSerialVersion();
-        } catch (Exception e) {
-            close();
-            throw e;
-        }
     }
 
     /**
@@ -398,31 +383,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     public Client getClient() {
         return client;
-    }
-
-    private void verifyConnectionAndSerialVersion() {
-        /*
-         * Issue a getTable request for a (probably) nonexistent table.
-         * Expect a TableNotFound (or a successful response).
-         * Internally, if the response returns an unsupported
-         * protocol exception, it will decrement the serial protocol version
-         * and try again. This allows the client to work with older versions
-         * of the server/proxy.
-         * This will also verify connectivity and auth configuration.
-         */
-        try {
-            /*
-             * Set a specific timeout in case the app set a smaller
-             * table timeout value (a timeout here will mean the
-             * handle creation will fail).
-             */
-            GetTableRequest getTable =
-                new GetTableRequest().setTableName("noop")
-                                     .setTimeout(20000);
-            getTable(getTable);
-        } catch (TableNotFoundException e) {
-            /* expected */
-        }
     }
 
     /**
