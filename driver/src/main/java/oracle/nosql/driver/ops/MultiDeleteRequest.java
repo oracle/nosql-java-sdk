@@ -35,13 +35,12 @@ import oracle.nosql.driver.values.MapValue;
  * key still require the primary key.
  * @see NoSQLHandle#multiDelete
  */
-public class MultiDeleteRequest extends Request {
+public class MultiDeleteRequest extends DurableRequest {
 
     private MapValue key;
     private byte[] continuationKey;
     private FieldRange range;
     private int maxWriteKB;
-    private Durability durability;
 
     /**
      * Cloud service only.
@@ -206,18 +205,8 @@ public class MultiDeleteRequest extends Request {
      * @return this
      */
     public MultiDeleteRequest setDurability(Durability durability) {
-        this.durability = durability;
+        setDurabilityInternal(durability);
         return this;
-    }
-
-    /**
-     * Returns the durability setting for this operation.
-     * On-prem only.
-     *
-     * @return durability, if set. Otherwise null.
-     */
-    public Durability getDurability() {
-        return durability;
     }
 
     /**

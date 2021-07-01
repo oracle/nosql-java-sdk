@@ -379,7 +379,7 @@ public class BinaryProtocol {
         serializeRequest(writeRq, out);
         writeString(out, writeRq.getTableName());
         out.writeBoolean(writeRq.getReturnRowInternal());
-        writeDurability(out, writeRq.getDurabilityInternal(),
+        writeDurability(out, writeRq.getDurability(),
                         serialVersion);
     }
 
@@ -469,7 +469,7 @@ public class BinaryProtocol {
         if (serialVersion > V2) {
             result.setExistingModificationTime(readLong(in));
         } else {
-            result.setExistingModificationTime(0);
+            result.setExistingModificationTime(-1);
         }
     }
 
@@ -549,7 +549,7 @@ public class BinaryProtocol {
         }
 
         if (seqNum == -1) {
-            // No topology info sent by proxy
+            /* No topology info sent by proxy */
             return null;
         }
 
@@ -1044,7 +1044,7 @@ public class BinaryProtocol {
             } else {
                 currentKey = null;
             }
-            // currentValue undefined right now...
+            /* currentValue undefined right now... */
         }
 
         @Override

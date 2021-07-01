@@ -10,6 +10,7 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.Version;
+import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -27,6 +28,7 @@ public class GetResult extends Result {
     private Version version;
     private long expirationTime;
     private long modificationTime;
+    private Client client;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -78,6 +80,11 @@ public class GetResult extends Result {
      * or zero if the row does not exist
      */
     public long getModificationTime() {
+        if (modificationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                                  "the connected server: getModificationTime");
+            return 0;
+        }
         return modificationTime;
     }
 
@@ -188,5 +195,13 @@ public class GetResult extends Result {
     @Override
     public String toString() {
         return getJsonValue();
+    }
+
+    /*
+     * @hidden
+     * for internal use
+     */
+    public void setClient(Client client) {
+        this.client = client;
     }
 }

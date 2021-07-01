@@ -7,7 +7,6 @@
 
 package oracle.nosql.driver.ops;
 
-import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
@@ -22,19 +21,14 @@ import oracle.nosql.driver.NoSQLHandleConfig;
  * about the existing value of the target row on failure. By default
  * no previous information is returned.
  */
-public abstract class WriteRequest extends Request {
+public abstract class WriteRequest extends DurableRequest {
 
     private boolean returnRow;
-    private Durability durability;
 
     protected WriteRequest() {}
 
     protected void setReturnRowInternal(boolean value) {
         this.returnRow = value;
-    }
-
-    protected void setDurabilityInternal(Durability durability) {
-        this.durability = durability;
     }
 
     /* getters are public for access by serializers */
@@ -45,14 +39,6 @@ public abstract class WriteRequest extends Request {
      */
     public boolean getReturnRowInternal() {
         return returnRow;
-    }
-
-    /**
-     * @hidden
-     * @return durability value
-     */
-    public Durability getDurabilityInternal() {
-        return durability;
     }
 
     /**
@@ -70,13 +56,5 @@ public abstract class WriteRequest extends Request {
                 (requestName +
                  " requires table name"));
         }
-    }
-
-    /**
-     * @hidden
-     */
-    @Override
-    public boolean doesWrites() {
-        return true;
     }
 }

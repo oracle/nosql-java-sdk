@@ -68,12 +68,6 @@ public class Durability {
      */
     public enum SyncPolicy {
 
-        /*
-         * WARNING: To avoid breaking serialization compatibility, the order of
-         * the values must not be changed and new values must be added at the
-         * end.
-         */
-
         /**
          *  Write and synchronously flush the log on transaction commit.
          *  Transactions exhibit all the ACID (atomicity, consistency,

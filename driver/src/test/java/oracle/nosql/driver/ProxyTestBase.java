@@ -380,7 +380,7 @@ public class ProxyTestBase {
      * sub classes can override this to affect the handle config
      */
     protected void perTestHandleConfig(NoSQLHandleConfig config) {
-        // no-op
+        /* no-op */
     }
 
     /**
@@ -388,11 +388,14 @@ public class ProxyTestBase {
      */
     protected NoSQLHandle getHandle(NoSQLHandleConfig config) {
         /*
-         * Create a Logger, set to WARNING. TODO: use a property
-         * for level.
+         * Create a Logger, set to WARNING by default.
          */
         Logger logger = Logger.getLogger(getClass().getName());
-        logger.setLevel(Level.WARNING);
+        String level = System.getProperty("test.loglevel");
+        if (level == null) {
+            level = "WARNING";
+        }
+        logger.setLevel(Level.parse(level));
         config.setLogger(logger);
 
         /*

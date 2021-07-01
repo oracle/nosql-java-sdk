@@ -40,9 +40,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  * {@link WriteMultipleResult#getFailedOperationResult()}.
  * @see NoSQLHandle#writeMultiple
  */
-public class WriteMultipleRequest extends Request {
-
-    private Durability durability;
+public class WriteMultipleRequest extends DurableRequest {
 
     /* The list of requests */
     private final List<OperationRequest> operations;
@@ -170,18 +168,8 @@ public class WriteMultipleRequest extends Request {
      * @return this
      */
     public WriteMultipleRequest setDurability(Durability durability) {
-        this.durability = durability;
+        setDurabilityInternal(durability);
         return this;
-    }
-
-    /**
-     * Returns the durability setting for this operation.
-     * On-prem only.
-     *
-     * @return durability, if set. Otherwise null.
-     */
-    public Durability getDurability() {
-        return durability;
     }
 
     /**

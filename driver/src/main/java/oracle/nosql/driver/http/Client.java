@@ -10,6 +10,7 @@ package oracle.nosql.driver.http;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static oracle.nosql.driver.ops.TableLimits.LimitsMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
@@ -18,6 +19,7 @@ import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
+import static oracle.nosql.driver.util.LogUtil.logWarning;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -28,6 +30,7 @@ import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -58,13 +61,17 @@ import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
@@ -156,6 +163,9 @@ public class Client {
 
     private short serialVersion = DEFAULT_SERIAL_VERSION;
 
+    /* for one-time messages */
+    private final HashSet<String> oneTimeMessages;
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -224,6 +234,8 @@ public class Client {
             tableLimitUpdateMap = null;
             threadPool = null;
         }
+
+        oneTimeMessages = new HashSet<String>();
     }
 
     /**
@@ -429,6 +441,22 @@ public class Client {
                 logRetries(kvRequest.getNumRetries(), exception);
             }
 
+            if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
+                if (((DurableRequest)kvRequest).getDurability() != null) {
+                    oneTimeMessage("The requested feature is not supported " +
+                                   "by the connected server: Durability");
+                }
+            }
+
+            if (serialVersion < 3 && kvRequest instanceof TableRequest) {
+                TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
+                if (limits != null &&
+                    limits.getMode() == LimitsMode.AUTO_SCALING) {
+                    oneTimeMessage("The requested feature is not supported " +
+                                   "by the connected server: AutoScaling");
+                }
+            }
+
             ResponseHandler responseHandler = null;
 
             ByteBuf buffer = null;
@@ -517,6 +545,16 @@ public class Client {
                 Result res = processResponse(responseHandler.getStatus(),
                                        responseHandler.getContent(),
                                        kvRequest);
+
+                if (serialVersion < 3) {
+                    /* so we can emit a one-time message if the app */
+                    /* tries to access modificationTime */
+                    if (res instanceof GetResult) {
+                        ((GetResult)res).setClient(this);
+                    } else if (res instanceof WriteResult) {
+                        ((WriteResult)res).setClient(this);
+                    }
+                }
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
                     /* update rate limiter settings for table */
@@ -620,8 +658,8 @@ public class Client {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion() == true) {
                     exception = upe;
-                    logInfo(logger, "Got unsupported protocol error: " +
-                            "decrementing serial version to " +
+                    logInfo(logger, "Got unsupported protocol error " +
+                            "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
                     continue;
                 }
@@ -635,8 +673,8 @@ public class Client {
                 String msg = e.getMessage();
                 if (msg.contains("Invalid driver serial version") &&
                     decrementSerialVersion() == true) {
-                    logInfo(logger, "Got invalid serial version: " +
-                            "decrementing serial version to " +
+                    logInfo(logger, "Got invalid serial version " +
+                            "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
                     exception = e;
                     continue;
@@ -1200,5 +1238,16 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /*
+     * @hidden
+     * for internal use
+     */
+    public synchronized void oneTimeMessage(String msg) {
+        if (oneTimeMessages.add(msg) == false) {
+            return;
+        }
+        logWarning(logger, msg);
     }
 }

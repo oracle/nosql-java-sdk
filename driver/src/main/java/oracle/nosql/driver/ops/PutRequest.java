@@ -280,16 +280,6 @@ public class PutRequest extends WriteRequest {
         return super.getReturnRowInternal();
     }
 
-    /**
-     * Returns the durability setting for this operation.
-     * On-prem only.
-     *
-     * @return durability, if set. Otherwise null.
-     */
-    public Durability getDurability() {
-        return super.getDurabilityInternal();
-    }
-
     /* setters for WriteRequest fields */
 
     /**
@@ -328,7 +318,7 @@ public class PutRequest extends WriteRequest {
      * @return this
      */
     public PutRequest setDurability(Durability durability) {
-        super.setDurabilityInternal(durability);
+        setDurabilityInternal(durability);
         return this;
     }
 

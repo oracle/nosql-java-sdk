@@ -141,16 +141,6 @@ public class DeleteRequest extends WriteRequest {
     }
 
     /**
-     * Returns the durability setting for this operation.
-     * On-prem only.
-     *
-     * @return durability, if set. Otherwise null.
-     */
-    public Durability getDurability() {
-        return super.getDurabilityInternal();
-    }
-
-    /**
      * Sets the table name to use for the operation. This is a required
      * parameter.
      *
@@ -172,7 +162,7 @@ public class DeleteRequest extends WriteRequest {
      * @return this
      */
     public DeleteRequest setDurability(Durability durability) {
-        super.setDurabilityInternal(durability);
+        setDurabilityInternal(durability);
         return this;
     }
 

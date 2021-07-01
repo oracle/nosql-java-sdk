@@ -9,6 +9,7 @@ package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.MapValue;
+import oracle.nosql.driver.http.Client;
 
 /**
  * @hidden
@@ -20,6 +21,7 @@ public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
     private long existingModificationTime;
+    private Client client;
 
     protected WriteResult() {}
 
@@ -45,6 +47,11 @@ public class WriteResult extends Result {
      * @return the modification time
      */
     public long getExistingModificationTimeInternal() {
+        if (existingModificationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                          "the connected server: getExistingModificationTime");
+            return 0;
+        }
         return existingModificationTime;
     }
 
@@ -81,5 +88,13 @@ public class WriteResult extends Result {
         long existingModificationTime) {
         this.existingModificationTime = existingModificationTime;
         return this;
+    }
+
+    /*
+     * @hidden
+     * for internal use
+     */
+    public void setClient(Client client) {
+        this.client = client;
     }
 }
