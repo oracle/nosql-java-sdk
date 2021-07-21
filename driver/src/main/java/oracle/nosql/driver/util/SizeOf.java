@@ -195,6 +195,8 @@ public class SizeOf {
      * overhead that can be used for the first N elements -- however many fit
      * in 4 bytes.  On 64b Java, there is no extra space included.  In all
      * cases, space is allocated in 8 byte chunks.
+     * @param arrayLen the length to use
+     * @return the total size, including overhead
      */
     public static int byteArraySize(int arrayLen) {
 

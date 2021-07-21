@@ -66,8 +66,9 @@ import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
-import oracle.nosql.driver.util.ByteOutputStream;
 import oracle.nosql.driver.util.HttpConstants;
+import oracle.nosql.driver.util.NettyByteInputStream;
+import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
 
@@ -835,7 +836,7 @@ public class Client {
     void writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
-        final ByteOutputStream bos = new ByteOutputStream(content);
+        final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         BinaryProtocol.writeSerialVersion(bos);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
@@ -855,24 +856,16 @@ public class Client {
                                  ByteBuf content,
                                  Request kvRequest) {
 
-        ByteInputStream bis = null;
-        try {
-            if (HttpResponseStatus.OK.equals(status)) {
-                bis = new ByteInputStream(content);
-                return processOKResponse(bis, kvRequest);
-            }
-
+        if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
 
             /* TODO: Generate and handle bad status other than 400 */
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
-        } finally {
-            if (bis != null) {
-                try {
-                    bis.close();
-                } catch (IOException ioe) { /* ignored */ }
-            }
+        }
+
+        try (ByteInputStream bis = new NettyByteInputStream(content)) {
+            return processOKResponse(bis, kvRequest);
         }
     }
 

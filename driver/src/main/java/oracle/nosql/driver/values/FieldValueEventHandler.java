@@ -62,7 +62,7 @@ import java.util.Map;
  *   startMapField(key) // pass the key String
  *   // an event that creates a value, including a nested map or array
  *   stringValue("a string")
- *   endMapField()
+ *   endMapField(key)
  *   endMap(1)
  * </pre>
  * Array values have <em>startArray</em> and <em>endArray</em> events that
@@ -74,11 +74,13 @@ import java.util.Map;
  * they are working within an array. Here's an array example.
  * <pre>
  *   startArray(2)
+ *   startArrayField(0)
  *   startMap(msize) // nested map
  *   endMap(msize)   // map is empty
- *   endArrayField()
+ *   endArrayField(0)
+ *   startArrayField(1)
  *   stringValue("a string") // add string to the array
- *   endArrayField()
+ *   endArrayField(1)
  *   endArray(2)
  * </pre>
  */
@@ -116,40 +118,63 @@ public interface FieldValueEventHandler {
      * End a MapValue.
      *
      * @param size the number of entries in the map or -1 if not known.
+     * @return true if the generation of events should continue, false if
+     * not
      * @throws IOException conditionally, based on implementation
      */
-    void endMap(int size) throws IOException;
+    boolean endMap(int size) throws IOException;
 
     /**
      * End an ArrayValue.
      *
      * @param size the number of entries in the array or -1 if not known.
+     * @return true if the generation of events should continue, false if
+     * not
      * @throws IOException conditionally, based on implementation
      */
-    void endArray(int size) throws IOException;
+    boolean endArray(int size) throws IOException;
 
     /**
      * Start a field in a map.
      *
      * @param key the key of the field.
+     * @return true if the map field should be skipped entirely, true
+     * otherwise
      * @throws IOException conditionally, based on implementation
      */
-    void startMapField(String key) throws IOException;
+    boolean startMapField(String key) throws IOException;
 
     /**
      * End a field in a map.
+     * @param key the key of the field.
+     * @return true if the generation of events should continue, false if
+     * not
      * @throws IOException conditionally, based on implementation
      */
-    void endMapField() throws IOException;
+    boolean endMapField(String key) throws IOException;
+
+    /**
+     * Start a field in an array. This can be ignored by most handlers but
+     * they can return true to skip generation for the field.
+     * @param index the array index
+     * @return true if the element should be skipped
+     * @throws IOException conditionally, based on implementation
+     */
+    default boolean startArrayField(int index) throws IOException {
+        return false;
+    }
 
     /**
      * End a field in an array. There is no corresponding start for
      * array entries. This allows, for example, JSON serializers to insert
      * array value separators without the complexity of tracking the
      * entire event sequence.
+     * @param index the index of the field
+     * @return true if the generation of events should continue, false if
+     * not
      * @throws IOException conditionally, based on implementation
      */
-    void endArrayField() throws IOException;
+    boolean endArrayField(int index) throws IOException;
 
     /**
      * A boolean value
@@ -239,57 +264,98 @@ public interface FieldValueEventHandler {
      *
      * @param value the FieldValue used to generate events
      * @param handler the handler to use
-     * @throws IOException conditionally, based on implementation
+     * @return true if the generation of events should continue, false if
+     * not
+     * @throws IOException conditionally, based on implementation of handler
      */
-    public static void generate(FieldValue value,
-                                FieldValueEventHandler handler)
-        throws IOException {
+    public static boolean generate(FieldValue value,
+                                   FieldValueEventHandler handler)
+    throws IOException {
+        return generate(value, handler, false);
+    }
+
+    /**
+     * Generates events from a {@link FieldValue} instance sending them to
+     * the {@link FieldValueEventHandler} provided.
+     *
+     * @param value the FieldValue used to generate events
+     * @param handler the handler to use
+     * @param skip if true skip the field
+     * @return true if the generation of events should continue, false if
+     * not
+     * @throws IOException conditionally, based on implementation of handler
+     */
+    public static boolean generate(FieldValue value,
+                                   FieldValueEventHandler handler,
+                                   boolean skip)
+    throws IOException {
 
         FieldValue.Type type = value.getType();
         switch (type) {
             case ARRAY:
-                generateForArray(value.asArray(), handler);
-                break;
+                return generateForArray(value.asArray(), handler, skip);
             case BINARY:
-                handler.binaryValue(value.getBinary());
+                if (!skip) {
+                    handler.binaryValue(value.getBinary());
+                }
                 break;
             case BOOLEAN:
-                handler.booleanValue(value.getBoolean());
+                if (!skip) {
+                    handler.booleanValue(value.getBoolean());
+                }
                 break;
             case DOUBLE:
-                handler.doubleValue(value.getDouble());
+                if (!skip) {
+                    handler.doubleValue(value.getDouble());
+                }
                 break;
             case INTEGER:
-                handler.integerValue(value.getInt());
+                if (!skip) {
+                    handler.integerValue(value.getInt());
+                }
                 break;
             case LONG:
-                handler.longValue(value.getLong());
+                if (!skip) {
+                    handler.longValue(value.getLong());
+                }
                 break;
             case MAP:
-                generateForMap(value.asMap(), handler);
-                break;
+                return generateForMap(value.asMap(), handler, skip);
             case STRING:
-                handler.stringValue(value.asString().getString());
+                if (!skip) {
+                    handler.stringValue(value.asString().getString());
+                }
                 break;
             case TIMESTAMP:
-                handler.timestampValue(value.asTimestamp());
+                if (!skip) {
+                    handler.timestampValue(value.asTimestamp());
+                }
                 break;
             case NUMBER:
-                handler.numberValue(value.asNumber().getValue());
+                if (!skip) {
+                    handler.numberValue(value.asNumber().getValue());
+                }
                 break;
             case JSON_NULL:
-                handler.jsonNullValue();
+                if (!skip) {
+                    handler.jsonNullValue();
+                }
                 break;
             case NULL:
-                handler.nullValue();
+                if (!skip) {
+                    handler.nullValue();
+                }
                 break;
             case EMPTY:
-                handler.emptyValue();
+                if (!skip) {
+                    handler.emptyValue();
+                }
                 break;
             default:
                 throw new IllegalStateException(
                     "FieldValueEventHandler, unknown type " + type);
         }
+        return true;
     }
 
     /**
@@ -298,19 +364,41 @@ public interface FieldValueEventHandler {
      *
      * @param map the MapValue to use
      * @param handler the handler to use
-     * @throws IOException conditionally, based on implementation
+     * @param skip if true skip the field
+     * @return true if the generation of events should continue, false if
+     * not
+     * @throws IOException conditionally, based on implementation of handler
      */
-    public static void generateForMap(MapValue map,
-                                      FieldValueEventHandler handler)
-        throws IOException {
+    public static boolean generateForMap(MapValue map,
+                                         FieldValueEventHandler handler,
+                                         boolean skip)
+    throws IOException {
 
+
+        /*
+         * This code is generating events from a tree of objects which
+         * means that skipping can just navigate past what is being skipped.
+         * This is different from skipping fields when reading the
+         * serialized format
+         */
+        if (skip) {
+            return true;
+        }
+        boolean keepGoing = true;
         handler.startMap(map.size());
         for (Map.Entry<String, FieldValue> entry : map.entrySet()) {
-            handler.startMapField(entry.getKey());
-            generate(entry.getValue(), handler);
-            handler.endMapField();
+            skip = handler.startMapField(entry.getKey());
+            if (!skip) {
+                keepGoing = generate(entry.getValue(), handler, skip);
+            }
+            /* make start/end calls symmetrical */
+            keepGoing = (handler.endMapField(entry.getKey()) && keepGoing);
+            if (!keepGoing) {
+                break;
+            }
         }
-        handler.endMap(map.size());
+        keepGoing = (handler.endMap(map.size()) && keepGoing);
+        return keepGoing;
     }
 
     /**
@@ -319,17 +407,37 @@ public interface FieldValueEventHandler {
      *
      * @param array the ArrayValue to use
      * @param handler the handler to use
-     * @throws IOException conditionally, based on implementation
+     * @param skip if true skip the field
+     * @return true if the generation of events should continue, false if
+     * not
+     * @throws IOException conditionally, based on implementation of handler
      */
-    public static void generateForArray(ArrayValue array,
-                                        FieldValueEventHandler handler)
-        throws IOException {
+    public static boolean generateForArray(ArrayValue array,
+                                           FieldValueEventHandler handler,
+                                           boolean skip)
+    throws IOException {
 
-        handler.startArray(array.size());
-        for (FieldValue value : array) {
-            generate(value, handler);
-            handler.endArrayField();
+        /*
+         * This code is generating events from a tree of objects which
+         * means that skipping can just navigate past what is being skipped.
+         * This is different from skipping fields when reading the
+         * serialized format
+         */
+        if (skip) {
+            return true;
         }
-        handler.endArray(array.size());
+        boolean keepGoing = true;
+        handler.startArray(array.size());
+        int index = 0;
+        for (FieldValue value : array) {
+            skip = handler.startArrayField(index);
+            keepGoing = generate(value, handler, skip);
+            keepGoing = (handler.endArrayField(index++) && keepGoing);
+            if (!keepGoing) {
+                break;
+            }
+        }
+        keepGoing = (handler.endArray(array.size()) && keepGoing);
+        return keepGoing;
     }
 }

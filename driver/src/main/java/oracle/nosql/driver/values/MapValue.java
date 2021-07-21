@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import oracle.nosql.driver.NoSQLHandle;
+//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
@@ -34,16 +34,15 @@ import oracle.nosql.driver.util.SizeOf;
  * Field names in a MapValue follow the same rules as Java {@link Map},
  * meaning that they are case-sensitive string values with no duplicates.
  * On input MapValues of any structure can be created, but when put into a
- * table using a method such as {@link NoSQLHandle#put} they must conform to
- * the schema of the target table or an exception will be thrown. Note that
- * in the context of a RECORD field in a table schema field names are treated
- * as case-insensitive. If a MapValue represents JSON, field names are
- * case-sensitive.
+ * table they must conform to the schema of the target table or an exception
+ * will be thrown. Note that in the context of a RECORD field in a table
+ * schema field names are treated as case-insensitive. If a MapValue
+ * represents JSON, field names are case-sensitive.
  * </p>
  * <p>
- * When a MapValue is received on output, such as from {@link NoSQLHandle#get},
- * the value will always conform to the schema of the table from which the
- * value was received or the implied schema of a query projection.
+ * When a MapValue is received on output the value will always conform to
+ * the schema of the table from which the value was received or the implied
+ * schema of a query projection.
  * </p>
  */
 public class MapValue extends FieldValue {
