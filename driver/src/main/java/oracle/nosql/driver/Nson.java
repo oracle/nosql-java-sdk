@@ -138,14 +138,6 @@ import oracle.nosql.driver.util.SerializationUtil;
 public class Nson {
 
     /**
-     * Serial version of the protocol
-     * @return the version
-     */
-    public static short getSerialVersion() {
-        return 3; // TODO
-    }
-
-    /**
      * Data types
      */
     public static final int TYPE_ARRAY = 0;
@@ -228,16 +220,6 @@ public class Nson {
         }
     }
 
-    /**
-     * Writes the (short) serial version
-     * @param out output
-     * @throws IOException if exception
-     */
-    public static void writeSerialVersion(ByteOutputStream out)
-        throws IOException {
-        out.writeShort(getSerialVersion());
-    }
-
     /*
      * Serialize a generic FieldValue into the output stream
      */
@@ -318,6 +300,7 @@ public class Nson {
     }
 
     /**
+     * @hidden
      * An instance of FieldValueEventHandler that accepts events and adds them
      * to the protocol output stream.
      */

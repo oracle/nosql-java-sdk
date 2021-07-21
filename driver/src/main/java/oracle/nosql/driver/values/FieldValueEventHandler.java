@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
+ * @hidden
  * FieldValueEventHandler is an event-driven interface that allows multiple
  * implementations of serializers and deserializers for a {@link FieldValue}.
  * The events correspond to the data model exposed by {@link FieldValue}.

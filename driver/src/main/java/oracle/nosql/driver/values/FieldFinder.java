@@ -13,6 +13,7 @@ import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.util.ByteInputStream;
 
 /**
+ * @hidden
  * An instance of {@link FieldValueEventHandler} that finds a specific
  * field in NSON by its path where the path is a "." separated string, e.g
  *   a.b.c
