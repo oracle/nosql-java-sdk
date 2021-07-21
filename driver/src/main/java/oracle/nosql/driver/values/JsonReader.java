@@ -12,11 +12,11 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.util.Iterator;
 
-import oracle.nosql.driver.JsonParseException;
-
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.JsonEOFException;
+
+import oracle.nosql.driver.JsonParseException;
 
 /**
  * JsonReader reads a file or string that has JSON objects in it that may
@@ -170,9 +170,10 @@ public class JsonReader implements Iterable<MapValue>, AutoCloseable {
         }
 
         private MapValue makeValue() {
-            FieldValue value = JsonUtils.createValueFromJson(parser,
-                                                             false,
-                                                             options);
+            FieldValue value = null;
+            value = JsonUtils.createValueFromJson(parser,
+                                                  false,
+                                                  options);
             if (!(value instanceof MapValue)) {
                 throw new IllegalArgumentException(
                     "Invalid JSON encountered in input. Input stream must " +

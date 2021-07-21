@@ -8,7 +8,7 @@
 package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.TimestampUtil.createTimestamp;
-import static oracle.nosql.driver.util.TimestampUtil.getNanosOfSecond;
+import static oracle.nosql.driver.util.TimestampUtil.getNanoSeconds;
 import static oracle.nosql.driver.util.TimestampUtil.getSeconds;
 import static oracle.nosql.driver.util.TimestampUtil.parseString;
 import static org.junit.Assert.assertNotNull;
@@ -195,7 +195,7 @@ public class TimestampTest extends ProxyTestBase {
         }
 
         long seconds = getSeconds(ts);
-        int nanos = getNanosOfSecond(ts);
+        int nanos = getNanoSeconds(ts);
         double base = Math.pow(10, (9 - precision));
         nanos = (int)(Math.round(nanos / base) * base);
         if (nanos == (int)Math.pow(10, 9)) {

@@ -9,125 +9,68 @@ package oracle.nosql.driver.util;
 
 import java.io.IOException;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufOutputStream;
-import io.netty.buffer.Unpooled;
-
 /**
- * An extension of the Netty ByteBufOutputStream that provides access to methods
- * to get and set offsets into the byte buffer that underlies the stream. This
- * class prevents knowledge of Netty from being required in the serialization
- * code.
- *
- * NOTE: this class implements DataOutput
+ * An extension of DataOutput that operates on an underlying stream and
+ * provides access to methods to get and set offsets into the buffer
+ * that underlies the stream.
  */
-public class ByteOutputStream extends ByteBufOutputStream {
-    final ByteBuf buffer;
-
-    public ByteOutputStream(ByteBuf buffer) {
-        super(buffer);
-        this.buffer = buffer;
-    }
-
-    /**
-     * Creates a ByteOutputStream, also allocating a ByteBuf. This
-     * buffer must be released by calling releaseByteBuf.
-     */
-    public static ByteOutputStream createByteOutputStream() {
-        return new ByteOutputStream(Unpooled.buffer());
-    }
-
-    public void releaseByteBuf() {
-        buffer.release();
-    }
-
-    /**
-     * Returns the underlying ByteBuf
-     */
-    public ByteBuf getByteBuf() {
-        return buffer;
-    }
+public interface ByteOutputStream extends java.io.DataOutput, AutoCloseable {
 
     /**
      * Returns the current write offset into the byte buffer
+     * @return the offset
      */
-    public int getOffset() {
-        return buffer.writerIndex();
-    }
+    public int getOffset();
 
     /**
      * Sets the current write offset into the byte buffer
+     * @param index the offset/index
      */
-    public void setWriteIndex(int index) {
-        buffer.writerIndex(index);
-    }
+    public void setWriteIndex(int index);
 
     /**
      * Skip numBytes, resetting the offset.
+     * @param numBytes the number of bytes to skip
      */
-    public void skipBytes(int numBytes) {
-        buffer.ensureWritable(numBytes);
-        buffer.writerIndex(buffer.writerIndex() + numBytes);
-    }
+    public void skip(int numBytes);
 
     /**
      * Writes the value at the specified offset. The offset must be less
      * than the current offset.
+     * @param offset the offset
+     * @param value the value to write
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalArgumentException if the offset exceeds the current offset
      */
-    public void writeIntAtOffset(int offset, int value) throws IOException {
-        int currentOffset = buffer.writerIndex();
-        if (offset > currentOffset) {
-            throw new IllegalArgumentException(
-                "Invalid offset: " + offset +
-                " must be less than current offset: " + currentOffset);
-        }
-        buffer.writerIndex(offset);
-        writeInt(value);
-
-        /* reset */
-        buffer.writerIndex(currentOffset);
-
-    }
+    public void writeIntAtOffset(int offset, int value)
+        throws IOException;
 
     /**
      * Writes the value at the specified offset. The offset must be less
      * than the current offset.
+     * @param offset the offset
+     * @param value the value to write
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalArgumentException if the offset exceeds the current offset
      */
     public void writeBooleanAtOffset(int offset, boolean value)
-        throws IOException {
-
-        int currentOffset = buffer.writerIndex();
-        if (offset > currentOffset) {
-            throw new IllegalArgumentException(
-                "Invalid offset: " + offset +
-                " must be less than current offset: " + currentOffset);
-        }
-        buffer.writerIndex(offset);
-        writeBoolean(value);
-
-        /* reset */
-        buffer.writerIndex(currentOffset);
-
-    }
+        throws IOException;
 
     /**
      * Writes the byte array at the specified offset. The offset must be less
      * than the current offset.
+     * @param offset the offset
+     * @param value the value to write
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalArgumentException if the offset exceeds the current offset
      */
     public void writeArrayAtOffset(int offset, byte[] value)
-        throws IOException {
+        throws IOException;
 
-        int currentOffset = buffer.writerIndex();
-        if ((offset + value.length) > currentOffset) {
-            throw new IllegalArgumentException(
-                "Invalid offset and length: " + (offset + value.length) +
-                " must be less than current offset: " + currentOffset);
-        }
-        buffer.writerIndex(offset);
-        write(value);
-
-        /* reset */
-        buffer.writerIndex(currentOffset);
-
-    }
+    /**
+     * This override avoids the default signature of Closeable that throws
+     * Exception
+     */
+    @Override
+    public void close();
 }

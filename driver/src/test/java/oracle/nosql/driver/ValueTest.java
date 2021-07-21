@@ -22,7 +22,11 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.TimeZone;
 
+import org.junit.Test;
+
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
+import oracle.nosql.driver.util.NettyByteInputStream;
+import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.BinaryValue;
 import oracle.nosql.driver.values.BooleanValue;
@@ -41,13 +45,6 @@ import oracle.nosql.driver.values.NullValue;
 import oracle.nosql.driver.values.NumberValue;
 import oracle.nosql.driver.values.StringValue;
 import oracle.nosql.driver.values.TimestampValue;
-import oracle.nosql.driver.util.ByteInputStream;
-import oracle.nosql.driver.util.ByteOutputStream;
-
-import org.junit.Test;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 
 /**
  * A set of test cases to exercise the FieldValue interfaces.
@@ -885,7 +882,7 @@ public class ValueTest extends DriverTestBase {
         creator.startMapField("a");
         creator.startMap(0);
         creator.endMap(0);
-        creator.endMapField();
+        creator.endMapField("a");
         creator.endMap(1);
         String json = creator.getCurrentValue().toJson(JsonOptions.PRETTY);
         if (debug) {
@@ -897,27 +894,29 @@ public class ValueTest extends DriverTestBase {
          */
         creator = new BinaryProtocol.FieldValueCreator();
         creator.startArray(8);
-
+        creator.startArrayField(0);
         creator.startMap(3);
         creator.startMapField("a");
         creator.integerValue(5);
-        creator.endMapField();
+        creator.endMapField("a");
         creator.startMapField("b");
         creator.jsonNullValue();
-        creator.endMapField();
+        creator.endMapField("b");
         creator.endMap(3);
-        creator.endArrayField();
+        creator.endArrayField(0);
 
         for (int i = 0; i < 6; i++) {
+            creator.startArrayField(i+1);
             creator.integerValue(i);
-            creator.endArrayField();
+            creator.endArrayField(i+1);
         }
-
+        creator.startArrayField(7);
         creator.startArray(1);
+        creator.startArrayField(0);
         creator.stringValue("abcde");
-        creator.endArrayField();
+        creator.endArrayField(0);
         creator.endArray(1);
-        creator.endArrayField();
+        creator.endArrayField(7);
 
         creator.endArray(8);
         json = creator.getCurrentValue().toJson(JsonOptions.PRETTY);
@@ -1150,11 +1149,11 @@ public class ValueTest extends DriverTestBase {
 
     private void roundTrip(FieldValue value) {
 
-        try {
-            ByteBuf buf = Unpooled.buffer();
-            ByteOutputStream bos = new ByteOutputStream(buf);
+        try (NettyByteOutputStream bos =
+             NettyByteOutputStream.createNettyByteOutputStream()) {
             BinaryProtocol.writeFieldValue(bos, value);
-            ByteInputStream bis = new ByteInputStream(buf);
+            NettyByteInputStream bis =
+                new NettyByteInputStream(bos.getBuffer());
             FieldValue newValue = BinaryProtocol.readFieldValue(bis);
             assertEquals(value, newValue);
 

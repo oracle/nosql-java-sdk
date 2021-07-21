@@ -64,38 +64,43 @@ public class JsonSerializer implements FieldValueEventHandler {
     }
 
     @Override
-    public void endMap(int size) {
+    public boolean endMap(int size) {
         int len = sb.length() - 1;
         if (len > 0 && sb.charAt(len) == ',') {
             sb.setLength(len);
         }
         sb.append(END_OBJECT);
+        return true;
     }
 
     @Override
-    public void endArray(int size) {
+    public boolean endArray(int size) {
         int len = sb.length() - 1;
         if (len > 0 && sb.charAt(len) == ',') {
             sb.setLength(len);
         }
         sb.append(END_ARRAY);
+        return true;
     }
 
     @Override
-    public void startMapField(String key) {
+    public boolean startMapField(String key) {
         sb.append(QUOTE);
         CharTypes.appendQuoted(sb, key);
         sb.append(QUOTE).append(KEY_SEP);
+        return false;
     }
 
     @Override
-    public void endMapField() {
+    public boolean endMapField(String key) {
         sb.append(FIELD_SEP);
+        return true;
     }
 
     @Override
-    public void endArrayField() {
+    public boolean endArrayField(int index) {
         sb.append(FIELD_SEP);
+        return true;
     }
 
     @Override

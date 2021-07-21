@@ -44,6 +44,9 @@ public class NumberUtil {
      *                 and exponent, m is from 1 to 5.
      *     Byte m ~ n: the mantissa part with sign, each byte represents every
      *                 2 digits, a terminator byte (-1) is appended at the end.
+     *
+     * @param value the value to serialize
+     * @return the serialized byte array
      */
     public static byte[] serialize(BigDecimal value) {
         if (value.compareTo(BigDecimal.ZERO) == 0) {
@@ -59,6 +62,8 @@ public class NumberUtil {
 
     /**
      * Deserializes to a BigDecimal object from a byte array.
+     * @param bytes the serialized value
+     * @return the deserialized value
      */
     public static BigDecimal deserialize(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {

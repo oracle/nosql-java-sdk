@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 import oracle.nosql.driver.JsonParseException;
-import oracle.nosql.driver.ops.serde.BinaryProtocol;
+import oracle.nosql.driver.Nson;
 
 /**
  * FieldValue is the base class of all data items in the Oracle NoSQL
@@ -621,7 +621,7 @@ public abstract class FieldValue implements Comparable<FieldValue> {
      * value.
      */
     public int getSerializedSize() {
-        return BinaryProtocol.getSerializedSize(this);
+        return Nson.getSerializedSize(this);
     }
 
     /**

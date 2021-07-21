@@ -33,6 +33,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the integer that was read
+     * @throws IOException if an I/O error occurs
      */
     public static int readPackedInt(DataInput in) throws IOException {
 
@@ -52,6 +53,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the number of bytes skipped.
+     * @throws IOException if an I/O error occurs
      */
     public static int skipPackedInt(ByteInputStream in)
         throws IOException {
@@ -70,6 +72,7 @@ public class SerializationUtil {
      * @param out the data output
      * @param value the integer to be written
      * @return the length of bytes written
+     * @throws IOException if an I/O error occurs
      */
     public static int writePackedInt(DataOutput out, int value)
             throws IOException {
@@ -84,6 +87,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the long that was read
+     * @throws IOException if an I/O error occurs
      */
     public static long readPackedLong(ByteInputStream in) throws IOException {
         final byte[] bytes = new byte[PackedInteger.MAX_LONG_LENGTH];
@@ -102,6 +106,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the number of bytes skipped.
+     * @throws IOException if an I/O error occurs
      */
     public static int skipPackedLong(ByteInputStream in) throws IOException {
         byte b = in.readByte();
@@ -117,6 +122,7 @@ public class SerializationUtil {
      *
      * @param out the data output
      * @param value the long to be written
+     * @throws IOException if an I/O error occurs
      */
     public static void writePackedLong(DataOutput out, long value)
             throws IOException {
@@ -144,6 +150,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the number of bytes skipped.
+     * @throws IOException if an I/O error occurs
      */
     public static int skipString(ByteInputStream in)
         throws IOException {
@@ -220,7 +227,7 @@ public class SerializationUtil {
      *
      * The format is the standard UTF-8 format documented by <a
      * href="http://www.ietf.org/rfc/rfc2279.txt">RFC 2279</a> and implemented
-     * by the {@link Charset} class using the "UTF-8" standard charset.
+     * by the {@link StandardCharsets} class using the "UTF-8" standard charset.
      *
      * <p>Format:
      * <ol>
@@ -231,6 +238,7 @@ public class SerializationUtil {
      *
      * @param out the output stream
      * @param value the string or null
+     * @return the number of bytes written
      * @throws IOException if an I/O error occurs
      */
     public static int writeString(DataOutput out, String value)
@@ -266,6 +274,7 @@ public class SerializationUtil {
      *
      * @param out the output stream
      * @param value the string or null
+     * @return the number of bytes written
      * @throws IOException if an I/O error occurs
      */
     private static int writeStdUTF8String(DataOutput out, String value)
@@ -379,6 +388,21 @@ public class SerializationUtil {
      */
     public static byte[] readByteArray(ByteInputStream in)
         throws IOException {
+        return readByteArray(in, false);
+    }
+
+    /**
+     * Reads a possibly null byte array as a {@link #readSequenceLength
+     * sequence length} followed by the array contents.
+     *
+     * @param in the input stream
+     * @param skip if true, skip the array and return null
+     * @return array the array or null
+     * @throws IOException if an I/O error occurs or if the input format is
+     * invalid
+     */
+    public static byte[] readByteArray(ByteInputStream in, boolean skip)
+        throws IOException {
 
         final int len = readSequenceLength(in);
         if (len < -1) {
@@ -390,6 +414,10 @@ public class SerializationUtil {
         if (len == 0) {
             return EMPTY_BYTES;
         }
+        if (skip) {
+            in.skip(len);
+            return null;
+        }
         final byte[] array = new byte[len];
         in.readFully(array);
         return array;
@@ -400,6 +428,7 @@ public class SerializationUtil {
      *
      * @param in the data input
      * @return the number of bytes skipped.
+     * @throws IOException if an I/O error occurs
      */
     public static int skipByteArray(ByteInputStream in)
         throws IOException {
