@@ -101,48 +101,6 @@ public final class BinaryProtocol {
     public static final int COMPLETE = 0;
     public static final int WORKING = 1;
 
-    /**
-     * FieldValue type
-     */
-    public static final int TYPE_ARRAY = 0;
-    public static final int TYPE_BINARY = 1;
-    public static final int TYPE_BOOLEAN = 2;
-    public static final int TYPE_DOUBLE = 3;
-    public static final int TYPE_INTEGER = 4;
-    public static final int TYPE_LONG = 5;
-    public static final int TYPE_MAP = 6;
-    public static final int TYPE_STRING = 7;
-    public static final int TYPE_TIMESTAMP = 8;
-    public static final int TYPE_NUMBER = 9;
-    public static final int TYPE_JSON_NULL = 10;
-    public static final int TYPE_NULL = 11;
-    public static final int TYPE_EMPTY = 12;
-
-    /**
-     * String representations of types. This is tied to the values
-     * above.
-     */
-    public static final String[] TYPE_NAMES =
-    {
-        "ARRAY",
-        "BINARY",
-        "BOOLEAN",
-        "DOUBLE",
-        "INTEGER",
-        "LONG",
-        "MAP",
-        "STRING",
-        "TIMESTAMP",
-        "NUMBER",
-        "JSON_NULL",
-        "NULL",
-        "EMPTY"
-    };
-
-    public static String getTypeName(int type) {
-        return TYPE_NAMES[type];
-    }
-
     /*
      * Response error codes (must be non-zero)
      */
