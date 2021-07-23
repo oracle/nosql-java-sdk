@@ -119,21 +119,17 @@ public interface FieldValueEventHandler {
      * End a MapValue.
      *
      * @param size the number of entries in the map or -1 if not known.
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation
      */
-    boolean endMap(int size) throws IOException;
+    void endMap(int size) throws IOException;
 
     /**
      * End an ArrayValue.
      *
      * @param size the number of entries in the array or -1 if not known.
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation
      */
-    boolean endArray(int size) throws IOException;
+    void endArray(int size) throws IOException;
 
     /**
      * Start a field in a map.
@@ -148,11 +144,9 @@ public interface FieldValueEventHandler {
     /**
      * End a field in a map.
      * @param key the key of the field.
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation
      */
-    boolean endMapField(String key) throws IOException;
+    void endMapField(String key) throws IOException;
 
     /**
      * Start a field in an array. This can be ignored by most handlers but
@@ -171,11 +165,9 @@ public interface FieldValueEventHandler {
      * array value separators without the complexity of tracking the
      * entire event sequence.
      * @param index the index of the field
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation
      */
-    boolean endArrayField(int index) throws IOException;
+    void endArrayField(int index) throws IOException;
 
     /**
      * A boolean value
@@ -260,19 +252,29 @@ public interface FieldValueEventHandler {
     void emptyValue() throws IOException;
 
     /**
+     * Returns true if event generation should stop. Event generators need
+     * to check this between operations that consume input streams so that,
+     * for example, navigation through an NSON stream can stop at a specific
+     * location. See {@link FieldFinder#seek}
+     *
+     * @return true if the event generation should stop
+     */
+    default boolean stop() {
+        return false;
+    }
+
+    /**
      * Generates events from a {@link FieldValue} instance sending them to
      * the {@link FieldValueEventHandler} provided.
      *
      * @param value the FieldValue used to generate events
      * @param handler the handler to use
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation of handler
      */
-    public static boolean generate(FieldValue value,
-                                   FieldValueEventHandler handler)
+    public static void generate(FieldValue value,
+                                FieldValueEventHandler handler)
     throws IOException {
-        return generate(value, handler, false);
+        generate(value, handler, false);
     }
 
     /**
@@ -282,19 +284,18 @@ public interface FieldValueEventHandler {
      * @param value the FieldValue used to generate events
      * @param handler the handler to use
      * @param skip if true skip the field
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation of handler
      */
-    public static boolean generate(FieldValue value,
-                                   FieldValueEventHandler handler,
-                                   boolean skip)
+    public static void generate(FieldValue value,
+                                FieldValueEventHandler handler,
+                                boolean skip)
     throws IOException {
 
         FieldValue.Type type = value.getType();
         switch (type) {
             case ARRAY:
-                return generateForArray(value.asArray(), handler, skip);
+                generateForArray(value.asArray(), handler, skip);
+                break;
             case BINARY:
                 if (!skip) {
                     handler.binaryValue(value.getBinary());
@@ -321,7 +322,8 @@ public interface FieldValueEventHandler {
                 }
                 break;
             case MAP:
-                return generateForMap(value.asMap(), handler, skip);
+                generateForMap(value.asMap(), handler, skip);
+                break;
             case STRING:
                 if (!skip) {
                     handler.stringValue(value.asString().getString());
@@ -356,7 +358,6 @@ public interface FieldValueEventHandler {
                 throw new IllegalStateException(
                     "FieldValueEventHandler, unknown type " + type);
         }
-        return true;
     }
 
     /**
@@ -366,13 +367,11 @@ public interface FieldValueEventHandler {
      * @param map the MapValue to use
      * @param handler the handler to use
      * @param skip if true skip the field
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation of handler
      */
-    public static boolean generateForMap(MapValue map,
-                                         FieldValueEventHandler handler,
-                                         boolean skip)
+    public static void generateForMap(MapValue map,
+                                      FieldValueEventHandler handler,
+                                      boolean skip)
     throws IOException {
 
 
@@ -383,23 +382,27 @@ public interface FieldValueEventHandler {
          * serialized format
          */
         if (skip) {
-            return true;
+            return;
         }
-        boolean keepGoing = true;
         handler.startMap(map.size());
         for (Map.Entry<String, FieldValue> entry : map.entrySet()) {
             skip = handler.startMapField(entry.getKey());
+            if (handler.stop()) {
+                return;
+            }
             if (!skip) {
-                keepGoing = generate(entry.getValue(), handler, skip);
+                generate(entry.getValue(), handler, skip);
+                if (handler.stop()) {
+                    return;
+                }
             }
             /* make start/end calls symmetrical */
-            keepGoing = (handler.endMapField(entry.getKey()) && keepGoing);
-            if (!keepGoing) {
-                break;
+            handler.endMapField(entry.getKey());
+            if (handler.stop()) {
+                return;
             }
         }
-        keepGoing = (handler.endMap(map.size()) && keepGoing);
-        return keepGoing;
+        handler.endMap(map.size());
     }
 
     /**
@@ -409,13 +412,11 @@ public interface FieldValueEventHandler {
      * @param array the ArrayValue to use
      * @param handler the handler to use
      * @param skip if true skip the field
-     * @return true if the generation of events should continue, false if
-     * not
      * @throws IOException conditionally, based on implementation of handler
      */
-    public static boolean generateForArray(ArrayValue array,
-                                           FieldValueEventHandler handler,
-                                           boolean skip)
+    public static void generateForArray(ArrayValue array,
+                                        FieldValueEventHandler handler,
+                                        boolean skip)
     throws IOException {
 
         /*
@@ -425,20 +426,21 @@ public interface FieldValueEventHandler {
          * serialized format
          */
         if (skip) {
-            return true;
+            return;
         }
-        boolean keepGoing = true;
         handler.startArray(array.size());
         int index = 0;
         for (FieldValue value : array) {
             skip = handler.startArrayField(index);
-            keepGoing = generate(value, handler, skip);
-            keepGoing = (handler.endArrayField(index++) && keepGoing);
-            if (!keepGoing) {
-                break;
+            generate(value, handler, skip);
+            if (handler.stop()) {
+                return;
+            }
+            handler.endArrayField(index++);
+            if (handler.stop()) {
+                return;
             }
         }
-        keepGoing = (handler.endArray(array.size()) && keepGoing);
-        return keepGoing;
+        handler.endArray(array.size());
     }
 }

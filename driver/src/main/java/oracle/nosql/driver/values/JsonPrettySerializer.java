@@ -87,24 +87,22 @@ public class JsonPrettySerializer extends JsonSerializer {
     }
 
     @Override
-    public boolean endMap(int size) {
+    public void endMap(int size) {
         if (size > 0) {
             /* map entries have trailing "," */
             sb.setLength(sb.length() - 1);
         }
         changeIndent(-incr);
         sb.append(CR).append(indent).append(END_OBJECT);
-        return true;
     }
 
     @Override
-    public boolean endArray(int size) {
+    public void endArray(int size) {
         if (size > 0) {
             /* array elements have trailing ", " */
             sb.setLength(sb.length() - 2);
         }
         sb.append(END_ARRAY);
-        return true;
     }
 
     /*
@@ -120,10 +118,9 @@ public class JsonPrettySerializer extends JsonSerializer {
     }
 
     @Override
-    public boolean endArrayField(int index) {
+    public void endArrayField(int index) {
         sb.append(FIELD_SEP);
         /* add a space after the comma */
         sb.append(SP);
-        return true;
     }
 }

@@ -66,6 +66,8 @@ public class FieldFinder extends Nson.FieldValueCreator {
     private boolean found = false;
     private boolean createTargetValue = false;
     private FieldValue targetValue;
+    private boolean doSeek = false;
+    private boolean stopEvents = false;
 
     /**
      * Looks for a path in an NSON stream.
@@ -78,14 +80,7 @@ public class FieldFinder extends Nson.FieldValueCreator {
      */
     public static FieldValue find(ByteInputStream bis, String path) {
         FieldFinder finder = new FieldFinder(path);
-        try {
-            Nson.generateEventsFromNson(finder, bis, false);
-        } catch (IOException ioe) {
-            throw new IllegalArgumentException(
-                "Failure looking for path " + path + " in NSON stream: " +
-                ioe.getMessage(), ioe);
-        }
-        return finder.getTargetValue();
+        return finder.find(bis);
     }
 
     /**
@@ -98,14 +93,7 @@ public class FieldFinder extends Nson.FieldValueCreator {
      */
     public static FieldValue find(MapValue map, String path) {
         FieldFinder finder = new FieldFinder(path);
-        try {
-            FieldValueEventHandler.generate(map, finder, false);
-        } catch (IOException ioe) {
-            throw new IllegalArgumentException(
-                "Failure looking for path " + path + " in MapValue: " +
-                ioe.getMessage(), ioe);
-        }
-        return finder.getTargetValue();
+        return finder.find(map);
     }
 
     /**
@@ -116,6 +104,98 @@ public class FieldFinder extends Nson.FieldValueCreator {
     public FieldFinder(String path) {
         this.path = path.split("\\.");
         currentIndex = 0;
+    }
+
+    /**
+     * Resets the finder without creating a new instance
+     * @param path the new path
+     */
+    public void reset(String path) {
+        this.path = path.split("\\.");
+        currentIndex = 0;
+        inTarget = false;
+        depth = 0;
+        targetDepth = 0;
+        found = false;
+        createTargetValue = false;
+        targetValue = null;
+        doSeek = false;
+        stopEvents = false;
+    }
+
+    /**
+     * Looks for a the current path in an NSON stream.
+     * @param bis a stream of NSON that must start with a MAP. If it is not a
+     * map it is not an error but key values are only available in an NSON MAP
+     * @return a {@link FieldValue} representing the target field or null
+     * if it is not found
+     */
+    public FieldValue find(ByteInputStream bis) {
+        try {
+            Nson.generateEventsFromNson(this, bis, false);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Failure looking for path " + path + " in NSON stream: " +
+                ioe.getMessage(), ioe);
+        }
+        return getTargetValue();
+    }
+
+    /**
+     * Looks for the current path in a MapValue.
+     * @param map the map to search
+     * @return a {@link FieldValue} representing the target field or null
+     * if it is not found
+     */
+    public FieldValue find(MapValue map) {
+        try {
+            FieldValueEventHandler.generate(map, this, false);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Failure looking for path " + path + " in MapValue: " +
+                ioe.getMessage(), ioe);
+        }
+        return getTargetValue();
+    }
+
+    /**
+     * Looks for a the current path in an NSON stream but only positions the
+     * stream at the value of the target path. This allows callers to avoid
+     * creation of FieldValue instances based on the target value, which may
+     * be atomic or complex.
+     *
+     * @param path the path to seek; this will reset the internal path
+     * @param bis a stream of NSON that must start with a MAP. If it is not a
+     * map it is not an error but key values are only available in an NSON MAP
+     * @return true if the target was found, false otherwise. If the target is
+     * found the stream is positioned at the target value.
+     */
+    public boolean seek(String path, ByteInputStream bis) {
+        reset(path);
+        return seek(bis);
+    }
+
+    /**
+     * Looks for a the current path in an NSON stream but only positions the
+     * stream at the value of the target path. This allows callers to avoid
+     * creation of FieldValue instances based on the target value, which may
+     * be atomic or complex.
+     *
+     * @param bis a stream of NSON that must start with a MAP. If it is not a
+     * map it is not an error but key values are only available in an NSON MAP
+     * @return true if the target was found, false otherwise. If the target is
+     * found the stream is positioned at the target value.
+     */
+    public boolean seek(ByteInputStream bis) {
+        doSeek = true;
+        try {
+            Nson.generateEventsFromNson(this, bis, false);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Failure looking for path " + path + " in NSON stream: " +
+                ioe.getMessage(), ioe);
+        }
+        return inTarget;
     }
 
     /**
@@ -144,12 +224,11 @@ public class FieldFinder extends Nson.FieldValueCreator {
     }
 
     @Override
-    public boolean endMap(int size) throws IOException {
+    public void endMap(int size) throws IOException {
         --depth;
         if (inTarget) {
             super.endMap(size);
         }
-        return !found;
     }
 
     @Override
@@ -167,36 +246,40 @@ public class FieldFinder extends Nson.FieldValueCreator {
                 currentIndex == depth) {
                 if (!inTarget) {
                     inTarget = true;
+                    if (doSeek) {
+                        stopEvents = true;
+                    }
                     targetDepth = depth;
                     createTargetValue = true;
                 }
             }
-            return super.startMapField(key);
+            /* if stopping events super.startMapField is unnecessary overhead */
+            if (!stopEvents) {
+                return super.startMapField(key);
+            }
         }
         return true; // skip
     }
 
     @Override
-    public boolean endMapField(String key) throws IOException {
-        boolean keepGoing = true;
+    public void endMapField(String key) throws IOException {
         boolean wasInTarget = inTarget;
         if (targetDepth == depth) {
             inTarget = false;
             found = true;
-            keepGoing = false;
+            stopEvents = true;
         } else if (currentIndex > depth) {
             /*
              * If we are navigating out of a nested field that was
              * part of the path desired and haven't yet found the
              * target, we never will, so stop looking
              */
-            keepGoing = false;
+            stopEvents = true;
         }
         if (wasInTarget) {
             super.endMapField(key);
             checkTargetValue();
         }
-        return keepGoing;
     }
 
     @Override
@@ -208,21 +291,29 @@ public class FieldFinder extends Nson.FieldValueCreator {
     }
 
     @Override
-    public boolean endArray(int size) throws IOException {
+    public void endArray(int size) throws IOException {
         if (inTarget) {
             super.endArray(size);
             checkTargetValue();
         }
-        return !found;
     }
 
     @Override
-    public boolean endArrayField(int index) throws IOException {
+    public void endArrayField(int index) throws IOException {
         if (inTarget) {
             super.endArrayField(index);
             checkTargetValue();
         }
-        return !found;
+    }
+
+    @Override
+    public boolean stop() {
+        /*
+         * Stop events if:
+         * 1. doing a seek and target has been found
+         * 2. the target has been found and has been created
+         */
+        return stopEvents;
     }
 
     /**

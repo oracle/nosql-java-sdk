@@ -372,7 +372,7 @@ public class Nson {
         }
 
         @Override
-        public boolean endMap(int size) throws IOException {
+        public void endMap(int size) throws IOException {
             int lengthOffset = offsetStack.pop();
             int numElems = sizeStack.pop();
             int start = lengthOffset + 4;
@@ -382,11 +382,10 @@ public class Nson {
              */
             out.writeIntAtOffset(lengthOffset, out.getOffset() - start);
             out.writeIntAtOffset(lengthOffset + 4, numElems);
-            return true;
         }
 
         @Override
-        public boolean endArray(int size) throws IOException {
+        public void endArray(int size) throws IOException {
             int lengthOffset = offsetStack.pop();
             int numElems = sizeStack.pop();
             int start = lengthOffset + 4;
@@ -396,7 +395,6 @@ public class Nson {
              */
             out.writeIntAtOffset(lengthOffset, out.getOffset() - start);
             out.writeIntAtOffset(lengthOffset + 4, numElems);
-            return true;
         }
 
         @Override
@@ -406,17 +404,15 @@ public class Nson {
         }
 
         @Override
-        public boolean endMapField(String key) throws IOException {
+        public void endMapField(String key) throws IOException {
             /* add one to number of elements */
             incrSize();
-            return true;
         }
 
         @Override
-        public boolean endArrayField(int index) throws IOException {
+        public void endArrayField(int index) throws IOException {
             /* add one to number of elements */
             incrSize();
-            return true;
         }
 
         @Override
@@ -573,7 +569,7 @@ public class Nson {
         }
 
         @Override
-        public boolean endMap(int size) throws IOException {
+        public void endMap(int size) throws IOException {
             /*
              * The in-process map becomes the currentValue
              */
@@ -583,11 +579,10 @@ public class Nson {
             } else {
                 currentMap = null;
             }
-            return true;
         }
 
         @Override
-        public boolean endArray(int size) throws IOException {
+        public void endArray(int size) throws IOException {
             /*
              * The in-process array becomes the currentValue
              */
@@ -597,7 +592,6 @@ public class Nson {
             } else {
                 currentArray = null;
             }
-            return true;
         }
 
         @Override
@@ -607,7 +601,7 @@ public class Nson {
         }
 
         @Override
-        public boolean endMapField(String key) throws IOException {
+        public void endMapField(String key) throws IOException {
             /*
              * currentMap could be null if a subclass has suppressed
              * creation of a wrapper map for the entire FieldValue.
@@ -622,15 +616,13 @@ public class Nson {
                 currentKey = null;
             }
             // currentValue undefined right now...
-            return true;
         }
 
         @Override
-        public boolean endArrayField(int index) throws IOException {
+        public void endArrayField(int index) throws IOException {
             if (currentArray != null) {
                 currentArray.add(currentValue);
             }
-            return true;
         }
 
         @Override
@@ -710,17 +702,17 @@ public class Nson {
      * @param handler the event handler
      * @param in the input stream that holds the NSON
      * @param skip true if the next field should be skipped
-     * @return true if traversal of the stream should continue. This is based on
-     * information returned from the handler
      * @throws IOException if there is a problem reading the input
      */
-    public static boolean generateEventsFromNson(
+    public static void generateEventsFromNson(
         FieldValueEventHandler handler, ByteInputStream in, boolean skip)
         throws IOException {
 
 
+        if (handler.stop()) {
+            return;
+        }
         int t = in.readByte();
-        boolean keepGoing = true;
         switch (t) {
         case TYPE_ARRAY:
             int length = in.readInt(); // length of serialized bytes
@@ -729,16 +721,25 @@ public class Nson {
             } else {
                 int numElements = in.readInt();
                 handler.startArray(numElements);
+                if (handler.stop()) {
+                    return;
+                }
                 for (int i = 0; i < numElements; i++) {
                     skip = handler.startArrayField(i);
-                    keepGoing  = generateEventsFromNson(handler, in, skip);
-                    keepGoing = (handler.endArrayField(i) && keepGoing);
-                    if (!keepGoing) {
-                        break;
+                    if (handler.stop()) {
+                        return;
+                    }
+                    generateEventsFromNson(handler, in, skip);
+                    if (handler.stop()) {
+                        return;
+                    }
+                    handler.endArrayField(i);
+                    if (handler.stop()) {
+                        return;
                     }
                 }
                 /* always call endArray, even if stopping */
-                keepGoing = handler.endArray(numElements);
+                handler.endArray(numElements);
             }
             break;
         case TYPE_BINARY:
@@ -779,19 +780,25 @@ public class Nson {
             } else {
                 int numElements = in.readInt(); // size of map
                 handler.startMap(numElements);
+                if (handler.stop()) {
+                    return;
+                }
                 for (int i = 0; i < numElements; i++) {
                     String key = readString(in);
                     boolean skipField = handler.startMapField(key);
-                    keepGoing = generateEventsFromNson(handler, in, skipField);
-                    if (keepGoing) {
-                        keepGoing = handler.endMapField(key);
+                    if (handler.stop()) {
+                        return;
                     }
-                    if (!keepGoing) {
-                        break;
+                    generateEventsFromNson(handler, in, skipField);
+                    if (handler.stop()) {
+                        return;
+                    }
+                    handler.endMapField(key);
+                    if (handler.stop()) {
+                        return;
                     }
                 }
-                /* always call endMap, even if stopping */
-                keepGoing = handler.endMap(numElements);
+                handler.endMap(numElements);
             }
             break;
         case TYPE_STRING:
@@ -830,6 +837,94 @@ public class Nson {
         default:
             throw new IllegalStateException("Unknown value type code: " + t);
         }
-        return keepGoing;
+    }
+
+    /*
+     * Methods to read atomic types from the current position in an NSON
+     * stream. If types do not match an exception is thrown.
+     */
+
+    /**
+     * Reads an integer from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static int readNsonInt(ByteInputStream in) throws IOException {
+        readType(in, TYPE_INTEGER);
+        return readInt(in);
+    }
+
+    /**
+     * Reads a long from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static long readNsonLong(ByteInputStream in) throws IOException {
+        readType(in, TYPE_LONG);
+        return readLong(in);
+    }
+
+    /**
+     * Reads a double from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static double readNsonDouble(ByteInputStream in) throws IOException {
+        readType(in, TYPE_DOUBLE);
+        return readDouble(in);
+    }
+
+    /**
+     * Reads a boolean from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static boolean readNsonBoolean(ByteInputStream in)
+        throws IOException {
+
+        readType(in, TYPE_BOOLEAN);
+        return in.readBoolean();
+    }
+
+    /**
+     * Reads a string from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static String readNsonString(ByteInputStream in)
+        throws IOException {
+
+        readType(in, TYPE_STRING);
+        return readString(in);
+    }
+
+    private static void readType(ByteInputStream in, int expected)
+        throws IOException {
+
+        int type = in.readByte();
+        if (type != expected) {
+            throwTypeMismatch(expected, type);
+        }
+    }
+
+    private static void throwTypeMismatch(int expected, int found) {
+        throw new IllegalArgumentException(
+            "Expected type not found, expected type: " + expected +
+            ", found type: " + found);
     }
 }

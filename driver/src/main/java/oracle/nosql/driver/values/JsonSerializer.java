@@ -64,23 +64,21 @@ public class JsonSerializer implements FieldValueEventHandler {
     }
 
     @Override
-    public boolean endMap(int size) {
+    public void endMap(int size) {
         int len = sb.length() - 1;
         if (len > 0 && sb.charAt(len) == ',') {
             sb.setLength(len);
         }
         sb.append(END_OBJECT);
-        return true;
     }
 
     @Override
-    public boolean endArray(int size) {
+    public void endArray(int size) {
         int len = sb.length() - 1;
         if (len > 0 && sb.charAt(len) == ',') {
             sb.setLength(len);
         }
         sb.append(END_ARRAY);
-        return true;
     }
 
     @Override
@@ -92,15 +90,13 @@ public class JsonSerializer implements FieldValueEventHandler {
     }
 
     @Override
-    public boolean endMapField(String key) {
+    public void endMapField(String key) {
         sb.append(FIELD_SEP);
-        return true;
     }
 
     @Override
-    public boolean endArrayField(int index) {
+    public void endArrayField(int index) {
         sb.append(FIELD_SEP);
-        return true;
     }
 
     @Override
