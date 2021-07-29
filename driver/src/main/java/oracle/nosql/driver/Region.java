@@ -63,21 +63,28 @@ public class Region {
     public static final Region AP_CHUNCHEON_1 = new Region("ap-chuncheon-1");
 
     public static final Region UK_LONDON_1 = new Region("uk-london-1");
+    public static final Region UK_CARDIFF_1 = new Region("uk-cardiff-1");
+
     public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
     public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
     public static final Region EU_AMSTERDAM_1 = new Region("eu-amsterdam-1");
+    public static final Region EU_MILAN_1 = new Region("eu-milan-1");
+
     public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
     public static final Region ME_DUBAI_1 = new Region("me-dubai-1");
-    public static final Region UK_CARDIFF_1 = new Region("uk-cardiff-1");
+
+    public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
 
     public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
+
     public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
 
     public static final Region SA_SAOPAULO_1 = new Region("sa-saopaulo-1");
     public static final Region SA_SANTIAGO_1 = new Region("sa-santiago-1");
+    public static final Region SA_VINHEDO_1 = new Region("sa-vinhedo-1");
 
     /* OC2 */
     public static final Region US_LANGLEY_1 = new Region("us-langley-1");
@@ -90,9 +97,11 @@ public class Region {
 
     /* OC4 */
     public static final Region UK_GOV_LONDON_1 = new Region("uk-gov-london-1");
+    public static final Region UK_GOV_CARDIFF_1 = new Region("uk-gov-london-1");
 
     /* OC8 */
     public static final Region AP_CHIYODA_1 = new Region("ap-chiyoda-1");
+    public static final Region AP_IBARAKI_1 = new Region("ap-ibaraki-1");
 
     static {
         /* OC1 */
@@ -108,21 +117,28 @@ public class Region {
 
         /* EMEA */
         OC1_REGIONS.put(UK_LONDON_1.getRegionId(), UK_LONDON_1);
+        OC1_REGIONS.put(UK_CARDIFF_1.getRegionId(), UK_CARDIFF_1);
+
         OC1_REGIONS.put(EU_FRANKFURT_1.getRegionId(), EU_FRANKFURT_1);
         OC1_REGIONS.put(EU_ZURICH_1.getRegionId(), EU_ZURICH_1);
         OC1_REGIONS.put(EU_AMSTERDAM_1.getRegionId(), EU_AMSTERDAM_1);
+        OC1_REGIONS.put(EU_MILAN_1.getRegionId(), EU_MILAN_1);
+
         OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
         OC1_REGIONS.put(ME_DUBAI_1.getRegionId(), ME_DUBAI_1);
-        OC1_REGIONS.put(UK_CARDIFF_1.getRegionId(), UK_CARDIFF_1);
+
+        OC1_REGIONS.put(IL_JERUSALEM_1.getRegionId(), IL_JERUSALEM_1);
 
         /* LAD */
         OC1_REGIONS.put(SA_SAOPAULO_1.getRegionId(), SA_SAOPAULO_1);
         OC1_REGIONS.put(SA_SANTIAGO_1.getRegionId(), SA_SANTIAGO_1);
+        OC1_REGIONS.put(SA_VINHEDO_1.getRegionId(), SA_SANTIAGO_1);
 
         /* North America */
         OC1_REGIONS.put(US_ASHBURN_1.getRegionId(), US_ASHBURN_1);
         OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
         OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
+
         OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
         OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
 
@@ -137,9 +153,11 @@ public class Region {
 
         /* OC4 */
         OC4_REGIONS.put(UK_GOV_LONDON_1.getRegionId(), UK_GOV_LONDON_1);
+        OC4_REGIONS.put(UK_GOV_CARDIFF_1.getRegionId(), UK_GOV_CARDIFF_1);
 
         /* OC8 */
         OC8_REGIONS.put(AP_CHIYODA_1.getRegionId(), AP_CHIYODA_1);
+        OC8_REGIONS.put(AP_IBARAKI_1.getRegionId(), AP_IBARAKI_1);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(

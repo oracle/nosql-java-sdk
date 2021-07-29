@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [Unreleased]
 
+### Fixed
+- Fixed NoSQLHandleConfig.getLibraryVersion(), which has been returning null
+for a few releases.
+- Cloud only:
+  - Updated OCI regions
+
 ## [5.2.27] - 2021-05-13
 
 ### Added
