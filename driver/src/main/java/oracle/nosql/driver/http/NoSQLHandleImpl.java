@@ -15,6 +15,7 @@ import javax.net.ssl.SSLException;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.StatsConfig;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -366,6 +367,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         SystemResult dres = systemRequest(dreq);
         dres.waitForCompletion(this, timeoutMs, pollIntervalMs);
         return dres;
+    }
+
+    @Override
+    public StatsConfig getStatsConfig() {
+        return client.getStatsConfig();
     }
 
     /**

@@ -572,6 +572,15 @@ public interface NoSQLHandle {
                                         int pollIntervalMs);
 
     /**
+     * Returns configuration object for client side statistics.
+     * Client side statistics, when enabled, are INFO generated entries on the
+     * logger at regular time interval.
+     *
+     * @return configuration object for client side statistics
+     */
+    public StatsConfig getStatsConfig();
+
+    /**
      * Closes the handle, releasing its memory and network resources. Once
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.

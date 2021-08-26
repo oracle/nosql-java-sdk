@@ -11,10 +11,6 @@ import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
-import static oracle.nosql.driver.util.LogUtil.isLoggable;
-import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
-import static oracle.nosql.driver.util.LogUtil.logTrace;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -22,14 +18,18 @@ import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
+import static oracle.nosql.driver.util.LogUtil.isLoggable;
+import static oracle.nosql.driver.util.LogUtil.logFine;
+import static oracle.nosql.driver.util.LogUtil.logInfo;
+import static oracle.nosql.driver.util.LogUtil.logTrace;
 
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,6 +49,7 @@ import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
+import oracle.nosql.driver.StatsConfig;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
@@ -150,6 +151,11 @@ public class Client {
      */
     private ExecutorService threadPool;
 
+    /**
+     * config for statistics
+     */
+    private StatsConfigImpl statsConfig;
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -218,6 +224,9 @@ public class Client {
             tableLimitUpdateMap = null;
             threadPool = null;
         }
+
+        statsConfig = new StatsConfigImpl(config.getLibraryVersion(), logger,
+            httpClient, httpConfig.getRateLimitingEnabled());
     }
 
     /**
@@ -231,6 +240,7 @@ public class Client {
             return;
         }
         httpClient.shutdown();
+        statsConfig.shutdown();
         if (authProvider != null) {
             authProvider.close();
         }
@@ -289,7 +299,7 @@ public class Client {
 
             /*
              * The following "if" may be true for advanced queries only. For
-             * such qyeries, the "if" will be true (i.e., the QueryRequest will
+             * such queries, the "if" will be true (i.e., the QueryRequest will
              * be bound with a QueryDriver) if and only if this is not the 1st
              * execute() call for this query. In this case we just return a new,
              * empty QueryResult. Actual computation of a result batch will take
@@ -373,6 +383,7 @@ public class Client {
 
         final long startTime = System.currentTimeMillis();
         kvRequest.setStartTimeMs(startTime);
+        final String requestClass = kvRequest.getClass().getSimpleName();
 
         do {
             long thisTime = System.currentTimeMillis();
@@ -426,6 +437,7 @@ public class Client {
             ResponseHandler responseHandler = null;
 
             ByteBuf buffer = null;
+            long wireTime;
             try {
                 /*
                  * NOTE: the ResponseHandler will release the Channel
@@ -476,9 +488,10 @@ public class Client {
                                                false /* Don't validate hdrs */);
                 HttpHeaders headers = request.headers();
                 addCommonHeaders(headers);
+                int contentLength = buffer.readableBytes();
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
-                    .setInt(CONTENT_LENGTH, buffer.readableBytes());
+                    .setInt(CONTENT_LENGTH, contentLength);
 
                 /*
                  * If the request doesn't set an explicit compartment, use
@@ -490,10 +503,10 @@ public class Client {
                 }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                final String requestClass = kvRequest.getClass().getSimpleName();
                 if (isLoggable(logger, Level.FINE)) {
                     logTrace(logger, "Request: " + requestClass);
                 }
+                wireTime = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
 
                 boolean isTimeout =
@@ -508,9 +521,12 @@ public class Client {
                              responseHandler.getStatus());
                 }
 
+                ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
-                                       responseHandler.getContent(),
+                                       wireContent,
                                        kvRequest);
+                int resSize = wireContent.readerIndex();
+                wireTime = System.currentTimeMillis() - wireTime;
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
                     /* update rate limiter settings for table */
@@ -536,6 +552,10 @@ public class Client {
 
                 /* copy retry stats to Result on successful operation */
                 res.setRetryStats(kvRequest.getRetryStats());
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+
+                statsConfig.logReqStat(kvRequest, wireTime,
+                    contentLength, resSize);
 
                 return res;
 
@@ -550,6 +570,8 @@ public class Client {
                     exception = rae;
                     continue;
                 }
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                statsConfig.logReqStatError(kvRequest);
                 logInfo(logger, "Unexpected authentication exception: " +
                         rae);
                 throw new NoSQLException("Unexpected exception: " +
@@ -611,10 +633,14 @@ public class Client {
                 exception = re;
                 continue;
             } catch (NoSQLException nse) {
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                statsConfig.logReqStatError(kvRequest);
                 logFine(logger, "Client execute NoSQLException: " +
                         nse.getMessage());
                 throw nse; /* pass through */
             } catch (RuntimeException e) {
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                statsConfig.logReqStatError(kvRequest);
                 logFine(logger, "Client execute runtime exception: " +
                         e.getMessage());
                 throw e;
@@ -637,12 +663,16 @@ public class Client {
 
                 continue;
             } catch (InterruptedException ie) {
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                statsConfig.logReqStatError(kvRequest);
                 logInfo(logger, "Client interrupted exception: " +
                         ie.getMessage());
                 /* this exception shouldn't retry -- direct throw */
                 throw new NoSQLException("Request interrupted: " +
                                          ie.getMessage());
             } catch (ExecutionException ee) {
+                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                statsConfig.logReqStatError(kvRequest);
                 logInfo(logger, "Unable to execute request: " +
                         ee.getCause().getMessage());
                 /* is there a better exception? */
@@ -680,6 +710,8 @@ public class Client {
             }
         } while (! timeoutRequest(startTime, timeoutMs, exception));
 
+        kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+        statsConfig.logReqStatError(kvRequest);
         throw new RequestTimeoutException(timeoutMs,
             "Request timed out after " + kvRequest.getNumRetries() +
             (kvRequest.getNumRetries() == 1 ? " retry. " : " retries. ") +
@@ -1151,5 +1183,12 @@ public class Client {
                 threadPool = null;
             }
         }
+    }
+
+    /**
+     * Returns the config object for client statistics.
+     */
+    StatsConfig getStatsConfig() {
+        return statsConfig;
     }
 }

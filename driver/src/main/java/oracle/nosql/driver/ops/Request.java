@@ -64,6 +64,7 @@ public abstract class Request {
      * @hidden
      */
     private RateLimiter writeRateLimiter;
+    private int rateLimitDelayedMs;
 
     protected Request() {}
 
@@ -406,5 +407,13 @@ public abstract class Request {
      */
     public long getStartTimeMs() {
         return startTimeMs;
+    }
+
+    public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
+        this.rateLimitDelayedMs = rateLimitDelayedMs;
+    }
+
+    public int getRateLimitDelayedMs() {
+        return rateLimitDelayedMs;
     }
 }

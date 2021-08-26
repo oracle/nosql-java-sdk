@@ -363,4 +363,8 @@ public class HttpClient {
                     }
                 });
     }
+
+    public int getAcquiredChannelCount() {
+        return pool.acquiredChannelCount();
+    }
 }
