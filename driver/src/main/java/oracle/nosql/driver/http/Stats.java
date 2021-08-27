@@ -42,7 +42,7 @@ public class Stats {
         int resSizeMax;
         float resSizeAvg;
         int retryAuthCount;
-        int retryThrottleCouunt;
+        int retryThrottleCount;
         int retryTotalCount;
         int retryTotalDelay;
         int totalRateLimitDelay;
@@ -179,8 +179,6 @@ public class Stats {
         }
 
         if (entries.size() > 0) {
-            root.put("rateLimitingEnabled",
-                statsConfig.isRateLimitingEnabled());
 
             ArrayValue reqArray = new ArrayValue();
             root.put("requests", reqArray);
@@ -199,7 +197,7 @@ public class Stats {
                 retry.put("totalCount", v.retryTotalCount);
                 retry.put("totalDelay", v.retryTotalDelay);
                 retry.put("authCount", v.retryAuthCount);
-                retry.put("throttleCount", v.retryThrottleCouunt);
+                retry.put("throttleCount", v.retryThrottleCount);
                 req.put("retry", retry);
                 req.put("totalRateLimitDelay", v.totalRateLimitDelay);
 
@@ -242,6 +240,9 @@ public class Stats {
         return root;
     }
 
+    /**
+     * Clear all collected stats.
+     */
     void clearStats() {
         synchronized (requests) {
             startTime = System.currentTimeMillis();
@@ -251,11 +252,19 @@ public class Stats {
         }
     }
 
-    void addReqStatError(String type, int retryCount,
-        int retryDelay, int retryAuth, int retryThrotle, int rateLimitDelay,
+    /**
+     * Adds a new error statistic entry. When error we don't track request,
+     * response sizes and latency.
+     *
+     * @param requestClass Type of request.
+     * @param authCount Number of authCount errors.
+     * @param throttleCount Number of throttleCount errors.
+     */
+    void addReqStatError(String requestClass, int retryCount,
+        int retryDelay, int authCount, int throttleCount, int rateLimitDelay,
         int connections) {
-        addReqStat(type, true, retryCount, retryDelay, retryAuth, retryThrotle,
-            rateLimitDelay, connections, -1, -1,-1);
+        addReqStat(requestClass, true, retryCount, retryDelay, rateLimitDelay,
+            authCount, throttleCount, connections, -1, -1,-1);
     }
 
     /**
@@ -264,15 +273,15 @@ public class Stats {
      *
      * @param requestClass Type of request.
      * @param error Hard error, ie. return error to user.
-     * @param retryAuth Number of retryAuth errors.
-     * @param retryThrottle Number of retryThrottle errors.
+     * @param authCount Number of authCount errors.
+     * @param throttleCount Number of throttleCount errors.
      * @param reqSize Request size in bytes.
      * @param resSize Result size in bytes.
      * @param wireLatency Latency on the wire, in milliseconds, it doesn't
      *                    include retry delay or rate limit delay.
      */
     void addReqStat(String requestClass, boolean error, int retries,
-        int retryDelay, int rateLimitDelay, int retryAuth, int retryThrottle,
+        int retryDelay, int rateLimitDelay, int authCount, int throttleCount,
         int connections, int reqSize, int resSize, long wireLatency) {
 
         ReqStats rStat;
@@ -295,8 +304,8 @@ public class Stats {
             rStat.count++;
             rStat.retryTotalCount += retries;
             rStat.retryTotalDelay += retryDelay;
-            rStat.retryAuthCount += retryAuth;
-            rStat.retryThrottleCouunt += retryThrottle;
+            rStat.retryAuthCount += authCount;
+            rStat.retryThrottleCount += throttleCount;
             rStat.totalRateLimitDelay += rateLimitDelay;
             if (error) {
                 rStat.errors ++;
@@ -364,6 +373,9 @@ public class Stats {
         }
     }
 
+    /**
+     * Shuts down the time scheduler.
+     */
     void shutdown() {
         service.shutdown();
     }

@@ -30,7 +30,6 @@ public class StatsConfigImpl
 
     private Logger logger;
     private HttpClient httpClient;    /* required for connections */
-    private boolean rateLimitingEnabled;
     private String id = Integer.toHexString(UUID.randomUUID().hashCode());
     private StatsHandler statsHandler;
     private boolean enableCollection = false;
@@ -40,7 +39,6 @@ public class StatsConfigImpl
         HttpClient httpClient, boolean rateLimitingEnabled) {
         this.logger = logger;
         this.httpClient = httpClient;
-        this.rateLimitingEnabled = rateLimitingEnabled;
 
         String profileProp = System.getProperty(PROFILE_PROPERTY);
         if (profileProp != null) {
@@ -75,8 +73,9 @@ public class StatsConfigImpl
                 "{\"sdkName\"=\"Oracle NoSQL SDK for Java\", " +
                 "\"sdkVersion\":\"" + libraryVersion + "\", " +
                 "clientId=\"" + id + "\",\"profile\":\"" + profile + "\", " +
-                "\"intervalSec\"=" + interval + " \"prettyPrint\"=" +
-                prettyPrint + "}");
+                "\"intervalSec\"=" + interval +
+                ", \"prettyPrint\"=" + prettyPrint +
+                ", \"rateLimitingEnabled\"=" + rateLimitingEnabled + "}");
 
             start();
         }
@@ -202,15 +201,15 @@ public class StatsConfigImpl
     public void logReqStatError(Request kvRequest) {
         if (stats != null && enableCollection) {
             String requestClass = kvRequest.getClass().getSimpleName();
-            int auth = 0, throttle = 0, retryCount = 0, retryDelay = 0;
+            int authCount = 0, throttleCount = 0, retryCount = 0, retryDelay = 0;
             RetryStats retryStats = kvRequest.getRetryStats();
             if (retryStats != null) {
-                auth = retryStats.getNumExceptions(
+                authCount = retryStats.getNumExceptions(
                     AuthenticationException.class);
-                auth += retryStats.getNumExceptions(
+                authCount += retryStats.getNumExceptions(
                     SecurityInfoNotReadyException.class);
 
-                throttle = retryStats.getNumExceptions(
+                throttleCount = retryStats.getNumExceptions(
                     ThrottlingException.class);
 
                 retryCount = retryStats.getRetries();
@@ -219,12 +218,8 @@ public class StatsConfigImpl
 
             int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
 
-            stats.addReqStatError(requestClass, retryCount, retryDelay, auth,
-                throttle, rateLimitDelay, httpClient.getAcquiredChannelCount());
+            stats.addReqStatError(requestClass, retryCount, retryDelay, authCount,
+                throttleCount, rateLimitDelay, httpClient.getAcquiredChannelCount());
         }
-    }
-
-    public boolean isRateLimitingEnabled() {
-        return rateLimitingEnabled;
     }
 }
