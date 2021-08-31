@@ -239,6 +239,10 @@ public class Client {
         }
     }
 
+    public int getAcquiredChannelCount() {
+        return httpClient.getAcquiredChannelCount();
+    }
+
     /**
      * Get the next client-scoped request id. It needs to be combined with the
      * client id to obtain a globally unique scope.

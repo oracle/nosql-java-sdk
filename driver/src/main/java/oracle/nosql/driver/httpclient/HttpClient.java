@@ -73,11 +73,14 @@ import io.netty.util.concurrent.Future;
  */
 public class HttpClient {
 
-    static final int DEFAULT_NUM_THREADS = 2;
-    static final int DEFAULT_POOL_SIZE = 2;
-    static final int DEFAULT_MAX_PENDING = 6;
+    static final int DEFAULT_MAX_PENDING = 3;
     static final int DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024; // 32MB
     static final int DEFAULT_MAX_CHUNK_SIZE = 65536;
+    /*
+     * timeout for acquiring a Netty channel in ms. If exceeded a new
+     * connection is created
+     */
+    static final int ACQUIRE_TIMEOUT = 5;
 
     static final AttributeKey<RequestState> STATE_KEY =
         AttributeKey.<RequestState>valueOf("rqstate");
@@ -178,9 +181,6 @@ public class HttpClient {
         this.port = port;
         this.name = name;
 
-        numThreads = (numThreads == 0 ? DEFAULT_NUM_THREADS : numThreads);
-        connectionPoolSize = (connectionPoolSize == 0 ?
-                              DEFAULT_POOL_SIZE : connectionPoolSize);
         poolMaxPending = (poolMaxPending == 0 ?
                               DEFAULT_MAX_PENDING : poolMaxPending);
 
@@ -189,33 +189,40 @@ public class HttpClient {
         this.maxChunkSize = (maxChunkSize == 0 ?
                               DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
 
-        workerGroup = new NioEventLoopGroup(numThreads);
+        int cores = Runtime.getRuntime().availableProcessors();
 
+        if (numThreads == 0) {
+            numThreads = cores*2;
+        }
+        if (connectionPoolSize == 0) {
+            connectionPoolSize = cores*2;
+        }
+        workerGroup = new NioEventLoopGroup(12); //numThreads);
         Bootstrap b = new Bootstrap();
 
         b.group(workerGroup);
         b.channel(NioSocketChannel.class);
         b.option(ChannelOption.SO_KEEPALIVE, true);
         b.option(ChannelOption.TCP_NODELAY, true);
-        /* b.option(ChannelOption.SO_REUSEADDR, false); /* redundant. note: false */
         b.remoteAddress(host, port);
 
         poolHandler =
             new HttpClientChannelPoolHandler(this);
 
-        /*
-         * TODO: FixedChannelPool has a method to return the number of
-         * channels it has -- acquiredChannelCount(). Look at exposing
-         * this somehow.
-         */
-        pool = new FixedChannelPool(b,
-                                    poolHandler, /* pool handler */
-                                    poolHandler, /* health checker */
-                                    null, /* no acquire timeout action */
-                                    -1,   /* no acquire timeout */
-                                    connectionPoolSize,
-                                    poolMaxPending,
-                                    true); /* do health check on release */
+        pool = new FixedChannelPool(
+            b,
+            poolHandler, /* pool handler */
+            poolHandler, /* health checker */
+            /*
+             * if a channel cannot be acquired in ACQUIRE_TIMEOUT ms, create
+             * a new one, even if the pool is full. Consider exposing this
+             * behavior as user-facing configuration
+             */
+            FixedChannelPool.AcquireTimeoutAction.NEW,
+            ACQUIRE_TIMEOUT,
+            12, //connectionPoolSize,
+            poolMaxPending,
+            true); /* do health check on release */
     }
 
     SslContext getSslContext() {
@@ -278,6 +285,10 @@ public class HttpClient {
 
     public int getProxyPort() {
         return proxyPort;
+    }
+
+    public int getAcquiredChannelCount() {
+        return pool.acquiredChannelCount();
     }
 
     /**
