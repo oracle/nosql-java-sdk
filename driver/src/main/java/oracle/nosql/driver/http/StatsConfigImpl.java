@@ -4,9 +4,11 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsConfig;
 import oracle.nosql.driver.ThrottlingException;
+import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.ops.Request;
@@ -168,7 +170,7 @@ public class StatsConfigImpl
         }
     }
 
-    public void logReqStat(Request kvRequest, long wireTime,
+    void observe(Request kvRequest, int wireTime,
         int reqSize, int resSize) {
         if (stats != null && enableCollection) {
             String requestClass = kvRequest.getClass().getSimpleName();
@@ -190,15 +192,14 @@ public class StatsConfigImpl
 
             int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
 
-            // using direct measured http call instead of total - delays
-            stats.addReqStat(requestClass, false, retries, retryDelay,
+            stats.observe(requestClass, false, retries, retryDelay,
                 rateLimitDelay, auth, throttle,
                 httpClient.getAcquiredChannelCount(),
                 reqSize, resSize, wireTime);
         }
     }
 
-    public void logReqStatError(Request kvRequest) {
+    void observeError(Request kvRequest) {
         if (stats != null && enableCollection) {
             String requestClass = kvRequest.getClass().getSimpleName();
             int authCount = 0, throttleCount = 0, retryCount = 0, retryDelay = 0;
@@ -211,6 +212,10 @@ public class StatsConfigImpl
 
                 throttleCount = retryStats.getNumExceptions(
                     ThrottlingException.class);
+                throttleCount += retryStats.getNumExceptions(
+                    ReadThrottlingException.class);
+                throttleCount += retryStats.getNumExceptions(
+                    WriteThrottlingException.class);
 
                 retryCount = retryStats.getRetries();
                 retryDelay = retryStats.getDelayMs();
@@ -218,8 +223,9 @@ public class StatsConfigImpl
 
             int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
 
-            stats.addReqStatError(requestClass, retryCount, retryDelay, authCount,
-                throttleCount, rateLimitDelay, httpClient.getAcquiredChannelCount());
+            stats.observeError(requestClass, retryCount, retryDelay,
+                authCount, throttleCount, rateLimitDelay,
+                httpClient.getAcquiredChannelCount());
         }
     }
 }
