@@ -67,6 +67,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
 
@@ -123,8 +124,6 @@ public class Client {
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
 
     private final Logger logger;
-
-    private static final String userAgent = makeUserAgent();
 
     /*
      * Internal rate limiting: cloud only
@@ -1086,26 +1085,7 @@ public class Client {
     }
 
     private static String getUserAgent() {
-        return userAgent;
-    }
-
-    /**
-     * Format: "NoSQL-JavaSDK/version (os info)"
-     */
-    private static String makeUserAgent() {
-        String os = System.getProperty("os.name");
-        String osVersion = System.getProperty("os.version");
-        String javaVersion = System.getProperty("java.version");
-        String javaVmName = System.getProperty("java.vm.name");
-        StringBuilder sb = new StringBuilder();
-        sb.append("NoSQL-JavaSDK/")
-            .append(NoSQLHandleConfig.getLibraryVersion())
-            .append(" (")
-            .append(os).append("/").append(osVersion)
-            .append("; ")
-            .append(javaVersion).append("/").append(javaVmName)
-            .append(")");
-        return sb.toString();
+        return HttpConstants.userAgent;
     }
 
     public static void trace(String msg, int level) {
