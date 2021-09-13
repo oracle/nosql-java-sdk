@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
-## [Unreleased]
+## [5.2.28-SNAPSHOT] 2021-09-13
 
 ### Fixed
 - Fixed NoSQLHandleConfig.getLibraryVersion(), which has been returning null
