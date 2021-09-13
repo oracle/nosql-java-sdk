@@ -157,7 +157,7 @@ public class Client {
         this.config = httpConfig;
         this.url = httpConfig.getServiceURL();
 
-        logInfo(logger, "Driver service URL:" + url.toString());
+        logFine(logger, "Driver service URL:" + url.toString());
         final String protocol = httpConfig.getServiceURL().getProtocol();
         if (!("http".equalsIgnoreCase(protocol) ||
               "https".equalsIgnoreCase(protocol))) {
@@ -208,12 +208,12 @@ public class Client {
         /* StoreAccessTokenProvider == onprem */
         if (config.getRateLimitingEnabled() &&
             !(authProvider instanceof StoreAccessTokenProvider)) {
-            logInfo(logger, "Starting client with rate limiting enabled");
+            logFine(logger, "Starting client with rate limiting enabled");
             rateLimiterMap = new RateLimiterMap();
             tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
             threadPool = Executors.newSingleThreadExecutor();
         } else {
-            logInfo(logger, "Starting client with no rate limiting");
+            logFine(logger, "Starting client with no rate limiting");
             rateLimiterMap = null;
             tableLimitUpdateMap = null;
             threadPool = null;
@@ -226,7 +226,7 @@ public class Client {
      * TODO: add optional timeout (needs change in HttpClient)
      */
     public void shutdown() {
-        logInfo(logger, "Shutting down driver http client");
+        logFine(logger, "Shutting down driver http client");
         if (!shutdown.compareAndSet(false, true)) {
             return;
         }

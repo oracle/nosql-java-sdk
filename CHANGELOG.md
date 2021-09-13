@@ -12,6 +12,8 @@ for a few releases.
   - Fixed an issue using instance principal in OC2 realm. A SignatureProvider created
   with an instance principal might fail to obtain a security token from IAM and get
   "400 Bad Request" without any additional message.
+- Fixed default logging so that its level can be better affected by a logging
+configuration file
 
 ### Changed
 
