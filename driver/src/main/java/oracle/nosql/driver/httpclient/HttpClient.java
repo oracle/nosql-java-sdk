@@ -197,7 +197,7 @@ public class HttpClient {
         if (connectionPoolSize == 0) {
             connectionPoolSize = cores*2;
         }
-        workerGroup = new NioEventLoopGroup(12); //numThreads);
+        workerGroup = new NioEventLoopGroup(numThreads);
         Bootstrap b = new Bootstrap();
 
         b.group(workerGroup);
@@ -220,7 +220,7 @@ public class HttpClient {
              */
             FixedChannelPool.AcquireTimeoutAction.NEW,
             ACQUIRE_TIMEOUT,
-            12, //connectionPoolSize,
+            connectionPoolSize,
             poolMaxPending,
             true); /* do health check on release */
     }

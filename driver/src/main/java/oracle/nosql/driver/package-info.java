@@ -94,7 +94,7 @@
  * <p>
  * The SDK uses logging as provided by the <i>java.util.logging</i> package.
  * By default the SDK will log to the console at level INFO. If nothing
- * does wrong there is little or no logging. There are 2 simple ways to
+ * goes wrong there is little or no logging. There are 2 simple ways to
  * configure logging if additional information is desired.
  * <ol>
  * <li>Create and use a logging configuration file and pass it to the
