@@ -6,9 +6,8 @@ import java.util.logging.Logger;
 import oracle.nosql.driver.values.FieldValue;
 
 /**
- * <p>This interface allows user to setup the collection of statistics on the
- * client side.</p><p>
- *
+ * <p>This interface allows user to setup the collection of driver statistics.</p><p>
+ * 
  * The statistics data is collected for an interval of time. At the end of the
  * interval, the stats data is logged in a specified JSON format that can be
  * filtered and parsed. After the logging, the counters are cleared and
