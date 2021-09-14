@@ -606,6 +606,9 @@ public class BinaryProtocol {
             /* treat above as retryable system errors */
             return new SystemException(msg);
         case BAD_PROTOCOL_MESSAGE:
+            if (msg.contains("Invalid driver serial version")) {
+                return new UnsupportedProtocolException(msg);
+            }
             return new IllegalArgumentException("Bad protocol message: " + msg);
         case UNSUPPORTED_PROTOCOL:
             /* note this is specifically for protocol version mismatches */
