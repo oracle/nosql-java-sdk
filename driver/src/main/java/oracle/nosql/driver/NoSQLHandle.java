@@ -572,11 +572,10 @@ public interface NoSQLHandle {
                                         int pollIntervalMs);
 
     /**
-     * Returns configuration object for client side statistics.
-     * Client side statistics, when enabled, are INFO generated entries on the
-     * logger at regular time interval.
-     *
-     * @return configuration object for client side statistics
+     * Returns configuration object for statistics.
+     * Statistics, when enabled, contain information like errors, delays, retries
+     * and wire latency agregated on types of requests.
+     * @return configuration object for statistics
      */
     public StatsConfig getStatsConfig();
 
