@@ -12,6 +12,24 @@ for a few releases.
   - Fixed an issue using instance principal in OC2 realm. A SignatureProvider created
   with an instance principal might fail to obtain a security token from IAM and get
   "400 Bad Request" without any additional message.
+- Fixed default logging so that its level can be better affected by a logging
+configuration file
+
+### Changed
+
+The default networking configuration has changed to better scale without user
+configuration and to work better with the underlying implementation.
+
+- The default number of threads used for network traffic has changed from 2 to the
+number of CPUs available * 2. This also affects the behavior of
+NoSQLHandleConfig.setNumThreads() and NoSQLHandleConfig.getNumThreads()
+- The default number of connections in the pool has changed from 2 to the
+number of CPUs available * 2. This also affects the behavior of
+NoSQLHandleConfig.setConnectionPoolSize() and
+NoSQLHandleConfig.getConnectionPoolSize()
+- The default number of pending calls to acquire a connection in the pool has
+changed from 6 to 3. This also affects the behavior of
+NoSQLHandleConfig.setPoolMaxPending() and NoSQLHandleConfig.getPoolMaxPending().
 
 ## [5.2.27] - 2021-05-13
 
