@@ -17,12 +17,15 @@ import oracle.nosql.driver.values.FieldValue;
  * interval logs may contain stats for a shorter interval.</p><p>
  *
  * Collection of stats are controlled by the following system properties:<li>
- *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|full]
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
  *      Specifies the stats profile: <i>none</i> - disabled,
- *      <i>regular</i> - all except 95th and 99th percentile and
- *      <i>full</i> - all including 95th and 99th percentile.</li><li>
+ *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
+ *      <i>more</i> - stats above with 95th and 99th percentile latencies
+ *      <i>all</i> - stats above with per query information.</li><li>
+ *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.interval=600 Interval in
  *   seconds to log the stats, by default is 10 minutes.</li><li>
+ *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
  *   to enable pretty printing of the JSON data, default value is false</li></p>
  *
@@ -36,7 +39,6 @@ import oracle.nosql.driver.values.FieldValue;
  *     statsConfig.setPrettyPrint(false);
  *     statsConfig.registerHandler(
  *         new StatsConfig.StatsHandler() {
- *             @Override
  *             public void accept(FieldValue jsonStats) {
  *                 System.out.println("!!! Got a stat: " + jsonStats);
  *             }
@@ -47,18 +49,152 @@ import oracle.nosql.driver.values.FieldValue;
  *
  *     statsConfig.stop();
  *     handle.close();
- * </code></p>
+ * </code></p><p>
+ *
+ *     The following is an example of stats log entry using the ALL
+ *     profile:<code>
+ * INFO: ONJS:Monitoring stats|{
+ *   "clientId" : "b7bc7734",
+ *   "startTime" : "2021-09-20T20:11:42Z",
+ *   "endTime" : "2021-09-20T20:11:47Z",
+ *   "requests" : [{
+ *     "name" : "Get",
+ *     "count" : 2,
+ *     "errors" : 0,
+ *     "networkLatencyMs" : {
+ *       "min" : 4,
+ *       "avg" : 4.5,
+ *       "max" : 5,
+ *       "95th" : 5,
+ *       "99th" : 5
+ *     },
+ *     "requestSize" : {
+ *       "min" : 42,
+ *       "avg" : 42.5,
+ *       "max" : 43
+ *     },
+ *     "resultSize" : {
+ *       "min" : 193,
+ *       "avg" : 206.5,
+ *       "max" : 220
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }, {
+ *     "name" : "Query",
+ *     "count" : 14,
+ *     "errors" : 0,
+ *     "networkLatencyMs" : {
+ *       "min" : 3,
+ *       "avg" : 13.0,
+ *       "max" : 32,
+ *       "95th" : 32,
+ *       "99th" : 32
+ *     },
+ *     "resultSize" : {
+ *       "min" : 146,
+ *       "avg" : 7379.71,
+ *       "max" : 10989
+ *     },
+ *     "requestSize" : {
+ *       "min" : 65,
+ *       "avg" : 709.85,
+ *       "max" : 799
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }, {
+ *     "name" : "Put",
+ *     "count" : 1002,
+ *     "errors" : 0,
+ *     "networkLatencyMs" : {
+ *       "min" : 1,
+ *       "avg" : 4.41,
+ *       "max" : 80,
+ *       "95th" : 8,
+ *       "99th" : 20
+ *     },
+ *     "requestSize" : {
+ *       "min" : 90,
+ *       "avg" : 90.16,
+ *       "max" : 187
+ *     },
+ *     "resultSize" : {
+ *       "min" : 58,
+ *       "avg" : 58.0,
+ *       "max" : 58
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }],
+ *   "queries" : [{
+ *     "stmt" : "SELECT * FROM audienceData ORDER BY cookie_id",
+ *     "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
+ *     "doesWrites" : false,
+ *     "count" : 12,
+ *     "unprepared" : 1,
+ *     "simple" : 0,
+ *     "countAPI" : 20,
+ *     "errors" : 0,
+ *     "networkLatencyMs" : {
+ *       "min" : 8,
+ *       "avg" : 14.58,
+ *       "max" : 32,
+ *       "95th" : 32,
+ *       "99th" : 32
+ *     },
+ *     "requestSize" : {
+ *       "min" : 65,
+ *       "avg" : 732.5,
+ *       "max" : 799
+ *     },
+ *     "resultSize" : {
+ *       "min" : 914,
+ *       "avg" : 8585.33,
+ *       "max" : 10989
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }],
+ *   "connections" : {
+ *     "min" : 1,
+ *     "avg" : 9.58,
+ *     "max" : 10
+ *   }
+ * }
+ *     </code></p>
  */
 public interface StatsConfig {
 
     /**
      * The following semantics are attached to the Profile:
      *  - NONE: no stats are logged.
-     *  - REGULAR: all stats except 95th and 99th percentile latencies.
-     *  - FULL: all stats including 95th and 99th percentile latencies.
+     *  - REGULAR: per request: counters, errors, latencies, delays, retries
+     *  - MORE: stats above with 95th and 99th percentile latencies.
+     *  - ALL: stats above with per query information
      */
     enum Profile {
-        NONE, REGULAR, FULL;
+        NONE, REGULAR, MORE, ALL;
     }
 
     /**
@@ -126,7 +262,7 @@ public interface StatsConfig {
     /**
      * Collection of stats is enabled only between start and stop or from the
      * beginning if system property
-     * -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile= is "regular" or "full".
+     * -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile= is not "none".
      */
     void start();
 

@@ -14,7 +14,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsConfig;
+import oracle.nosql.driver.ThrottlingException;
+import oracle.nosql.driver.kv.AuthenticationException;
+import oracle.nosql.driver.ops.PreparedStatement;
+import oracle.nosql.driver.ops.QueryRequest;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.RetryStats;
+import oracle.nosql.driver.query.PlanIter;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonOptions;
@@ -37,6 +45,7 @@ class Stats {
     private long endTime;
     private Map<String, ReqStats> requests = new HashMap<>();
     private ConnectionStats connectionStats = new ConnectionStats();
+    private ExtraQueryStats extraQueryStats;
 
     private static class ReqStats {
         private long count = 0;
@@ -50,23 +59,23 @@ class Stats {
         private int retryAuthCount = 0;
         private int retryThrottleCount = 0;
         private int retryCount = 0;
-        private int retryDelay = 0;
-        private int rateLimitDelay = 0;
-        private int wireLatencyMin = Integer.MAX_VALUE;
-        private int wireLatencyMax = 0;
-        private long wireLatencySum = 0;
+        private int retryDelayMs = 0;
+        private int rateLimitDelayMs = 0;
+        private int networkLatencyMin = Integer.MAX_VALUE;
+        private int networkLatencyMax = 0;
+        private long networkLatencySum = 0;
         private Percentile wireLatencyPercentile;
 
         synchronized void observe(boolean error, int retries, int retryDelay,
             int rateLimitDelay, int authCount, int throttleCount, int reqSize,
-            int resSize, int wireLatency) {
+            int resSize, int networkLatency) {
 
             this.count++;
             this.retryCount += retries;
-            this.retryDelay += retryDelay;
+            this.retryDelayMs += retryDelay;
             this.retryAuthCount += authCount;
             this.retryThrottleCount += throttleCount;
-            this.rateLimitDelay += rateLimitDelay;
+            this.rateLimitDelayMs += rateLimitDelay;
 
             if (error) {
                 this.errors++;
@@ -80,65 +89,69 @@ class Stats {
                 this.resSizeMax = Math.max(this.resSizeMax, resSize);
                 this.resSizeSum += resSize;
 
-                this.wireLatencyMin =
-                    Math.min(this.wireLatencyMin, wireLatency);
-                this.wireLatencyMax =
-                    Math.max(this.wireLatencyMax, wireLatency);
-                this.wireLatencySum += wireLatency;
+                this.networkLatencyMin =
+                    Math.min(this.networkLatencyMin, networkLatency);
+                this.networkLatencyMax =
+                    Math.max(this.networkLatencyMax, networkLatency);
+                this.networkLatencySum += networkLatency;
 
                 if (this.wireLatencyPercentile != null) {
-                    this.wireLatencyPercentile.addValue(wireLatency);
+                    this.wireLatencyPercentile.addValue(networkLatency);
                 }
             }
         }
 
         synchronized void toJSON(String requestName, ArrayValue reqArray) {
             if (count > 0) {
-                MapValue req = new MapValue();
-                req.put("name", requestName);
-                req.put("count", count);
-                req.put("errors", errors);
+                MapValue mapValue = new MapValue();
+                mapValue.put("name", requestName);
 
-                MapValue retry = new MapValue();
-                retry.put("count", retryCount);
-                retry.put("delay", retryDelay);
-                retry.put("authCount", retryAuthCount);
-                retry.put("throttleCount", retryThrottleCount);
-                req.put("retry", retry);
-                req.put("rateLimitDelay", rateLimitDelay);
+                toMapValue(mapValue);
+                reqArray.add(mapValue);
+            }
+        }
 
-                if (wireLatencyMax > 0) {
-                    MapValue latency = new MapValue();
-                    latency.put("min", wireLatencyMin);
-                    latency.put("max", wireLatencyMax);
-                    latency.put("avg",
-                        1.0 * wireLatencySum / (count - errors));
-                    if (wireLatencyPercentile != null) {
-                        latency.put("95th",
-                            wireLatencyPercentile.get95thPercentile());
-                        latency.put("99th",
-                           wireLatencyPercentile.get99thPercentile());
-                    }
-                    req.put("wireLatency", latency);
+        private void toMapValue(MapValue mapValue) {
+            mapValue.put("count", count);
+            mapValue.put("errors", errors);
+
+            MapValue retry = new MapValue();
+            retry.put("count", retryCount);
+            retry.put("delayMs", retryDelayMs);
+            retry.put("authCount", retryAuthCount);
+            retry.put("throttleCount", retryThrottleCount);
+            mapValue.put("retry", retry);
+            mapValue.put("rateLimitDelayMs", rateLimitDelayMs);
+
+            if (networkLatencyMax > 0) {
+                MapValue latency = new MapValue();
+                latency.put("min", networkLatencyMin);
+                latency.put("max", networkLatencyMax);
+                latency.put("avg",
+                    1.0 * networkLatencySum / (count - errors));
+                if (wireLatencyPercentile != null) {
+                    latency.put("95th",
+                        wireLatencyPercentile.get95thPercentile());
+                    latency.put("99th",
+                       wireLatencyPercentile.get99thPercentile());
                 }
+                mapValue.put("networkLatencyMs", latency);
+            }
 
-                if (reqSizeMax > 0) {
-                    MapValue reqSize = new MapValue();
-                    reqSize.put("min", reqSizeMin);
-                    reqSize.put("max", reqSizeMax);
-                    reqSize.put("avg", 1.0 * reqSizeSum / (count - errors));
-                    req.put("reqSize", reqSize);
-                }
+            if (reqSizeMax > 0) {
+                MapValue reqSize = new MapValue();
+                reqSize.put("min", reqSizeMin);
+                reqSize.put("max", reqSizeMax);
+                reqSize.put("avg", 1.0 * reqSizeSum / (count - errors));
+                mapValue.put("requestSize", reqSize);
+            }
 
-                if (resSizeMax > 0) {
-                    MapValue resSize = new MapValue();
-                    resSize.put("min", resSizeMin);
-                    resSize.put("max", resSizeMax);
-                    resSize.put("avg", 1.0 * resSizeSum / (count - errors));
-                    req.put("resSize", resSize);
-                }
-
-                reqArray.add(req);
+            if (resSizeMax > 0) {
+                MapValue resSize = new MapValue();
+                resSize.put("min", resSizeMin);
+                resSize.put("max", resSizeMax);
+                resSize.put("avg", 1.0 * resSizeSum / (count - errors));
+                mapValue.put("resultSize", resSize);
             }
         }
 
@@ -154,11 +167,11 @@ class Stats {
             retryAuthCount = 0;
             retryThrottleCount = 0;
             retryCount = 0;
-            retryDelay = 0;
-            rateLimitDelay = 0;
-            wireLatencyMin = Integer.MAX_VALUE;
-            wireLatencyMax = 0;
-            wireLatencySum = 0;
+            retryDelayMs = 0;
+            rateLimitDelayMs = 0;
+            networkLatencyMin = Integer.MAX_VALUE;
+            networkLatencyMax = 0;
+            networkLatencySum = 0;
             if (wireLatencyPercentile != null) {
                 wireLatencyPercentile.clear();
             }
@@ -242,6 +255,141 @@ class Stats {
         }
     }
 
+    static class ExtraQueryStats {
+
+        static class QueryEntryStat {
+            long countAPI;
+            long unprepared;
+            long simple;
+            boolean doesWrites;
+            ReqStats reqStats;
+            String plan;
+
+            QueryEntryStat(StatsConfig statsConfig, QueryRequest queryRequest) {
+                reqStats = new ReqStats();
+
+                if (statsConfig.getProfile().ordinal() >=
+                    StatsConfig.Profile.MORE.ordinal()) {
+                    reqStats.wireLatencyPercentile = new Percentile();
+                }
+
+                PreparedStatement pStmt = queryRequest.getPreparedStatement();
+                if (pStmt != null) {
+                    plan = pStmt.printDriverPlan();
+                    doesWrites = pStmt.doesWrites();
+                }
+            }
+        }
+
+        private Map<String, QueryEntryStat> queries = new HashMap<>();
+        private StatsConfig statsConfig;
+
+        ExtraQueryStats(StatsConfig statsConfig) {
+            this.statsConfig = statsConfig;
+        }
+
+        synchronized void observeQuery(QueryRequest queryRequest) {
+            QueryEntryStat qStat = getExtraQueryStat(queryRequest);
+
+            qStat.countAPI++;
+            if (!queryRequest.isPrepared()) {
+                qStat.unprepared++;
+            }
+            if (queryRequest.isPrepared() && queryRequest.isSimpleQuery()) {
+                qStat.simple++;
+            }
+
+            if (queryRequest.getPreparedStatement() != null &&
+                queryRequest.getPreparedStatement().driverPlan() != null) {
+                PlanIter drvPlan = queryRequest.getPreparedStatement().driverPlan();
+                drvPlan.getKind();
+            }
+        }
+
+        synchronized void observeQuery(QueryRequest queryRequest, boolean error,
+            int retries, int retryDelay, int rateLimitDelay,
+            int authCount, int throttleCount, int reqSize, int resSize,
+            int wireLatency) {
+
+            QueryEntryStat qStat = getExtraQueryStat(queryRequest);
+
+            qStat.reqStats.count++;
+            if (error) {
+                qStat.reqStats.errors++;
+            }
+            qStat.reqStats.retryCount += retries;
+            qStat.reqStats.retryDelayMs += retryDelay;
+            qStat.reqStats.rateLimitDelayMs += rateLimitDelay;
+            qStat.reqStats.retryAuthCount += authCount;
+            qStat.reqStats.retryThrottleCount += throttleCount;
+            qStat.reqStats.reqSizeSum += reqSize;
+            qStat.reqStats.reqSizeMin = Math.min(qStat.reqStats.reqSizeMin,
+                reqSize);
+            qStat.reqStats.reqSizeMax = Math.max(qStat.reqStats.reqSizeMax,
+                reqSize);
+            qStat.reqStats.resSizeSum += resSize;
+            qStat.reqStats.resSizeMin = Math.min(qStat.reqStats.resSizeMin,
+                resSize);
+            qStat.reqStats.resSizeMax = Math.max(qStat.reqStats.resSizeMax,
+                resSize);
+            qStat.reqStats.networkLatencySum += wireLatency;
+            qStat.reqStats.networkLatencyMin =
+                Math.min(qStat.reqStats.networkLatencyMin, wireLatency);
+            qStat.reqStats.networkLatencyMax =
+                Math.max(qStat.reqStats.networkLatencyMax, wireLatency);
+            if (qStat.reqStats.wireLatencyPercentile != null) {
+                qStat.reqStats.wireLatencyPercentile.addValue(wireLatency);
+            }
+        }
+
+        private QueryEntryStat getExtraQueryStat(
+            QueryRequest queryRequest) {
+            String sql = queryRequest.getStatement();
+
+            QueryEntryStat qStat = queries.get(sql);
+
+            if (qStat == null) {
+                qStat = new QueryEntryStat(statsConfig, queryRequest);
+                queries.put(sql, qStat);
+            }
+
+            if (qStat.plan == null) {
+                PreparedStatement pStmt = queryRequest.getPreparedStatement();
+                if (pStmt != null) {
+                    qStat.plan = pStmt.printDriverPlan();
+                    qStat.doesWrites = pStmt.doesWrites();
+                }
+            }
+            return qStat;
+        }
+
+        synchronized void toJSON(MapValue root) {
+            if (queries.size() > 0) {
+                ArrayValue queryArr = new ArrayValue();
+                root.put("queries", queryArr);
+
+                queries.forEach((key, val) -> {
+
+                    MapValue queryVal = new MapValue();
+                    queryArr.add(queryVal);
+
+                    queryVal.put("stmt", key == null ? "null" : key);
+                    queryVal.put("countAPI", val.countAPI);
+                    queryVal.put("unprepared", val.unprepared);
+                    queryVal.put("simple", val.simple);
+                    queryVal.put("doesWrites", val.doesWrites);
+                    if (val.plan != null) {
+                        queryVal.put("plan", val.plan);
+                    }
+                    val.reqStats.toMapValue(queryVal);
+                });
+            }
+        }
+
+        synchronized void clear() {
+            queries.clear();
+        }
+    }
 
     Stats(StatsConfigImpl statsConfig) {
         this.statsConfig = statsConfig;
@@ -251,9 +399,15 @@ class Stats {
             ReqStats reqStats = new ReqStats();
             requests.put(key, reqStats);
 
-            if (statsConfig.getProfile() == StatsConfig.Profile.FULL) {
+            if (statsConfig.getProfile().ordinal() >=
+                StatsConfig.Profile.MORE.ordinal()) {
                 reqStats.wireLatencyPercentile = new Percentile();
             }
+        }
+
+        if (statsConfig.getProfile().ordinal() >=
+            StatsConfig.Profile.ALL.ordinal()) {
+            extraQueryStats = new ExtraQueryStats(statsConfig);
         }
 
         // Setup the scheduler for interval logging
@@ -262,7 +416,7 @@ class Stats {
                 logClientStats();
             } catch (RuntimeException re) {
                 statsConfig.getLogger().log(Level.INFO,
-                    "Stats exception:" + re.getMessage());
+                    "Stats exception: " + re.getMessage());
                 re.printStackTrace();
             }
         };
@@ -318,6 +472,9 @@ class Stats {
         root.put("clientId", new StringValue(statsConfig.getId()));
 
         connectionStats.toJSON(root);
+        if (extraQueryStats != null) {
+            extraQueryStats.toJSON(root);
+        }
 
         Set<Map.Entry<String, ReqStats>> entries;
         entries = new HashSet<>(requests.entrySet());
@@ -344,6 +501,10 @@ class Stats {
             requests.get(key).clear();
         }
         connectionStats.clear();
+        if (extraQueryStats != null) {
+            extraQueryStats.clear();
+        }
+
         startTime = System.currentTimeMillis();
         endTime = 0;
     }
@@ -351,37 +512,47 @@ class Stats {
     /**
      * Adds a new error statistic entry. When error we don't track request,
      * response sizes and latency.
-     *
-     * @param requestClass Type of request.
-     * @param authCount Number of authCount errors.
-     * @param throttleCount Number of throttleCount errors.
      */
-    void observeError(String requestClass, int retryCount,
-        int retryDelay, int authCount, int throttleCount, int rateLimitDelay,
+    void observeError(Request kvRequest,
         int connections) {
-        observe(requestClass, true, retryCount, retryDelay, rateLimitDelay,
-            authCount, throttleCount, connections, -1, -1,-1);
+        observe(kvRequest, true, connections, -1, -1, -1);
     }
 
     /**
      * Adds a new statistic entry. Can be of 2 types: successful or error.
-     * Request, result sizes and wireLatency are not registered for error entries.
+     * Request, result sizes and networkLatency are not registered for error entries.
      *
-     * @param requestClass Type of request.
+     * @param kvRequest The request object.
      * @param error Hard error, ie. return error to user.
-     * @param authCount Number of authCount errors.
-     * @param throttleCount Number of throttleCount errors.
+     * @param connections The number of active connections in the pool.
      * @param reqSize Request size in bytes.
      * @param resSize Result size in bytes.
-     * @param wireLatency Latency on the wire, in milliseconds, it doesn't
+     * @param networkLatency Latency on the wire, in milliseconds, it doesn't
      *                    include retry delay or rate limit delay.
      */
-    void observe(String requestClass, boolean error, int retries,
-        int retryDelay, int rateLimitDelay, int authCount, int throttleCount,
-        int connections, int reqSize, int resSize, int wireLatency) {
+    void observe(Request kvRequest, boolean error,
+        int connections, int reqSize, int resSize, int networkLatency) {
+
+        int authCount = 0, throttleCount = 0, retries = 0, retryDelay = 0;
+        RetryStats retryStats = kvRequest.getRetryStats();
+        if (retryStats != null) {
+            authCount = retryStats.getNumExceptions(
+                AuthenticationException.class);
+            authCount += retryStats.getNumExceptions(
+                SecurityInfoNotReadyException.class);
+
+            throttleCount = retryStats.getNumExceptions(
+                ThrottlingException.class);
+
+            retries = retryStats.getRetries();
+            retryDelay = retryStats.getDelayMs();
+        }
+
+        int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
 
         ReqStats rStat;
-        requestClass = requestClass != null && requestClass.endsWith("Request")
+        String requestClass = kvRequest.getClass().getSimpleName();
+        requestClass = requestClass.endsWith("Request")
             ? requestClass.substring(0, requestClass.length() - 7) :
             requestClass;
 
@@ -391,7 +562,8 @@ class Stats {
         // registered in the REQUEST_KEYS array.
         if (rStat == null) {
             ReqStats newStat = new ReqStats();
-            if (statsConfig.getProfile() == StatsConfig.Profile.FULL) {
+            if (statsConfig.getProfile().ordinal() >=
+                StatsConfig.Profile.MORE.ordinal()) {
                 newStat.wireLatencyPercentile = new Percentile();
             }
             synchronized (requests) {
@@ -404,15 +576,32 @@ class Stats {
         }
 
         rStat.observe(error, retries, retryDelay, rateLimitDelay, authCount,
-            throttleCount, reqSize, resSize, wireLatency);
+            throttleCount, reqSize, resSize, networkLatency);
 
         connectionStats.observe(connections);
+
+        if (extraQueryStats != null) {
+            if (kvRequest instanceof QueryRequest) {
+                QueryRequest queryRequest = (QueryRequest)kvRequest;
+
+                extraQueryStats.observeQuery(queryRequest, error, retries,
+                    retryDelay, rateLimitDelay, authCount, throttleCount,
+                    reqSize, resSize, networkLatency);
+            }
+        }
+    }
+
+    public void observeQuery(QueryRequest qreq) {
+        if (extraQueryStats != null) {
+            extraQueryStats.observeQuery(qreq);
+        }
     }
 
     /**
      * Shuts down the time scheduler.
      */
     void shutdown() {
+        logClientStats();
         service.shutdown();
     }
 }

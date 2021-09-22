@@ -4,15 +4,10 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import oracle.nosql.driver.ReadThrottlingException;
-import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsConfig;
-import oracle.nosql.driver.ThrottlingException;
-import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.kv.AuthenticationException;
+import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.Request;
-import oracle.nosql.driver.ops.RetryStats;
 
 public class StatsConfigImpl
     implements StatsConfig {
@@ -170,62 +165,25 @@ public class StatsConfigImpl
         }
     }
 
-    void observe(Request kvRequest, int wireTime,
+    void observe(Request kvRequest, int networkLatency,
         int reqSize, int resSize) {
         if (stats != null && enableCollection) {
-            String requestClass = kvRequest.getClass().getSimpleName();
-            int auth = 0, throttle = 0, retries = 0, retryDelay = 0;
-            RetryStats retryStats = kvRequest.getRetryStats();
-            if (retryStats != null) {
-
-                auth = retryStats.getNumExceptions(
-                    AuthenticationException.class);
-                auth += retryStats.getNumExceptions(
-                    SecurityInfoNotReadyException.class);
-
-                throttle = retryStats.getNumExceptions(
-                    ThrottlingException.class);
-
-                retries = retryStats.getRetries();
-                retryDelay = retryStats.getDelayMs();
-            }
-
-            int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
-
-            stats.observe(requestClass, false, retries, retryDelay,
-                rateLimitDelay, auth, throttle,
+            stats.observe(kvRequest, false,
                 httpClient.getAcquiredChannelCount(),
-                reqSize, resSize, wireTime);
+                reqSize, resSize, networkLatency);
         }
     }
 
     void observeError(Request kvRequest) {
         if (stats != null && enableCollection) {
-            String requestClass = kvRequest.getClass().getSimpleName();
-            int authCount = 0, throttleCount = 0, retryCount = 0, retryDelay = 0;
-            RetryStats retryStats = kvRequest.getRetryStats();
-            if (retryStats != null) {
-                authCount = retryStats.getNumExceptions(
-                    AuthenticationException.class);
-                authCount += retryStats.getNumExceptions(
-                    SecurityInfoNotReadyException.class);
-
-                throttleCount = retryStats.getNumExceptions(
-                    ThrottlingException.class);
-                throttleCount += retryStats.getNumExceptions(
-                    ReadThrottlingException.class);
-                throttleCount += retryStats.getNumExceptions(
-                    WriteThrottlingException.class);
-
-                retryCount = retryStats.getRetries();
-                retryDelay = retryStats.getDelayMs();
-            }
-
-            int rateLimitDelay = kvRequest.getRateLimitDelayedMs();
-
-            stats.observeError(requestClass, retryCount, retryDelay,
-                authCount, throttleCount, rateLimitDelay,
+            stats.observeError(kvRequest,
                 httpClient.getAcquiredChannelCount());
+        }
+    }
+
+    public void observeQuery(QueryRequest qreq) {
+        if (stats != null && enableCollection) {
+            stats.observeQuery(qreq);
         }
     }
 }

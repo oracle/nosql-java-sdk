@@ -297,6 +297,8 @@ public class Client {
         if (kvRequest.isQueryRequest()) {
             QueryRequest qreq = (QueryRequest)kvRequest;
 
+            statsConfig.observeQuery(qreq);
+
             /*
              * The following "if" may be true for advanced queries only. For
              * such queries, the "if" will be true (i.e., the QueryRequest will
@@ -437,7 +439,7 @@ public class Client {
             ResponseHandler responseHandler = null;
 
             ByteBuf buffer = null;
-            long wireTime;
+            long networkLatency;
             try {
                 /*
                  * NOTE: the ResponseHandler will release the Channel
@@ -506,7 +508,7 @@ public class Client {
                 if (isLoggable(logger, Level.FINE)) {
                     logTrace(logger, "Request: " + requestClass);
                 }
-                wireTime = System.currentTimeMillis();
+                networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
 
                 boolean isTimeout =
@@ -526,7 +528,7 @@ public class Client {
                                        wireContent,
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
-                wireTime = System.currentTimeMillis() - wireTime;
+                networkLatency = System.currentTimeMillis() - networkLatency;
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
                     /* update rate limiter settings for table */
@@ -554,7 +556,7 @@ public class Client {
                 res.setRetryStats(kvRequest.getRetryStats());
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
 
-                statsConfig.observe(kvRequest, Math.toIntExact(wireTime),
+                statsConfig.observe(kvRequest, Math.toIntExact(networkLatency),
                     contentLength, resSize);
 
                 return res;
@@ -880,7 +882,7 @@ public class Client {
      * Processes the httpResponse object converting it into a suitable
      * return value.
      *
-     * @param httpResponse the response from the service
+     * @param content the response from the service
      *
      * @return the programmatic response object
      */
@@ -960,7 +962,7 @@ public class Client {
      *
      * @param status the http response code it must not be OK
      *
-     * @param in the input stream representing the failure response
+     * @param payload the payload representing the failure response
      */
     private void processNotOKResponse(HttpResponseStatus status,
                                       ByteBuf payload) {
