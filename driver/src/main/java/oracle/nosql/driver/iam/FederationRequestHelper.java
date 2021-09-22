@@ -34,7 +34,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 
 import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -196,7 +195,6 @@ class FederationRequestHelper {
                  authHeader);
         HttpHeaders headers = new DefaultHttpHeaders();
         return headers
-            .add(HttpHeaderNames.HOST, endpoint.getHost())
             .set(CONTENT_TYPE.toLowerCase(), APP_JSON)
             .set(CONTENT_SHA, bodySha)
             .set(CONTENT_LENGTH.toLowerCase(), body.length)

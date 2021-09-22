@@ -16,6 +16,9 @@ import java.io.Reader;
 import java.math.BigDecimal;
 
 import oracle.nosql.driver.JsonParseException;
+import oracle.nosql.driver.Nson;
+import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.ByteOutputStream;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -37,23 +40,25 @@ public class JsonUtils {
      */
     private static final String HEX = "0123456789ABCDEF";
 
+    public static boolean jsonEquals(String s1, String s2) {
+        return jsonEquals(s1, s2, null);
+    }
+
+    public static boolean jsonEquals(String s1, String s2, JsonOptions options) {
+        FieldValue v1 = createValueFromJson(s1, options);
+        FieldValue v2 = createValueFromJson(s2, options);
+        return v1.equals(v2);
+    }
+
     public static FieldValue createValueFromJson(String jsonInput,
                                                  JsonOptions options) {
         requireNonNull(jsonInput,
                        "createValueFromJson: jsonInput must be non-null");
 
-        JsonParser jp = null;
-        try {
-            jp = createParserWithOptions(jsonInput, options);
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
             return createValueFromJson(jp, true, options);
-        } finally {
-            if (jp != null) {
-                try {
-                    jp.close();
-                } catch (IOException ioe) {
-                    /* ignore */
-                }
-            }
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
         }
     }
 
@@ -62,18 +67,10 @@ public class JsonUtils {
 
         requireNonNull(jsonInput,
                        "createValueFromJson: jsonInput must be non-null");
-        JsonParser jp = null;
-        try {
-            jp = createParserWithOptions(jsonInput, options);
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
             return createValueFromJson(jp, true, options);
-        } finally {
-            if (jp != null) {
-                try {
-                    jp.close();
-                } catch (IOException ioe) {
-                    /* ignore */
-                }
-            }
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
         }
     }
 
@@ -82,18 +79,10 @@ public class JsonUtils {
         requireNonNull(jsonInput,
                        "createValueFromJson: jsonInput must be non-null");
 
-        JsonParser jp = null;
-        try {
-            jp = createParserWithOptions(jsonInput, options);
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
             return createValueFromJson(jp, true, options);
-        } finally {
-            if (jp != null) {
-                try {
-                    jp.close();
-                } catch (IOException ioe) {
-                    /* ignore */
-                }
-            }
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
         }
     }
 
@@ -149,6 +138,14 @@ public class JsonUtils {
         }
     }
 
+    /*
+     * The replacement code for the deprecated code below was only
+     * introduced in Jackson 2.10. If it were replaced we'd rely on
+     * Jackson 2.10+ and as a library forcing that update is risky.
+     *
+     * At some point, when no indirect users need Jackson < 2.10 the
+     * code should be rewritten to the new Jackson API.
+     */
     @SuppressWarnings("deprecation")
     private static void addOptions(JsonParser jp, JsonOptions options) {
         if (options != null) {
@@ -163,7 +160,6 @@ public class JsonUtils {
             }
         }
     }
-
 
     /**
      * Construct a FieldValue based on arbitrary JSON from the incoming JSON
@@ -341,9 +337,307 @@ public class JsonUtils {
     private static JsonParseException createParseException(String msg,
                                                            JsonParser jp) {
         return new JsonParseException(msg,
-                                      (jp == null ? null :
-                                       jp.getCurrentLocation()));
+                                      jp == null ? null :
+                                      jp.getCurrentLocation());
     }
+
+    /**
+     * Returns JSON from NSON
+     * @param bis an input stream containing NSON
+     * @param pretty true if the JSON should be pretty-printed
+     * @return a JSON string representing the NSON
+     */
+    public static String fromNson(ByteInputStream bis, boolean pretty) {
+        return fromNson(bis, pretty ? JsonOptions.PRETTY : null);
+    }
+
+    /**
+     * Returns JSON from NSON
+     * @param bis an input stream containing NSON
+     * @param options configurable options use to affect the JSON output
+     * format of some data types. May be null.
+     * @return a JSON string representing the NSON
+     */
+    public static String fromNson(ByteInputStream bis, JsonOptions options) {
+        FieldValueEventHandler handler =
+            (options != null && options.getPrettyPrint() ?
+             new JsonPrettySerializer(options) : new JsonSerializer(options));
+        try {
+            Nson.generateEventsFromNson(handler, bis, false);
+            return handler.toString();
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Failed to deserialize NSON into JSON: " +
+                ioe.getMessage());
+        }
+
+    }
+
+    /*
+     * Methods to create NSON from JSON. Rather than returning byte[]
+     * these methods all take a ByteOutputStream argument, leaving the
+     * caller responsible for sizing and managing the buffer in the most
+     * efficient manner. Also, not all streams may be easily or efficiently
+     * turned into byte[]
+     */
+
+    public static void createNsonFromJson(ByteOutputStream bos,
+                                          String jsonInput,
+                                          JsonOptions options) {
+        requireNonNull(jsonInput,
+                       "createNsonFromJson: jsonInput must be non-null");
+        requireNonNull(bos,
+                       "createNsonFromJson: stream must be non-null");
+
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
+            createNsonFromJson(bos, jp, true, options);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
+        }
+    }
+
+    public static void createNsonFromJson(ByteOutputStream bos,
+                                          InputStream jsonInput,
+                                          JsonOptions options) {
+        requireNonNull(jsonInput,
+                       "createNsonFromJson: jsonInput must be non-null");
+        requireNonNull(bos,
+                       "createNsonFromJson: stream must be non-null");
+
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
+            createNsonFromJson(bos, jp, true, options);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
+        }
+    }
+
+    public static void createNsonFromJson(ByteOutputStream bos,
+                                          Reader jsonInput,
+                                          JsonOptions options) {
+        requireNonNull(jsonInput,
+                       "createNsonFromJson: jsonInput must be non-null");
+        requireNonNull(bos,
+                       "createNsonFromJson: stream must be non-null");
+
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
+            createNsonFromJson(bos, jp, true, options);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
+        }
+    }
+
+    /**
+     * Constructs NSON based on arbitrary JSON from the incoming JSON, streaming
+     * it into the provided {@link ByteOutputStream}.
+     * The top-level object may be any valid JSON.
+     * @param bos the output stream
+     * @param jp the JsonParser that parses the JSON input
+     * @param getNext true if the first thing the loop should do is get the
+     * next token
+     * @param options JsonOptions used for parsing/mapping
+     * @throws RuntimeException generated by the environment if a parse error
+     * is encountered.
+     */
+    public static void createNsonFromJson(ByteOutputStream bos,
+                                          JsonParser jp,
+                                          boolean getNext,
+                                          JsonOptions options) {
+        requireNonNull(bos,
+                       "createNsonFromJson: stream must be non-null");
+        requireNonNull(jp,
+                       "createNsonFromJson: parser must be non-null");
+
+        FieldValueEventHandler handler =
+            new Nson.NsonSerializer(bos);
+        generateEventsFromJson(handler, jp, getNext, options);
+    }
+
+    /**
+     * Generates {@link FieldValueEventHandler} events from JSON input.
+     * @param handler the event handler that consumes generated events
+     * @param jp the JsonParser that parses the JSON input
+     * @param getNext true if the first thing the loop should do is get the
+     * next token
+     * @param options JsonOptions used for parsing/mapping
+     * @throws RuntimeException generated by the environment if a parse error
+     * is encountered.
+     */
+    public static void generateEventsFromJson(FieldValueEventHandler handler,
+                                              JsonParser jp,
+                                              boolean getNext,
+                                              JsonOptions options) {
+        requireNonNull(handler,
+                       "generateEventsFromJson: handler must be non-null");
+        requireNonNull(jp,
+                       "generateEventsFromJson: parser must be non-null");
+        try {
+
+            JsonToken token = (getNext ? jp.nextToken() : jp.getCurrentToken());
+            if (token == null) {
+                throw createParseException("Empty JSON", jp);
+            }
+
+            /*
+             * TODO:
+             *  o handle JsonOptions
+             *  o include parsing location, etc in errors
+             */
+            switch (token) {
+            case VALUE_STRING:
+                handler.stringValue(jp.getText());
+                break;
+            case VALUE_NUMBER_INT:
+            case VALUE_NUMBER_FLOAT:
+
+                /*
+                 * If all numbers are to be forced to NumberValue do that here
+                 */
+                if (options != null && options.getNumericAsNumber()) {
+                    handler.numberValue(jsonParserGetDecimalValue(jp));
+                    break;
+                }
+
+                /*
+                 * Handle numeric types here. 4 types are supported:
+                 *  INTEGER
+                 *  LONG (long and integer)
+                 *  DOUBLE (double and float)
+                 *  NUMBER (anything that won't fit into the two above)
+                 */
+                JsonParser.NumberType numberType = jp.getNumberType();
+
+                switch (numberType) {
+                case BIG_INTEGER:
+                case BIG_DECIMAL:
+                    BigDecimal bd = jsonParserGetDecimalValue(jp);
+                    handler.numberValue(bd);
+                    break;
+                case INT:
+                    handler.integerValue(jp.getIntValue());
+                    break;
+                case LONG:
+                    handler.longValue(jp.getLongValue());
+                    break;
+                case FLOAT:
+                case DOUBLE:
+                    double dbl = jp.getDoubleValue();
+                    /*
+                     * Jackson parses a floating-point numbers to a double:
+                     *  - if the Math.abs(value) > Double.MAX_VALUE, return
+                     *    Infinity.
+                     *  - if the abs(value) is smaller than Double.MIN_VALUE,
+                     *    then return Zero.
+                     *
+                     * So check if the double value is Infinity or Zero, try to
+                     * read it as BigDecimal value. The real 0.0 is a special
+                     * value, it is treated as valid double value.
+                     */
+                    if (Double.isInfinite(dbl) || dbl == 0.0) {
+                        try {
+                            /*
+                             * If it's a string "Infinity", the parser will
+                             * throw exception
+                             */
+                            bd = jsonParserGetDecimalValue(jp);
+                            if (bd.compareTo(BigDecimal.ZERO) != 0) {
+                            	handler.numberValue(bd);
+                                break;
+                            }
+                        } catch (JsonParseException e) {}
+                    }
+                    handler.doubleValue(dbl);
+                    break;
+                default:
+                    throw createParseException("Unexpected numeric type: " +
+                                               numberType, jp);
+                }
+                break;
+            case VALUE_TRUE:
+                handler.booleanValue(true);
+                break;
+            case VALUE_FALSE:
+                handler.booleanValue(false);
+                break;
+            case VALUE_NULL:
+                handler.jsonNullValue();
+                break;
+            case START_OBJECT:
+                parseObject(handler, jp, options);
+                break;
+            case START_ARRAY:
+                parseArray(handler, jp, options);
+                break;
+            case FIELD_NAME:
+            case END_OBJECT:
+            case END_ARRAY:
+            default:
+                throw createParseException(
+                    "Unexpected token while parsing JSON: " + token, jp);
+            }
+        } catch (IOException ioe) {
+            throw createParseException(
+                "Failed to parse JSON input: " + ioe.getMessage(), jp);
+        }
+    }
+
+    /**
+     * Generates events for a JSON object.
+     * NOTE: this code does not know how to skip objects or fields. Events are
+     * generated for all JSON.
+     */
+    private static void parseObject(FieldValueEventHandler handler,
+                                    JsonParser jp,
+                                    JsonOptions options)
+        throws IOException {
+
+        int mapSize = 0; // size is not yet known
+        handler.startMap(mapSize);
+        JsonToken token;
+        while ((token = jp.nextToken()) != JsonToken.END_OBJECT) {
+            String fieldName = jp.getCurrentName();
+            if (token == null || fieldName == null) {
+                throw createParseException(
+                    "null token or field name parsing JSON object", jp);
+            }
+            handler.startMapField(fieldName);
+
+            /* true tells the method to fetch the next token */
+            generateEventsFromJson(handler, jp, true, options);
+
+            handler.endMapField(fieldName);
+            ++mapSize;
+        }
+        handler.endMap(mapSize);
+    }
+
+    /**
+     * Generates events for a JSON array.
+     * NOTE: this code does not know how to skip objects or fields. Events are
+     * generated for all JSON.
+     */
+    private static void parseArray(FieldValueEventHandler handler,
+                                   JsonParser jp,
+                                   JsonOptions options)
+        throws IOException {
+
+        int arraySize = 0; // not yet known
+        handler.startArray(arraySize);
+
+        JsonToken token;
+        while ((token = jp.nextToken()) != JsonToken.END_ARRAY) {
+            if (token == null) {
+                throw createParseException(
+                    "null token while parsing JSON array", jp);
+            }
+
+            /* false means don't get the next token, it's been fetched */
+            generateEventsFromJson(handler, jp, false, options);
+            handler.endArrayField(arraySize);
+            ++arraySize;
+        }
+        handler.endArray(arraySize);
+    }
+
 
     /**
      * Convert a hex string to byte array

@@ -4,8 +4,6 @@
 	<classpathentry kind="src" path="driver/src/main/java"/>
 	<classpathentry kind="src" path="driver/src/test/java"/>
 	<classpathentry kind="src" path="examples/src/main/java"/>
-	<classpathentry kind="lib" path="driver/target/nosqldriver-javadoc.jar"/>
-	<classpathentry kind="lib" path="driver/target/nosqldriver-sources.jar"/>
 	<classpathentry kind="lib" path="driver/target/nosqldriver.jar"/>
 	<classpathentry kind="lib" path="examples/target/nosql-java-sdk-examples.jar"/>
 	<classpathentry kind="output" path="driver/target/classes"/>

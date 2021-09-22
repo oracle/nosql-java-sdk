@@ -23,7 +23,8 @@ import oracle.nosql.driver.values.MapValue;
 /**
  * A simple program to demonstrate basic table operation
  * - create a table
- * - put a row
+ * - put a row using put
+ * - put a row using an insert query
  * - get a row
  * - query a table
  * - delete a row
@@ -129,7 +130,24 @@ public class BasicTableExample {
             System.out.println("Got row: " + getRes.getValue());
 
             /*
-             * PUT a second row using JSON to enter the entire value
+             * Insert another row using an insert query. The values are in
+             * order of the schema columns. The JSON column is inserted as JSON.
+             */
+            String insertQuery = "INSERT into " + tableName +
+                " values(106, {" +
+                "\"ipaddr\":\"10.0.00.xxx\", " +
+                " \"audience_segment\": { " +
+                " \"sports_lover\":\"2020-05-10\", " +
+                " \"foodie\":\"2020-06-01\"}})";
+            List<MapValue> results = Common.runQuery(handle,
+                                                     insertQuery);
+            System.out.println("Inserted row via query, result:");
+            for (MapValue qval : results) {
+                System.out.println("\t" + qval.toString());
+            }
+
+            /*
+             * PUT another row using JSON to enter the entire value
              */
 
             /* Construct a simple row */
@@ -161,8 +179,8 @@ public class BasicTableExample {
             String query = "SELECT * from " + tableName +
                 " WHERE cookie_id = 456";
 
-            List<MapValue> results = Common.runQuery(handle,
-                                                     query);
+            results = Common.runQuery(handle,
+                                      query);
 
             System.out.println("Number of query results for " +
                                query +

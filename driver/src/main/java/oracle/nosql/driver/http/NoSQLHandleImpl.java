@@ -89,9 +89,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             return config.getLogger();
         }
 
-        /* By default, return a logger that only logs WARNING And SEVERE */
+        /*
+         * The default logger logs at INFO. If this is too verbose users
+         * must create a logger and pass it in.
+         */
         Logger logger = Logger.getLogger(getClass().getName());
-        logger.setLevel(Level.WARNING);
         return logger;
     }
 

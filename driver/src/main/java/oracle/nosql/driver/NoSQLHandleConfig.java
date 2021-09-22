@@ -89,20 +89,21 @@ public class NoSQLHandleConfig implements Cloneable {
     private Consistency consistency;
 
     /**
-     * The size of the connection pool, which is a fixed-size pool.
+     * The size of the connection pool, which is a fixed-size pool, defaults
+     * to nCPUs * 2
      */
-    private int connectionPoolSize = 2;
+    private int connectionPoolSize;
 
     /**
      * The maximum number of pending acquires for the pool
      */
-    private int poolMaxPending = 6;
+    private int poolMaxPending;
 
     /**
      * The number of threads to configure for handling asynchronous netty
-     * traffic.
+     * traffic. Defaults to nCPUs * 2
      */
-    private int numThreads = 2;
+    private int numThreads;
 
     /**
      * The maximum content associated with a request. Payloads that exceed
@@ -617,17 +618,18 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Sets the number of threads to use for handling
      * network traffic. This number affects the performance of concurrent
-     * requests in a multithreaded application.
+     * requests in a multithreaded application. If set to 0 or not
+     * modified the default is the number of CPUs available * 2
      *
      * @param numThreads the number
      *
      * @return this
      */
     public NoSQLHandleConfig setNumThreads(int numThreads) {
-        if (numThreads <= 0) {
+        if (numThreads < 0) {
             throw new IllegalArgumentException(
                 "NoSQLHandleConfig.setNumThreads: numThreads must " +
-                "be a positive value");
+                "be a non-negative value");
         }
         this.numThreads = numThreads;
         return this;
@@ -638,17 +640,19 @@ public class NoSQLHandleConfig implements Cloneable {
      * to the service. Each request/response pair uses a connection. The
      * pool exists to allow concurrent requests and will bound the number of
      * concurrent requests. Additional requests will wait for a connection to
-     * become available.
+     * become available. If requests need to wait for a significant time
+     * additional connections may be created regardless of the pool size.
+     * The default value if not set is number of available CPUs * 2.
      *
      * @param poolSize the pool size
      *
      * @return this
      */
     public NoSQLHandleConfig setConnectionPoolSize(int poolSize) {
-        if (poolSize <= 0) {
+        if (poolSize < 0) {
             throw new IllegalArgumentException(
                 "NoSQLHandleConfig.setConnectionPoolSize: poolSize must " +
-                "be a positive value");
+                "be a non-negative value");
         }
         this.connectionPoolSize = poolSize;
         return this;
@@ -657,17 +661,18 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Sets the maximum number of pending acquire operations allowed on the
      * connection pool. This number is used if the degree of concurrency
-     * desired exceeds the size of the connection pool temporarily.
+     * desired exceeds the size of the connection pool temporarily. The
+     * default value is 3.
      *
      * @param poolMaxPending the maximum number allowed
      *
      * @return this
      */
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
-        if (poolMaxPending <= 0) {
+        if (poolMaxPending < 0) {
             throw new IllegalArgumentException(
                 "NoSQLHandleConfig.setPoolMaxPending: poolMaxPending must " +
-                "be a positive value");
+                "be a non-negative value");
         }
 
         this.poolMaxPending = poolMaxPending;
@@ -741,7 +746,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * concurrent requests. Additional requests will wait for a connection to
      * become available.
      *
-     * @return the pool size
+     * @return the pool size or 0 if not set
      */
     public int getConnectionPoolSize() {
         return connectionPoolSize;
@@ -751,7 +756,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * Returns the maximum number of pending acquire operations allowed on
      * the connection pool.
      *
-     * @return the maximum pending acquire size
+     * @return the maximum pending size or 0 if not set
      */
     public int getPoolMaxPending() {
         return poolMaxPending;
@@ -761,7 +766,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * Returns the number of threads to use for handling
      * network traffic.
      *
-     * @return the pool size
+     * @return the number of threads or 0 if not set
      */
     public int getNumThreads() {
         return numThreads;
@@ -1095,7 +1100,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets an HTTP proxy password if the configured proxy host requires
-     * authentication. If a proxy password is configured a proxy user name 
+     * authentication. If a proxy password is configured a proxy user name
      * must also be configured using {@link #setProxyUsername}.
      *
      * @param proxyPassword the password

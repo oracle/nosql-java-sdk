@@ -52,6 +52,8 @@ public class TimestampUtil {
 
     /**
      * Parses a string to a Timestamp Value, the string is in default pattern.
+     * @param text the string value
+     * @return the Timestamp value represented by the string
      */
     public static Timestamp parseString(String text) {
         return parseString(text, null, true, true);
@@ -59,6 +61,11 @@ public class TimestampUtil {
 
     /**
      * Parses a string to a Timestamp Value, the string is in specified pattern.
+     * @param text the string value
+     * @param pattern the regex pattern to use for parsing the string
+     * @param withZoneUTC true if using UTC
+     * @param optionalFracSecond optional fractional second to use
+     * @return the resulting Timestamp
      */
     public static Timestamp parseString(String text,
                                         String pattern,
@@ -168,6 +175,8 @@ public class TimestampUtil {
 
     /**
      * Formats a Timestamp to a string in default pattern.
+     * @param ts the timestamp value
+     * @return the string representation of the timestamp
      */
     public static String formatString(Timestamp ts) {
         requireNonNull(ts, "Timestamp must be non-null");
@@ -371,11 +380,14 @@ public class TimestampUtil {
     }
 
     /**
-     * Creates a Timestamp with given seconds since Java epoch and nanosOfSecond.
+     * Creates a Timestamp with given seconds since Java epoch and nanosOfSecond
+     * @param seconds the seconds value
+     * @param nanoSeconds the nanoseconds value
+     * @return the resulting Timestamp
      */
-    public static Timestamp createTimestamp(long seconds, int nanosOfSecond) {
+    public static Timestamp createTimestamp(long seconds, int nanoSeconds) {
         Timestamp ts = new Timestamp(seconds * 1000);
-        ts.setNanos(nanosOfSecond);
+        ts.setNanos(nanoSeconds);
         return ts;
     }
 
@@ -429,11 +441,13 @@ public class TimestampUtil {
      */
     private static Instant toInstant(Timestamp timestamp) {
         return Instant.ofEpochSecond(getSeconds(timestamp),
-                                     getNanosOfSecond(timestamp));
+                                     getNanoSeconds(timestamp));
     }
 
     /**
-     * Gets the number of seconds from the Java epoch of 1970-01-01T00:00:00Z.
+     * Gets the number of seconds from the Epoch (1970-01-01T00:00:00Z).
+     * @param timestamp the Timestamp
+     * @return the long value
      */
     public static long getSeconds(Timestamp timestamp) {
         long ms = timestamp.getTime();
@@ -442,8 +456,10 @@ public class TimestampUtil {
 
     /**
      * Gets the nanoseconds of the Timestamp value.
+     * @param timestamp the Timestamp
+     * @return the value in nanoseconds
      */
-    public static int getNanosOfSecond(Timestamp timestamp) {
+    public static int getNanoSeconds(Timestamp timestamp) {
         return timestamp.getNanos();
     }
 

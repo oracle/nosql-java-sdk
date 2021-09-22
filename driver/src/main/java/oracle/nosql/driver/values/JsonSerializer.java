@@ -82,19 +82,20 @@ public class JsonSerializer implements FieldValueEventHandler {
     }
 
     @Override
-    public void startMapField(String key) {
+    public boolean startMapField(String key) {
         sb.append(QUOTE);
         CharTypes.appendQuoted(sb, key);
         sb.append(QUOTE).append(KEY_SEP);
+        return false;
     }
 
     @Override
-    public void endMapField() {
+    public void endMapField(String key) {
         sb.append(FIELD_SEP);
     }
 
     @Override
-    public void endArrayField() {
+    public void endArrayField(int index) {
         sb.append(FIELD_SEP);
     }
 
