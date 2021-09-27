@@ -1,6 +1,18 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Cloud only: Support for AutoScaling tables in TableLimits
+- Row modification time made available in GetResult
+- Existing row modification time made available in PutResult and DeleteResult when operation fails and previous value is requested
+- On-Prem only: Support for setting Durability in write operations (put/delete/writeMultiple/multiDelete)
+
+### Changed
+- Internally, the SDK now detects the serial version of the server it's connected to, and adjusts its capabilities to match. If the server is an older version, and some features may not be available, client apps may get a one-time log message (at INFO level) with text like "The requested feature is not supported by the connected server".
+
+
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [5.2.28-SNAPSHOT] 2021-09-13
 
@@ -38,7 +50,7 @@ NoSQLHandleConfig.setPoolMaxPending() and NoSQLHandleConfig.getPoolMaxPending().
   - Added new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
     - SignatureProvider.createInstancePrincipalForDelegation(File delegationTokenFile)
     - SignatureProvider.createInstancePrincipalForDelegation(String iamAuthUri, Region region, File delegationTokenFile, Logger logger)
-- Added is* methods on FieldValue for convenience checking of whether an instance is
+- Added methods on FieldValue for convenience checking of whether an instance is
 of a given type, e.g. FieldValue.isInteger(), etc.
 
 ### Changed
