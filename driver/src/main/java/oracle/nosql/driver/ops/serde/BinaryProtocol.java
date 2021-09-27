@@ -14,8 +14,8 @@ import static oracle.nosql.driver.util.BinaryProtocol.AUTO_SCALING;
 import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT;
-import static oracle.nosql.driver.util.BinaryProtocol.CREATING;
 import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
+import static oracle.nosql.driver.util.BinaryProtocol.CREATING;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPED;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPING;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
@@ -56,19 +56,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.TENANT_DEPLOYMENT_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_DAYS;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_HOURS;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_ARRAY;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_BINARY;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_BOOLEAN;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_DOUBLE;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_EMPTY;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_INTEGER;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_JSON_NULL;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_LONG;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_MAP;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_NULL;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_NUMBER;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_STRING;
-import static oracle.nosql.driver.util.BinaryProtocol.TYPE_TIMESTAMP;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
@@ -79,11 +66,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 import static oracle.nosql.driver.util.BinaryProtocol.WRITE_LIMIT_EXCEEDED;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Stack;
 
 import oracle.nosql.driver.BatchOperationNumberLimitException;
 import oracle.nosql.driver.Consistency;
@@ -97,6 +79,7 @@ import oracle.nosql.driver.IndexNotFoundException;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.KeySizeLimitException;
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.OperationThrottlingException;
 import oracle.nosql.driver.ReadThrottlingException;
@@ -117,11 +100,11 @@ import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.kv.AuthenticationException;
-import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.ReadRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableLimits.LimitsMode;
 import oracle.nosql.driver.ops.TableResult;
@@ -129,21 +112,6 @@ import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.query.TopologyInfo;
-import oracle.nosql.driver.values.ArrayValue;
-import oracle.nosql.driver.values.BinaryValue;
-import oracle.nosql.driver.values.BooleanValue;
-import oracle.nosql.driver.values.DoubleValue;
-import oracle.nosql.driver.values.EmptyValue;
-import oracle.nosql.driver.values.FieldValue;
-import oracle.nosql.driver.values.FieldValueEventHandler;
-import oracle.nosql.driver.values.IntegerValue;
-import oracle.nosql.driver.values.JsonNullValue;
-import oracle.nosql.driver.values.LongValue;
-import oracle.nosql.driver.values.MapValue;
-import oracle.nosql.driver.values.NullValue;
-import oracle.nosql.driver.values.NumberValue;
-import oracle.nosql.driver.values.StringValue;
-import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
@@ -155,53 +123,14 @@ import oracle.nosql.driver.util.SerializationUtil;
  * Constants are used instead of relying on ordering of values in enumerations
  * or other derived protocol state.
  */
-public class BinaryProtocol {
+public class BinaryProtocol extends Nson {
 
     /*
      * Serialization
+     *
+     * Methods related to data come from Nson. Methods here refer
+     * to objects in the prototol other than data
      */
-
-    /*
-     * Primitives
-     */
-    static void writeInt(ByteOutputStream out,
-                         int value) throws IOException {
-        SerializationUtil.writePackedInt(out, value);
-    }
-
-    static void writeLong(ByteOutputStream out,
-                          long value) throws IOException {
-        SerializationUtil.writePackedLong(out, value);
-    }
-
-    static void writeDouble(ByteOutputStream out,
-                            double value) throws IOException {
-        out.writeDouble(value);
-    }
-
-    static void writeTimestamp(ByteOutputStream out,
-                               TimestampValue value) throws IOException {
-        /* TODO, temporary */
-        writeString(out, value.getString());
-    }
-
-    static void writeString(ByteOutputStream out,
-                            String s) throws IOException {
-
-        SerializationUtil.writeString(out, s);
-    }
-
-    /**
-     * Writes a char array as a UTF8 byte array. This is used for
-     * system queries that may contain a password.
-     */
-    static void writeCharArrayAsUTF8(ByteOutputStream out,
-                                     char [] chars) throws IOException {
-        ByteBuffer buf = StandardCharsets.UTF_8.encode(CharBuffer.wrap(chars));
-        byte[] array = new byte[buf.limit()];
-        buf.get(array);
-        writeByteArray(out, array);
-    }
 
     static void writeTimeout(ByteOutputStream out, int timeout)
         throws IOException {
@@ -240,23 +169,6 @@ public class BinaryProtocol {
             out.writeByte(TTL_HOURS);
         } else {
             throw new IllegalStateException("Invalid TTL unit in ttl " + ttl);
-        }
-    }
-
-    public static int getSerializedSize(FieldValue value) {
-        ByteOutputStream out = null;
-        try {
-            out = ByteOutputStream.createByteOutputStream();
-            writeFieldValue(out, value);
-            int ret = out.getOffset();
-            return ret;
-        } catch (IOException ioe) {
-            throw new IllegalArgumentException(
-                "Can't serialize field value: " + ioe.getMessage());
-        } finally {
-            if (out != null) {
-                out.releaseByteBuf();
-            }
         }
     }
 
@@ -326,34 +238,9 @@ public class BinaryProtocol {
         }
     }
 
-    /*
-     * Serialize a generic FieldValue into the output stream
-     */
-    public static void writeFieldValue(ByteOutputStream out,
-                                       FieldValue value)
-        throws IOException {
-
-        BinarySerializer bs = new BinarySerializer(out);
-        FieldValueEventHandler.generate(value, bs);
-    }
-
     public static void writeVersion(ByteOutputStream out,
                                     Version version) throws IOException {
         SerializationUtil.writeNonNullByteArray(out, version.getBytes());
-    }
-
-    public static void writeByteArray(ByteOutputStream out,
-                                      byte[] array) throws IOException {
-        SerializationUtil.writeByteArray(out, array);
-    }
-
-    /*
-     * Writes a byte array with a full 4-byte int length
-     */
-    public static void writeByteArrayWithInt(ByteOutputStream out,
-                                             byte[] array) throws IOException {
-        out.writeInt(array.length);
-        out.write(array);
     }
 
     /*
@@ -396,47 +283,6 @@ public class BinaryProtocol {
     /*
      * Deserialization
      */
-
-    /*
-     * Primitives
-     */
-    static int readInt(ByteInputStream in) throws IOException {
-        return SerializationUtil.readPackedInt(in);
-    }
-
-    static long readLong(ByteInputStream in) throws IOException {
-        return SerializationUtil.readPackedLong(in);
-    }
-
-    static double readDouble(ByteInputStream in) throws IOException {
-        return in.readDouble();
-    }
-
-    static String readString(ByteInputStream in) throws IOException {
-        return SerializationUtil.readString(in);
-    }
-
-    static byte[] readByteArray(ByteInputStream in) throws IOException {
-        return SerializationUtil.readByteArray(in);
-    }
-
-    static int[] readIntArray(ByteInputStream in) throws IOException {
-        return SerializationUtil.readPackedIntArray(in);
-    }
-
-    /**
-     * Reads a byte array that has a not-packed integer size
-     */
-    static byte[] readByteArrayWithInt(ByteInputStream in) throws IOException {
-        int length = in.readInt();
-        if (length <= 0) {
-            throw new IOException(
-                "Invalid length for prepared query: " + length);
-        }
-        byte[] query = new byte[length];
-        in.readFully(query);
-        return query;
-    }
 
     static Version readVersion(ByteInputStream in) throws IOException {
         return Version.createVersion(readByteArray(in));
@@ -738,461 +584,6 @@ public class BinaryProtocol {
         if (requestSize > requestSizeLimit) {
             throw new RequestSizeLimitException("The request size of " +
                 requestSize + " exceeded the limit of " + requestSizeLimit);
-        }
-    }
-
-    /**
-     * An instance of FieldValueEventHandler that accepts events and adds them
-     * to the protocol output stream.
-     */
-    private static class BinarySerializer implements FieldValueEventHandler {
-
-        private final ByteOutputStream out;
-
-        /*
-         * Stack used to store offsets for maps and arrays for tracking
-         * number of bytes used for a map or array.
-         */
-        private final Stack<Integer> offsetStack;
-        /*
-         * Stack used to store sizes for maps and arrays for tracking number of
-         * elements in a map or array.
-         */
-        private final Stack<Integer> sizeStack;
-
-        public BinarySerializer(ByteOutputStream out) {
-            this.out = out;
-            offsetStack = new Stack<Integer>();
-            sizeStack = new Stack<Integer>();
-        }
-
-        /*
-         * Maps and Arrays. These objects start with their total length,
-         * allowing them to be optionally skipped on deserialization.
-         *  1. start:
-         *    make a 4-byte space for the ultimate length of the serialized
-         *    object.
-         *  2. save the offset on a stack
-         *  3. start counting elements on a stack
-         *  4. ... entries are written
-         *  5. end:
-         *    a. pop the offset stack to get the original length offset
-         *    write the real length into the spot that was held
-         *    b. pop the size stack to get the number of elements
-         *    write the real number of elements the spot that was held
-         * NOTE: a full 4-byte integer is used to avoid the variable-length
-         * encoding used by compressed integers.
-         *
-         * It would be more efficient and avoid an extra stack with pop/push
-         * for each map/array element to rely on the size from the caller
-         * but counting elements here is safer and doesn't rely on the caller
-         * having access to the size information. For example, a caller may be
-         * turning a List (via iterator) into an array. That is less likely
-         * for a Map but it's simplest to keep them the same. Alternatively
-         * the caller could track number of elements and send it correctly in
-         * the end* calls but again, that relies on the caller.
-         */
-        @Override
-        public void startMap(int size) throws IOException {
-            out.writeByte(TYPE_MAP);
-            int lengthOffset = out.getOffset();
-            out.writeInt(0); // size in bytes
-            out.writeInt(0); // number of elements
-            offsetStack.push(lengthOffset);
-            sizeStack.push(0);
-        }
-
-        @Override
-        public void startArray(int size) throws IOException {
-            out.writeByte(TYPE_ARRAY);
-            int lengthOffset = out.getOffset();
-            out.writeInt(0); // size in bytes
-            out.writeInt(0); // number of elements
-            offsetStack.push(lengthOffset);
-            sizeStack.push(0);
-        }
-
-        @Override
-        public void endMap(int size) throws IOException {
-            int lengthOffset = offsetStack.pop();
-            int numElems = sizeStack.pop();
-            int start = lengthOffset + 4;
-            /*
-             * write size in bytes, then number of elements into the space
-             * reserved
-             */
-            out.writeIntAtOffset(lengthOffset, out.getOffset() - start);
-            out.writeIntAtOffset(lengthOffset + 4, numElems);
-        }
-
-        @Override
-        public void endArray(int size) throws IOException {
-            int lengthOffset = offsetStack.pop();
-            int numElems = sizeStack.pop();
-            int start = lengthOffset + 4;
-            /*
-             * write size in bytes, then number of elements into the space
-             * reserved
-             */
-            out.writeIntAtOffset(lengthOffset, out.getOffset() - start);
-            out.writeIntAtOffset(lengthOffset + 4, numElems);
-        }
-
-        @Override
-        public void startMapField(String key) throws IOException {
-            writeString(out, key);
-        }
-
-        @Override
-        public void endMapField() throws IOException {
-            /* add one to number of elements */
-            incrSize();
-        }
-
-        @Override
-        public void endArrayField() throws IOException {
-            /* add one to number of elements */
-            incrSize();
-        }
-
-        @Override
-        public void booleanValue(boolean value) throws IOException {
-            out.writeByte(TYPE_BOOLEAN);
-            out.writeBoolean(value);
-        }
-
-        @Override
-        public void binaryValue(byte[] byteArray) throws IOException {
-            out.writeByte(TYPE_BINARY);
-            writeByteArray(out, byteArray);
-        }
-
-        @Override
-        public void stringValue(String value) throws IOException {
-            out.writeByte(TYPE_STRING);
-            writeString(out, value);
-        }
-
-        @Override
-        public void integerValue(int value) throws IOException {
-            out.writeByte(TYPE_INTEGER);
-            writeInt(out, value);
-        }
-
-        @Override
-        public void longValue(long value) throws IOException {
-            out.writeByte(TYPE_LONG);
-            writeLong(out, value);
-        }
-
-        @Override
-        public void doubleValue(double value) throws IOException {
-            out.writeByte(TYPE_DOUBLE);
-            writeDouble(out, value);
-        }
-
-        @Override
-        public void numberValue(BigDecimal value) throws IOException {
-            out.writeByte(TYPE_NUMBER);
-            writeString(out, value.toString());
-        }
-
-        @Override
-        public void timestampValue(TimestampValue timestamp)
-            throws IOException {
-
-            out.writeByte(TYPE_TIMESTAMP);
-            writeTimestamp(out, timestamp);
-        }
-
-        @Override
-        public void jsonNullValue() throws IOException {
-            out.writeByte(TYPE_JSON_NULL);
-        }
-
-        @Override
-        public void nullValue() throws IOException {
-            out.writeByte(TYPE_NULL);
-        }
-
-        @Override
-        public void emptyValue() throws IOException {
-            out.writeByte(TYPE_EMPTY);
-        }
-
-        private void incrSize() {
-            int value = sizeStack.pop();
-            sizeStack.push(value + 1);
-        }
-    }
-
-    /**
-     * @hidden
-     *
-     * An instance of FieldValueEventHandler that accepts events and constructs
-     * a {@link FieldValue} instance. This is used for creating instances
-     * from the wire protocol.
-     *
-     * In order to handle creation of nested complex types such as maps and
-     * arrays stacks are maintained.
-
-     * The current FieldValue instance is available using the
-     * getCurrentValue() method.
-     *
-     * This class is public only so it can be tested.
-     */
-    public static class FieldValueCreator implements FieldValueEventHandler {
-
-        private Stack<MapValue> mapStack;
-        private Stack<ArrayValue> arrayStack;
-
-        /*
-         * A stack of map keys is needed to handle the situation where maps
-         * are nested.
-         */
-        private Stack<String> keyStack;
-        MapValue currentMap;
-        ArrayValue currentArray;
-        String currentKey;
-        FieldValue currentValue;
-
-        private void pushMap(MapValue map) {
-            if (currentMap != null) {
-                if (mapStack == null) {
-                    mapStack = new Stack<MapValue>();
-                }
-                mapStack.push(currentMap);
-            }
-            currentMap = map;
-            currentValue = map;
-        }
-
-        private void pushArray(ArrayValue array) {
-            if (currentArray != null) {
-                if (arrayStack == null) {
-                    arrayStack = new Stack<ArrayValue>();
-                }
-                arrayStack.push(currentArray);
-            }
-            currentArray = array;
-            currentValue = array;
-        }
-
-        private void pushKey(String key) {
-            if (currentKey != null) {
-                if (keyStack == null) {
-                    keyStack = new Stack<String>();
-                }
-                keyStack.push(currentKey);
-            }
-            currentKey = key;
-        }
-
-        /**
-         * Returns the current FieldValue if available
-         *
-         * @return the current value
-         */
-        public FieldValue getCurrentValue() {
-            return currentValue;
-        }
-
-        @Override
-        public void startMap(int size) throws IOException {
-            /* maintain insertion order */
-            pushMap(new MapValue(true, size));
-        }
-
-        @Override
-        public void startArray(int size) throws IOException {
-            pushArray(new ArrayValue(size));
-        }
-
-        @Override
-        public void endMap(int size) throws IOException {
-            /*
-             * The in-process map becomes the currentValue
-             */
-            currentValue = currentMap;
-            if (mapStack != null && !mapStack.empty()) {
-                currentMap = mapStack.pop();
-            } else {
-                currentMap = null;
-            }
-        }
-
-        @Override
-        public void endArray(int size) throws IOException {
-            /*
-             * The in-process array becomes the currentValue
-             */
-            currentValue = currentArray;
-            if (arrayStack != null && !arrayStack.empty()) {
-                currentArray = arrayStack.pop();
-            } else {
-                currentArray = null;
-            }
-        }
-
-        @Override
-        public void startMapField(String key) throws IOException {
-            pushKey(key);
-        }
-
-        @Override
-        public void endMapField() throws IOException {
-            currentMap.put(currentKey, currentValue);
-            if (keyStack != null && !keyStack.empty()) {
-                currentKey = keyStack.pop();
-            } else {
-                currentKey = null;
-            }
-            /* currentValue undefined right now... */
-        }
-
-        @Override
-        public void endArrayField() throws IOException {
-            currentArray.add(currentValue);
-        }
-
-        @Override
-        public void booleanValue(boolean value) throws IOException {
-            currentValue = BooleanValue.getInstance(value);
-        }
-
-        @Override
-        public void binaryValue(byte[] byteArray) throws IOException {
-            currentValue = new BinaryValue(byteArray);
-        }
-
-        @Override
-        public void stringValue(String value) throws IOException {
-            currentValue = new StringValue(value);
-        }
-
-        @Override
-        public void integerValue(int value) throws IOException {
-            currentValue = new IntegerValue(value);
-        }
-
-        @Override
-        public void longValue(long value) throws IOException {
-            currentValue = new LongValue(value);
-        }
-
-        @Override
-        public void doubleValue(double value) throws IOException {
-            currentValue = new DoubleValue(value);
-        }
-
-        @Override
-        public void numberValue(BigDecimal value) throws IOException {
-            currentValue = new NumberValue(value);
-        }
-
-        @Override
-        public void timestampValue(TimestampValue timestamp) {
-            currentValue = timestamp;
-        }
-
-        @Override
-        public void jsonNullValue() throws IOException {
-            currentValue = JsonNullValue.getInstance();
-        }
-
-        @Override
-        public void nullValue() throws IOException {
-            currentValue = NullValue.getInstance();
-        }
-
-        @Override
-        public void emptyValue() throws IOException {
-            currentValue = EmptyValue.getInstance();
-        }
-    }
-
-    /*
-     * Read the protocol input stream and send events to a handler that
-     * creates a FieldValue.
-     */
-    public static FieldValue readFieldValue(ByteInputStream in)
-        throws IOException {
-        FieldValueCreator handler = new FieldValueCreator();
-        readFieldValueInternal(handler, in);
-        /*
-         * Results accumulated in the handler
-         */
-        return handler.getCurrentValue();
-    }
-
-    /*
-     * Internal implementation that uses the same handler to maintain state
-     * while creating a FieldValue.
-     */
-    private static void readFieldValueInternal(
-        FieldValueEventHandler handler, ByteInputStream in)
-        throws IOException {
-
-
-        int t = in.readByte();
-        switch (t) {
-        case TYPE_ARRAY:
-            in.readInt(); // length of serialized bytes
-            int length = in.readInt();
-            handler.startArray(length);
-            for (int i = 0; i < length; i++) {
-                readFieldValueInternal(handler, in);
-                handler.endArrayField();
-            }
-            handler.endArray(length);
-            break;
-        case TYPE_BINARY:
-            handler.binaryValue(readByteArray(in));
-            break;
-        case TYPE_BOOLEAN:
-            handler.booleanValue(in.readBoolean());
-            break;
-        case TYPE_DOUBLE:
-            handler.doubleValue(readDouble(in));
-            break;
-        case TYPE_INTEGER:
-            handler.integerValue(readInt(in));
-            break;
-        case TYPE_LONG:
-            handler.longValue(readLong(in));
-            break;
-        case TYPE_MAP:
-            in.readInt(); // length of serialized bytes
-            length = in.readInt(); // size of map
-            handler.startMap(length);
-            for (int i = 0; i < length; i++) {
-                String key = readString(in);
-                handler.startMapField(key);
-                readFieldValueInternal(handler, in); // read value
-                handler.endMapField();
-            }
-            handler.endMap(length);
-            break;
-        case TYPE_STRING:
-            handler.stringValue(readString(in));
-            break;
-        case TYPE_TIMESTAMP:
-            handler.timestampValue(new TimestampValue(readString(in), 1));
-            break;
-        case TYPE_NUMBER:
-            handler.numberValue(new BigDecimal(readString(in)));
-            break;
-        case TYPE_JSON_NULL:
-            handler.jsonNullValue();
-            break;
-        case TYPE_NULL:
-            handler.nullValue();
-            break;
-        case TYPE_EMPTY :
-            handler.emptyValue();
-            break;
-        default:
-            throw new IllegalStateException("Unknown value type code: " + t);
         }
     }
 }

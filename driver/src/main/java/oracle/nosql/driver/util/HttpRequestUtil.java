@@ -56,6 +56,8 @@ public class HttpRequestUtil {
      * ExecutionException and TimeoutException</li>
      * </ul>
      *
+     * Note that this method add host and user agent HTTP header by default.
+     *
      * @param httpClient a HTTP client
      *
      * @param uri the request URI
@@ -89,6 +91,8 @@ public class HttpRequestUtil {
      * <li>Other throwable excluding RuntimeException, InterruptedException,
      * ExecutionException and TimeoutException</li>
      * </ul>
+     *
+     * Note that this method add host and user agent HTTP header by default.
      *
      * @param httpClient a HTTP client
      *
@@ -127,6 +131,8 @@ public class HttpRequestUtil {
      * ExecutionException and TimeoutException</li>
      * </ul>
      *
+     * Note that this method add host and user agent HTTP header by default.
+     *
      * @param httpClient a HTTP client
      *
      * @param uri the request URI
@@ -163,6 +169,8 @@ public class HttpRequestUtil {
      * <li>Other throwable excluding RuntimeException, InterruptedException,
      * ExecutionException and TimeoutException</li>
      * </ul>
+     *
+     * Note that this method add host and user agent HTTP header by default.
      *
      * @param httpClient a HTTP client
      *
@@ -218,6 +226,7 @@ public class HttpRequestUtil {
                         uri, headers, method, payload, channel);
                 }
                 addRequiredHeaders(request);
+                logFine(logger, request.headers().toString());
                 httpClient.runRequest(request, responseHandler, channel);
                 if (responseHandler.await(timeoutMs)) {
                     throw new TimeoutException("Request timed out after " +
@@ -322,12 +331,14 @@ public class HttpRequestUtil {
     }
 
     /*
-     * For now, it's just the Host
+     * Add host and user-agent headers.
      */
     private static void addRequiredHeaders(FullHttpRequest request) {
         try {
             final String host = new URL(request.uri()).getHost();
             request.headers().add(HttpHeaderNames.HOST, host);
+            request.headers().add(HttpConstants.USER_AGENT,
+                                  HttpConstants.userAgent);
         } catch (MalformedURLException e) {
             throw new IllegalArgumentException(
                 "Bad URL: " + request.uri());

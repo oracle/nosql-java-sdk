@@ -7,40 +7,41 @@
 
 package oracle.nosql.driver.util;
 
+import java.io.DataInput;
+
 /**
- * An extension of the Netty ByteBufInputStream that provides access to methods
- * to get and set offsets into the byte buffer that underlies the stream. This
- * class prevents knowledge of Netty from being required in the serialization
- * code.
- *
- * NOTE: this class implements DataInput
+ * An extension of DataInput that provides access to methods
+ * to get and set offsets into the byte buffer that underlies the stream.
  */
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
 
-public class ByteInputStream extends ByteBufInputStream {
-    final ByteBuf buffer;
-
-    public ByteInputStream(ByteBuf buffer) {
-        super(buffer);
-        this.buffer = buffer;
-    }
+public interface ByteInputStream extends DataInput, AutoCloseable {
 
     /**
      * Returns the current read offset
+     * @return the offset
      */
-    public int getOffset() {
-        return buffer.readerIndex();
-    }
+    public int getOffset();
 
     /**
-     * Sets the read offset.
+     * Sets the read offset. It can only be set smaller than the current
+     * offset
+     * @param offset the offset
+     * @throws IllegalArgumentException if the offset exceeds the current offset
      */
-    public void setOffset(int offset) {
-        buffer.readerIndex(offset);
-    }
+    public void setOffset(int offset);
 
-    public ByteBuf buffer() {
-        return buffer;
-    }
+    /**
+     * Skips the specified number of bytes
+     * @param toSkip the number of bytes
+     * @throws IllegalArgumentException if toSkip exceeds the capacity of
+     * the underlying stream
+     */
+    public void skip(int toSkip);
+
+    /**
+     * This override avoids the default signature of Closeable that throws
+     * Exception
+     */
+    @Override
+    public void close();
 }

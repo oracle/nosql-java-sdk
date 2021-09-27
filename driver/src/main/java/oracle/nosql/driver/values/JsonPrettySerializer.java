@@ -110,14 +110,15 @@ public class JsonPrettySerializer extends JsonSerializer {
      * key with space before and after the key separator.
      */
     @Override
-    public void startMapField(String key) {
+    public boolean startMapField(String key) {
         sb.append(CR).append(indent).append(QUOTE);
         CharTypes.appendQuoted(sb, key);
         sb.append(QUOTE).append(KEY_SEP);
+        return false;
     }
 
     @Override
-    public void endArrayField() {
+    public void endArrayField(int index) {
         sb.append(FIELD_SEP);
         /* add a space after the comma */
         sb.append(SP);

@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.util;
 
+import oracle.nosql.driver.NoSQLHandleConfig;
+
 /**
  * Constants used for HTTP headers and paths
  */
@@ -119,6 +121,7 @@ public class HttpConstants {
      */
     public static final String TOKEN_PREFIX = "Bearer ";
 
+    public static final String userAgent = makeUserAgent();
 
     /*
      * Path Components
@@ -244,6 +247,25 @@ public class HttpConstants {
             sb.append("/");
             sb.append(s[i]);
         }
+        return sb.toString();
+    }
+
+    /**
+     * Format: "NoSQL-JavaSDK/version (os info)"
+     */
+    public static String makeUserAgent() {
+        String os = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+        String javaVersion = System.getProperty("java.version");
+        String javaVmName = System.getProperty("java.vm.name");
+        StringBuilder sb = new StringBuilder();
+        sb.append("NoSQL-JavaSDK/")
+            .append(NoSQLHandleConfig.getLibraryVersion())
+            .append(" (")
+            .append(os).append("/").append(osVersion)
+            .append("; ")
+            .append(javaVersion).append("/").append(javaVmName)
+            .append(")");
         return sb.toString();
     }
 }

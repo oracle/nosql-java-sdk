@@ -77,7 +77,9 @@ import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
-import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.util.HttpConstants;
+import oracle.nosql.driver.util.NettyByteInputStream;
+import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
 
@@ -135,8 +137,6 @@ public class Client {
 
     private final Logger logger;
 
-    private static final String userAgent = makeUserAgent();
-
     /*
      * Internal rate limiting: cloud only
      */
@@ -173,7 +173,7 @@ public class Client {
         this.config = httpConfig;
         this.url = httpConfig.getServiceURL();
 
-        logInfo(logger, "Driver service URL:" + url.toString());
+        logFine(logger, "Driver service URL:" + url.toString());
         final String protocol = httpConfig.getServiceURL().getProtocol();
         if (!("http".equalsIgnoreCase(protocol) ||
               "https".equalsIgnoreCase(protocol))) {
@@ -224,12 +224,12 @@ public class Client {
         /* StoreAccessTokenProvider == onprem */
         if (config.getRateLimitingEnabled() &&
             !(authProvider instanceof StoreAccessTokenProvider)) {
-            logInfo(logger, "Starting client with rate limiting enabled");
+            logFine(logger, "Starting client with rate limiting enabled");
             rateLimiterMap = new RateLimiterMap();
             tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
             threadPool = Executors.newSingleThreadExecutor();
         } else {
-            logInfo(logger, "Starting client with no rate limiting");
+            logFine(logger, "Starting client with no rate limiting");
             rateLimiterMap = null;
             tableLimitUpdateMap = null;
             threadPool = null;
@@ -244,7 +244,7 @@ public class Client {
      * TODO: add optional timeout (needs change in HttpClient)
      */
     public void shutdown() {
-        logInfo(logger, "Shutting down driver http client");
+        logFine(logger, "Shutting down driver http client");
         if (!shutdown.compareAndSet(false, true)) {
             return;
         }
@@ -255,6 +255,10 @@ public class Client {
         if (threadPool != null) {
             threadPool.shutdown();
         }
+    }
+
+    public int getAcquiredChannelCount() {
+        return httpClient.getAcquiredChannelCount();
     }
 
     /**
@@ -890,7 +894,7 @@ public class Client {
     void writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
-        final ByteOutputStream bos = new ByteOutputStream(content);
+        final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         bos.writeShort(serialVersion);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
@@ -910,24 +914,16 @@ public class Client {
                                  ByteBuf content,
                                  Request kvRequest) {
 
-        ByteInputStream bis = null;
-        try {
-            if (HttpResponseStatus.OK.equals(status)) {
-                bis = new ByteInputStream(content);
-                return processOKResponse(bis, kvRequest);
-            }
-
+        if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
 
             /* TODO: Generate and handle bad status other than 400 */
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
-        } finally {
-            if (bis != null) {
-                try {
-                    bis.close();
-                } catch (IOException ioe) { /* ignored */ }
-            }
+        }
+
+        try (ByteInputStream bis = new NettyByteInputStream(content)) {
+            return processOKResponse(bis, kvRequest);
         }
     }
 
@@ -1140,26 +1136,7 @@ public class Client {
     }
 
     private static String getUserAgent() {
-        return userAgent;
-    }
-
-    /**
-     * Format: "NoSQL-JavaSDK/version (os info)"
-     */
-    private static String makeUserAgent() {
-        String os = System.getProperty("os.name");
-        String osVersion = System.getProperty("os.version");
-        String javaVersion = System.getProperty("java.version");
-        String javaVmName = System.getProperty("java.vm.name");
-        StringBuilder sb = new StringBuilder();
-        sb.append("NoSQL-JavaSDK/")
-            .append(NoSQLHandleConfig.getLibraryVersion())
-            .append(" (")
-            .append(os).append("/").append(osVersion)
-            .append("; ")
-            .append(javaVersion).append("/").append(javaVmName)
-            .append(")");
-        return sb.toString();
+        return HttpConstants.userAgent;
     }
 
     public static void trace(String msg, int level) {

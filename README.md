@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.2.27</version>
+  <version>5.2.28</version>
 </dependency>
 ```
 
@@ -75,6 +75,14 @@ required.
 
 ### Connecting to the Oracle NoSQL Database Cloud Service
 
+There are 3 ways to authorize an application using the Oracle NoSQL Database Cloud Service:
+
+1. As a cloud user, or *User Principal*
+2. As an *Instance Principal*, where an instance is a compute instance in the Oracle cloud
+3. As a *Resource Principal*, where the resource is a programmatic entity in the Oracle cloud such as an OCI Function
+
+#### Authorizing with a User Principal
+
 You will need an Oracle Cloud account and credentials to use this SDK. With this
 information, you'll set up a client configuration to tell your application how to
 find the cloud service, and how to properly authenticate.
@@ -90,6 +98,25 @@ You should have the following information in hand:
 4. Private key file
 5. Optional private key pass phrase
 
+You can supply your user credentials in 2 ways:
+
+1. Using a [Configuration File](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm)
+2. Directly in a [SignatureProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/iam/SignatureProvider.html) constructor
+
+See the Quickstart example below for details on using a User Principal
+
+#### Authorizing with an Instance Principal
+
+Instance Principal is an IAM service feature that enables instances to be authorized actors (or principals) to perform actions on service resources. Each compute instance has its own identity, and it authenticates using the certificates that are added to it. See [Calling Services from an instance](https://docs.cloud.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm) for prerequisite steps to set up Instance Principal.
+
+See the Quickstart example below for code details for using an Instance Principal.
+
+#### Authorizing with a Resource Principal
+
+Resource Principal is an IAM service feature that enables the resources to be authorized actors (or principals) to perform actions on service resources. You may use Resource Principal when calling Oracle NoSQL Database Cloud Service from other Oracle Cloud service resource such as [Functions](https://docs.cloud.oracle.com/en-us/iaas/Content/Functions/Concepts/functionsoverview.htm). See [Accessing Other Oracle Cloud Infrastructure Resources from Running Functions](https://docs.cloud.oracle.com/en-us/iaas/Content/Functions/Tasks/functionsaccessingociresources.htm) for how to set up Resource Principal.
+
+See the Quickstart example below for code details for using a Resource Principal.
+
 ### Connecting to the Oracle NoSQL Database On-premise
 
 The on-premise configuration requires a running instance of Oracle NoSQL
@@ -98,6 +125,9 @@ Database. In addition a running proxy service is required. See
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.3/admin/proxy-and-driver.html)
 for proxy configuration information.
 
+On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
+See the Quickstart example below for code details for connecting on-premise.
+
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
 
 When you develop an application, you may wish to start with
@@ -105,6 +135,10 @@ When you develop an application, you may wish to start with
 The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
+
+ See the Quickstart example below for code details for connecting to the Cloud Simulator.
+Authorization for the Cloud Simulator is a simple no-op class implemented directly
+in the Quickstart example.
 
 ## Quickstart
 
@@ -116,8 +150,8 @@ using a download version of the Oracle NoSQL SDK for Java.
 
 1. Copy this example into a local file named Quickstart.java
 2. If using directly-supplied cloud service credentials edit the file, adding
-credentials in the appropriate SignatureProvider constructor. The default cloud
-service behavior looks for credentials in $HOME/.oci/config.
+credentials in the appropriate
+[SignatureProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/iam/SignatureProvider.html) constructor. The default cloud service behavior looks for credentials in $HOME/.oci/config.
 3. Compile
 ```
 $ javac -cp <path-to-nosqldriver.jar> Quickstart.java
@@ -133,13 +167,17 @@ $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http
 ```
 Using a Cloud Simulator instance on endpoint http://localhost:8080
 ```
-$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsi -endpoint http://localhost:8080
+$ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsim -endpoint http://localhost:8080
 ```
 
+There is code in the example for using Instance Principal and Resource Principal authorization for the cloud
+service but it is not enabled via a command line option. There is an additional, optional argument to the
+command line that allows specification of a compartment to use, where the compartment is an OCID. This
+is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021 Oracle and/or its affiliates.  All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -182,7 +220,8 @@ import oracle.nosql.driver.values.MapValue;
  *
  * To run:
  *   java -cp .:../lib/nosqldriver.jar Quickstart \
- *      -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region>
+ *      -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region> \
+ *      [-compartment <ocid>]
  *
  * The endpoint and arguments vary with the environment.
  *
@@ -194,6 +233,14 @@ public class Quickstart {
     private String endpoint;
     private String service;
 
+    /* required for Instance/Resource Principal auth */
+    private String compartment = null; // an OCID
+
+    /* alternative cloud authorization mechanisms */
+    private final static boolean useUserPrincipal = true;
+    private final static boolean useInstancePrincipal = false;
+    private final static boolean useResourcePrincipal = false;
+
     private Quickstart(String[] args) {
         /*
          * parse arguments
@@ -203,6 +250,8 @@ public class Quickstart {
                 service = args[++i];
             } else if (args[i].equals("-endpoint")) {
                 endpoint = args[++i];
+            } else if (args[i].equals("-compartment")) {
+                compartment = args[++i];
             } else {
                 System.err.println("Unknown argument: " + args[i]);
                 usage();
@@ -217,12 +266,27 @@ public class Quickstart {
     private static void usage() {
         System.err.println(
             "Usage: java -cp <path-to-nosqldriver.jar> Quickstart \\ \n" +
-            " -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region>");
+            " -service <cloud|onprem|cloudsim> -endpoint <endpoint-or-region>" +
+            " \\ \n[-compartment <ocid>]");
         System.exit(1);
     }
 
     private NoSQLHandle getHandle() {
         NoSQLHandleConfig config = new NoSQLHandleConfig(endpoint);
+        if (compartment != null) {
+            config.setDefaultCompartment(compartment);
+        }
+        /*
+         * By default the handle will log to the console at level INFO.
+         * The default logger can be configured using a logging properties
+         * file specified on the command line, e.g.:
+         *   -Djava.util.logging.config.file=logging.properties
+         * If a user-provided Logger is desired, create and set it here:
+         *  Logger logger = Logger.getLogger("...");
+         *  config.setLogger(logger);
+         * NOTE: the referenced classes must be imported above
+         */
+        config.setRequestTimeout(5000);
         configureAuth(config);
         NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
         System.out.println("Acquired handle for service " + service +
@@ -236,18 +300,45 @@ public class Quickstart {
     private void configureAuth(NoSQLHandleConfig config) {
         if (service.equals("cloud")) {
             try {
-                /* By default, look for credentials in $HOME/.oci/config */
-                SignatureProvider authProvider = new SignatureProvider();
+                SignatureProvider authProvider = null;
+                if (useUserPrincipal) {
+                    /*
+                     * Use User Principal authorization using a config
+                     * file in $HOME/.oci/config
+                     */
+                    authProvider = new SignatureProvider();
 
-                /*
-                 * Credentials can be provided directly by editing the
-                 * appropriate information into the parameters below
-                   authProvider = new SignatureProvider(tenantId,       // OCID
-                                                        userId,         // OCID
-                                                        fingerprint, // String
-                                                        privateKeyFile, // File
-                                                        passphrase);  // char[]
-                */
+                    /*
+                     * Credentials can be provided directly by editing the
+                     * appropriate information into the parameters below
+                       authProvider = new SignatureProvider(tenantId, // OCID
+                       userId,         // OCID
+                       fingerprint, // String
+                       privateKeyFile, // File
+                       passphrase);  // char[]
+                    */
+                } else {
+                    if (compartment == null) {
+                        throw new IllegalArgumentException(
+                            "Compartment is required for Instance/Resource " +
+                            "Principal authorization");
+                    }
+                    /*
+                     * There are additional constructors for both Instance and
+                     * Resource Principal, see the javadoc
+                     */
+                    if (useInstancePrincipal) {
+                        authProvider =
+                            SignatureProvider.createWithInstancePrincipal();
+                    } else if (useResourcePrincipal) {
+                        authProvider =
+                            SignatureProvider.createWithResourcePrincipal();
+                    } else {
+                        throw new IllegalArgumentException(
+                            "Authorization method is required");
+                    }
+                }
+
                 config.setAuthorizationProvider(authProvider);
             } catch (IOException ioe) {
                 System.err.println("Unable to configure authentication: " +
@@ -336,6 +427,26 @@ public class Quickstart {
             System.out.println("Got row, result " + getRes);
 
             /*
+             * Perform a query
+             */
+            QueryRequest queryRequest = new QueryRequest()
+                .setStatement("select * from " + tableName);
+
+            /*
+             * Because a query can return partial results execution must occur
+             * in a loop, accumulating or processing results
+             */
+            ArrayList<MapValue> results = new ArrayList<MapValue>();
+            do {
+                QueryResult queryResult = handle.query(queryRequest);
+                results.addAll(queryResult.getResults());
+            } while (!queryRequest.isDone());
+            System.out.println("Query results:");
+            for (MapValue res : results) {
+                System.out.println("\t" + res);
+            }
+
+            /*
              * Drop the table
              */
             tableRequest = new TableRequest()
@@ -351,7 +462,6 @@ public class Quickstart {
         }
     }
 }
-
 ```
 
 ## Examples

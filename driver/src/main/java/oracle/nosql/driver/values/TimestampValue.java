@@ -36,7 +36,7 @@ public class TimestampValue extends FieldValue {
 
     /**
      * @hidden
-     * Used by BinaryProtocol.readFieldValue(), which deserializes a FieldValue
+     * Used by Nson.readFieldValue(), which deserializes a FieldValue
      * received from the proxy.
      * @param value the value
      * @param dummy not used

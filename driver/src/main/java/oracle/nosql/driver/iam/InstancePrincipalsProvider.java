@@ -39,7 +39,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 
 import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 
 /**
@@ -291,8 +290,7 @@ public class InstancePrincipalsProvider
                                         0, 0, 0, null, "InstanceMDClient",
                                         logger);
                 HttpResponse response = HttpRequestUtil.doGetRequest
-                    (client, instanceMDURL, headers(METADATA_SERVICE_HOST),
-                     timeout, logger);
+                    (client, instanceMDURL, headers(), timeout, logger);
 
                 int status = response.getStatusCode();
                 if (status == 404) {
@@ -301,8 +299,7 @@ public class InstancePrincipalsProvider
                     this.baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
                     instanceMDURL = getInstanceMetadaURL();
                     response = HttpRequestUtil.doGetRequest
-                        (client, instanceMDURL, headers(METADATA_SERVICE_HOST),
-                         timeout, logger);
+                        (client, instanceMDURL, headers(), timeout, logger);
                     if (response.getStatusCode() != 200) {
                         throw new IllegalStateException(
                             String.format("Unable to get federation URL from" +
@@ -340,9 +337,8 @@ public class InstancePrincipalsProvider
             return getBaseMetadataURL() + "instance/";
         }
 
-        private HttpHeaders headers(String host) {
+        private HttpHeaders headers() {
             return new DefaultHttpHeaders()
-                .add(HttpHeaderNames.HOST, host)
                 .set(CONTENT_TYPE, APPLICATION_JSON)
                 .set(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
         }

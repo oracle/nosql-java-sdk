@@ -111,20 +111,27 @@ class Utils {
         IAM_URI.put("hyd", OC1_EP_BASE.format(new Object[] {"ap-hyderabad-1"}));
         IAM_URI.put("yny", OC1_EP_BASE.format(new Object[] {"ap-chuncheon-1"}));
 
+        IAM_URI.put("lhr", OC1_EP_BASE.format(new Object[] {"uk-london-1"}));
+        IAM_URI.put("cwl", OC1_EP_BASE.format(new Object[] {"uk-cardiff-1"}));
+
         IAM_URI.put("fra", OC1_EP_BASE.format(new Object[] {"eu-frankfurt-1"}));
         IAM_URI.put("zrh", OC1_EP_BASE.format(new Object[] {"eu-zurich-1"}));
-        IAM_URI.put("lhr", OC1_EP_BASE.format(new Object[] {"uk-london-1"}));
         IAM_URI.put("ams", OC1_EP_BASE.format(new Object[] {"eu-amsterdam-1"}));
+        IAM_URI.put("lin", OC1_EP_BASE.format(new Object[] {"eu-milan-1"}));
+
         IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
-        IAM_URI.put("cwl", OC1_EP_BASE.format(new Object[] {"uk-cardiff-1"}));
         IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
+
+        IAM_URI.put("mtz", OC1_EP_BASE.format(new Object[] {"il-jerusalem-1"}));
 
         IAM_URI.put("gru", OC1_EP_BASE.format(new Object[] {"sa-saopaulo-1"}));
         IAM_URI.put("scl", OC1_EP_BASE.format(new Object[] {"sa-santiago-1"}));
+        IAM_URI.put("vcp", OC1_EP_BASE.format(new Object[] {"sa-vinhedo-1"}));
 
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
         IAM_URI.put("sjc", OC1_EP_BASE.format(new Object[] {"us-sanjose-1"}));
+
         IAM_URI.put("yyz", OC1_EP_BASE.format(new Object[] {"ca-toronto-1"}));
         IAM_URI.put("yul", OC1_EP_BASE.format(new Object[] {"ca-montreal-1"}));
 
@@ -139,9 +146,11 @@ class Utils {
 
         /* OC4 */
         IAM_URI.put("ltn", OC4_EP_BASE.format(new Object[] {"uk-gov-london-1"}));
+        IAM_URI.put("brs", OC4_EP_BASE.format(new Object[] {"uk-gov-cardiff-1"}));
 
         /* OC8 */
         IAM_URI.put("nja", OC8_EP_BASE.format(new Object[] {"ap-chiyoda-1"}));
+        IAM_URI.put("ukb", OC8_EP_BASE.format(new Object[] {"ap-ibaraki-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {

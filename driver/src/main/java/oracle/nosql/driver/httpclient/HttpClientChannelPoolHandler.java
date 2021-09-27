@@ -63,7 +63,8 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
     @Override
     public void channelCreated(Channel ch) {
         logFine(client.getLogger(),
-                "HttpClient " + client.getName() + ", channel created: " + ch);
+                "HttpClient " + client.getName() + ", channel created: " + ch
+                + ", acquired channel cnt " + client.getAcquiredChannelCount());
         ChannelPipeline p = ch.pipeline();
         if (client.getSslContext() != null) {
             /* Enable hostname verification */

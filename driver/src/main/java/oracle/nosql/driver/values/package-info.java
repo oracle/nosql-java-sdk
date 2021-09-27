@@ -17,10 +17,9 @@
  * oracle.nosql.driver.values.FieldValue} instances, keyed by a string.
  * <p>
  * The classes in this package do not have access to the table schema, which
- * means applications must be written knowing the schema. On input (e.g. via
- * {@link oracle.nosql.driver.NoSQLHandle#put}) the constructed data is
- * validated against the table schema and if it does not conform and exception
- * is thrown.
+ * means applications must be written knowing the schema. On input the
+ * constructed data is validated against the table schema and if it does not
+ * conform and exception is thrown.
  * <table>
  *   <caption>The mappings between driver types and database types</caption>
  *   <tr><th>Database Type</th><th>Class</th></tr>
