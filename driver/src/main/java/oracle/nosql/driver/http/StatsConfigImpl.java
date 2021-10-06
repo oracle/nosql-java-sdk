@@ -67,12 +67,13 @@ public class StatsConfigImpl
         if (profile != Profile.NONE) {
             logger.setLevel(Level.INFO);
             logger.log(Level.INFO, LOG_PREFIX +
-                "{\"sdkName\"=\"Oracle NoSQL SDK for Java\", " +
-                "\"sdkVersion\":\"" + libraryVersion + "\", " +
-                "clientId=\"" + id + "\",\"profile\":\"" + profile + "\", " +
-                "\"intervalSec\"=" + interval +
-                ", \"prettyPrint\"=" + prettyPrint +
-                ", \"rateLimitingEnabled\"=" + rateLimitingEnabled + "}");
+                "{\"sdkName\" : \"Oracle NoSQL SDK for Java" +
+                "\", \"sdkVersion\" : \"" + libraryVersion +
+                "\", \"clientId\" : \"" + id +
+                "\", \"profile\" : \"" + profile +
+                "\", \"intervalSec\" : " + interval +
+                ", \"prettyPrint\" : " + prettyPrint +
+                ", \"rateLimitingEnabled\" : " + rateLimitingEnabled + "}");
 
             start();
         }

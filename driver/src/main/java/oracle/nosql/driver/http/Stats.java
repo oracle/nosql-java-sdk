@@ -22,7 +22,6 @@ import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.RetryStats;
-import oracle.nosql.driver.query.PlanIter;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonOptions;
@@ -31,7 +30,7 @@ import oracle.nosql.driver.values.StringValue;
 import oracle.nosql.driver.values.TimestampValue;
 
 
-class Stats {
+public class Stats {
 
     private static String[] REQUEST_KEYS = new String[] {
         "Delete", "Get", "GetIndexes", "GetTable",
@@ -193,14 +192,14 @@ class Stats {
                 return -1;
             }
 
-            if (values.size() == 1) {
-                return values.get(0);
-            }
-
             values.sort(Comparator.comparingLong(Long::longValue));
-            int index = (int)Math.round(percentile * values.size());
+            int index = (int)Math.round(percentile * values.size() - 1);
+
+            if (index < 0) {
+                index = 0;
+            }
             if (index >= values.size()) {
-                index = values.size() -1;
+                index = values.size() - 1;
             }
             return values.get(index);
         }
@@ -298,18 +297,12 @@ class Stats {
             if (queryRequest.isPrepared() && queryRequest.isSimpleQuery()) {
                 qStat.simple++;
             }
-
-            if (queryRequest.getPreparedStatement() != null &&
-                queryRequest.getPreparedStatement().driverPlan() != null) {
-                PlanIter drvPlan = queryRequest.getPreparedStatement().driverPlan();
-                drvPlan.getKind();
-            }
         }
 
         synchronized void observeQuery(QueryRequest queryRequest, boolean error,
             int retries, int retryDelay, int rateLimitDelay,
             int authCount, int throttleCount, int reqSize, int resSize,
-            int wireLatency) {
+            int networkLatency) {
 
             QueryEntryStat qStat = getExtraQueryStat(queryRequest);
 
@@ -332,13 +325,13 @@ class Stats {
                 resSize);
             qStat.reqStats.resSizeMax = Math.max(qStat.reqStats.resSizeMax,
                 resSize);
-            qStat.reqStats.networkLatencySum += wireLatency;
+            qStat.reqStats.networkLatencySum += networkLatency;
             qStat.reqStats.networkLatencyMin =
-                Math.min(qStat.reqStats.networkLatencyMin, wireLatency);
+                Math.min(qStat.reqStats.networkLatencyMin, networkLatency);
             qStat.reqStats.networkLatencyMax =
-                Math.max(qStat.reqStats.networkLatencyMax, wireLatency);
+                Math.max(qStat.reqStats.networkLatencyMax, networkLatency);
             if (qStat.reqStats.wireLatencyPercentile != null) {
-                qStat.reqStats.wireLatencyPercentile.addValue(wireLatency);
+                qStat.reqStats.wireLatencyPercentile.addValue(networkLatency);
             }
         }
 
@@ -425,17 +418,17 @@ class Stats {
 
         // To log stats at the top of the hour, calculate delay until first
         // occurrence. Note: First interval can be smaller than the rest.
-        long delay = 1000l * statsConfig.getInterval() -
-            (( 1000l * 60l * localTime.getMinute() +
-                1000l * localTime.getSecond() +
-                localTime.getNano() / 1000000l) %
-                (1000l * statsConfig.getInterval()));
+        long delay = 1000L * statsConfig.getInterval() -
+            ((1000L * 60L * localTime.getMinute() +
+                1000L * localTime.getSecond() +
+                localTime.getNano() / 1000000L) %
+                (1000L * statsConfig.getInterval()));
 
         service = Executors
             .newSingleThreadScheduledExecutor();
         service.scheduleAtFixedRate(runnable,
             delay,
-            1000l * statsConfig.getInterval(),
+            1000L * statsConfig.getInterval(),
             TimeUnit.MILLISECONDS);
 
         startTime = System.currentTimeMillis();
@@ -458,7 +451,7 @@ class Stats {
         // Output stats to logger.
         String json = fvStats.toJson(statsConfig.getPrettyPrint() ?
             JsonOptions.PRETTY : null);
-        statsConfig.getLogger().log(Level.INFO, statsConfig.LOG_PREFIX + json);
+        statsConfig.getLogger().log(Level.INFO, StatsConfigImpl.LOG_PREFIX + json);
     }
 
     private FieldValue generateFieldValueStats() {
@@ -496,7 +489,7 @@ class Stats {
     /**
      * Clear all collected stats.
      */
-    void clearStats() {
+    private void clearStats() {
         for (String key : REQUEST_KEYS) {
             requests.get(key).clear();
         }
