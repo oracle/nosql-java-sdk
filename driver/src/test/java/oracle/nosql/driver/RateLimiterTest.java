@@ -315,8 +315,12 @@ public class RateLimiterTest extends ProxyTestBase {
             prepRes.getPreparedStatement() != null);
         readUnitsUsed += prepRes.getReadUnits();
 
+        if (maxKB <= 0) {
+            maxKB = (int)((readLimit * usePercent)/100.0);
+        }
+
         if (verbose) System.out.println("Running queries: RUs=" +
-            readLimit + " percent=" + usePercent);
+            readLimit + " percent=" + usePercent + " maxKB=" + maxKB);
 
         do {
             /*
@@ -326,11 +330,8 @@ public class RateLimiterTest extends ProxyTestBase {
              */
             QueryRequest queryReq = new QueryRequest()
                 .setPreparedStatement(prepRes)
-                .setTimeout(20000);
-            if (maxKB > 0) {
-                /* Query with size limit */
-                queryReq.setMaxReadKB(maxKB);
-            }
+                .setTimeout(20000)
+                .setMaxReadKB(maxKB);
             queryReq.setReadRateLimiter(rlim);
             queryReq.setWriteRateLimiter(wlim);
             try {
