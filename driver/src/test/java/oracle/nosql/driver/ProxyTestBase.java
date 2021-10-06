@@ -107,9 +107,9 @@ public class ProxyTestBase {
         @Override
         protected void starting(Description description) {
             if (trace) {
-                System.out.println("Starting test: " +
-                                   description.getMethodName() +
-                                   " at time " + java.time.Instant.now());
+                System.out.println(java.time.Instant.now() +
+                                   " Starting test: " +
+                                   description.getMethodName());
             }
         }
     };
@@ -123,6 +123,9 @@ public class ProxyTestBase {
         endpoint = System.getProperty(ENDPOINT);
         serverType = System.getProperty(SERVER_TYPE);
         onprem = Boolean.getBoolean(ONPREM);
+        if (serverType.equals("onprem")) {
+            onprem = true;
+        }
         secure = Boolean.getBoolean(SECURE);
         verbose = Boolean.getBoolean(VERBOSE);
         local = Boolean.getBoolean(LOCAL);
@@ -159,9 +162,6 @@ public class ProxyTestBase {
                 " system properties");
         }
 
-        if (serverType.equals("onprem")) {
-            onprem = true;
-        }
     }
 
     /*
