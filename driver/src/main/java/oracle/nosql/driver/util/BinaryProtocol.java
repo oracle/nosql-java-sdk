@@ -119,7 +119,7 @@ public final class BinaryProtocol {
      * Table Limits mode
      */
     public static final int PROVISIONED = 1;
-    public static final int AUTO_SCALING = 2;
+    public static final int ON_DEMAND = 2;
 
     /**
      * Operation state

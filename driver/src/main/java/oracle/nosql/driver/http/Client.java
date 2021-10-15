@@ -455,9 +455,10 @@ public class Client {
             if (serialVersion < 3 && kvRequest instanceof TableRequest) {
                 TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
                 if (limits != null &&
-                    limits.getMode() == LimitsMode.AUTO_SCALING) {
+                    limits.getMode() == LimitsMode.ON_DEMAND) {
                     oneTimeMessage("The requested feature is not supported " +
-                                   "by the connected server: AutoScaling");
+                                   "by the connected server: on demand " +
+                                   "capacity table");
                 }
             }
 

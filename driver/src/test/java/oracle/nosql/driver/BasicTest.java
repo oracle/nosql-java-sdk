@@ -551,7 +551,7 @@ public class BasicTest extends ProxyTestBase {
         /* Create a table */
         try {
             TableResult tres = tableOperation(handle, stmt,
-                new TableLimits(0, 0, 50, LimitsMode.AUTO_SCALING));
+                new TableLimits(0, 0, 50, LimitsMode.ON_DEMAND));
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
         } catch (IllegalArgumentException iae) {
             /* expected in V2 */

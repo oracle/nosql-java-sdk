@@ -43,7 +43,7 @@ public class TableLimits {
      */
     public enum LimitsMode {
         PROVISIONED,
-        AUTO_SCALING;
+        ON_DEMAND;
     }
 
     private int readUnits;
@@ -52,7 +52,7 @@ public class TableLimits {
     private LimitsMode mode;
 
     /**
-     * Constructs a TableLimits instance for provisioned table.
+     * Constructs a TableLimits instance for provisioned capacity table.
      *
      * @param readUnits the desired throughput of read operation in terms of
      * read units. A read unit represents 1 eventually consistent read
@@ -74,13 +74,13 @@ public class TableLimits {
     }
 
     /**
-     * Constructs a TableLimits instance for auto scaling table.
+     * Constructs a TableLimits instance for on demand capacity table.
      *
      * @param storageGB the maximum storage to be consumed by the table, in
      * gigabytes
      */
     public TableLimits(int storageGB) {
-        this(0, 0, storageGB, LimitsMode.AUTO_SCALING);
+        this(0, 0, storageGB, LimitsMode.ON_DEMAND);
     }
 
     /**
@@ -199,14 +199,14 @@ public class TableLimits {
             if (readUnits <= 0 || writeUnits <= 0) {
                 throw new IllegalArgumentException(
                     "readUnits and writeUnits must be non-negative for " +
-                    "provisioned table");
+                    "provisioned capacity table");
             }
             break;
-        case AUTO_SCALING:
+        case ON_DEMAND:
             if (readUnits > 0 || writeUnits > 0) {
                 throw new IllegalArgumentException(
                     "Cannot set readUnits or writeUnits for " +
-                    "auto scaling table");
+                    "on demand capacity table");
             }
             break;
         }

@@ -10,7 +10,7 @@ package oracle.nosql.driver.ops.serde;
 import static oracle.nosql.driver.http.Client.trace;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
 import static oracle.nosql.driver.util.BinaryProtocol.ACTIVE;
-import static oracle.nosql.driver.util.BinaryProtocol.AUTO_SCALING;
+import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT;
@@ -203,8 +203,8 @@ public class BinaryProtocol extends Nson {
         case PROVISIONED:
             out.writeByte(PROVISIONED);
             break;
-        case AUTO_SCALING:
-            out.writeByte(AUTO_SCALING);
+        case ON_DEMAND:
+            out.writeByte(ON_DEMAND);
             break;
         }
     }
@@ -552,8 +552,8 @@ public class BinaryProtocol extends Nson {
         switch (mode) {
         case PROVISIONED:
             return TableLimits.LimitsMode.PROVISIONED;
-        case AUTO_SCALING:
-            return TableLimits.LimitsMode.AUTO_SCALING;
+        case ON_DEMAND:
+            return TableLimits.LimitsMode.ON_DEMAND;
         default:
             throw new IllegalStateException("Unknown limits mode " + mode);
         }
