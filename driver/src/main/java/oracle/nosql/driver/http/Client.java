@@ -10,7 +10,7 @@ package oracle.nosql.driver.http;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static oracle.nosql.driver.ops.TableLimits.LimitsMode;
+import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
@@ -455,7 +455,7 @@ public class Client {
             if (serialVersion < 3 && kvRequest instanceof TableRequest) {
                 TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
                 if (limits != null &&
-                    limits.getMode() == LimitsMode.ON_DEMAND) {
+                    limits.getMode() == CapacityMode.ON_DEMAND) {
                     oneTimeMessage("The requested feature is not supported " +
                                    "by the connected server: on demand " +
                                    "capacity table");

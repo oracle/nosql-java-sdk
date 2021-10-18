@@ -106,7 +106,7 @@ import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.TableLimits;
-import oracle.nosql.driver.ops.TableLimits.LimitsMode;
+import oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteRequest;
@@ -190,8 +190,8 @@ public class BinaryProtocol extends Nson {
      * @param mode table limits mode
      * @throws IOException if exception
      */
-    static void writeLimitsMode(ByteOutputStream out,
-                                LimitsMode mode,
+    static void writeCapacityMode(ByteOutputStream out,
+                                CapacityMode mode,
                                 short serialVersion)
         throws IOException {
 
@@ -345,11 +345,11 @@ public class BinaryProtocol extends Nson {
                 int readKb = readInt(in);
                 int writeKb = readInt(in);
                 int storageGB = readInt(in);
-                LimitsMode mode;
+                CapacityMode mode;
                 if (serialVersion > V2) {
-                    mode = getLimitsMode(in.readByte());
+                    mode = getCapacityMode(in.readByte());
                 } else {
-                    mode = LimitsMode.PROVISIONED;
+                    mode = CapacityMode.PROVISIONED;
                 }
                 /*
                  * on-prem tables may return all 0 because of protocol
@@ -548,14 +548,14 @@ public class BinaryProtocol extends Nson {
         }
     }
 
-    static TableLimits.LimitsMode getLimitsMode(int mode) {
+    static TableLimits.CapacityMode getCapacityMode(int mode) {
         switch (mode) {
         case PROVISIONED:
-            return TableLimits.LimitsMode.PROVISIONED;
+            return TableLimits.CapacityMode.PROVISIONED;
         case ON_DEMAND:
-            return TableLimits.LimitsMode.ON_DEMAND;
+            return TableLimits.CapacityMode.ON_DEMAND;
         default:
-            throw new IllegalStateException("Unknown limits mode " + mode);
+            throw new IllegalStateException("Unknown capacity mode " + mode);
         }
     }
 

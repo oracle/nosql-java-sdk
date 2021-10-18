@@ -52,7 +52,7 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.TableLimits;
-import oracle.nosql.driver.ops.TableLimits.LimitsMode;
+import oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
@@ -551,7 +551,7 @@ public class BasicTest extends ProxyTestBase {
         /* Create a table */
         try {
             TableResult tres = tableOperation(handle, stmt,
-                new TableLimits(0, 0, 50, LimitsMode.ON_DEMAND));
+                new TableLimits(0, 0, 50, CapacityMode.ON_DEMAND));
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
         } catch (IllegalArgumentException iae) {
             /* expected in V2 */
@@ -559,7 +559,7 @@ public class BasicTest extends ProxyTestBase {
                 throw iae;
             }
             TableResult tres = tableOperation(handle, stmt,
-                new TableLimits(500, 500, 50, LimitsMode.PROVISIONED));
+                new TableLimits(500, 500, 50, CapacityMode.PROVISIONED));
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
         }
 

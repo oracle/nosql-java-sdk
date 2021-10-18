@@ -41,7 +41,7 @@ public class TableLimits {
     /**
      * Table limits option
      */
-    public enum LimitsMode {
+    public enum CapacityMode {
         PROVISIONED,
         ON_DEMAND;
     }
@@ -49,7 +49,7 @@ public class TableLimits {
     private int readUnits;
     private int writeUnits;
     private int storageGB;
-    private LimitsMode mode;
+    private CapacityMode mode;
 
     /**
      * Constructs a TableLimits instance for provisioned capacity table.
@@ -70,7 +70,7 @@ public class TableLimits {
     public TableLimits(int readUnits,
                        int writeUnits,
                        int storageGB) {
-        this(readUnits, writeUnits, storageGB, LimitsMode.PROVISIONED);
+        this(readUnits, writeUnits, storageGB, CapacityMode.PROVISIONED);
     }
 
     /**
@@ -80,7 +80,7 @@ public class TableLimits {
      * gigabytes
      */
     public TableLimits(int storageGB) {
-        this(0, 0, storageGB, LimitsMode.ON_DEMAND);
+        this(0, 0, storageGB, CapacityMode.ON_DEMAND);
     }
 
     /**
@@ -100,12 +100,12 @@ public class TableLimits {
      * @param storageGB the maximum storage to be consumed by the table, in
      * gigabytes
      *
-     * @param mode the limits mode used by the table.
+     * @param mode the capacity mode used by the table.
      */
     public TableLimits(int readUnits,
                        int writeUnits,
                        int storageGB,
-                       LimitsMode mode) {
+                       CapacityMode mode) {
         this.readUnits = readUnits;
         this.writeUnits = writeUnits;
         this.storageGB = storageGB;
@@ -137,10 +137,10 @@ public class TableLimits {
     }
 
     /**
-     * Returns the limits mode
-     * @return limits mode
+     * Returns the capacity mode
+     * @return capacity mode
      */
-    public LimitsMode getMode() {
+    public CapacityMode getMode() {
         return mode;
     }
 
