@@ -360,6 +360,8 @@
             <additionalOption>-author</additionalOption>
             <additionalOption>--frames</additionalOption>
           </additionalOptions>
+          <!-- below option makes the search bar work correctly -->
+          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs
