@@ -252,6 +252,11 @@ public class TableUsageRequest extends Request {
         return factory.createGetTableUsageDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "TableUsage";
+    }
+
     /**
      * @hidden
      */

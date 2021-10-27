@@ -130,6 +130,11 @@ public class SystemStatusRequest extends Request {
     }
 
     @Override
+    public String getTypeName() {
+        return "SystemStatus";
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("SystemStatusRequest [statement= ").append(statement)

@@ -118,6 +118,11 @@ public class SystemRequest extends Request {
     }
 
     @Override
+    public String getTypeName() {
+        return "System";
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("SystemRequest: [statement=").append(new String(statement))

@@ -179,4 +179,9 @@ public class GetRequest extends ReadRequest {
     public Serializer createDeserializer(SerializerFactory factory) {
         return factory.createGetDeserializer();
     }
+
+    @Override
+    public String getTypeName() {
+        return "Get";
+    }
 }

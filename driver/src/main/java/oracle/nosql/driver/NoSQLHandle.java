@@ -572,12 +572,9 @@ public interface NoSQLHandle {
                                         int pollIntervalMs);
 
     /**
-     * Returns configuration object for statistics.
-     * Statistics, when enabled, contain information like errors, delays, retries
-     * and wire latency agregated on types of requests.
-     * @return configuration object for statistics
+     * Returns an object that allows control over how statistics are collected.
      */
-    public StatsConfig getStatsConfig();
+    public StatsControl getStatsControl();
 
     /**
      * Closes the handle, releasing its memory and network resources. Once

@@ -659,6 +659,11 @@ public class QueryRequest extends Request {
         return factory.createQueryDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "Query";
+    }
+
     /**
      * @hidden
      *

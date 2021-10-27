@@ -416,4 +416,9 @@ public abstract class Request {
     public int getRateLimitDelayedMs() {
         return rateLimitDelayedMs;
     }
+
+    /**
+     * Returns the type name of the request. This is used for stats.
+     */
+    public abstract String getTypeName();
 }

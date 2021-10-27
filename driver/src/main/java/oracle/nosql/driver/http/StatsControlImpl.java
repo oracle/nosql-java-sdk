@@ -1,29 +1,30 @@
+/*-
+ * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
 package oracle.nosql.driver.http;
 
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import oracle.nosql.driver.StatsConfig;
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.Request;
 
-public class StatsConfigImpl
-    implements StatsConfig {
+public class StatsControlImpl
+    implements StatsControl {
 
-    private final static String PROFILE_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
-    private final static String INTERVAL_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
-    private final static String PRETTY_PRINT_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
-    final static String LOG_PREFIX = "ONJS:Monitoring stats|";
+    static public final String LOG_PREFIX = "ONJS:Monitoring stats|";
 
-    private StatsConfig.Profile profile = Profile.NONE;
-    /* Time interval to log in seconds. Default 600, ie. 10 minutes. */
-    private int interval = 600;
-    private boolean prettyPrint = false;
+    private StatsControl.Profile profile;
+    private int interval;
+    private boolean prettyPrint;
 
     private Logger logger;
     private HttpClient httpClient;    /* required for connections */
@@ -32,43 +33,21 @@ public class StatsConfigImpl
     private boolean enableCollection = false;
     private Stats stats;
 
-    StatsConfigImpl(String libraryVersion, Logger logger,
+    StatsControlImpl(NoSQLHandleConfig config, Logger logger,
         HttpClient httpClient, boolean rateLimitingEnabled) {
         this.logger = logger;
         this.httpClient = httpClient;
 
-        String profileProp = System.getProperty(PROFILE_PROPERTY);
-        if (profileProp != null) {
-            try {
-                setProfile(Profile.valueOf(profileProp.toUpperCase()));
-            } catch (IllegalArgumentException iae) {
-                logger.log(Level.SEVERE, LOG_PREFIX  + "Invalid profile " +
-                    "value for system property " + PROFILE_PROPERTY + ": " +
-                    profileProp);
-            }
-        }
-
-        String intervalProp = System.getProperty(INTERVAL_PROPERTY);
-        if (intervalProp != null) {
-            try {
-                setInterval(Integer.valueOf(intervalProp));
-            } catch (NumberFormatException nfe) {
-                logger.log(Level.SEVERE, "Invalid integer value for system " +
-                    "property " + INTERVAL_PROPERTY + ": " + intervalProp);
-            }
-        }
-
-        String ppProp = System.getProperty(PRETTY_PRINT_PROPERTY);
-        if (ppProp != null && ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
-            "on".equals(ppProp.toLowerCase()))) {
-            prettyPrint = Boolean.valueOf(ppProp);
-        }
+        this.interval = config.getStatsInterval();
+        this.profile = config.getStatsProfile();
+        this.prettyPrint = config.getStatsPrettyPrint();
 
         if (profile != Profile.NONE) {
             logger.setLevel(Level.INFO);
             logger.log(Level.INFO, LOG_PREFIX +
                 "{\"sdkName\" : \"Oracle NoSQL SDK for Java" +
-                "\", \"sdkVersion\" : \"" + libraryVersion +
+                "\", \"sdkVersion\" : \"" +
+                NoSQLHandleConfig.getLibraryVersion() +
                 "\", \"clientId\" : \"" + id +
                 "\", \"profile\" : \"" + profile +
                 "\", \"intervalSec\" : " + interval +
@@ -79,25 +58,8 @@ public class StatsConfigImpl
         }
     }
 
-    @Override
-    public StatsConfig setLogger(Logger logger) {
-        this.logger = logger;
-        return this;
-    }
-
-    @Override
     public Logger getLogger() {
         return logger;
-    }
-
-    @Override
-    public StatsConfig setInterval(int interval) {
-        if (interval < 1) {
-            throw new IllegalArgumentException("Stats interval can not be " +
-                "less than 1 second.");
-        }
-        this.interval = interval;
-        return this;
     }
 
     @Override
@@ -106,7 +68,7 @@ public class StatsConfigImpl
     }
 
     @Override
-    public StatsConfig setProfile(Profile profile) {
+    public StatsControl setProfile(Profile profile) {
         this.profile = profile;
         return this;
     }
@@ -117,7 +79,7 @@ public class StatsConfigImpl
     }
 
     @Override
-    public StatsConfig setPrettyPrint(boolean enablePrettyPrint) {
+    public StatsControl setPrettyPrint(boolean enablePrettyPrint) {
         this.prettyPrint = enablePrettyPrint;
         return this;
     }
@@ -128,8 +90,9 @@ public class StatsConfigImpl
     }
 
     @Override
-    public void registerHandler(StatsHandler statsHandler) {
+    public StatsControl registerStatsHandler(StatsHandler statsHandler) {
         this.statsHandler = statsHandler;
+        return this;
     }
 
     public StatsHandler getHandler() {

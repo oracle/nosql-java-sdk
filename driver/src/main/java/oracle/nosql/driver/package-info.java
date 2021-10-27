@@ -138,5 +138,220 @@ java.util.logging.SimpleFormatter.format=%1$tF %1$tT %4$-7s %5$s %n
 oracle.nosql.level=FINE
 io.netty.level=FINE
  * </pre>
+ *
+ * <p><strong>Logging internal SDK statistics</strong></p>
+ * <p>There are 4 profiles of statistics information that can be logged:
+ * <i>none, regular, more, all</i>. For <i>none</i>, which is the default, no
+ * statistics  are collected and there are no messages logged.</p>
+ *  <p>For <i>regular, more and all</i> profiles, the statistics data is
+ *  collected for an interval of time. At the  end  of the
+ * interval, the stats data is logged in a specified JSON format that can be
+ * filtered and parsed. At the end of each interval, after the logging, the
+ * counters are cleared and collection of data resumes.</p><p>
+ *
+ * Collection intervals are aligned to the top of the hour. This means first
+ * interval logs may contain stats for a shorter interval.</p><p>
+ *
+ * Collection of stats are controlled by the following system properties:<li>
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
+ *      Specifies the stats profile: <i>none</i> - disabled,
+ *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
+ *      <i>more</i> - stats above with 95th and 99th percentile latencies
+ *      <i>all</i> - stats above with per query information.</li><li>
+ *
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.interval=600 Interval in
+ *   seconds to log the stats, by default is 10 minutes.</li><li>
+ *
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
+ *   to enable pretty printing of the JSON data, default value is false</li></p>
+ *
+ * Statistics can also be enabled by using the API:
+ * {@link oracle.nosql.driver.NoSQLHandleConfig#setStatsProfile(StatsControl.Profile)}
+ * or {@link oracle.nosql.driver.StatsControl#setProfile(StatsControl.Profile)}.
+ * At runtime stats collection can be used selectively by using
+ * {@link oracle.nosql.driver.StatsControl#start()} and
+ * {@link oracle.nosql.driver.StatsControl#stop()}. The following example shows
+ * how to use a stats handler:
+ * <code>
+ *     NoSQLHandleConfig config = new NoSQLHandleConfig( endpoint );
+ *     config.setStatsProfile(StatsControl.Profile.REGULAR);
+ *     config.setStatsInterval(600);
+ *     config.setStatsPrettyPrint(false);
+ *     config.registerStatsHandler(
+ *         new StatsControl.StatsHandler() {
+ *             public void accept(FieldValue jsonStats) {
+ *                 System.out.println("!!! Got a stat: " + jsonStats);
+ *             }
+ *         });
+ *     NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
+ *
+ *     StatsControl statsControl = handle.getStatsControl();
+ *
+ *     //... application code without stats
+ *
+ *     // enable observations
+ *     statsControl.start();
+ *
+ *     //... application code with REGULAR stats
+ *
+ *     // For particular parts of code profile can be changed collect more stats.
+ *     statsControl.setProfile(StatsControl.Profile.ALL)
+ *     //... more sensitive code with ALL stats
+ *     statsControl.setProfile(StatsControl.Profile.REGULAR)
+ *
+ *     //... application code with REGULAR stats
+ *
+ *     // disable observations
+ *     statsControl.stop();
+ *
+ *     // ... application code without stats
+ *     handle.close();
+ * </code></p><p>
+ *
+ *  <ol>The following is an example of stats log entry using the ALL
+ *  profile:<li>
+ *   A one time entry containing stats id and options:
+ *    <p><pre>INFO: ONJS:Monitoring stats|{    // INFO log entry
+ *    "sdkName" : "Oracle NoSQL SDK for Java",  // SDK name
+ *    "sdkVersion" : "current",                 // SDK version
+ *    "clientId" : "f595b333",                  // NoSQLHandle id
+ *    "profile" : "ALL",                        // stats profile
+ *    "intervalSec" : 600,                      // interval length in seconds
+ *    "prettyPrint" : true,                     // JSON pretty print
+ *    "rateLimitingEnabled" : false}            // if rate limiting is
+ *    enabled</pre></p></li><li>
+ *   An entry at the end of each interval containing the stats values:
+ *    <p><pre>INFO: ONJS:Monitoring stats|{
+ *   "clientId" : "b7bc7734",              // id of NoSQLHandle object
+ *   "startTime" : "2021-09-20T20:11:42Z", // UTC start interval time
+ *   "endTime" : "2021-09-20T20:11:47Z",   // UTC end interval time
+ *   "requests" : [{                       // array of types of requests
+ *     "name" : "Get",                       // stats for GET request type
+ *     "httpRequestCount" : 2,               // count of http requests
+ *     "errors" : 0,                         // number of errors in interval
+ *     "httpRequestLatencyMs" : {            // response time of http requests
+ *       "min" : 4,                            // minimum value in interval
+ *       "avg" : 4.5,                          // average value in interval
+ *       "max" : 5,                            // maximum value in interval
+ *       "95th" : 5,                           // 95th percentile value
+ *       "99th" : 5                            // 99th percentile value
+ *     },
+ *     "requestSize" : {                     // http request size in bytes
+ *       "min" : 42,                           // minimum value in interval
+ *       "avg" : 42.5,                         // average value in interval
+ *       "max" : 43                            // maximum value in interval
+ *     },
+ *     "resultSize" : {                      // http result size in bytes
+ *       "min" : 193,                          // minimum value in interval
+ *       "avg" : 206.5,                        // average value in interval
+ *       "max" : 220                           // maximum value in interval
+ *     },
+ *     "rateLimitDelayMs" : 0,               // delay in milliseconds introduced by the rate limiter
+ *     "retry" : {                           // retries
+ *       "delayMs" : 0,                        // delay in milliseconds introduced by retries
+ *       "authCount" : 0,                      // no of auth retries
+ *       "throttleCount" : 0,                  // no of throttle retries
+ *       "count" : 0                           // total number of retries
+ *     }
+ *   }, {
+ *     "name" : "Query",                   // stats for all QUERY type requests
+ *     "httpRequestCount" : 14,
+ *     "errors" : 0,
+ *     "httpRequestLatencyMs" : {
+ *       "min" : 3,
+ *       "avg" : 13.0,
+ *       "max" : 32,
+ *       "95th" : 32,
+ *       "99th" : 32
+ *     },
+ *     "resultSize" : {
+ *       "min" : 146,
+ *       "avg" : 7379.71,
+ *       "max" : 10989
+ *     },
+ *     "requestSize" : {
+ *       "min" : 65,
+ *       "avg" : 709.85,
+ *       "max" : 799
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }, {
+ *     "name" : "Put",                    // stats for PUT type requests
+ *     "httpRequestCount" : 1002,
+ *     "errors" : 0,
+ *     "httpRequestLatencyMs" : {
+ *       "min" : 1,
+ *       "avg" : 4.41,
+ *       "max" : 80,
+ *       "95th" : 8,
+ *       "99th" : 20
+ *     },
+ *     "requestSize" : {
+ *       "min" : 90,
+ *       "avg" : 90.16,
+ *       "max" : 187
+ *     },
+ *     "resultSize" : {
+ *       "min" : 58,
+ *       "avg" : 58.0,
+ *       "max" : 58
+ *     },
+ *     "rateLimitDelayMs" : 0,
+ *     "retry" : {
+ *       "delayMs" : 0,
+ *       "authCount" : 0,
+ *       "throttleCount" : 0,
+ *       "count" : 0
+ *     }
+ *   }],
+ *   "queries" : [{            // query stats aggregated by query statement
+ *                               // query statement
+ *     "query" : "SELECT * FROM audienceData ORDER BY cookie_id",
+ *                               // query plan description
+ *     "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
+ *     "doesWrites" : false,
+ *     "httpRequestCount" : 12,  // number of http calls to the server
+ *     "unprepared" : 1,         // number of query requests without prepare
+ *     "simple" : false,         // type of query
+ *     "countAPI" : 20,          // number of handle.query() API calls
+ *     "errors" : 0,             // number of calls trowing exception
+ *     "httpRequestLatencyMs" : {// response time of http requests in milliseconds
+ *       "min" : 8,                // minimum value in interval
+ *       "avg" : 14.58,            // average value in interval
+ *       "max" : 32,               // maximum value in interval
+ *       "95th" : 32,              // 95th percentile value in interval
+ *       "99th" : 32               // 99th percentile value in interval
+ *     },
+ *     "requestSize" : {         // http request size in bytes
+ *       "min" : 65,               // minimum value in interval
+ *       "avg" : 732.5,            // average value in interval
+ *       "max" : 799               // maximum value in interval
+ *     },
+ *     "resultSize" : {          // http result size in bytes
+ *       "min" : 914,              // minimum value in interval
+ *       "avg" : 8585.33,          // average value in interval
+ *       "max" : 10989             // maximum value in interval
+ *     },
+ *     "rateLimitDelayMs" : 0,   // total delay introduced by rate limiter in milliseconds
+ *     "retry" : {               // automatic retries
+ *       "delayMs" : 0,            // delay introduced by retries
+ *       "authCount" : 0,          // count of auth related retries
+ *       "throttleCount" : 0,      // count of throttle related retries
+ *       "count" : 0               // total count of retries
+ *     }
+ *   }],
+ *   "connections" : {           // concurrent opened connections
+ *     "min" : 1,                  // minimum value in interval
+ *     "avg" : 9.58,               // average value in interval
+ *     "max" : 10                  // maximum value in interval
+ *   }
+ * }
+ *     </pre></li></p></ol></p>
  */
 package oracle.nosql.driver;

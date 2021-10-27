@@ -177,6 +177,11 @@ public class WriteMultipleRequest extends Request {
         return factory.createWriteMultipleDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "WriteMultiple";
+    }
+
     /**
      * @hidden
      */

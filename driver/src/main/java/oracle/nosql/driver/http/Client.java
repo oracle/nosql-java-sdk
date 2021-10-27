@@ -49,7 +49,7 @@ import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
-import oracle.nosql.driver.StatsConfig;
+import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
@@ -154,7 +154,7 @@ public class Client {
     /**
      * config for statistics
      */
-    private StatsConfigImpl statsConfig;
+    private StatsControlImpl statsControl;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -225,7 +225,7 @@ public class Client {
             threadPool = null;
         }
 
-        statsConfig = new StatsConfigImpl(NoSQLHandleConfig.getLibraryVersion(),
+        statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
     }
 
@@ -240,7 +240,7 @@ public class Client {
             return;
         }
         httpClient.shutdown();
-        statsConfig.shutdown();
+        statsControl.shutdown();
         if (authProvider != null) {
             authProvider.close();
         }
@@ -301,7 +301,7 @@ public class Client {
         if (kvRequest.isQueryRequest()) {
             QueryRequest qreq = (QueryRequest)kvRequest;
 
-            statsConfig.observeQuery(qreq);
+            statsControl.observeQuery(qreq);
 
             /*
              * The following "if" may be true for advanced queries only. For
@@ -560,7 +560,7 @@ public class Client {
                 res.setRetryStats(kvRequest.getRetryStats());
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
 
-                statsConfig.observe(kvRequest, Math.toIntExact(networkLatency),
+                statsControl.observe(kvRequest, Math.toIntExact(networkLatency),
                     contentLength, resSize);
 
                 return res;
@@ -577,7 +577,7 @@ public class Client {
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsConfig.observeError(kvRequest);
+                statsControl.observeError(kvRequest);
                 logInfo(logger, "Unexpected authentication exception: " +
                         rae);
                 throw new NoSQLException("Unexpected exception: " +
@@ -640,13 +640,13 @@ public class Client {
                 continue;
             } catch (NoSQLException nse) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsConfig.observeError(kvRequest);
+                statsControl.observeError(kvRequest);
                 logFine(logger, "Client execute NoSQLException: " +
                         nse.getMessage());
                 throw nse; /* pass through */
             } catch (RuntimeException e) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsConfig.observeError(kvRequest);
+                statsControl.observeError(kvRequest);
                 logFine(logger, "Client execute runtime exception: " +
                         e.getMessage());
                 throw e;
@@ -670,7 +670,7 @@ public class Client {
                 continue;
             } catch (InterruptedException ie) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsConfig.observeError(kvRequest);
+                statsControl.observeError(kvRequest);
                 logInfo(logger, "Client interrupted exception: " +
                         ie.getMessage());
                 /* this exception shouldn't retry -- direct throw */
@@ -678,7 +678,7 @@ public class Client {
                                          ie.getMessage());
             } catch (ExecutionException ee) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsConfig.observeError(kvRequest);
+                statsControl.observeError(kvRequest);
                 logInfo(logger, "Unable to execute request: " +
                         ee.getCause().getMessage());
                 /* is there a better exception? */
@@ -717,7 +717,7 @@ public class Client {
         } while (! timeoutRequest(startTime, timeoutMs, exception));
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-        statsConfig.observeError(kvRequest);
+        statsControl.observeError(kvRequest);
         throw new RequestTimeoutException(timeoutMs,
             "Request timed out after " + kvRequest.getNumRetries() +
             (kvRequest.getNumRetries() == 1 ? " retry. " : " retries. ") +
@@ -1165,9 +1165,9 @@ public class Client {
     }
 
     /**
-     * Returns the config object for client statistics.
+     * Returns the statistics control object.
      */
-    StatsConfig getStatsConfig() {
-        return statsConfig;
+    StatsControl getStatsControl() {
+        return statsControl;
     }
 }
