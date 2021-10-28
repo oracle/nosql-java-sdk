@@ -419,6 +419,8 @@ public abstract class Request {
 
     /**
      * Returns the type name of the request. This is used for stats.
+     *
+     * @return the type name of the request
      */
     public abstract String getTypeName();
 }

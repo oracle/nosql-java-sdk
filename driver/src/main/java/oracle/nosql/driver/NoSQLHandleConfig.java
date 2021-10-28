@@ -1210,7 +1210,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Sets interval size in seconds for logging statistics.
      * Default interval is 600 seconds, i.e. 10 min.
      *
-     * @ return this
+     * @param statsInterval stats logging interval in seconds
+     * @return this
      */
     public NoSQLHandleConfig setStatsInterval(int statsInterval) {
         if (statsInterval < 1) {
@@ -1225,6 +1226,8 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Returns the current interval for logging statistics.
      * Default interval is 600 seconds, i.e. 10 min.
+     *
+     * @return the current interval in seconds
      */
     public int getStatsInterval() {
         return this.statsInterval;
@@ -1234,6 +1237,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * Set the statistics collection profile.
      * Default profile is NONE.
      *
+     * @param statsProfile profile to use
      * @return this
      */
     public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile) {
@@ -1244,6 +1248,8 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Returns the statistics collection profile.
      * Default profile is NONE.
+     *
+     * @return the current profile
      */
     public StatsControl.Profile getStatsProfile() {
         return this.statsProfile;
@@ -1254,6 +1260,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * statistics.
      * Default is disabled.
      *
+     * @param statsPrettyPrint flag to enable JSON pretty print
      * @return this
      */
     public NoSQLHandleConfig setStatsPrettyPrint(boolean statsPrettyPrint) {
@@ -1264,6 +1271,8 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Returns the current JSON pretty print flag for logging statistics.
      * Default is disabled.
+     *
+     * @return the current JSON pretty print flag
      */
     public boolean getStatsPrettyPrint() {
         return this.statsPrettyPrint;

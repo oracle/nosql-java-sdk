@@ -152,7 +152,8 @@ io.netty.level=FINE
  * Collection intervals are aligned to the top of the hour. This means first
  * interval logs may contain stats for a shorter interval.</p><p>
  *
- * Collection of stats are controlled by the following system properties:<li>
+ * Collection of stats are controlled by the following system
+ * properties:<ol><li>
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
  *      Specifies the stats profile: <i>none</i> - disabled,
  *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
@@ -163,7 +164,8 @@ io.netty.level=FINE
  *   seconds to log the stats, by default is 10 minutes.</li><li>
  *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
- *   to enable pretty printing of the JSON data, default value is false</li></p>
+ *   to enable pretty printing of the JSON data, default value is false</li>
+ *   </ol><p>
  *
  * Statistics can also be enabled by using the API:
  * {@link oracle.nosql.driver.NoSQLHandleConfig#setStatsProfile(StatsControl.Profile)}
@@ -208,10 +210,10 @@ io.netty.level=FINE
  *     handle.close();
  * </code></p><p>
  *
- *  <ol>The following is an example of stats log entry using the ALL
- *  profile:<li>
+ *  The following is an example of stats log entry using the ALL
+ *  profile:<ol><li>
  *   A one time entry containing stats id and options:
- *    <p><pre>INFO: ONJS:Monitoring stats|{    // INFO log entry
+ *    <pre>INFO: ONJS:Monitoring stats|{    // INFO log entry
  *    "sdkName" : "Oracle NoSQL SDK for Java",  // SDK name
  *    "sdkVersion" : "current",                 // SDK version
  *    "clientId" : "f595b333",                  // NoSQLHandle id
@@ -219,9 +221,9 @@ io.netty.level=FINE
  *    "intervalSec" : 600,                      // interval length in seconds
  *    "prettyPrint" : true,                     // JSON pretty print
  *    "rateLimitingEnabled" : false}            // if rate limiting is
- *    enabled</pre></p></li><li>
+ *    enabled</pre></li><li>
  *   An entry at the end of each interval containing the stats values:
- *    <p><pre>INFO: ONJS:Monitoring stats|{
+ *    <pre>INFO: ONJS:Monitoring stats|{
  *   "clientId" : "b7bc7734",              // id of NoSQLHandle object
  *   "startTime" : "2021-09-20T20:11:42Z", // UTC start interval time
  *   "endTime" : "2021-09-20T20:11:47Z",   // UTC end interval time
@@ -352,6 +354,6 @@ io.netty.level=FINE
  *     "max" : 10                  // maximum value in interval
  *   }
  * }
- *     </pre></li></p></ol></p>
+ *     </pre></li></ol>
  */
 package oracle.nosql.driver;

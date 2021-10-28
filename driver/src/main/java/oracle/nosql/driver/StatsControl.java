@@ -22,7 +22,7 @@ import oracle.nosql.driver.values.FieldValue;
  * Collection intervals are aligned to the top of the hour. This means first
  * interval logs may contain stats for a shorter interval.</p><p>
  *
- * Collection of stats are controlled by the following system properties:<li>
+ * Collection of stats are controlled by the following system properties:<ol><li>
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
  *      Specifies the stats profile: <i>none</i> - disabled,
  *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
@@ -33,11 +33,11 @@ import oracle.nosql.driver.values.FieldValue;
  *   seconds to log the stats, by default is 10 minutes.</li><li>
  *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
- *   to enable pretty printing of the JSON data, default value is false</li></p>
+ *   to enable pretty printing of the JSON data, default value is false</li></ol>
  *
  * Statistics can also be enabled by using the API:
- * {@link NoSQLHandleConfig#setStatsProfile(Profile)} or
- * {@link StatsControl#setProfile(Profile)}. At runtime stats
+ * {@link NoSQLHandleConfig#setStatsProfile(StatsControl.Profile)} or
+ * {@link StatsControl#setProfile(StatsControl.Profile)}. At runtime stats
  * collection can be used selectively by using {@link StatsControl#start()} and
  * {@link StatsControl#stop()}. The following example shows how to use a stats
  * handler: <pre>
@@ -74,7 +74,7 @@ import oracle.nosql.driver.values.FieldValue;
  *
  *     // ... application code without stats
  *     handle.close();
- *     </pre></p><p>
+ *     </pre><p>
  *
  * For a detailed statistics log entries structure and values see
  * {@link oracle.nosql.driver}</p>
@@ -104,13 +104,16 @@ public interface StatsControl {
     /**
      * Returns the current collection interval.
      * Default interval is 600 seconds, i.e. 10 min.
+     *
+     * @return the current collection interval
      */
     int getInterval();
 
     /**
-     * Set the collection profile.
+     * Set the stats collection profile.
      * Default profile is NONE.
      *
+     * @param profile the stats collection profile
      * @return this
      */
     StatsControl setProfile(Profile profile);
@@ -118,6 +121,8 @@ public interface StatsControl {
     /**
      * Returns the collection profile.
      * Default profile is NONE.
+     *
+     * @return the current profile
      */
     Profile getProfile();
 
@@ -125,6 +130,7 @@ public interface StatsControl {
      * Enable JSON pretty print for easier human reading.
      * Default is disabled.
      *
+     * @param enablePrettyPrint flag to enable JSON pretty print
      * @return this
      */
     StatsControl setPrettyPrint(boolean enablePrettyPrint);
@@ -132,13 +138,15 @@ public interface StatsControl {
     /**
      * Returns the current JSON pretty print flag.
      * Default is disabled.
+     *
+     * @return the current JSON pretty print flag
      */
     boolean getPrettyPrint();
 
     /**
      * Registers a stats handler.
-     * @param handler User defined StatsHandler.
      *
+     * @param handler User defined StatsHandler
      * @return this
      */
     StatsControl registerStatsHandler(StatsHandler handler);
@@ -157,6 +165,8 @@ public interface StatsControl {
 
     /**
      * Returns true if collection of stats is enabled, otherwise returns false.
+     *
+     * @return true if start() was called last, false if stop() was called last
      */
     boolean isStarted();
 }

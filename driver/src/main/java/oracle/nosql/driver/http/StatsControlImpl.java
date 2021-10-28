@@ -41,6 +41,7 @@ public class StatsControlImpl
         this.interval = config.getStatsInterval();
         this.profile = config.getStatsProfile();
         this.prettyPrint = config.getStatsPrettyPrint();
+        this.statsHandler = config.getStatsHandler();
 
         if (profile != Profile.NONE) {
             logger.setLevel(Level.INFO);
