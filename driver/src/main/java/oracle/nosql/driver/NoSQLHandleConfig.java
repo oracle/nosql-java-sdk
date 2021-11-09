@@ -1222,7 +1222,6 @@ public class NoSQLHandleConfig implements Cloneable {
         return this;
     }
 
-
     /**
      * Returns the current interval for logging statistics.
      * Default interval is 600 seconds, i.e. 10 min.
@@ -1240,7 +1239,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param statsProfile profile to use
      * @return this
      */
-    public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile) {
+    public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
+    {
         this.statsProfile = statsProfile;
         return this;
     }
@@ -1280,11 +1280,12 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Registers a handler that is called every time the statistics are logged.
+     * Note: setting a stats handler will not affect the stats log entries.
      * @param statsHandler User defined StatsHandler.
      *
      * @return this
      */
-    public NoSQLHandleConfig registerStatsHandler(
+    public NoSQLHandleConfig setStatsHandler(
         StatsControl.StatsHandler statsHandler) {
         this.statsHandler = statsHandler;
         return this;
@@ -1364,8 +1365,9 @@ public class NoSQLHandleConfig implements Cloneable {
         }
 
         String ppProp = System.getProperty(PRETTY_PRINT_PROPERTY);
-        if (ppProp != null && ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
-            "on".equals(ppProp.toLowerCase()))) {
+        if (ppProp != null &&
+            ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
+             "on".equals(ppProp.toLowerCase()))) {
             statsPrettyPrint = Boolean.valueOf(ppProp);
         }
     }

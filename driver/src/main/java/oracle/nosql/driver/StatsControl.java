@@ -10,9 +10,11 @@ package oracle.nosql.driver;
 import java.util.function.Consumer;
 
 import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.MapValue;
 
 /**
- * <p>This interface allows user to setup the collection of driver statistics.</p><p>
+ * <p>This interface allows user to control the collection of driver
+ * statistics at runtime.</p><p>
  * 
  * The statistics data is collected for an interval of time. At the end of the
  * interval, the stats data is logged in a specified JSON format that can be
@@ -22,7 +24,8 @@ import oracle.nosql.driver.values.FieldValue;
  * Collection intervals are aligned to the top of the hour. This means first
  * interval logs may contain stats for a shorter interval.</p><p>
  *
- * Collection of stats are controlled by the following system properties:<ol><li>
+ * Collection of stats are controlled by the following system
+ * properties:<ul><li>
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
  *      Specifies the stats profile: <i>none</i> - disabled,
  *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
@@ -33,21 +36,22 @@ import oracle.nosql.driver.values.FieldValue;
  *   seconds to log the stats, by default is 10 minutes.</li><li>
  *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
- *   to enable pretty printing of the JSON data, default value is false</li></ol>
+ *   to enable pretty printing of the JSON data, default value is
+ *   false</li></ul>
  *
  * Statistics can also be enabled by using the API:
  * {@link NoSQLHandleConfig#setStatsProfile(StatsControl.Profile)} or
  * {@link StatsControl#setProfile(StatsControl.Profile)}. At runtime stats
- * collection can be used selectively by using {@link StatsControl#start()} and
- * {@link StatsControl#stop()}. The following example shows how to use a stats
- * handler: <pre>
+ * collection can be enabled selectively by using {@link StatsControl#start()}
+ * and {@link StatsControl#stop()}. The following example shows how to use a
+ * stats handler and control the stats at runtime: <pre>
  *     NoSQLHandleConfig config = new NoSQLHandleConfig( endpoint );
  *     config.setStatsProfile(StatsControl.Profile.REGULAR);
  *     config.setStatsInterval(600);
  *     config.setStatsPrettyPrint(false);
- *     config.registerStatsHandler(
+ *     config.setStatsHandler(
  *         new StatsControl.StatsHandler() {
- *             public void accept(FieldValue jsonStats) {
+ *             public void accept(MapValue jsonStats) {
  *                 System.out.println("!!! Got a stat: " + jsonStats);
  *             }
  *         });
@@ -62,7 +66,7 @@ import oracle.nosql.driver.values.FieldValue;
  *
  *     //... application code with REGULAR stats
  *
- *     // For particular parts of code profile can be changed collect more stats.
+ *     // For particular parts of code profile can be changed to collect more stats.
  *     statsControl.setProfile(StatsControl.Profile.ALL)
  *     //... more sensitive code with ALL stats
  *     statsControl.setProfile(StatsControl.Profile.REGULAR)
@@ -96,9 +100,11 @@ public interface StatsControl {
      * Handler interface that user can register to get access to stats at
      * the end of the interval.
      */
-    interface StatsHandler extends Consumer<FieldValue> {
-        /** Stats are encoded in JSON format using the FieldValue API. */
-        void accept(FieldValue jsonStats);
+    interface StatsHandler extends Consumer<MapValue> {
+        /** Stats are available in a MapValue instance that can be searched or
+         * rendered in JSON format using {@link FieldValue#toString} or
+         * {@link FieldValue#toJson}. */
+        void accept(MapValue jsonStats);
     }
 
     /**
@@ -149,7 +155,7 @@ public interface StatsControl {
      * @param handler User defined StatsHandler
      * @return this
      */
-    StatsControl registerStatsHandler(StatsHandler handler);
+    StatsControl setStatsHandler(StatsHandler handler);
 
     /**
      * Collection of stats is enabled only between start and stop or from the
@@ -166,7 +172,7 @@ public interface StatsControl {
     /**
      * Returns true if collection of stats is enabled, otherwise returns false.
      *
-     * @return true if start() was called last, false if stop() was called last
+     * @return true if start() was called last, false otherwise.
      */
     boolean isStarted();
 }

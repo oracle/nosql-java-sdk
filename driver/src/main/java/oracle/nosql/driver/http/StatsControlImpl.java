@@ -91,7 +91,7 @@ public class StatsControlImpl
     }
 
     @Override
-    public StatsControl registerStatsHandler(StatsHandler statsHandler) {
+    public StatsControl setStatsHandler(StatsHandler statsHandler) {
         this.statsHandler = statsHandler;
         return this;
     }

@@ -174,12 +174,12 @@ io.netty.level=FINE
  * {@link oracle.nosql.driver.StatsControl#start()} and
  * {@link oracle.nosql.driver.StatsControl#stop()}. The following example shows
  * how to use a stats handler:
- * <code>
+ * <pre>
  *     NoSQLHandleConfig config = new NoSQLHandleConfig( endpoint );
  *     config.setStatsProfile(StatsControl.Profile.REGULAR);
  *     config.setStatsInterval(600);
  *     config.setStatsPrettyPrint(false);
- *     config.registerStatsHandler(
+ *     config.setStatsHandler(
  *         new StatsControl.StatsHandler() {
  *             public void accept(FieldValue jsonStats) {
  *                 System.out.println("!!! Got a stat: " + jsonStats);
@@ -208,7 +208,7 @@ io.netty.level=FINE
  *
  *     // ... application code without stats
  *     handle.close();
- * </code></p><p>
+ * </pre></p><p>
  *
  *  The following is an example of stats log entry using the ALL
  *  profile:<ol><li>

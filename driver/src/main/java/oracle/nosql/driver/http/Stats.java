@@ -32,7 +32,6 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.values.ArrayValue;
-import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonOptions;
 import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.StringValue;
@@ -468,7 +467,7 @@ public class Stats {
     private void logClientStats() {
         endTime = System.currentTimeMillis();
 
-        FieldValue fvStats = generateFieldValueStats();
+        MapValue fvStats = generateFieldValueStats();
         // Start from scratch in the new interval.
         clearStats();
 
@@ -486,7 +485,7 @@ public class Stats {
             StatsControlImpl.LOG_PREFIX + json);
     }
 
-    private FieldValue generateFieldValueStats() {
+    private MapValue generateFieldValueStats() {
         MapValue root = new MapValue();
         Timestamp ts = new Timestamp(startTime);
         ts.setNanos(0);
