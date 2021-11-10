@@ -473,7 +473,7 @@ public class Stats {
 
         // Call user handle if configured.
         StatsControl.StatsHandler statsHandler =
-            statsControl.getHandler();
+            statsControl.getStatsHandler();
         if (statsHandler != null) {
             statsHandler.accept(fvStats);
         }

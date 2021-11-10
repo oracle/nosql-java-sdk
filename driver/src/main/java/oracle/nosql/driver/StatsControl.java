@@ -150,6 +150,13 @@ public interface StatsControl {
     boolean getPrettyPrint();
 
     /**
+     * Returns the registered stats handler.
+     *
+     * @return the current handler, null if no handler has been registered.
+     */
+    StatsHandler getStatsHandler();
+
+    /**
      * Registers a stats handler.
      *
      * @param handler User defined StatsHandler

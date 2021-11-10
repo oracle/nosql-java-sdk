@@ -96,7 +96,8 @@ public class StatsControlImpl
         return this;
     }
 
-    public StatsHandler getHandler() {
+    @Override
+    public StatsHandler getStatsHandler() {
         return statsHandler;
     }
 
