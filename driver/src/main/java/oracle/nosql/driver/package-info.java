@@ -173,7 +173,7 @@ io.netty.level=FINE
  * At runtime stats collection can be used selectively by using
  * {@link oracle.nosql.driver.StatsControl#start()} and
  * {@link oracle.nosql.driver.StatsControl#stop()}. The following example shows
- * how to use a stats handler:
+ * how to use a stats handler:</p>
  * <pre>
  *     NoSQLHandleConfig config = new NoSQLHandleConfig( endpoint );
  *     config.setStatsProfile(StatsControl.Profile.REGULAR);
@@ -208,12 +208,12 @@ io.netty.level=FINE
  *
  *     // ... application code without stats
  *     handle.close();
- * </pre></p><p>
+ * </pre><p>
  *
  *  The following is an example of stats log entry using the ALL
  *  profile:<ol><li>
  *   A one time entry containing stats id and options:
- *    <pre>INFO: ONJS:Monitoring stats|{    // INFO log entry
+ *    <pre>INFO: Client stats|{    // INFO log entry
  *    "sdkName" : "Oracle NoSQL SDK for Java",  // SDK name
  *    "sdkVersion" : "current",                 // SDK version
  *    "clientId" : "f595b333",                  // NoSQLHandle id
@@ -223,7 +223,7 @@ io.netty.level=FINE
  *    "rateLimitingEnabled" : false}            // if rate limiting is
  *    enabled</pre></li><li>
  *   An entry at the end of each interval containing the stats values:
- *    <pre>INFO: ONJS:Monitoring stats|{
+ *    <pre>INFO: Client stats|{
  *   "clientId" : "b7bc7734",              // id of NoSQLHandle object
  *   "startTime" : "2021-09-20T20:11:42Z", // UTC start interval time
  *   "endTime" : "2021-09-20T20:11:47Z",   // UTC end interval time

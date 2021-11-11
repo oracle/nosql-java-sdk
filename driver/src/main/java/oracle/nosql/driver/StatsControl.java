@@ -85,6 +85,8 @@ import oracle.nosql.driver.values.MapValue;
  */
 public interface StatsControl {
 
+    String LOG_PREFIX = "Client stats|";
+
     /**
      * The following semantics are attached to the Profile:
      *  - NONE: no stats are logged.

@@ -20,7 +20,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
-import oracle.nosql.driver.http.StatsControlImpl;
 import oracle.nosql.driver.iam.SignatureProvider;
 
 import io.netty.handler.ssl.SslContext;
@@ -1344,7 +1343,7 @@ public class NoSQLHandleConfig implements Cloneable {
                     profileProp.toUpperCase()));
             } catch (IllegalArgumentException iae) {
                 if (logger != null) {
-                    logger.log(Level.SEVERE, StatsControlImpl.LOG_PREFIX +
+                    logger.log(Level.SEVERE, StatsControl.LOG_PREFIX +
                         "Invalid profile value for system property " +
                         PROFILE_PROPERTY + ": " + profileProp);
                 }

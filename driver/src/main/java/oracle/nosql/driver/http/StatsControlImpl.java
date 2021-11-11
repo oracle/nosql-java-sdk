@@ -20,8 +20,6 @@ import oracle.nosql.driver.ops.Request;
 public class StatsControlImpl
     implements StatsControl {
 
-    static public final String LOG_PREFIX = "ONJS:Monitoring stats|";
-
     private StatsControl.Profile profile;
     private int interval;
     private boolean prettyPrint;

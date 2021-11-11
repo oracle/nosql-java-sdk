@@ -482,7 +482,7 @@ public class Stats {
         String json = fvStats.toJson(statsControl.getPrettyPrint() ?
             JsonOptions.PRETTY : null);
         statsControl.getLogger().log(Level.INFO,
-            StatsControlImpl.LOG_PREFIX + json);
+            StatsControl.LOG_PREFIX + json);
     }
 
     private MapValue generateFieldValueStats() {
