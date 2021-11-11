@@ -1127,78 +1127,6 @@ public class QueryTest extends ProxyTestBase {
         assertTrue("Expected last request to pass, but it failed", lastPassed);
     }
 
-    @Test
-    public void testQueryWithSmallLimit() {
-        final int numMajor = 1;
-        final int numPerMajor = 5;
-        final int recordKB = 2;
-        final int minRead = 1;
-
-        /* Load rows to table */
-        loadRowsToScanTable(numMajor, numPerMajor, recordKB);
-
-        String query;
-        QueryRequest req;
-        QueryResult ret;
-
-        /* Update with number-based limit of 1 */
-        int newRecordKB = 1;
-        String longString = genString((newRecordKB - 1) * 1024);
-        query = "update testTable set longString = \"" + longString +
-                "\" where sid = 0 and id = 0";
-        req = new QueryRequest().setStatement(query).setLimit(1);
-        ret = handle.query(req);
-        assertNull(ret.getContinuationKey());
-
-        /* Update with maxReadKB of 1, expect an IAE */
-        int expReadKB = minRead + recordKB;
-        query = "update testTable set longString = \"" + longString +
-            "\" where sid = 0 and id = 1";
-        for (int kb = 1; kb <= expReadKB; kb++) {
-            req = new QueryRequest().setStatement(query).setMaxReadKB(kb);
-            try {
-                ret = handle.query(req);
-                if (kb < expReadKB) {
-                    fail("Expected IAE");
-                }
-            } catch (IllegalArgumentException iae) {
-                assertTrue("Expected success with maxReadKB of " + kb +
-                           ": " + iae.getMessage(), kb < expReadKB);
-            }
-        }
-
-        /* Update with maxReadKB of 1, 0 row updated */
-        query = "update testTable set longString = \"" + longString +
-            "\" where sid = 100 and id = 1";
-        req = new QueryRequest().setStatement(query).setMaxReadKB(1);
-        ret = handle.query(req);
-        assertNull(ret.getContinuationKey());
-
-        /* Query with number limit of 1 */
-        query = "select * from testTable where sid = 0 and id > 1";
-        int numRows = numMajor * (numPerMajor - 2);
-        expReadKB = getExpReadKB(false /* keyOnly */, recordKB,
-                                 numRows /* numReadRows */,
-                                 numRows /* numReadKeys */);
-        executeQuery(query, false /* keyOnly */, false/* indexScan */,
-                     numRows, expReadKB, 1 /* limit */, 0 /* maxReadKB */,
-                     recordKB);
-
-        /* Query with maxReadKB of 1, expect an IAE */
-        query = "select * from testTable";
-        req = new QueryRequest().setStatement(query).setMaxReadKB(1);
-        int numExec = 0;
-        try {
-            do {
-                numExec++;
-                ret = handle.query(req);
-            } while (!req.isDone());
-            fail("Expected IAE");
-        } catch (IllegalArgumentException iae) {
-            assertEquals(2, numExec);
-        }
-    }
-
     /**
      * Returns the estimated readKB.
      */
@@ -2025,15 +1953,6 @@ public class QueryTest extends ProxyTestBase {
             queryReq.setConsistency(consistency);
         }
 
-        int expReadUnits = expReadKB;
-        int expBatchReadUnits = (sizeLimit > 0) ? sizeLimit : READ_KB_LIMIT;
-        expBatchReadUnits += (indexScan && !keyOnly) ? recordKB : minRead;
-        expBatchReadUnits += (isDelete ? minRead : 0);
-        if (isAbsolute) {
-            expBatchReadUnits <<= 1;
-            expReadUnits <<= 1;
-        }
-
         int numRows = 0;
         int readKB = 0;
         int writeKB = 0;
@@ -2058,21 +1977,6 @@ public class QueryTest extends ProxyTestBase {
             int wkb = queryRes.getWriteKB();
             int prepCost = (numBatches == 0 ? getMinQueryCost() : 0);
 
-            /*
-             * Make sure we didn't exceed the read limit. The "+ recordKB" is
-             * needed because at the RNs we allow the limit to be exceeded by
-             * 1 row, if we have already read the index entry for that row. The
-             * "+ 1" is needed for DELETE queries, because a row that satisfies
-             * the DELETE conditions, we read its primary-index once again to
-             * do the delete.
-             */
-
-            /* on-prem the limit is not enforced -- this calc may not work */
-            int effectiveMaxReadKB = (queryReq.getMaxReadKB() == 0 ?
-                                      READ_KB_LIMIT : queryReq.getMaxReadKB());
-            assert(queryRes.getReadKB() <=
-                   prepCost + effectiveMaxReadKB + recordKB + 1);
-
             if (showResults) {
                 for (int i = 0; i < results.size(); ++i) {
                     System.out.println("Result " + (numRows + i) + " :");
@@ -2085,10 +1989,6 @@ public class QueryTest extends ProxyTestBase {
             }
 
             numRows += cnt;
-
-            assertTrue("Unexpected readUnits, expect <= " +
-                       (expBatchReadUnits + prepCost) + ", but get " + runits,
-                       runits <= (expBatchReadUnits + prepCost));
             readKB += rkb;
             readUnits += runits;
             writeKB += wkb;
@@ -2103,32 +2003,9 @@ public class QueryTest extends ProxyTestBase {
                                " Total WriteKB = " + writeKB);
         }
 
-        if (!onprem) {
-            assertTrue("Read KB and Read units should be > 0",
-                       readKB > 0 && readUnits > 0);
-        }
         assertEquals("Wrong number of rows returned, expect " + expNumRows +
                      ", but get " + numRows, expNumRows, numRows);
 
-        if (expReadKB >= 0 && onprem == false) {
-            /*
-             * When read cost exceeds size limit after reading the key, the
-             * read cost possible has an additional MIN_READ exceeded per
-             * batch.
-             */
-            int delta = (numBatches - 1) * minRead;
-            if (isAbsolute) {
-                delta <<= 1;
-            }
-
-            expReadUnits += totalPrepCost;
-
-            assertTrue("Unexpected read units, exp in range[" +
-                       expReadUnits + ", " + (expReadUnits + delta) +
-                       "] actual " + readUnits,
-                       readUnits >= expReadUnits &&
-                       readUnits <= expReadUnits + delta);
-        }
     }
 
     private void executeQuery(String query,
@@ -2160,7 +2037,6 @@ public class QueryTest extends ProxyTestBase {
 
         QueryResult queryRes;
         int numRows = 0;
-        int totalReadKB = 0;
 
         do {
             queryRes = handle.query(queryReq);
@@ -2176,26 +2052,6 @@ public class QueryTest extends ProxyTestBase {
                                    " ReadUnits = " + queryRes.getReadUnits());
             }
 
-            /*
-             * Note: in some rare cases we may get zero readKB with 1 result.
-             * From Markos:
-             *
-             * When we do index/sort based group by, if we reach the read limit
-             * in the middle of computing a group, we include the partially
-             * computed group row in the continuation key. When we send the
-             * continuation key back, we may discover (without reading any
-             * bytes) that the group was actually fully computed, and we now
-             * send it back as a result.
-             *
-             * So we take this rare case into account by allowing zero readKB
-             * if the numresults is 1 and we've already accumulated readKBs.
-             */
-            if (!onprem &&
-                (queryRes.getResults().size() != 1 || totalReadKB == 0)) {
-                assertTrue(queryRes.getReadKB() > 0);
-            }
-
-            totalReadKB += queryRes.getReadKB();
         } while (!queryReq.isDone());
 
         assertTrue("Wrong number of rows returned, expect " + expNumRows +

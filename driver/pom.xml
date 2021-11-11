@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.2.28-SNAPSHOT</version>
+  <version>5.2.29-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -46,8 +46,8 @@
     <copyright>Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.63.Final</netty.version>
-    <jackson.version>2.12.1</jackson.version>
+    <netty.version>4.1.68.Final</netty.version>
+    <jackson.version>2.12.4</jackson.version>
     <bouncy.version>1.68</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
@@ -360,6 +360,8 @@
             <additionalOption>-author</additionalOption>
             <additionalOption>--frames</additionalOption>
           </additionalOptions>
+          <!-- below option makes the search bar work correctly -->
+          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs
