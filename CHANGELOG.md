@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
+
+## [Unreleased]
+
+### Added
+- Added client statistics. Users can enable internal driver statistics by 
+using system property -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=
+[none|regular|more|all] or by using the NoSQLConfig.setStatsProfile() api. 
+
 ## [5.2.29-SNAPSHOT] 2021-09-30
 
 ### Changed

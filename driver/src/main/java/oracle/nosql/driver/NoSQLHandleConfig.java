@@ -16,11 +16,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import io.netty.handler.ssl.SslContext;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
+
+import io.netty.handler.ssl.SslContext;
 
 /**
  * NoSQLHandleConfig groups parameters used to configure a {@link
@@ -197,6 +199,21 @@ public class NoSQLHandleConfig implements Cloneable {
     private String proxyPassword;
 
     /**
+     * Statistics configuration, optional.
+     */
+    private final static String PROFILE_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
+    private final static String INTERVAL_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
+    private final static String PRETTY_PRINT_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
+    private int statsInterval = 600;
+    private StatsControl.Profile statsProfile = StatsControl.Profile.NONE;
+    private boolean statsPrettyPrint = false;
+    private StatsControl.StatsHandler statsHandler = null;
+
+    /**
      * Specifies an endpoint or region id to use to connect to the Oracle
      * NoSQL Database Cloud Service or, if on-premise, the Oracle NoSQL
      * Database proxy server.
@@ -240,6 +257,7 @@ public class NoSQLHandleConfig implements Cloneable {
         super();
         endpoint = checkRegionId(endpoint, null);
         this.serviceURL = createURL(endpoint, "/");
+        setConfigFromEnvironment();
     }
 
     /**
@@ -290,6 +308,7 @@ public class NoSQLHandleConfig implements Cloneable {
         endpoint = checkRegionId(endpoint, provider);
         this.serviceURL = createURL(endpoint, "/");
         this.authProvider = provider;
+        setConfigFromEnvironment();
     }
 
     /**
@@ -313,6 +332,7 @@ public class NoSQLHandleConfig implements Cloneable {
         this.serviceURL = createURL(region.endpoint(), "/");
         this.region = region;
         this.authProvider = provider;
+        setConfigFromEnvironment();
     }
 
     /**
@@ -339,6 +359,7 @@ public class NoSQLHandleConfig implements Cloneable {
         }
         this.serviceURL = createURL(region.endpoint(), "/");
         this.authProvider = provider;
+        setConfigFromEnvironment();
     }
 
     /**
@@ -1184,6 +1205,100 @@ public class NoSQLHandleConfig implements Cloneable {
         return sslCtx;
     }
 
+    /**
+     * Sets interval size in seconds for logging statistics.
+     * Default interval is 600 seconds, i.e. 10 min.
+     *
+     * @param statsInterval stats logging interval in seconds
+     * @return this
+     */
+    public NoSQLHandleConfig setStatsInterval(int statsInterval) {
+        if (statsInterval < 1) {
+            throw new IllegalArgumentException("Stats interval can not be " +
+                "less than 1 second.");
+        }
+        this.statsInterval = statsInterval;
+        return this;
+    }
+
+    /**
+     * Returns the current interval for logging statistics.
+     * Default interval is 600 seconds, i.e. 10 min.
+     *
+     * @return the current interval in seconds
+     */
+    public int getStatsInterval() {
+        return this.statsInterval;
+    }
+
+    /**
+     * Set the statistics collection profile.
+     * Default profile is NONE.
+     *
+     * @param statsProfile profile to use
+     * @return this
+     */
+    public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
+    {
+        this.statsProfile = statsProfile;
+        return this;
+    }
+
+    /**
+     * Returns the statistics collection profile.
+     * Default profile is NONE.
+     *
+     * @return the current profile
+     */
+    public StatsControl.Profile getStatsProfile() {
+        return this.statsProfile;
+    }
+
+    /**
+     * Enable JSON pretty print for easier human reading when logging
+     * statistics.
+     * Default is disabled.
+     *
+     * @param statsPrettyPrint flag to enable JSON pretty print
+     * @return this
+     */
+    public NoSQLHandleConfig setStatsPrettyPrint(boolean statsPrettyPrint) {
+        this.statsPrettyPrint = statsPrettyPrint;
+        return this;
+    }
+
+    /**
+     * Returns the current JSON pretty print flag for logging statistics.
+     * Default is disabled.
+     *
+     * @return the current JSON pretty print flag
+     */
+    public boolean getStatsPrettyPrint() {
+        return this.statsPrettyPrint;
+    }
+
+    /**
+     * Registers a handler that is called every time the statistics are logged.
+     * Note: setting a stats handler will not affect the stats log entries.
+     * @param statsHandler User defined StatsHandler.
+     *
+     * @return this
+     */
+    public NoSQLHandleConfig setStatsHandler(
+        StatsControl.StatsHandler statsHandler) {
+        this.statsHandler = statsHandler;
+        return this;
+    }
+
+    /**
+     * Returns the registered statistics handler, otherwise null.
+     *
+     * @return this
+     */
+    public StatsControl.StatsHandler getStatsHandler() {
+        return this.statsHandler;
+    }
+
     @Override
     public NoSQLHandleConfig clone() {
         try {
@@ -1220,4 +1335,39 @@ public class NoSQLHandleConfig implements Cloneable {
         }
     }
 
+    private void setConfigFromEnvironment() {
+        String profileProp = System.getProperty(PROFILE_PROPERTY);
+        if (profileProp != null) {
+            try {
+                setStatsProfile(StatsControl.Profile.valueOf(
+                    profileProp.toUpperCase()));
+            } catch (IllegalArgumentException iae) {
+                if (logger != null) {
+                    logger.log(Level.SEVERE, StatsControl.LOG_PREFIX +
+                        "Invalid profile value for system property " +
+                        PROFILE_PROPERTY + ": " + profileProp);
+                }
+            }
+        }
+
+        String intervalProp = System.getProperty(INTERVAL_PROPERTY);
+        if (intervalProp != null) {
+            try {
+                setStatsInterval(Integer.valueOf(intervalProp));
+            } catch (NumberFormatException nfe) {
+                if (logger != null) {
+                    logger.log(Level.SEVERE, "Invalid integer value for " +
+                        "system property " + INTERVAL_PROPERTY + ": " +
+                        intervalProp);
+                }
+            }
+        }
+
+        String ppProp = System.getProperty(PRETTY_PRINT_PROPERTY);
+        if (ppProp != null &&
+            ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
+             "on".equals(ppProp.toLowerCase()))) {
+            statsPrettyPrint = Boolean.valueOf(ppProp);
+        }
+    }
 }

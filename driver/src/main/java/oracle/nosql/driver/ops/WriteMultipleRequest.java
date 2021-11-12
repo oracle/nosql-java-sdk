@@ -192,6 +192,11 @@ public class WriteMultipleRequest extends DurableRequest {
         return factory.createWriteMultipleDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "WriteMultiple";
+    }
+
     /**
      * @hidden
      */

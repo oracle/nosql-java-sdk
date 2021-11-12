@@ -225,6 +225,11 @@ public class MultiDeleteRequest extends DurableRequest {
         return factory.createMultiDeleteDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "MultiDelete";
+    }
+
     /**
      * @hidden
      */

@@ -190,6 +190,11 @@ public class TableRequest extends Request {
     }
 
     @Override
+    public String getTypeName() {
+        return "Table";
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("TableRequest: [name=").append(tableName).append(",")

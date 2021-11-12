@@ -156,6 +156,11 @@ public class PrepareRequest extends Request {
         return factory.createPrepareDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "Prepare";
+    }
+
     /**
      * @hidden
      */

@@ -252,6 +252,11 @@ public class DeleteRequest extends WriteRequest {
         return factory.createDeleteDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "Delete";
+    }
+
     /**
      * @hidden
      */

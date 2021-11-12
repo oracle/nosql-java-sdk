@@ -123,6 +123,11 @@ public class GetIndexesRequest extends Request {
         return factory.createGetIndexesDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "GetIndexes";
+    }
+
     /**
      * @hidden
      */

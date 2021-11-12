@@ -572,6 +572,13 @@ public interface NoSQLHandle {
                                         int pollIntervalMs);
 
     /**
+     * Returns an object that allows control over how statistics are collected.
+     *
+     * @return the StatsControl object
+     */
+    public StatsControl getStatsControl();
+
+    /**
      * Closes the handle, releasing its memory and network resources. Once
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.

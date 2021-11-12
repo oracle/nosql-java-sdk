@@ -302,7 +302,10 @@ public class PreparedStatement {
      * @return the driver portion of the query plan as a string
      */
     public String printDriverPlan() {
-        return driverQueryPlan.display();
+        if (driverQueryPlan != null) {
+            return driverQueryPlan.display();
+        }
+        return null;
     }
 
     /**

@@ -64,6 +64,7 @@ public abstract class Request {
      * @hidden
      */
     private RateLimiter writeRateLimiter;
+    private int rateLimitDelayedMs;
 
     protected Request() {}
 
@@ -407,4 +408,19 @@ public abstract class Request {
     public long getStartTimeMs() {
         return startTimeMs;
     }
+
+    public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
+        this.rateLimitDelayedMs = rateLimitDelayedMs;
+    }
+
+    public int getRateLimitDelayedMs() {
+        return rateLimitDelayedMs;
+    }
+
+    /**
+     * Returns the type name of the request. This is used for stats.
+     *
+     * @return the type name of the request
+     */
+    public abstract String getTypeName();
 }

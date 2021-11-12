@@ -454,6 +454,11 @@ public class QueryRequest extends Request {
      * @return the statement, or null if it has not been set
      */
     public String getStatement() {
+
+        if (statement == null && preparedStatement != null) {
+            return preparedStatement.getSQLText();
+        }
+
         return statement;
     }
 
@@ -652,6 +657,11 @@ public class QueryRequest extends Request {
     @Override
     public Serializer createDeserializer(SerializerFactory factory) {
         return factory.createQueryDeserializer();
+    }
+
+    @Override
+    public String getTypeName() {
+        return "Query";
     }
 
     /**
