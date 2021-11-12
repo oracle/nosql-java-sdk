@@ -15,14 +15,11 @@ import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
-<<<<<<< HEAD
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
-=======
->>>>>>> 752c1eaadcac8dce3f74edb9a1e243701f31cb04
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -30,10 +27,6 @@ import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
-import static oracle.nosql.driver.util.LogUtil.isLoggable;
-import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
-import static oracle.nosql.driver.util.LogUtil.logTrace;
 
 import java.io.IOException;
 import java.net.URL;
@@ -169,17 +162,15 @@ public class Client {
      */
     private ExecutorService threadPool;
 
-<<<<<<< HEAD
     private short serialVersion = DEFAULT_SERIAL_VERSION;
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
-=======
+
     /**
      * config for statistics
      */
     private StatsControlImpl statsControl;
->>>>>>> 752c1eaadcac8dce3f74edb9a1e243701f31cb04
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -250,12 +241,9 @@ public class Client {
             threadPool = null;
         }
 
-<<<<<<< HEAD
         oneTimeMessages = new HashSet<String>();
-=======
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
->>>>>>> 752c1eaadcac8dce3f74edb9a1e243701f31cb04
     }
 
     /**
