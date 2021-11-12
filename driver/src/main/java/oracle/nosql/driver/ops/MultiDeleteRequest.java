@@ -210,6 +210,11 @@ public class MultiDeleteRequest extends Request {
         return factory.createMultiDeleteDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "MultiDelete";
+    }
+
     /**
      * @hidden
      */

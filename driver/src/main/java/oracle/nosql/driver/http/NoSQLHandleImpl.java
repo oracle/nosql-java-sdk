@@ -8,13 +8,13 @@
 package oracle.nosql.driver.http;
 
 import java.util.ArrayList;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -368,6 +368,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         SystemResult dres = systemRequest(dreq);
         dres.waitForCompletion(this, timeoutMs, pollIntervalMs);
         return dres;
+    }
+
+    @Override
+    public StatsControl getStatsControl() {
+        return client.getStatsControl();
     }
 
     /**

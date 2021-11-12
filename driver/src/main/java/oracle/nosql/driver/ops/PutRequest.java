@@ -418,6 +418,11 @@ public class PutRequest extends WriteRequest {
         return factory.createPutDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "Put";
+    }
+
     /**
      * @hidden
      *

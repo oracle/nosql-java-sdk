@@ -12,7 +12,6 @@ import java.util.List;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RateLimiter;
-import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.values.MapValue;
 

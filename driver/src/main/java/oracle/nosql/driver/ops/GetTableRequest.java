@@ -132,6 +132,11 @@ public class GetTableRequest extends Request {
         return factory.createGetTableDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "GetTable";
+    }
+
     /**
      * @hidden
      */

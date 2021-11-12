@@ -174,6 +174,11 @@ public class ListTablesRequest extends Request {
         return factory.createListTablesDeserializer();
     }
 
+    @Override
+    public String getTypeName() {
+        return "ListTables";
+    }
+
     /**
      * @hidden
      */
