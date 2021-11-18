@@ -1089,7 +1089,7 @@ public class Client {
     }
 
     private void logRetries(int numRetries, Throwable exception) {
-        Level level = Level.INFO;
+        Level level = Level.FINE;
         if (logger != null) {
             logger.log(level, "Client, doing retry: " + numRetries +
                        (exception != null ? ", exception: " + exception : ""));
