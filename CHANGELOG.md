@@ -2,21 +2,18 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
-## [5.2.29-SNAPSHOT] 2021-09-30
+## [5.2.29] 2021-11-18
 
-### Changed
-- Update netty dependency to 4.1.68.Final
-- Update Jackson dependency to 2.12.4
-
-## [5.2.28-SNAPSHOT] 2021-09-13
+NOTE: version number 5.2.28 has been skipped
 
 ### Fixed
 - Fixed NoSQLHandleConfig.getLibraryVersion(), which has been returning null
 for a few releases.
 - Cloud only:
   - Updated OCI regions
-  - Fixed an issue using instance principal in OC2 realm. A SignatureProvider created
-  with an instance principal might fail to obtain a security token from IAM and get
+  - Fixed an issue using instance principal in OC2 realm. A SignatureProvider 
+  created with an instance principal might fail to obtain a security token 
+  from IAM and get
   "400 Bad Request" without any additional message.
 - Fixed default logging so that its level can be better affected by a logging
 configuration file
@@ -36,6 +33,8 @@ NoSQLHandleConfig.getConnectionPoolSize()
 - The default number of pending calls to acquire a connection in the pool has
 changed from 6 to 3. This also affects the behavior of
 NoSQLHandleConfig.setPoolMaxPending() and NoSQLHandleConfig.getPoolMaxPending().
+- Update netty dependency to 4.1.68.Final
+- Update Jackson dependency to 2.12.4
 
 ## [5.2.27] - 2021-05-13
 
