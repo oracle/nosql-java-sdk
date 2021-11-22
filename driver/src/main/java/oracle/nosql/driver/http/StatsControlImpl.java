@@ -101,12 +101,12 @@ public class StatsControlImpl
 
     @Override
     public void start() {
-        if (profile == Profile.NONE) {
-            stats = null;
-        } else if (stats == null) {
-            stats = new Stats(this);
-            enableCollection = true;
+        if (profile != Profile.NONE) {
+            if (stats == null) {
+                stats = new Stats(this);
+            }
         }
+        enableCollection = true;
     }
 
     @Override

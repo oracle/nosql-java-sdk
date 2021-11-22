@@ -322,7 +322,7 @@ io.netty.level=FINE
  *     "unprepared" : 1,         // number of query requests without prepare
  *     "simple" : false,         // type of query
  *     "countAPI" : 20,          // number of handle.query() API calls
- *     "errors" : 0,             // number of calls trowing exception
+ *     "errors" : 0,             // number of calls throwing exception
  *     "httpRequestLatencyMs" : {// response time of http requests in milliseconds
  *       "min" : 8,                // minimum value in interval
  *       "avg" : 14.58,            // average value in interval

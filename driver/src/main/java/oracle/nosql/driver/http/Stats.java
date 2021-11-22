@@ -599,6 +599,12 @@ public class Stats {
 
         connectionStats.observe(connections);
 
+        if (extraQueryStats == null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
+            extraQueryStats = new ExtraQueryStats(statsControl);
+        }
+
         if (extraQueryStats != null) {
             if (kvRequest instanceof QueryRequest) {
                 QueryRequest queryRequest = (QueryRequest)kvRequest;
@@ -614,6 +620,12 @@ public class Stats {
      * Adds a new statistic entry for this query request.
      */
     void observeQuery(QueryRequest qreq) {
+        if (extraQueryStats == null &&
+            statsControl.getProfile().ordinal() >=
+            StatsControl.Profile.ALL.ordinal()) {
+            extraQueryStats = new ExtraQueryStats(statsControl);
+        }
+
         if (extraQueryStats != null) {
             extraQueryStats.observeQuery(qreq);
         }
