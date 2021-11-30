@@ -7,9 +7,6 @@
 
 package oracle.nosql.driver.query;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,6 +22,8 @@ import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.NumberValue;
 import oracle.nosql.driver.util.SizeOf;
 import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.SerializationUtil;
 
 /**
@@ -559,13 +558,12 @@ public class ReceiveIter extends PlanIter {
 
     private BinaryValue createBinaryPrimKey(MapValue result) {
 
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final DataOutput out = new DataOutputStream(baos);
-
+        final ByteOutputStream bos =
+            NettyByteOutputStream.createNettyByteOutputStream();
         try {
             for (int i = 0; i < thePrimKeyFields.length; ++i) {
                 FieldValue fval = result.get(thePrimKeyFields[i]);
-                writeValue(out, fval, i);
+                writeValue(bos, fval, i);
             }
         } catch (IOException e) {
             throw new QueryStateException(
@@ -573,11 +571,10 @@ public class ReceiveIter extends PlanIter {
                 e.getMessage());
         }
 
-        byte[] bytes = baos.toByteArray();
-        return new BinaryValue(bytes);
+        return new BinaryValue(bos.array());
     }
 
-    private void writeValue(DataOutput out, FieldValue val, int i)
+    private void writeValue(ByteOutputStream out, FieldValue val, int i)
         throws IOException {
 
         switch (val.getType()) {

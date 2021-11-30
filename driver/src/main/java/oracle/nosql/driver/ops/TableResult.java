@@ -31,9 +31,11 @@ import oracle.nosql.driver.RequestTimeoutException;
  */
 public class TableResult extends Result {
     /*
-     * domainId is the compartment id (ocid)
+     * compartment id (ocid) or namespace (if on-prem)
      */
-    private String domainId;
+    private String compartmentOrNamespace;
+    /* tableOcid is only used for the cloud service */
+    private String tableOcid;
     private String tableName;
     private State state;
     private TableLimits limits;
@@ -82,16 +84,43 @@ public class TableResult extends Result {
     /**
      * Cloud service only.
      * <p>
-     * Returns compartment id of the target table
+     * Returns the OCID of the table. This value will be null if used with
+     * the on-premise service.
      *
-     * @return the domain
+     * @return the table OCID
      */
-    public String getCompartmentId() {
-        return domainId;
+    public String getTableId() {
+        return tableOcid;
     }
 
     /**
-     * Returns the table name of the target table
+     * Cloud service only.
+     * <p>
+     * Returns compartment id of the target table
+     *
+     * @return the compartment id if set
+     */
+    public String getCompartmentId() {
+        return compartmentOrNamespace;
+    }
+
+    /**
+     * On-premise service only.
+     * <p>
+     * Returns the namespace of the table, or null if it is not in a namespace.
+     * Note that the tablename is prefixed with the namespace as well if it
+     * is in a namespace.
+     *
+     * @return the namespace id if set
+     */
+    public String getNamespace() {
+        return compartmentOrNamespace;
+    }
+
+    /**
+     * Returns the table name of the target table. If on-premise and the table
+     * is in a namespace the namespace is included as a prefix using the format
+     * <it>namespace:tableName</it>
      *
      * @return the table name
      */
@@ -99,6 +128,11 @@ public class TableResult extends Result {
         return tableName;
     }
 
+    /**
+     * Returns the JSON-formatted schema of the table if available and null if
+     * not
+     * @return the schema
+     */
     public String getSchema() {
         return schema;
     }
@@ -146,11 +180,31 @@ public class TableResult extends Result {
 
     /**
      * @hidden
-     * @param domainId the auth domain
+     * @param value the compartment OCID
      * @return this
      */
-    public TableResult setDomainId(String domainId) {
-        this.domainId = domainId;
+    public TableResult setCompartmentId(String value) {
+        this.compartmentOrNamespace = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param value the namespace
+     * @return this
+     */
+    public TableResult setNamespace(String value) {
+        this.compartmentOrNamespace = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param value the OCID
+     * @return this
+     */
+    public TableResult setTableId(String value) {
+        this.tableOcid = value;
         return this;
     }
 
@@ -436,7 +490,8 @@ public class TableResult extends Result {
 
         GetTableRequest getTable =
             new GetTableRequest().setTableName(tableName).
-            setOperationId(operationId).setCompartment(domainId);
+            setOperationId(operationId).setCompartment(
+                compartmentOrNamespace);
         TableResult res = null;
 
         while (!isTerminal()) {

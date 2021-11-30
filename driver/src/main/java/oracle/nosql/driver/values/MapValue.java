@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**

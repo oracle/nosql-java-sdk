@@ -60,13 +60,37 @@ public class FieldFinder extends Nson.FieldValueCreator {
 
     private String[] path;
     private int currentIndex;
+    /*
+     * inTarget is true when the target field is started. It may be a leaf
+     * or an object or array
+     */
     private boolean inTarget = false;
+
+    /* depth is  nesting depth of the current find operation, starting at 0 */
     private int depth;
+
+    /* targetDepth is the nesting depth of the target, set with inTarget */
     private int targetDepth;
+
+    /* found indicates if the target was found or not */
     private boolean found = false;
+
+    /*
+     * createTargetValue will be set to true if the value object of the target
+     * is to be created. For example if doing a seek this will not be true
+     */
     private boolean createTargetValue = false;
+
+    /* targetValue is created if it is found and should be created */
     private FieldValue targetValue;
+
+    /* set to true if only seeking to target */
     private boolean doSeek = false;
+
+    /*
+     * set to true if event generation should stop. This happens if (1) seek
+     * has found the target or (2) target has been found and created
+     */
     private boolean stopEvents = false;
 
     /**
@@ -114,13 +138,13 @@ public class FieldFinder extends Nson.FieldValueCreator {
         this.path = path.split("\\.");
         currentIndex = 0;
         inTarget = false;
-        depth = 0;
-        targetDepth = 0;
         found = false;
         createTargetValue = false;
         targetValue = null;
         doSeek = false;
         stopEvents = false;
+        targetDepth = 0;
+        depth = 0;
     }
 
     /**
@@ -328,6 +352,110 @@ public class FieldFinder extends Nson.FieldValueCreator {
             assert(targetValue == null);
             targetValue = getCurrentValue();
             createTargetValue = false;
+        }
+    }
+
+    /**
+     * A class that allows a caller to walk an NSON MAP using a "pull"
+     * pattern. The ByteInputStream used for construction must be positioned
+     * on an NSON MAP. Each call to {@link MapWalker#next} moves the state
+     * forward. The value of each map entry <b>must</b> be consumed by
+     * the caller either by reading it or skipping it by calling
+     * {@link MapWalker#skip}. A typical usage pattern is:
+     * <pre>
+     *   MapWalker walker = new MapWalker(stream);
+     *   while (walker.hasNext()) {
+     *       walker.next();
+     *       String name = walker.getName(); // returns name of current element
+     *       // read or skip value
+     *       if (name.equals("interesting_int")) {
+     *           Nson.readNsonInt(stream);
+     *       else {
+     *           walker.skip();
+     *       }
+     *   }
+     * </pre>
+     */
+    public static class MapWalker {
+        /* this exists to prevent an infinite loop for bad serialization */
+        private final static int MAX_NUM_ELEMENTS = 1_000_000_000;
+        private final ByteInputStream bis;
+        private final int numElements;
+        private String currentName;
+        private int currentIndex = 0;
+
+        /**
+         * Constructs a MapWalker from a stream
+         * @param bis a ByteInputStream
+         * @throws IllegalArgumentException if the stream is not positioned
+         * on a MAP
+         * @throws IOException if there's a problem with the stream
+         */
+        public MapWalker(ByteInputStream bis) throws IOException {
+            this.bis = bis;
+            int t = bis.readByte();
+            /* must be map */
+            if (t != Nson.TYPE_MAP) {
+                throw new IllegalArgumentException(
+                    "MapWalker: Stream must point to a MAP, it points to " +
+                    Nson.typeString(t));
+            }
+            bis.readInt(); // total length of map in bytes
+            numElements = bis.readInt();
+            if (numElements < 0 || numElements > MAX_NUM_ELEMENTS) {
+                throw new IllegalArgumentException(
+                    "Invalid number of map elements: " + numElements);
+            }
+        }
+
+        /**
+         * Returns the name of the current element in the map
+         * @return the element name
+         */
+        public String getCurrentName() {
+            return currentName;
+        }
+
+        /**
+         * Returns the stream being walked
+         * @return the stream
+         */
+        public ByteInputStream getStream() {
+            return bis;
+        }
+
+        /**
+         * Returns true if the map has more elements
+         * @return true if the map has more elements, false otherwise
+         */
+        public boolean hasNext() {
+            return (currentIndex < numElements);
+        }
+
+        /**
+         * Moves the state forward to the next element in the map.
+         * @throws IllegalArgumentException if called when the map has
+         * no more elements
+         * @throws IOException if there's a problem with the stream
+         */
+        public void next() throws IOException {
+            if (currentIndex >= numElements) {
+                throw new IllegalArgumentException(
+                    "Cannot call next with no elements remaining");
+            }
+            currentName = Nson.readString(bis);
+            currentIndex++;
+        }
+
+        /**
+         * Skips the value of the element at which the stream is positioned.
+         * If called when the map has no further elements or without calling
+         * {@link #next} the result is unpredictable and the stream state
+         * will be undefined.
+         * @throws IOException if there's a problem with the stream
+         */
+        public void skip() throws IOException {
+            Nson.generateEventsFromNson(null, bis, true);
         }
     }
 }

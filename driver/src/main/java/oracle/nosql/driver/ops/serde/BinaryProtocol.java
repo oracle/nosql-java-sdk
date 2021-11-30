@@ -337,7 +337,7 @@ public class BinaryProtocol extends Nson {
         TableResult result = new TableResult();
         boolean hasInfo = in.readBoolean();
         if (hasInfo) {
-            result.setDomainId(readString(in));
+            result.setCompartmentId(readString(in));
             result.setTableName(readString(in));
             result.setState(getTableState(in.readByte()));
             boolean hasStaticState = in.readBoolean();

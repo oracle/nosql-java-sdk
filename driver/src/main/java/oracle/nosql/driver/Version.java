@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver;
 
+import java.util.Arrays;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.PutRequest;
 
@@ -57,5 +58,24 @@ public class Version {
             return "non-null Version";
         }
         return "null Version";
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof Version) {
+            return Arrays.equals(version, ((Version)other).version);
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(version);
     }
 }

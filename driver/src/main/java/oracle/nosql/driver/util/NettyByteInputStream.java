@@ -13,6 +13,7 @@ package oracle.nosql.driver.util;
  */
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.Unpooled;
 
 public class NettyByteInputStream extends ByteBufInputStream
     implements ByteInputStream {
@@ -28,9 +29,28 @@ public class NettyByteInputStream extends ByteBufInputStream
         this.buffer = buffer;
     }
 
+    /**
+     * Creates an instance using an existing byte array
+     * @param bytes the byte array
+     * @return the stream
+     */
+    public static NettyByteInputStream createFromBytes(byte[] bytes) {
+        return new NettyByteInputStream(Unpooled.wrappedBuffer(bytes));
+    }
+
     @Override
     public int getOffset() {
         return buffer.readerIndex();
+    }
+
+    @Override
+    public boolean isDirect() {
+        return buffer.isDirect();
+    }
+
+    @Override
+    public byte[] array() {
+        return buffer.array();
     }
 
     @Override
@@ -56,5 +76,14 @@ public class NettyByteInputStream extends ByteBufInputStream
         try {
             super.close();
         } catch (Exception e) {}
+    }
+
+    @Override
+    public void ensureCapacity(int nbytes) {
+        if (nbytes > buffer.readableBytes()) {
+            throw new IllegalArgumentException(
+                "Operation exceeds capacity of the buffer; it requires: " +
+                nbytes + ", available: " + buffer.readableBytes());
+        }
     }
 }

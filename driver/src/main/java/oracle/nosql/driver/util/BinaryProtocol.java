@@ -20,6 +20,8 @@ public final class BinaryProtocol {
 
     public static final short V3 = 3;
 
+    public static final short V4 = 4;
+
     /**
      * Default serial version of the protocol.
      * Note the actual version used may be less if the
