@@ -48,23 +48,23 @@ public abstract class Request {
     /**
      * @hidden
      */
-    private RetryStats retryStats;
+    protected RetryStats retryStats;
 
     /**
      * @hidden
      */
-    private long startTimeMs;
+    protected long startTimeMs;
 
     /**
      * @hidden
      */
-    private RateLimiter readRateLimiter;
+    protected RateLimiter readRateLimiter;
 
     /**
      * @hidden
      */
-    private RateLimiter writeRateLimiter;
-    private int rateLimitDelayedMs;
+    protected RateLimiter writeRateLimiter;
+    protected int rateLimitDelayedMs;
 
     protected Request() {}
 

@@ -126,6 +126,11 @@ public class QueryRequest extends Request {
         internalReq.isInternal = true;
         internalReq.driver = driver;
         internalReq.tableName = tableName;
+        internalReq.startTimeMs = startTimeMs;
+        internalReq.retryStats = retryStats;
+        internalReq.readRateLimiter = readRateLimiter;
+        internalReq.writeRateLimiter = writeRateLimiter;
+        internalReq.rateLimitDelayedMs = rateLimitDelayedMs;
         return internalReq;
     }
 
