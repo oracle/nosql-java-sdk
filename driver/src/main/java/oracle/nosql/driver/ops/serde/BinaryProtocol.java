@@ -10,6 +10,7 @@ package oracle.nosql.driver.ops.serde;
 import static oracle.nosql.driver.http.Client.trace;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
 import static oracle.nosql.driver.util.BinaryProtocol.ACTIVE;
+import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT;
@@ -17,6 +18,12 @@ import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
 import static oracle.nosql.driver.util.BinaryProtocol.CREATING;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPED;
 import static oracle.nosql.driver.util.BinaryProtocol.DROPPING;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NO_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
+import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.EVOLUTION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_ARGUMENT;
@@ -29,6 +36,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.INVALID_AUTHORIZATION;
 import static oracle.nosql.driver.util.BinaryProtocol.KEY_SIZE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_NOT_SUPPORTED;
+import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 import static oracle.nosql.driver.util.BinaryProtocol.READ_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT_EXCEEDED;
@@ -38,7 +46,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.RESOURCE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.RETRY_AUTHENTICATION;
 import static oracle.nosql.driver.util.BinaryProtocol.ROW_SIZE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.SECURITY_INFO_UNAVAILABLE;
-import static oracle.nosql.driver.util.BinaryProtocol.SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.SERVER_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.SERVICE_UNAVAILABLE;
 import static oracle.nosql.driver.util.BinaryProtocol.SIZE_LIMIT_EXCEEDED;
@@ -51,7 +58,10 @@ import static oracle.nosql.driver.util.BinaryProtocol.TTL_DAYS;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_HOURS;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
+import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.UPDATING;
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 import static oracle.nosql.driver.util.BinaryProtocol.WRITE_LIMIT_EXCEEDED;
 
@@ -60,6 +70,7 @@ import java.io.IOException;
 import oracle.nosql.driver.BatchOperationNumberLimitException;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.DeploymentException;
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.EvolutionLimitException;
 import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.IndexExistsException;
@@ -85,6 +96,7 @@ import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.TableSizeException;
 import oracle.nosql.driver.TimeToLive;
 import oracle.nosql.driver.UnauthorizedException;
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -94,6 +106,7 @@ import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteRequest;
@@ -111,14 +124,6 @@ import oracle.nosql.driver.util.SerializationUtil;
  * or other derived protocol state.
  */
 public class BinaryProtocol extends Nson {
-
-    /**
-     * Serial version of the protocol
-     * @return the version
-     */
-    public static short getSerialVersion() {
-        return SERIAL_VERSION;
-    }
 
     /*
      * Serialization
@@ -140,6 +145,16 @@ public class BinaryProtocol extends Nson {
         out.writeByte(getConsistency(consistency));
     }
 
+    static void writeDurability(ByteOutputStream out,
+                                Durability durability,
+                                short serialVersion)
+        throws IOException {
+
+        if (serialVersion > V2) {
+            out.writeByte(getDurability(durability));
+        }
+    }
+
     static void writeTTL(ByteOutputStream out, TimeToLive ttl)
         throws IOException {
 
@@ -158,16 +173,6 @@ public class BinaryProtocol extends Nson {
     }
 
     /**
-     * Writes the (short) serial version
-     * @param out output
-     * @throws IOException if exception
-     */
-    public static void writeSerialVersion(ByteOutputStream out)
-        throws IOException {
-        out.writeShort(getSerialVersion());
-    }
-
-    /**
      * Writes the opcode for the operation.
      * @param out output
      * @param op opCode
@@ -177,6 +182,31 @@ public class BinaryProtocol extends Nson {
         throws IOException {
 
         out.writeByte(op.ordinal());
+    }
+
+    /**
+     * Writes the mode for TableLimits.
+     * @param out output
+     * @param mode table limits mode
+     * @throws IOException if exception
+     */
+    static void writeCapacityMode(ByteOutputStream out,
+                                CapacityMode mode,
+                                short serialVersion)
+        throws IOException {
+
+        if (serialVersion < V3) {
+            return;
+        }
+
+        switch (mode) {
+        case PROVISIONED:
+            out.writeByte(PROVISIONED);
+            break;
+        case ON_DEMAND:
+            out.writeByte(ON_DEMAND);
+            break;
+        }
     }
 
     static void writeFieldRange(ByteOutputStream out,
@@ -229,12 +259,15 @@ public class BinaryProtocol extends Nson {
      * Writes fields from WriteRequest
      */
     static void serializeWriteRequest(WriteRequest writeRq,
-                                      ByteOutputStream out)
+                                      ByteOutputStream out,
+                                      short serialVersion)
         throws IOException {
 
         serializeRequest(writeRq, out);
         writeString(out, writeRq.getTableName());
         out.writeBoolean(writeRq.getReturnRowInternal());
+        writeDurability(out, writeRq.getDurability(),
+                        serialVersion);
     }
 
     /*
@@ -265,7 +298,8 @@ public class BinaryProtocol extends Nson {
     }
 
     static void deserializeWriteResponse(ByteInputStream in,
-                                         WriteResult result)
+                                         WriteResult result,
+                                         short serialVersion)
         throws IOException {
 
         boolean returnInfo = in.readBoolean();
@@ -278,6 +312,11 @@ public class BinaryProtocol extends Nson {
          */
         result.setExistingValue(readFieldValue(in).asMap());
         result.setExistingVersion(readVersion(in));
+        if (serialVersion > V2) {
+            result.setExistingModificationTime(readLong(in));
+        } else {
+            result.setExistingModificationTime(-1);
+        }
     }
 
     static void deserializeGeneratedValue(ByteInputStream in,
@@ -291,7 +330,8 @@ public class BinaryProtocol extends Nson {
         result.setGeneratedValue(readFieldValue(in));
     }
 
-    static TableResult deserializeTableResult(ByteInputStream in)
+    static TableResult deserializeTableResult(ByteInputStream in,
+                                              short serialVersion)
         throws IOException {
 
         TableResult result = new TableResult();
@@ -305,6 +345,12 @@ public class BinaryProtocol extends Nson {
                 int readKb = readInt(in);
                 int writeKb = readInt(in);
                 int storageGB = readInt(in);
+                CapacityMode mode;
+                if (serialVersion > V2) {
+                    mode = getCapacityMode(in.readByte());
+                } else {
+                    mode = CapacityMode.PROVISIONED;
+                }
                 /*
                  * on-prem tables may return all 0 because of protocol
                  * limitations that lump the schema with limits. Return
@@ -312,7 +358,7 @@ public class BinaryProtocol extends Nson {
                  */
                 if (!(readKb == 0 && writeKb == 0 && storageGB == 0)) {
                     result.setTableLimits(
-                        new TableLimits(readKb, writeKb, storageGB));
+                        new TableLimits(readKb, writeKb, storageGB, mode));
                 }
                 result.setSchema(readString(in));
             }
@@ -349,7 +395,7 @@ public class BinaryProtocol extends Nson {
         }
 
         if (seqNum == -1) {
-            // No topology info sent by proxy
+            /* No topology info sent by proxy */
             return null;
         }
 
@@ -406,7 +452,13 @@ public class BinaryProtocol extends Nson {
             /* treat above as retryable system errors */
             return new SystemException(msg);
         case BAD_PROTOCOL_MESSAGE:
+            if (msg.contains("Invalid driver serial version")) {
+                return new UnsupportedProtocolException(msg);
+            }
             return new IllegalArgumentException("Bad protocol message: " + msg);
+        case UNSUPPORTED_PROTOCOL:
+            /* note this is specifically for protocol version mismatches */
+            return new UnsupportedProtocolException(msg);
         case REQUEST_TIMEOUT:
             return new RequestTimeoutException(msg);
         case INVALID_AUTHORIZATION:
@@ -438,6 +490,47 @@ public class BinaryProtocol extends Nson {
         return EVENTUAL;
     }
 
+    private static int getDurability(Durability durability) {
+        if (durability == null) {
+            return 0;
+        }
+        int dur = 0;
+        switch (durability.getMasterSync()) {
+            case NO_SYNC:
+                dur = DURABILITY_NO_SYNC;
+                break;
+            case SYNC:
+                dur = DURABILITY_SYNC;
+                break;
+            case WRITE_NO_SYNC:
+                dur = DURABILITY_WRITE_NO_SYNC;
+                break;
+        }
+        switch (durability.getReplicaSync()) {
+            case NO_SYNC:
+                dur |= DURABILITY_NO_SYNC << 2;
+                break;
+            case SYNC:
+                dur |= DURABILITY_SYNC << 2;
+                break;
+            case WRITE_NO_SYNC:
+                dur |= DURABILITY_WRITE_NO_SYNC << 2;
+                break;
+        }
+        switch (durability.getReplicaAck()) {
+            case ALL:
+                dur |= DURABILITY_ALL << 4;
+                break;
+            case NONE:
+                dur |= DURABILITY_NONE << 4;
+                break;
+            case SIMPLE_MAJORITY:
+                dur |= DURABILITY_SIMPLE_MAJORITY << 4;
+                break;
+        }
+        return dur;
+    }
+
     static TableResult.State getTableState(int state) {
         switch (state) {
         case ACTIVE:
@@ -452,6 +545,17 @@ public class BinaryProtocol extends Nson {
             return TableResult.State.UPDATING;
         default:
             throw new IllegalStateException("Unknown table state " + state);
+        }
+    }
+
+    static TableLimits.CapacityMode getCapacityMode(int mode) {
+        switch (mode) {
+        case PROVISIONED:
+            return TableLimits.CapacityMode.PROVISIONED;
+        case ON_DEMAND:
+            return TableLimits.CapacityMode.ON_DEMAND;
+        default:
+            throw new IllegalStateException("Unknown capacity mode " + mode);
         }
     }
 

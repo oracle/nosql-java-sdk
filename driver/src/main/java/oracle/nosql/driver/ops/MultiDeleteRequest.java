@@ -6,6 +6,7 @@
  */
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -34,7 +35,7 @@ import oracle.nosql.driver.values.MapValue;
  * key still require the primary key.
  * @see NoSQLHandle#multiDelete
  */
-public class MultiDeleteRequest extends Request {
+public class MultiDeleteRequest extends DurableRequest {
 
     private MapValue key;
     private byte[] continuationKey;
@@ -191,6 +192,20 @@ public class MultiDeleteRequest extends Request {
      */
     public MultiDeleteRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * on-prem only.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the kvstore server.
+     *
+     * @return this
+     */
+    public MultiDeleteRequest setDurability(Durability durability) {
+        setDurabilityInternal(durability);
         return this;
     }
 

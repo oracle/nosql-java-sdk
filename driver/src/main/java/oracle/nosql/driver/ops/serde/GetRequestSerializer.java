@@ -7,6 +7,9 @@
 
 package oracle.nosql.driver.ops.serde;
 
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
+
 import java.io.IOException;
 
 import oracle.nosql.driver.ops.GetRequest;
@@ -39,11 +42,17 @@ class GetRequestSerializer extends BinaryProtocol implements Serializer {
 
         GetResult result = new GetResult();
         deserializeConsumedCapacity(in, result);
+        if (serialVersion < V3) {
+            result.setModificationTime(-1);
+        }
         boolean hasRow = in.readBoolean();
         if (hasRow) {
             result.setValue(readFieldValue(in).asMap());
             result.setExpirationTime(readLong(in));
             result.setVersion(readVersion(in));
+            if (serialVersion > V2) {
+                result.setModificationTime(readLong(in));
+            }
         }
         return result;
     }

@@ -150,7 +150,7 @@ public class NoSQLHandleConfig implements Cloneable {
     private List<String> ciphers;
 
     /**
-     * The protocols used by the driver, or null if not configured
+     * The SSL protocols used by the driver, or null if not configured
      * by the user.
      */
     private List<String> protocols;

@@ -391,4 +391,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public Client getClient() {
         return client;
     }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public short getSerialVersion() {
+        return client.getSerialVersion();
+    }
 }

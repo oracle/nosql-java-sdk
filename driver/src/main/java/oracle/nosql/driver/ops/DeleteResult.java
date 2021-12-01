@@ -57,6 +57,18 @@ public class DeleteResult extends WriteResult {
         return super.getExistingValueInternal();
     }
 
+    /**
+     * Returns the existing modification time if available. This is available
+     * only if the target row exists and the operation failed because of a
+     * {@link Version} mismatch and the corresponding {@link DeleteRequest}
+     * method {@link DeleteRequest#setReturnRow} was called with a true value.
+     *
+     * @return the modification time in milliseconds since Jan 1, 1970
+     */
+    public long getExistingModificationTime() {
+        return super.getExistingModificationTimeInternal();
+    }
+
     /* from Result */
 
     /**
