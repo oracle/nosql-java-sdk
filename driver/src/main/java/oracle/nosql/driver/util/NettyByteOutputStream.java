@@ -159,6 +159,11 @@ public class NettyByteOutputStream extends ByteBufOutputStream
 
     @Override
     public void ensureCapacity(int nbytes) {
+        /*
+         * this method will expand the buffer but not beyond its maxCapacity
+         * if set. To expand beyond maxCapacity, an additional "true" argument
+         * is required. Honor the maxCapacity if set.
+         */
         buffer.ensureWritable(nbytes);
     }
 }

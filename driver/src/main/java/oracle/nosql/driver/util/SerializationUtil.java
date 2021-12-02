@@ -38,9 +38,9 @@ public class SerializationUtil {
         if (in.isDirect()) {
             return readPackedIntDirect(in);
         }
+        in.ensureCapacity(1);
         final int offset = in.getOffset();
         final byte[] array = in.array();
-        in.ensureCapacity(1);
         final int len = PackedInteger.getReadSortedIntLength(array, offset);
         /* move the offset past the integer; this also ensures length */
         in.skip(len);
@@ -74,9 +74,9 @@ public class SerializationUtil {
         if (in.isDirect()) {
             return skipPackedIntDirect(in);
         }
+        in.ensureCapacity(1);
         final int offset = in.getOffset();
         final byte[] array = in.array();
-        in.ensureCapacity(1);
         final int len = PackedInteger.getReadSortedIntLength(array, offset);
         /* move the offset past the integer; this also ensures length */
         in.skip(len);
@@ -108,10 +108,10 @@ public class SerializationUtil {
         if (out.isDirect()) {
             return writePackedIntDirect(out, value);
         }
-        final int offset = out.getOffset();
-        final byte[] array = out.array();
         final int len = PackedInteger.getWriteSortedIntLength(value);
         out.ensureCapacity(len);
+        final int offset = out.getOffset();
+        final byte[] array = out.array();
         out.skip(len);
         return PackedInteger.writeSortedInt(array, offset, value);
     }
@@ -138,9 +138,9 @@ public class SerializationUtil {
             return readPackedLongDirect(in);
         }
 
+        in.ensureCapacity(1);
         final int offset = in.getOffset();
         final byte[] array = in.array();
-        in.ensureCapacity(1);
         final int len = PackedInteger.getReadSortedLongLength(array, offset);
         /* move the offset past the integer; this also ensures length */
         in.skip(len);
@@ -188,10 +188,10 @@ public class SerializationUtil {
             return writePackedLongDirect(out, value);
         }
 
-        final int offset = out.getOffset();
-        final byte[] array = out.array();
         final int len = PackedInteger.getWriteSortedLongLength(value);
         out.ensureCapacity(len);
+        final int offset = out.getOffset();
+        final byte[] array = out.array();
         out.skip(len);
         return PackedInteger.writeSortedLong(array, offset, value);
     }
