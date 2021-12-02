@@ -366,6 +366,9 @@ public class Stats {
         private QueryEntryStat getExtraQueryStat(
             QueryRequest queryRequest) {
             String sql = queryRequest.getStatement();
+            if (sql == null && queryRequest.getPreparedStatement() != null) {
+                sql = queryRequest.getPreparedStatement().getSQLText();
+            }
 
             QueryEntryStat qStat = queries.get(sql);
 

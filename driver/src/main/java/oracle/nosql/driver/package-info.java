@@ -55,8 +55,8 @@
  * 1:1 with an identity so they cannot be shared by different users. While
  * they are not extremely expensive, they have a connection pool and thread
  * pool and are not intended to be disposable.
- * <p>
- * <strong>Configuration and Multi-threaded Applications</strong>
+ *
+ * <p><strong>Configuration and Multi-threaded Applications</strong></p>
  * <p>
  * High performance multi-threaded applications may benefit from using
  * some non-default configuration options related to how threads and
@@ -89,8 +89,8 @@
  * it's possible to have too many threads and that more threads does not
  * equal more performance. The optimal number depends on request latency and
  * other I/O performed. It is best to experiment.
- * <p>
- * <strong>Logging in the SDK</strong>
+ *
+ * <p><strong><a id="Logging">Logging in the SDK</a></strong></p>
  * <p>
  * The SDK uses logging as provided by the <i>java.util.logging</i> package.
  * By default the SDK will log to the console at level INFO. If nothing
@@ -155,7 +155,7 @@ io.netty.level=FINE
  * Collection of stats are controlled by the following system
  * properties:<ol><li>
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
- *      Specifies the stats profile: <i>none</i> - disabled,
+ *   Specifies the stats profile: <i>none</i> - disabled,
  *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
  *      <i>more</i> - stats above with 95th and 99th percentile latencies
  *      <i>all</i> - stats above with per query information.</li><li>
@@ -316,12 +316,15 @@ io.netty.level=FINE
  *                               // query statement
  *     "query" : "SELECT * FROM audienceData ORDER BY cookie_id",
  *                               // query plan description
- *     "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind : ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n  SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n    audienceData\n  ]\n]",
+ *     "plan" : "SFW([6])\n[\n  FROM:\n  RECV([3])\n  [\n    DistributionKind :
+ *     ALL_PARTITIONS,\n    Sort Fields : sort_gen,\n\n  ] as $from-0\n\n
+ *     SELECT:\n  FIELD_STEP([6])\n  [\n    VAR_REF($from-0)([3]),\n
+ *     audienceData\n  ]\n]",
  *     "doesWrites" : false,
  *     "httpRequestCount" : 12,  // number of http calls to the server
  *     "unprepared" : 1,         // number of query requests without prepare
  *     "simple" : false,         // type of query
- *     "countAPI" : 20,          // number of handle.query() API calls
+ *     "count" : 20,             // number of handle.query() API calls
  *     "errors" : 0,             // number of calls throwing exception
  *     "httpRequestLatencyMs" : {// response time of http requests in milliseconds
  *       "min" : 8,                // minimum value in interval
@@ -354,6 +357,27 @@ io.netty.level=FINE
  *     "max" : 10                  // maximum value in interval
  *   }
  * }
- *     </pre></li></ol>
+ *     </pre></li></ol><p>
+ *
+ *   The log entries go to the logger configured in NoSQLHandlerConfig. For
+ *   details on how to configure logger, for example to output to a file, see
+ *   previous paragraph: <a href="#Logging">"Logging in the SDK"</a> . By
+ *   default, if no logger is configured the statistics entries, if enabled,
+ *   will be logged to the console.</p><p>
+ *
+ *   Stats collection is not dependent of logging configuration, even if
+ *   logging is disabled, collection of stats will still happen if stats
+ *   profile other than none is used. In this case, the stats are available by
+ *   using the stats handler.</p><p>
+ *
+ *   Depending on the type of query, if client processing is required, for
+ *   example in the case of ordered or aggregate queries, indicated by a
+ *   false <i>{@code simple}</i> field, the <i>{@code count}</i> and <i>{@code
+ *   httpRequestsCount}</i> numbers will differ. <i>{@code count}</i> represents
+ *   the number of <i>{@code handle.query()}</i> API calls and
+ *   <i>{@code httpRequestCount}</i> represents the number of internal http
+ *   requests from server. For these type of queries, the driver executes
+ *   several simpler queries, per shard or partition, and than combines the
+ *   results locally.</p>
  */
 package oracle.nosql.driver;
