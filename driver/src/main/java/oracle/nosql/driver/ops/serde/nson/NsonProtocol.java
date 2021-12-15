@@ -55,6 +55,7 @@ public class NsonProtocol {
     public static String NAMESPACE = "namespace";
     public static String OPERATION_ID = "operation_id";
     public static String OPERATIONS = "operations";
+    public static String NUM_OPERATIONS = "num_operations";
     public static String IDENTITY_CACHE_SIZE = "id_cache_size";
 
     /*
@@ -64,6 +65,11 @@ public class NsonProtocol {
     public static String EXCEPTION = "exception";
     public static String RETRY_HINT = "retry_hint";
     public static String SUCCESS = "success";
+    public static String WM_SUCCESS = "wm_success";
+    public static String WM_FAILURE = "wm_failure";
+    public static String WM_FAIL_INDEX = "wm_fail_index";
+    public static String WM_FAIL_RESULT = "wm_fail_result";
+
 
     // table metadata
     public static String TABLE_STATE = "table_state";

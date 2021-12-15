@@ -94,7 +94,7 @@ public class NsonSerializerFactory implements SerializerFactory {
     static final Serializer getIndexesSerializer =
         null; //new GetIndexesV4RequestSerializer();
     static final Serializer writeMultipleSerializer =
-        null;//new WriteMultipleRequestSerializer(new PutRequestSerializer(true), new DeleteRequestSerializer(true));
+        new WriteMultipleRequestSerializer();
     static final Serializer multiDeleteSerializer =
         null; //new MultiDeleteV4RequestSerializer();
 
@@ -412,12 +412,9 @@ public class NsonSerializerFactory implements SerializerFactory {
     /**
      * Delete request:
      *  Payload:
-     *    if !sub-request (not needed if part of writemultiple)
-     *      table name
-     *      durability
-     *      return row
-     *    else
-     *      return row
+     *    table name
+     *    durability
+     *    return row
      *    match version?
      *    key
      *
@@ -427,24 +424,6 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  return row info?
      */
     public static class DeleteRequestSerializer extends NsonSerializerBase {
-
-        /*
-         * The flag indicates if the serializer is used for a standalone request
-         * or a sub operation of WriteMultiple request.
-         *
-         * If it is used to serialize the sub operation, then some information
-         * like SerialVersion, Timeout, and TableName will be skipped
-         * during serialization.
-         */
-        private final boolean isSubRequest;
-
-        DeleteRequestSerializer() {
-            this(false);
-        }
-
-        DeleteRequestSerializer(boolean isSubRequest) {
-            this.isSubRequest = isSubRequest;
-        }
 
         @Override
         public void serialize(Request request,
@@ -469,20 +448,12 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            if (!isSubRequest) {
-                writeWriteRequest(ns, rq);
-            } else {
-                writeMapField(ns, RETURN_ROW, rq.getReturnRow());
-            }
+            writeWriteRequest(ns, rq);
 
-            if (matchVersion != null) {
-                writeMapField(ns, ROW_VERSION, matchVersion.getBytes());
-            }
+            /* shared with WriteMultiple */
+            serializeInternal(rq, ns, out);
 
-            /* writeValue uses the output stream directly */
-            writeKey(ns, rq, out);
             endMap(ns, PAYLOAD);
-
             ns.endMap(0); // top level object
         }
 
@@ -512,17 +483,27 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             return result;
         }
+
+        /* shared with WriteMultiple */
+        void serializeInternal(DeleteRequest rq, NsonSerializer ns,
+                               ByteOutputStream out)
+            throws IOException {
+
+            if (rq.getMatchVersion() != null) {
+                writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
+            }
+
+            /* writeValue uses the output stream directly */
+            writeKey(ns, rq, out);
+        }
     }
 
     /**
      * Put request:
      *  Payload:
-     *    if !sub-request (not needed if part of writemultiple)
-     *      table name
-     *      durability
-     *      return row
-     *    else
-     *      return row
+     *    table name
+     *    durability
+     *    return row
      *    exact match?
      *    identity cache size
      *    update TTL?
@@ -540,24 +521,6 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  generated value(s)
      */
     public static class PutRequestSerializer extends NsonSerializerBase {
-
-        /*
-         * The flag indicates if the serializer is used for a standalone request
-         * or a sub operation of WriteMultiple request.
-         *
-         * If it is used to serialize the sub operation, then some information
-         * like SerialVersion, Timeout, and TableName will be skipped
-         * during serialization.
-         */
-        private final boolean isSubRequest;
-
-        PutRequestSerializer() {
-            this(false);
-        }
-
-        PutRequestSerializer(boolean isSubRequest) {
-            this.isSubRequest = isSubRequest;
-        }
 
         @Override
         public void serialize(Request request,
@@ -579,39 +542,12 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            if (!isSubRequest) {
-                writeWriteRequest(ns, rq);
-            } else {
-                writeMapField(ns, RETURN_ROW, rq.getReturnRow());
-            }
-            /*
-             * in the interest of efficiency, default these booleans
-             * to false:
-             *  exact match
-             *  update TTL
-             */
-            if (rq.getExactMatch()) {
-                writeMapField(ns, EXACT_MATCH, true);
-            }
-            if (rq.getUpdateTTL()) {
-                writeMapField(ns, UPDATE_TTL, true);
-            }
-            if (rq.getTTL() != null) {
-                /* write TTL as string, e.g. 5 DAYS */
-                writeMapField(ns, TTL, rq.getTTL().toString());
-            }
-            if (rq.getIdentityCacheSize() != 0) {
-                writeMapField(ns, IDENTITY_CACHE_SIZE,
-                              rq.getIdentityCacheSize());
-            }
-            if (rq.getMatchVersion() != null) {
-                writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
-            }
+            writeWriteRequest(ns, rq);
 
-            /* writeValue uses the output stream directly */
-            writeValue(ns, rq, out);
+            /* serialize portion shared with WriteMultiple */
+            serializeInternal(rq, ns, out);
+
             endMap(ns, PAYLOAD);
-
             ns.endMap(0); // top level object
         }
 
@@ -644,6 +580,43 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             return result;
         }
+
+        /**
+         * An internal method shared wit WriteMultiple to serialize the
+         * shared parts of the request
+         */
+        public void serializeInternal(PutRequest rq,
+                                      NsonSerializer ns,
+                                      ByteOutputStream out)
+            throws IOException {
+
+            /*
+             * in the interest of efficiency, default these booleans
+             * to false:
+             *  exact match
+             *  update TTL
+             */
+            if (rq.getExactMatch()) {
+                writeMapField(ns, EXACT_MATCH, true);
+            }
+            if (rq.getUpdateTTL()) {
+                writeMapField(ns, UPDATE_TTL, true);
+            }
+            if (rq.getTTL() != null) {
+                /* write TTL as string, e.g. 5 DAYS */
+                writeMapField(ns, TTL, rq.getTTL().toString());
+            }
+            if (rq.getIdentityCacheSize() != 0) {
+                writeMapField(ns, IDENTITY_CACHE_SIZE,
+                              rq.getIdentityCacheSize());
+            }
+            if (rq.getMatchVersion() != null) {
+                writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
+            }
+
+            /* writeValue uses the output stream directly */
+            writeValue(ns, rq, out);
+        }
     }
 
     /**
@@ -658,26 +631,15 @@ public class NsonSerializerFactory implements SerializerFactory {
      *
      * WriteMultiple result:
      *  consumed capacity
-     *  success/failure as a whole
-     *  success
-     *    "results": [ {result}, {result} ]
-     *  failure:
-     *    "failure": {
-     *      "index": int
-     *      "fail_result": {}
-     *    }
+     *  # use existence of fields as success/fail
+     *  "wm_success": [ {result}, {result} ]
+     *  "wm_failure": {
+     *      "wm_fail_index": int
+     *      "wm_fail_result": {}
+     *   }
      */
     public static class WriteMultipleRequestSerializer
         extends NsonSerializerBase {
-
-        private final Serializer putSerializer;
-        private final Serializer deleteSerializer;
-
-        WriteMultipleRequestSerializer(Serializer putSerializer,
-                                       Serializer deleteSerializer) {
-            this.putSerializer = putSerializer;
-            this.deleteSerializer = deleteSerializer;
-        }
 
         @Override
         public void serialize(Request request,
@@ -697,25 +659,58 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeHeader(ns, OpCode.WRITE_MULTIPLE.ordinal(), rq);
             endMap(ns, HEADER);
 
-            // payload
+            /*
+             * payload
+             *
+             * IMPORTANT: table name and durability MUST be ordered
+             * ahead of the operations or the server can't easily
+             * deserialize efficiently
+             */
             startMap(ns, PAYLOAD);
             writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, DURABILITY,
                           getDurability(rq.getDurability()));
+            writeMapField(ns, NUM_OPERATIONS,
+                          rq.getOperations().size());
 
             startArray(ns, OPERATIONS);
             for (OperationRequest op : rq.getOperations()) {
                 /*
-                 * Each operation is a map in the array
+                 * Each operation is a map in the array.
+                 * Calling the generic put or delete serializer will add
+                 * redundant, unneccessary state. In order to share code
+                 * with those serializers they have internal methods that
+                 * write just what WriteMultiple requires. The exception
+                 * is the op code and return row information, so write
+                 * that here, then call the shared methods.
                  */
                 ns.startMap(0);
                 WriteRequest wr = op.getRequest();
-                if (wr instanceof PutRequest) {
-                    putSerializer.serialize(wr, serialVersion, out);
-                } else {
-                    deleteSerializer.serialize(wr, serialVersion, out);
+                if (op.isAbortIfUnsuccessful()) {
+                    writeMapField(ns, ABORT_ON_FAIL,
+                                  op.isAbortIfUnsuccessful());
                 }
+
+                /*
+                 * write op first -- this is important!
+                 */
+                if (wr instanceof PutRequest) {
+                    PutRequest prq = (PutRequest) wr;
+                    writeMapField(ns, OP, getOpCode(prq).ordinal());
+                    ((PutRequestSerializer)putSerializer).
+                        serializeInternal(prq, ns, out);
+                } else {
+                    DeleteRequest drq = (DeleteRequest) wr;
+                    OpCode opCode = drq.getMatchVersion() != null ?
+                        OpCode.DELETE_IF_VERSION : OpCode.DELETE;
+                    writeMapField(ns, OP, opCode.ordinal());
+                    ((DeleteRequestSerializer)delSerializer).
+                        serializeInternal(drq, ns, out);
+                }
+                /* common to both delete and put */
+                writeMapField(ns, RETURN_ROW, wr.getReturnRowInternal());
                 ns.endMap(0);
+                ns.endArrayField(0);
             }
             endArray(ns, OPERATIONS);
             endMap(ns, PAYLOAD);
@@ -729,7 +724,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         public Result deserialize(Request request,
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
-            DeleteResult result = new DeleteResult();
+            WriteMultipleResult  result = new WriteMultipleResult();
 
             in.setOffset(0);
             FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
@@ -740,16 +735,73 @@ public class NsonSerializerFactory implements SerializerFactory {
                     handleErrorCode(walker);
                 } else if (name.equals(CONSUMED)) {
                     readConsumedCapacity(in, result);
-                } else if (name.equals(SUCCESS)) {
-                    result.setSuccess(Nson.readNsonBoolean(in));
-                } else if (name.equals(RETURN_INFO)) {
-                    readReturnInfo(in, result);
+                } else if (name.equals(WM_SUCCESS)) {
+                    /* success is an array of map */
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "Operations: bad type in writemultiple: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+                    int totalLength = in.readInt();
+                    int numElements = in.readInt();
+                    for (int i = 0; i < numElements; i++) {
+                        result.addResult(createOperationResult(in));
+                    }
+                } else if (name.equals(WM_FAILURE)) {
+                    /* failure is a map */
+                    FieldFinder.MapWalker fw = new FieldFinder.MapWalker(in);
+                    while (fw.hasNext()) {
+                        fw.next();
+                        String fname = fw.getCurrentName();
+                        if (fname.equals(WM_FAIL_INDEX)) {
+                            result.setFailedOperationIndex(
+                                Nson.readNsonInt(in));
+                        } else if (fname.equals(WM_FAIL_RESULT)) {
+                            /* this is another map */
+                            // TODO
+                            fw.skip();
+                        } else {
+                            fw.skip();
+                        }
+                    }
                 } else {
                     // log/warn
                     walker.skip();
                 }
             }
             return result;
+        }
+
+        /*
+         * map structure:
+         * "success": bool
+         * "version": binary
+         * "generated":
+         * "return_info":
+         */
+        private static OperationResult createOperationResult(
+            ByteInputStream in) throws IOException {
+            OperationResult opResult = new OperationResult();
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(SUCCESS)) {
+                    opResult.setSuccess(Nson.readNsonBoolean(in));
+                } else if (name.equals(ROW_VERSION)) {
+                    opResult.setVersion(Version.createVersion(
+                                            Nson.readNsonBinary(in)));
+                } else if (name.equals(GENERATED)) {
+                    walker.skip();
+                } else if (name.equals(RETURN_INFO)) {
+                    readReturnInfo(in, opResult);
+                } else {
+                    walker.skip();
+                }
+            }
+            return opResult;
         }
     }
 
@@ -845,8 +897,8 @@ public class NsonSerializerFactory implements SerializerFactory {
          *  version (int)
          *  operation (int)
          *  timeout (int)
-         *  table name (only if operation is single-table op and has a
-         *   table name)
+         * tableName was considered but it is part of the payloads. Maybe
+         * reconsider for single table ops... we'll see.
          */
         protected void writeHeader(NsonSerializer ns, int op, Request rq)
             throws IOException {
@@ -854,9 +906,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, VERSION, V4_VERSION);
             writeMapField(ns, OP, op);
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
-            if (rq.getTableName() != null) {
-                writeMapField(ns, TABLE_NAME, rq.getTableName());
-            }
         }
 
         /**
@@ -1168,8 +1217,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                                               Nson.readNsonBinary(in)));
             } else if (name.equals(EXISTING_VALUE)) {
                 result.setExistingValue((MapValue)Nson.readFieldValue(in));
-            /* below requires change to WriteRequest */
-            // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
+                /* below requires change to WriteRequest */
+                // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
                 //result.setExistingExpiration(Nson.readNsonLong(in));
             } else {
                 // log/warn
