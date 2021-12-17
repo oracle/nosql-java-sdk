@@ -46,10 +46,10 @@ public class NsonProtocol {
     public static String WRITE_MULTIPLE = "write_multiple";
     public static String ABORT_ON_FAIL = "abort_on_fail";
     public static String RANGE = "range";
+    public static String RANGE_PATH = "range_path";
     public static String START = "start";
     public static String END = "end";
-    public static String START_INCLUSIVE = "start_inclusive";
-    public static String END_INCLUSIVE = "end_inclusive";
+    public static String INCLUSIVE = "inclusive";
     public static String COMPARTMENT_OCID = "compartment_ocid";
     public static String TABLE_OCID = "table_ocid";
     public static String NAMESPACE = "namespace";
@@ -57,6 +57,7 @@ public class NsonProtocol {
     public static String OPERATIONS = "operations";
     public static String NUM_OPERATIONS = "num_operations";
     public static String IDENTITY_CACHE_SIZE = "id_cache_size";
+    public static String CONTINUATION_KEY = "cont_key";
 
     /*
      * response fields
@@ -69,7 +70,7 @@ public class NsonProtocol {
     public static String WM_FAILURE = "wm_failure";
     public static String WM_FAIL_INDEX = "wm_fail_index";
     public static String WM_FAIL_RESULT = "wm_fail_result";
-
+    public static String NUM_DELETIONS = "num_deletions";
 
     // table metadata
     public static String TABLE_STATE = "table_state";
@@ -77,6 +78,7 @@ public class NsonProtocol {
 
     // throughput used and limits
     public static String LIMITS = "limits";
+    public static String LIMITS_MODE = "mode";
     public static String CONSUMED = "consumed";
     public static String READ_UNITS = "read_units";
     public static String WRITE_UNITS = "write_units";

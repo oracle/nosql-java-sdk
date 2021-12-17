@@ -7,6 +7,10 @@
 
 package oracle.nosql.driver.ops.serde;
 
+import java.io.IOException;
+import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.ByteOutputStream;
+
 /**
  * @hidden
  */
@@ -70,4 +74,18 @@ public interface SerializerFactory {
 
     Serializer createMultiDeleteDeserializer();
 
+    /*
+     * These methods encapsulate differences in serializer streams
+     */
+    default int readErrorCode(ByteInputStream bis) throws IOException {
+        return 0;
+    }
+
+    default void writeSerialVersion(short serialVersion, ByteOutputStream bis)
+        throws IOException {
+    }
+
+    default String getSerdeVersionString() {
+        return null;
+    }
 }

@@ -547,6 +547,28 @@ public class SerializationUtil {
     }
 
     /**
+     * Writes a possibly null byte array as a {@link #writeSequenceLength
+     * sequence length} followed by the array contents as specified by
+     * offset and length.
+     *
+     * @param out the output stream
+     * @param array the byte array or null
+     * @param offset the byte offset into the array
+     * @param length the length of bytes to write, starting at offset
+     * @throws IOException if an I/O error occurs
+     */
+    public static void writeByteArray(ByteOutputStream out, byte[] array,
+                                      int offset, int length)
+        throws IOException {
+
+        writeSequenceLength(out, length);
+        if (length > 0 && array != null) {
+            out.write(array, offset, length);
+        }
+    }
+
+
+    /**
      * Reads a non-null byte array as a {@link #readNonNullSequenceLength
      * non-null sequence length} followed by the array contents.
      *

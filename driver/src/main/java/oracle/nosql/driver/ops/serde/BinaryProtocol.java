@@ -191,8 +191,8 @@ public class BinaryProtocol extends Nson {
      * @throws IOException if exception
      */
     static void writeCapacityMode(ByteOutputStream out,
-                                CapacityMode mode,
-                                short serialVersion)
+                                  CapacityMode mode,
+                                  short serialVersion)
         throws IOException {
 
         if (serialVersion < V3) {

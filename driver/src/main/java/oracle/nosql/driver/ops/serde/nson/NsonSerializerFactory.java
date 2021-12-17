@@ -21,11 +21,14 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
+import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
+import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 
 import java.io.IOException;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
+import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
@@ -37,6 +40,8 @@ import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.MultiDeleteRequest;
+import oracle.nosql.driver.ops.MultiDeleteResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.Request;
@@ -57,6 +62,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
 public class NsonSerializerFactory implements SerializerFactory {
@@ -96,7 +102,7 @@ public class NsonSerializerFactory implements SerializerFactory {
     static final Serializer writeMultipleSerializer =
         new WriteMultipleRequestSerializer();
     static final Serializer multiDeleteSerializer =
-        null; //new MultiDeleteV4RequestSerializer();
+        new MultiDeleteRequestSerializer();
 
     @Override
     public Serializer createDeleteSerializer() {
@@ -239,6 +245,11 @@ public class NsonSerializerFactory implements SerializerFactory {
         return multiDeleteSerializer;
     }
 
+    @Override
+    public String getSerdeVersionString() {
+        return "v4";
+    }
+
 
     /* serializers */
 
@@ -279,6 +290,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
             writeMapField(ns, STATEMENT, rq.getStatement());
+            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeLimits(ns, rq.getTableLimits());
             endMap(ns, PAYLOAD);
 
@@ -378,7 +390,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             startMap(ns, PAYLOAD);
             writeReadRequest(ns, rq);
             /* writeKey uses the output stream directly */
-            writeKey(ns, rq, out);
+            writeKey(ns, rq);
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -401,8 +413,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(ROW)) {
                     readRow(in, result);
                 } else {
-                    // log/warn
-                    walker.skip();
+                    skipUnknownField(walker, name);
                 }
             }
             return result;
@@ -451,7 +462,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeWriteRequest(ns, rq);
 
             /* shared with WriteMultiple */
-            serializeInternal(rq, ns, out);
+            serializeInternal(rq, ns);
 
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
@@ -477,16 +488,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(RETURN_INFO)) {
                     readReturnInfo(in, result);
                 } else {
-                    // log/warn
-                    walker.skip();
+                    skipUnknownField(walker, name);
                 }
             }
             return result;
         }
 
         /* shared with WriteMultiple */
-        void serializeInternal(DeleteRequest rq, NsonSerializer ns,
-                               ByteOutputStream out)
+        void serializeInternal(DeleteRequest rq, NsonSerializer ns)
             throws IOException {
 
             if (rq.getMatchVersion() != null) {
@@ -494,7 +503,83 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
 
             /* writeValue uses the output stream directly */
-            writeKey(ns, rq, out);
+            writeKey(ns, rq);
+        }
+    }
+
+    /**
+     * MultiDelete request:
+     *  Payload:
+     *    table name
+     *    durability
+     *    key
+     *    range
+     *    maxWriteKB
+     *    continuation key
+     *
+     * MultiDelete result:
+     *  consumed capacity
+     *  numDeletions
+     *  continuation key
+     */
+    public static class MultiDeleteRequestSerializer
+        extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            MultiDeleteRequest rq = (MultiDeleteRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.MULTI_DELETE.ordinal(), rq);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, TABLE_NAME, rq.getTableName());
+            writeMapField(ns, DURABILITY,
+                          getDurability(rq.getDurability()));
+            writeMapField(ns, MAX_WRITE_KB, rq.getMaxWriteKB());
+            writeContinuationKey(ns, rq.getContinuationKey());
+            writeFieldRange(ns, rq.getRange());
+            writeKey(ns, rq);
+            endMap(ns, PAYLOAD);
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            MultiDeleteResult result = new MultiDeleteResult();
+
+            in.setOffset(0);
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(CONSUMED)) {
+                    readConsumedCapacity(in, result);
+                } else if (name.equals(NUM_DELETIONS)) {
+                    result.setNumDeletions(Nson.readNsonInt(in));
+                } else if (name.equals(CONTINUATION_KEY)) {
+                    result.setContinuationKey(Nson.readNsonBinary(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
         }
     }
 
@@ -545,7 +630,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeWriteRequest(ns, rq);
 
             /* serialize portion shared with WriteMultiple */
-            serializeInternal(rq, ns, out);
+            serializeInternal(rq, ns);
 
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
@@ -572,10 +657,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(RETURN_INFO)) {
                     readReturnInfo(in, result);
                 } else if (name.equals(GENERATED)) {
-                    result.setGeneratedValue((MapValue)Nson.readFieldValue(in));
+                    result.setGeneratedValue(Nson.readFieldValue(in));
                 } else {
-                    // log/warn
-                    walker.skip();
+                    skipUnknownField(walker, name);
                 }
             }
             return result;
@@ -586,8 +670,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * shared parts of the request
          */
         public void serializeInternal(PutRequest rq,
-                                      NsonSerializer ns,
-                                      ByteOutputStream out)
+                                      NsonSerializer ns)
             throws IOException {
 
             /*
@@ -613,9 +696,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchVersion() != null) {
                 writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
             }
-
-            /* writeValue uses the output stream directly */
-            writeValue(ns, rq, out);
+            writeValue(ns, rq.getValue());
         }
     }
 
@@ -698,14 +779,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                     PutRequest prq = (PutRequest) wr;
                     writeMapField(ns, OP, getOpCode(prq).ordinal());
                     ((PutRequestSerializer)putSerializer).
-                        serializeInternal(prq, ns, out);
+                        serializeInternal(prq, ns);
                 } else {
                     DeleteRequest drq = (DeleteRequest) wr;
                     OpCode opCode = drq.getMatchVersion() != null ?
                         OpCode.DELETE_IF_VERSION : OpCode.DELETE;
                     writeMapField(ns, OP, opCode.ordinal());
                     ((DeleteRequestSerializer)delSerializer).
-                        serializeInternal(drq, ns, out);
+                        serializeInternal(drq, ns);
                 }
                 /* common to both delete and put */
                 writeMapField(ns, RETURN_ROW, wr.getReturnRowInternal());
@@ -766,8 +847,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                         }
                     }
                 } else {
-                    // log/warn
-                    walker.skip();
+                    skipUnknownField(walker, name);
                 }
             }
             return result;
@@ -794,95 +874,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                     opResult.setVersion(Version.createVersion(
                                             Nson.readNsonBinary(in)));
                 } else if (name.equals(GENERATED)) {
-                    walker.skip();
+                    opResult.setGeneratedValue(Nson.readFieldValue(in));
                 } else if (name.equals(RETURN_INFO)) {
                     readReturnInfo(in, opResult);
                 } else {
-                    walker.skip();
+                    skipUnknownField(walker, name);
                 }
             }
             return opResult;
-        }
-    }
-
-    /*
-     * Shared code to deserialize a TableResult
-     */
-    static protected TableResult deserializeTableResult(Request request,
-                                                        ByteInputStream in)
-         throws IOException {
-
-        TableResult result = new TableResult();
-
-        in.setOffset(0);
-
-        FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
-        while (walker.hasNext()) {
-            walker.next();
-            String name = walker.getCurrentName();
-            if (name.equals(ERROR_CODE)) {
-                handleErrorCode(walker);
-            } else if (name.equals(COMPARTMENT_OCID)) {
-                result.setCompartmentId(Nson.readNsonString(in));
-            } else if (name.equals(NAMESPACE)) {
-                result.setNamespace(Nson.readNsonString(in));
-            } else if (name.equals(TABLE_OCID)) {
-                result.setTableId(Nson.readNsonString(in));
-            } else if (name.equals(TABLE_NAME)) {
-                result.setTableName(Nson.readNsonString(in));
-            } else if (name.equals(TABLE_STATE)) {
-                result.setState(TableResult.State.valueOf(
-                                    Nson.readNsonString(in)));
-            } else if (name.equals(TABLE_SCHEMA)) {
-                result.setSchema(Nson.readNsonString(in));
-            } else if (name.equals(OPERATION_ID)) {
-                result.setOperationId(Nson.readNsonString(in));
-            } else if (name.equals(LIMITS)) {
-                FieldFinder.MapWalker lw = new FieldFinder.MapWalker(in);
-                int ru = 0;
-                int wu = 0;
-                int sg = 0;
-                while (lw.hasNext()) {
-                    lw.next();
-                    name = lw.getCurrentName();
-                    if (name.equals(READ_UNITS)) {
-                        ru = Nson.readNsonInt(in);
-                    } else if (name.equals(WRITE_UNITS)) {
-                        wu = Nson.readNsonInt(in);
-                    } else if (name.equals(STORAGE_GB)) {
-                        sg = Nson.readNsonInt(in);
-                    } else {
-                        // log/warn
-                        lw.skip();
-                    }
-                }
-                result.setTableLimits(new TableLimits(
-                                          ru, wu, sg));
-            } else {
-                // log/warn
-                walker.skip();
-            }
-        }
-        return result;
-    }
-
-    /*
-     * From here down utilities to handle portions of requests or results
-     */
-    private static OpCode getOpCode(PutRequest req) {
-        if (req.getOption() == null) {
-            return OpCode.PUT;
-        }
-        switch (req.getOption()) {
-        case IfAbsent:
-            return OpCode.PUT_IF_ABSENT;
-        case IfPresent:
-            return OpCode.PUT_IF_PRESENT;
-        case IfVersion:
-            return OpCode.PUT_IF_VERSION;
-        default:
-            throw new IllegalStateException("Unknown Options " +
-                req.getOption());
         }
     }
 
@@ -900,7 +899,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * tableName was considered but it is part of the payloads. Maybe
          * reconsider for single table ops... we'll see.
          */
-        protected void writeHeader(NsonSerializer ns, int op, Request rq)
+        protected static void writeHeader(NsonSerializer ns, int op, Request rq)
             throws IOException {
 
             writeMapField(ns, VERSION, V4_VERSION);
@@ -912,8 +911,8 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Writes common fields for read requests -- table name and
          * consistency (int)
          */
-        protected void writeReadRequest(NsonSerializer ns,
-                                        ReadRequest rq)
+        protected static void writeReadRequest(NsonSerializer ns,
+                                               ReadRequest rq)
             throws IOException {
 
             writeMapField(ns, TABLE_NAME, rq.getTableName());
@@ -925,8 +924,8 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Writes common fields for write requests -- table name,
          * durability, return row
          */
-        protected void writeWriteRequest(NsonSerializer ns,
-                                         WriteRequest rq)
+        protected static void writeWriteRequest(NsonSerializer ns,
+                                                WriteRequest rq)
             throws IOException {
 
             writeMapField(ns, TABLE_NAME, rq.getTableName());
@@ -938,96 +937,108 @@ public class NsonSerializerFactory implements SerializerFactory {
         /**
          * Writes a primary key:
          *  "key": {...}
-         * The request may be a GetRequest or a DeleteRequest
+         * The request may be a GetRequest, DeleteRequest, or
+         * MultiDeleteRequest
          */
-        protected void writeKey(NsonSerializer ns, Request rq,
-                                ByteOutputStream out) throws IOException {
+        protected static void writeKey(NsonSerializer ns, Request rq)
+            throws IOException {
 
             MapValue key = (rq instanceof GetRequest ?
                             ((GetRequest)rq).getKey() :
-                            ((DeleteRequest)rq).getKey());
+                            (rq instanceof DeleteRequest ?
+                             ((DeleteRequest)rq).getKey() :
+                             ((MultiDeleteRequest)rq).getKey()));
+            if (key == null) {
+                throw new IllegalArgumentException("Key cannot be null");
+            }
 
             ns.startMapField(KEY);
-            Nson.writeFieldValue(out, key);
+            Nson.writeFieldValue(ns.getStream(), key);
             ns.endMapField(KEY);
         }
 
         /**
          * Writes a row value:
          *  "value": {...}
-         * The request must be a PutRequest
          */
-        protected void writeValue(NsonSerializer ns, PutRequest rq,
-                                  ByteOutputStream out) throws IOException {
+        protected static void writeValue(NsonSerializer ns, FieldValue value)
+            throws IOException {
 
             ns.startMapField(VALUE);
-            Nson.writeFieldValue(out, rq.getValue());
+            Nson.writeFieldValue(ns.getStream(), value);
             ns.endMapField(VALUE);
         }
 
-        protected void writeMapField(NsonSerializer ns,
-                                     String fieldName,
-                                     int value) throws IOException {
+        protected static void writeMapField(NsonSerializer ns,
+                                            String fieldName,
+                                            int value) throws IOException {
             ns.startMapField(fieldName);
             ns.integerValue(value);
             ns.endMapField(fieldName);
         }
 
-        protected void writeMapField(NsonSerializer ns,
-                                     String fieldName,
-                                     String value) throws IOException {
-            ns.startMapField(fieldName);
-            ns.stringValue(value);
-            ns.endMapField(fieldName);
+        protected static void writeMapField(NsonSerializer ns,
+                                            String fieldName,
+                                            String value) throws IOException {
+            /* silently ignore null string */
+            if (value != null) {
+                ns.startMapField(fieldName);
+                ns.stringValue(value);
+                ns.endMapField(fieldName);
+            }
         }
 
-        protected void writeMapField(NsonSerializer ns,
-                                     String fieldName,
-                                     boolean value) throws IOException {
+        protected static void writeMapField(NsonSerializer ns,
+                                            String fieldName,
+                                            boolean value) throws IOException {
             ns.startMapField(fieldName);
             ns.booleanValue(value);
             ns.endMapField(fieldName);
         }
 
-        protected void writeMapField(NsonSerializer ns,
-                                     String fieldName,
-                                     byte[] value) throws IOException {
+        protected static void writeMapField(NsonSerializer ns,
+                                            String fieldName,
+                                            byte[] value) throws IOException {
             ns.startMapField(fieldName);
             ns.binaryValue(value);
             ns.endMapField(fieldName);
         }
 
-        protected void startMap(NsonSerializer ns, String name)
+        protected static void startMap(NsonSerializer ns, String name)
             throws IOException {
             ns.startMapField(name);
             ns.startMap(0);
         }
 
-        protected void endMap(NsonSerializer ns, String name)
+        protected static void endMap(NsonSerializer ns, String name)
             throws IOException {
             ns.endMap(0);
             ns.endMapField(name);
         }
 
-        protected void startArray(NsonSerializer ns, String name)
+        protected static void startArray(NsonSerializer ns, String name)
             throws IOException {
             ns.startMapField(name);
             ns.startArray(0);
         }
 
-        protected void endArray(NsonSerializer ns, String name)
+        protected static void endArray(NsonSerializer ns, String name)
             throws IOException {
             ns.endArray(0);
             ns.endMapField(name);
         }
 
-        protected void writeLimits(NsonSerializer ns, TableLimits limits)
+        protected static void writeLimits(NsonSerializer ns, TableLimits limits)
             throws IOException {
             if (limits != null) {
                 startMap(ns, LIMITS);
                 writeMapField(ns, READ_UNITS, limits.getReadUnits());
                 writeMapField(ns, WRITE_UNITS, limits.getWriteUnits());
                 writeMapField(ns, STORAGE_GB, limits.getStorageGB());
+                TableLimits.CapacityMode mode = limits.getMode();
+                int intMode = (mode == TableLimits.CapacityMode.PROVISIONED ?
+                               PROVISIONED : ON_DEMAND);
+                writeMapField(ns, LIMITS_MODE, intMode);
                 endMap(ns, LIMITS);
             }
         }
@@ -1079,150 +1090,292 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             return dur;
         }
-    }
 
-    /**
-     * Handle success/failure in a response. Success is a 0 error code.
-     * Failure is a non-zero code and may also include:
-     *  Exception message
-     *  Consumed capacity
-     *  Retry hints if throttling (future)
-     * This method throws an appropriately mapped exception on error and
-     * nothing on success.
-     *
-     *   "error_code": int (code)
-     *   "exception": "..."
-     *   "consumed": {
-     *      "read_units": int,
-     *      "read_kb": int,
-     *      "write_kb": int
-     *    }
-     *
-     * The walker must be positions at the very first field in the response
-     * which *must* be the error code.
-     *
-     * This method either returns a non-zero error code or throws an
-     * exception based on the error code and additional information.
-     */
-    static int handleErrorCode(FieldFinder.MapWalker walker)
-        throws IOException {
-        ByteInputStream in = walker.getStream();
-        int code = Nson.readNsonInt(in);
-        if (code == 0) {
-            return 0;
-        }
-        String message = null;
-        RuntimeException re = null;
-        while (walker.hasNext()) {
-            walker.next();
-            String name = walker.getCurrentName();
-            if (EXCEPTION.equals(name)) {
-                message = Nson.readNsonString(in);
-                re = mapException(code, message);
-            } else if (CONSUMED.equals(name)) {
-                /* Exception message must come first */
-                if (re != null && re instanceof NoSQLException) {
-                    // TODO -- add to exceptions
-                    // readConsumedCapacity((NoSQLException) re, in);
+        /**
+         * Handle success/failure in a response. Success is a 0 error code.
+         * Failure is a non-zero code and may also include:
+         *  Exception message
+         *  Consumed capacity
+         *  Retry hints if throttling (future)
+         * This method throws an appropriately mapped exception on error and
+         * nothing on success.
+         *
+         *   "error_code": int (code)
+         *   "exception": "..."
+         *   "consumed": {
+         *      "read_units": int,
+         *      "read_kb": int,
+         *      "write_kb": int
+         *    }
+         *
+         * The walker must be positions at the very first field in the response
+         * which *must* be the error code.
+         *
+         * This method either returns a non-zero error code or throws an
+         * exception based on the error code and additional information.
+         */
+        protected static int handleErrorCode(FieldFinder.MapWalker walker)
+            throws IOException {
+            ByteInputStream in = walker.getStream();
+            int code = Nson.readNsonInt(in);
+            if (code == 0) {
+                return 0;
+            }
+            String message = null;
+            RuntimeException re = null;
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (EXCEPTION.equals(name)) {
+                    message = Nson.readNsonString(in);
+                    re = mapException(code, message);
+                } else if (CONSUMED.equals(name)) {
+                    /* Exception message must come first */
+                    if (re != null && re instanceof NoSQLException) {
+                        // TODO -- add to exceptions
+                        // readConsumedCapacity((NoSQLException) re, in);
+                    }
+                    walker.skip();
+                } else {
+                    skipUnknownField(walker, name);
                 }
-                walker.skip();
-            } else {
-                walker.skip();
+            }
+            if (re == null) {
+                /* this should not happen, but do our best if so */
+                re = mapException(code, null);
+            }
+            throw re;
+        }
+
+        /**
+         * "consumed": {
+         *    "read_units": int,
+         *    "read_kb": int,
+         *    "write_kb": int
+         *  }
+         *
+         */
+        static void readConsumedCapacity(ByteInputStream in,
+                                         Result result)
+            throws IOException {
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(READ_UNITS)) {
+                    result.setReadUnits(Nson.readNsonInt(in));
+                } else if (name.equals(READ_KB)) {
+                    result.setReadKB(Nson.readNsonInt(in));
+                } else if (name.equals(WRITE_KB)) {
+                    result.setWriteKB(Nson.readNsonInt(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
             }
         }
-        if (re == null) {
-            /* this should not happen, but do our best if so */
-            re = mapException(code, null);
-        }
-        throw re;
-    }
 
-    /**
-     * "consumed": {
-     *    "read_units": int,
-     *    "read_kb": int,
-     *    "write_kb": int
-     *  }
-     *
-     */
-    static void readConsumedCapacity(ByteInputStream in,
-                                     Result result)
-        throws IOException {
+        /**
+         * Reads the row from a get operation which includes row metadata
+         * and the value
+         */
+        static void readRow(ByteInputStream in, GetResult result)
+            throws IOException {
 
-        FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
-        while (walker.hasNext()) {
-            walker.next();
-            String name = walker.getCurrentName();
-            if (name.equals(READ_UNITS)) {
-                result.setReadUnits(Nson.readNsonInt(in));
-            } else if (name.equals(READ_KB)) {
-                result.setReadKB(Nson.readNsonInt(in));
-            } else if (name.equals(WRITE_KB)) {
-                result.setWriteKB(Nson.readNsonInt(in));
-            } else {
-                // log/warn
-                walker.skip();
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(MODIFIED)) {
+                    result.setModificationTime(Nson.readNsonLong(in));
+                } else if (name.equals(EXPIRATION)) {
+                    result.setExpirationTime(Nson.readNsonLong(in));
+                } else if (name.equals(ROW_VERSION)) {
+                    result.setVersion(Version.createVersion(
+                                          Nson.readNsonBinary(in)));
+                } else if (name.equals(VALUE)) {
+                    result.setValue((MapValue)Nson.readFieldValue(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
             }
         }
-    }
 
-    /**
-     * Reads the row from a get operation which includes row metadata
-     * and the value
-     */
-    static void readRow(ByteInputStream in, GetResult result)
-        throws IOException {
+        /**
+         * "return_info": {
+         *    "existing_value": {}
+         *    "existing_version": byte[]
+         *    "existing_mod": long
+         *    "existing_expiration": long
+         *  }
+         *
+         */
+        static void readReturnInfo(ByteInputStream in,
+                                   WriteResult result)
+            throws IOException {
 
-        FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
-        while (walker.hasNext()) {
-            walker.next();
-            String name = walker.getCurrentName();
-            if (name.equals(MODIFIED)) {
-                result.setModificationTime(Nson.readNsonLong(in));
-            } else if (name.equals(EXPIRATION)) {
-                result.setExpirationTime(Nson.readNsonLong(in));
-            } else if (name.equals(ROW_VERSION)) {
-                result.setVersion(Version.createVersion(
-                                      Nson.readNsonBinary(in)));
-            } else if (name.equals(VALUE)) {
-                result.setValue((MapValue)Nson.readFieldValue(in));
-            } else {
-                // log/warn
-                walker.skip();
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(EXISTING_MOD_TIME)) {
+                    result.setExistingModificationTime(Nson.readNsonLong(in));
+                } else if (name.equals(EXISTING_VERSION)) {
+                    result.setExistingVersion(Version.createVersion(
+                                                  Nson.readNsonBinary(in)));
+                } else if (name.equals(EXISTING_VALUE)) {
+                    result.setExistingValue((MapValue)Nson.readFieldValue(in));
+                    /* below requires change to WriteRequest */
+                    // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
+                    //result.setExistingExpiration(Nson.readNsonLong(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
             }
         }
-    }
 
-    /**
-     * "return_info": {
-     *    "existing_value": {}
-     *    "existing_version": byte[]
-     *    "existing_mod": long
-     *    "existing_expiration": long
-     *  }
-     *
-     */
-    static void readReturnInfo(ByteInputStream in,
-                               WriteResult result)
-        throws IOException {
+        protected static void writeContinuationKey(NsonSerializer ns,
+                                                   byte[] key)
+            throws IOException {
+            if (key != null) {
+                writeMapField(ns, CONTINUATION_KEY, key);
+            }
+        }
 
-        FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
-        while (walker.hasNext()) {
-            walker.next();
-            String name = walker.getCurrentName();
-            if (name.equals(EXISTING_MOD_TIME)) {
-                result.setExistingModificationTime(Nson.readNsonLong(in));
-            } else if (name.equals(EXISTING_VERSION)) {
-                result.setExistingVersion(Version.createVersion(
-                                              Nson.readNsonBinary(in)));
-            } else if (name.equals(EXISTING_VALUE)) {
-                result.setExistingValue((MapValue)Nson.readFieldValue(in));
-                /* below requires change to WriteRequest */
-                // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
-                //result.setExistingExpiration(Nson.readNsonLong(in));
-            } else {
-                // log/warn
-                walker.skip();
+        /*
+         * "range": {
+         *   "path": path to field (string)
+         *   "start" {
+         *      "value": {FieldValue}
+         *      "inclusive": bool
+         *   }
+         *   "end" {
+         *      "value": {FieldValue}
+         *      "inclusive": bool
+         *   }
+         */
+        protected static void writeFieldRange(NsonSerializer ns,
+                                              FieldRange range)
+            throws IOException {
+            if (range != null) {
+                startMap(ns, RANGE);
+                writeMapField(ns, RANGE_PATH, range.getFieldPath());
+                if (range.getStart() != null) {
+                    startMap(ns, START);
+                    writeValue(ns, range.getStart());
+                    writeMapField(ns, INCLUSIVE,
+                                  range.getStartInclusive());
+                    endMap(ns, START);
+                }
+                if (range.getEnd() != null) {
+                    startMap(ns, END);
+                    writeValue(ns, range.getEnd());
+                    writeMapField(ns, INCLUSIVE, range.getEndInclusive());
+                    endMap(ns, END);
+                }
+                endMap(ns, RANGE);
+            }
+        }
+
+        /*
+         * Shared code to deserialize a TableResult
+         */
+        protected static TableResult deserializeTableResult(Request request,
+                                                            ByteInputStream in)
+            throws IOException {
+
+            TableResult result = new TableResult();
+
+            in.setOffset(0);
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(COMPARTMENT_OCID)) {
+                    result.setCompartmentId(Nson.readNsonString(in));
+                } else if (name.equals(NAMESPACE)) {
+                    result.setNamespace(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_OCID)) {
+                    result.setTableId(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_NAME)) {
+                    result.setTableName(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_STATE)) {
+                    result.setState(TableResult.State.valueOf(
+                                        Nson.readNsonString(in)));
+                } else if (name.equals(TABLE_SCHEMA)) {
+                    result.setSchema(Nson.readNsonString(in));
+                } else if (name.equals(OPERATION_ID)) {
+                    result.setOperationId(Nson.readNsonString(in));
+                } else if (name.equals(LIMITS)) {
+                    FieldFinder.MapWalker lw = new FieldFinder.MapWalker(in);
+                    int ru = 0;
+                    int wu = 0;
+                    int sg = 0;
+                    int mode = PROVISIONED;
+                    while (lw.hasNext()) {
+                        lw.next();
+                        name = lw.getCurrentName();
+                        if (name.equals(READ_UNITS)) {
+                            ru = Nson.readNsonInt(in);
+                        } else if (name.equals(WRITE_UNITS)) {
+                            wu = Nson.readNsonInt(in);
+                        } else if (name.equals(STORAGE_GB)) {
+                            sg = Nson.readNsonInt(in);
+                        } else if (name.equals(LIMITS_MODE)) {
+                            mode = Nson.readNsonInt(in);
+                        } else {
+                            skipUnknownField(lw, name);
+                        }
+                    }
+                    result.setTableLimits(new TableLimits(
+                                              ru, wu, sg,
+                                              getCapacityMode(mode)));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
+        }
+
+        /*
+         * From here down utilities to handle portions of requests or results
+         */
+        protected static OpCode getOpCode(PutRequest req) {
+            if (req.getOption() == null) {
+                return OpCode.PUT;
+            }
+            switch (req.getOption()) {
+            case IfAbsent:
+                return OpCode.PUT_IF_ABSENT;
+            case IfPresent:
+                return OpCode.PUT_IF_PRESENT;
+            case IfVersion:
+                return OpCode.PUT_IF_VERSION;
+            default:
+                throw new IllegalStateException("Unknown Options " +
+                                                req.getOption());
+            }
+        }
+
+        protected static void skipUnknownField(FieldFinder.MapWalker walker,
+                                               String name)
+            throws IOException {
+            // TODO log/warn
+            walker.skip();
+        }
+
+        protected static TableLimits.CapacityMode getCapacityMode(int mode) {
+            switch (mode) {
+            case PROVISIONED:
+                return TableLimits.CapacityMode.PROVISIONED;
+            case ON_DEMAND:
+                return TableLimits.CapacityMode.ON_DEMAND;
+            default:
+                throw new IllegalStateException(
+                    "Unknown capacity mode " + mode);
             }
         }
     }

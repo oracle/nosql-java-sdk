@@ -282,6 +282,13 @@ public class Nson {
         SerializationUtil.writeByteArray(out, array);
     }
 
+    public static void writeByteArray(ByteOutputStream out,
+                                      byte[] array,
+                                      int offset,
+                                      int length) throws IOException {
+        SerializationUtil.writeByteArray(out, array, offset, length);
+    }
+
     /*
      * Writes a byte array with a full 4-byte int length
      */
@@ -568,6 +575,14 @@ public class Nson {
         }
 
         @Override
+        public void binaryValue(byte[] byteArray,
+                                int offset,
+                                int length) throws IOException {
+            out.writeByte(TYPE_BINARY);
+            writeByteArray(out, byteArray, offset, length);
+        }
+
+        @Override
         public void stringValue(String value) throws IOException {
             out.writeByte(TYPE_STRING);
             writeString(out, value);
@@ -766,7 +781,7 @@ public class Nson {
             } else {
                 currentKey = null;
             }
-            // currentValue undefined right now...
+            /* currentValue undefined right now... */
         }
 
         @Override
@@ -783,6 +798,13 @@ public class Nson {
 
         @Override
         public void binaryValue(byte[] byteArray) throws IOException {
+            currentValue = new BinaryValue(byteArray);
+        }
+
+        @Override
+        public void binaryValue(byte[] byteArray, int offset, int length)
+            throws IOException {
+            /* TODO: BinaryValue() with offset/length */
             currentValue = new BinaryValue(byteArray);
         }
 

@@ -76,6 +76,7 @@ import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
+import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
@@ -102,10 +103,8 @@ public class Client {
 
     private final NoSQLHandleConfig config;
 
-    /**
-     * This may be configurable, but for now there is only one implementation
-     */
-    private final SerializerFactory factory = new BinarySerializerFactory();
+    private final SerializerFactory v3factory = new BinarySerializerFactory();
+    private final SerializerFactory v4factory = new NsonSerializerFactory();
 
     /**
      * The URL representing the server that is the target of all client
@@ -411,7 +410,6 @@ public class Client {
         do {
             long thisTime = System.currentTimeMillis();
             int thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
-
             /*
              * Check rate limiters before executing the request.
              * Wait for read and/or write limiters to be below their limits
@@ -532,6 +530,11 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
+
+                String serdeVersion = getSerdeVersion(kvRequest);
+                if (serdeVersion != null) {
+                    headers.add("x-nosql-serde-version", serdeVersion);
+                }
 
                 /*
                  * If the request doesn't set an explicit compartment, use
@@ -929,11 +932,11 @@ public class Client {
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        bos.writeShort(serialVersion);
-        kvRequest.createSerializer(factory).
-            serialize(kvRequest,
-                      serialVersion,
-                      bos);
+        SerializerFactory factory = chooseFactory(kvRequest);
+        factory.writeSerialVersion(serialVersion, bos);
+        kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                      serialVersion,
+                                                      bos);
     }
 
     /**
@@ -970,12 +973,14 @@ public class Client {
      */
     Result processOKResponse(ByteInputStream in, Request kvRequest) {
         try {
-            int code = in.readByte();
+            SerializerFactory factory = chooseFactory(kvRequest);
+            int code = factory.readErrorCode(in);
             if (code == 0) {
-                Result res = kvRequest.createDeserializer(factory).
-                             deserialize(kvRequest,
-                                         in,
-                                         serialVersion);
+                Result res =
+                    kvRequest.createDeserializer(factory).
+                    deserialize(kvRequest,
+                                in,
+                                serialVersion);
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1257,5 +1262,23 @@ public class Client {
             return;
         }
         logWarning(logger, msg);
+    }
+
+    private SerializerFactory chooseFactory(Request rq) {
+        if (rq instanceof oracle.nosql.driver.ops.GetRequest ||
+            rq instanceof oracle.nosql.driver.ops.GetTableRequest ||
+            rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
+            rq instanceof oracle.nosql.driver.ops.PutRequest ||
+            rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
+            rq instanceof oracle.nosql.driver.ops.TableRequest ||
+            rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
+            return v4factory;
+        } else {
+            return v3factory;
+        }
+    }
+
+    private String getSerdeVersion(Request rq) {
+        return chooseFactory(rq).getSerdeVersionString();
     }
 }
