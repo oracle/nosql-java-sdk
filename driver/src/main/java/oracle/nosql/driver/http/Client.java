@@ -1270,8 +1270,8 @@ public class Client {
             rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
             rq instanceof oracle.nosql.driver.ops.PutRequest ||
             rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.TableRequest ||
-            rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
+            rq instanceof oracle.nosql.driver.ops.TableRequest) {
+            // not quite yet: rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
             return v4factory;
         } else {
             return v3factory;
