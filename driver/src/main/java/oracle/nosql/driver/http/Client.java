@@ -171,6 +171,9 @@ public class Client {
      */
     private StatsControlImpl statsControl;
 
+    /* temporary */
+    private boolean useV4;
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -243,6 +246,9 @@ public class Client {
         oneTimeMessages = new HashSet<String>();
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
+
+        /* temporary */
+        useV4 = Boolean.getBoolean("test.usev4");
     }
 
     /**
@@ -988,10 +994,8 @@ public class Client {
                         qreq.getDriver().setClient(this);
                     }
                 }
-
                 return res;
             }
-
             /*
              * Operation failed. Handle the failure and throw an appropriate
              * exception.
@@ -999,6 +1003,7 @@ public class Client {
             String err = readString(in);
             throw handleResponseErrorCode(code, err);
         } catch (IOException e) {
+e.printStackTrace();
             /*
              * TODO: Retrying here will not actually help, the
              * operation should be abandoned; we need a specific
@@ -1265,11 +1270,15 @@ public class Client {
     }
 
     private SerializerFactory chooseFactory(Request rq) {
+        if (useV4 == false) {
+            return v3factory;
+        }
         if (rq instanceof oracle.nosql.driver.ops.GetRequest ||
             rq instanceof oracle.nosql.driver.ops.GetTableRequest ||
             rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
             rq instanceof oracle.nosql.driver.ops.PutRequest ||
             rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
+            rq instanceof oracle.nosql.driver.ops.QueryRequest ||
             rq instanceof oracle.nosql.driver.ops.TableRequest) {
             // not quite yet: rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
             return v4factory;

@@ -25,14 +25,20 @@ import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 
 import java.io.IOException;
+import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
-import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.FieldFinder;
 import oracle.nosql.driver.ops.DeleteRequest;
@@ -40,10 +46,13 @@ import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.MultiDeleteRequest;
 import oracle.nosql.driver.ops.MultiDeleteResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryRequest;
+import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.ReadRequest;
@@ -59,9 +68,13 @@ import oracle.nosql.driver.ops.WriteRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
+import oracle.nosql.driver.query.PlanIter;
+import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -83,10 +96,10 @@ public class NsonSerializerFactory implements SerializerFactory {
         new TableRequestSerializer();
     static final Serializer getTableSerializer =
         new GetTableRequestSerializer();
+    static final Serializer querySerializer =
+        new QueryRequestSerializer();
 
     // TODO
-    static final Serializer querySerializer =
-        null; //new QueryV4RequestSerializer();
     static final Serializer prepareSerializer =
         null; //new PrepareV4RequestSerializer();
     static final Serializer getTableUsageSerializer =
@@ -696,7 +709,288 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchVersion() != null) {
                 writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
             }
+
+            /* writeValue uses the output stream directly */
             writeValue(ns, rq.getValue());
+        }
+    }
+
+
+    /**
+     * Query request:
+     *  Payload:
+     *    table name
+     *    consistency
+     *    key (an NSON object)
+     *
+     * Query result (all optional):
+     *  consumed capacity
+     *  meta: mod time, expiration, version
+     *  value
+     */
+    public static class QueryRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            QueryRequest rq = (QueryRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.QUERY.ordinal(), rq);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+
+            writeMapField(ns, CONSISTENCY, getConsistency(rq.getConsistency()));
+            // FUTURE: Durability
+
+            /* these are only written if nonzero */
+            writeMapFieldNZ(ns, MAX_READ_KB, rq.getMaxReadKB());
+            writeMapFieldNZ(ns, MAX_WRITE_KB, rq.getMaxWriteKB());
+            writeMapFieldNZ(ns, NUMBER_LIMIT, rq.getLimit());
+            writeMapFieldNZ(ns, TRACE_LEVEL, rq.getTraceLevel());
+
+            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            boolean isPrepared = rq.isPrepared();
+            if (isPrepared) {
+                writeMapField(ns, IS_PREPARED, isPrepared);
+                writeMapField(ns, IS_SIMPLE_QUERY, rq.isSimpleQuery());
+                writeMapField(ns, PREPARED_QUERY,
+                              rq.getPreparedStatement().getStatement());
+                writeBindVariables(ns, out,
+                              rq.getPreparedStatement().getVariables());
+            } else {
+                writeMapField(ns, STATEMENT, rq.getStatement());
+            }
+            if (rq.getContinuationKey() != null) {
+                writeMapField(ns, CONTINUATION_KEY, rq.getContinuationKey());
+            }
+            writeMathContext(ns, rq.getMathContext());
+            if (rq.getShardId() != -1) { // default
+                writeMapField(ns, SHARD_ID, rq.getShardId());
+            }
+            if (rq.topologySeqNum() != -1) { // default
+                writeMapField(ns, TOPO_SEQ_NUM, rq.topologySeqNum());
+            }
+
+            endMap(ns, PAYLOAD);
+            ns.endMap(0); // top level object
+        }
+
+        private class DriverPlanInfo {
+            PlanIter driverQueryPlan;
+            int numIterators;
+            int numRegisters;
+            Map<String, Integer> externalVars;
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+
+            QueryRequest qreq = (QueryRequest) request;
+            PreparedStatement prep = qreq.getPreparedStatement();
+            boolean isPreparedRequest = (prep != null);
+
+            QueryResult result = new QueryResult(qreq);
+
+            byte[] proxyPreparedQuery = null;
+
+            DriverPlanInfo dpi = null;
+
+            String queryPlan = null;
+            String tableName = null;
+            String namespace = null;
+            byte operation = 0;
+            int proxyTopoSeqNum = 0;
+            int[] shardIds = null;
+            byte[] contKey = null;
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(CONSUMED)) {
+                    readConsumedCapacity(in, result);
+                } else if (name.equals(QUERY_RESULTS)) {
+                    result.setResults(readQueryResults(in));
+                } else if (name.equals(CONTINUATION_KEY)) {
+                    contKey = Nson.readNsonBinary(in);
+                } else if (name.equals(SORT_PHASE1_RESULTS)) {
+                    byte[] arr = Nson.readNsonBinary(in);
+                    readPhase1Results(arr, result);
+                } else if (name.equals(PREPARED_QUERY)) {
+                    proxyPreparedQuery = Nson.readNsonBinary(in);
+                } else if (name.equals(DRIVER_QUERY_PLAN)) {
+                    dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
+                                            serialVersion);
+                } else if (name.equals(REACHED_LIMIT)) {
+                    result.setReachedLimit(Nson.readNsonBoolean(in));
+                } else if (name.equals(PROXY_TOPO_SEQNUM)) {
+                    proxyTopoSeqNum = Nson.readNsonInt(in);
+                } else if (name.equals(SHARD_IDS)) {
+                    // TODO shardIds = Nson.readNsonIntArray(in);
+                    shardIds = readNsonIntArray(in);
+                } else if (name.equals(TABLE_NAME)) {
+                    tableName = Nson.readNsonString(in);
+                } else if (name.equals(NAMESPACE)) {
+                    namespace = Nson.readNsonString(in);
+                } else if (name.equals(QUERY_PLAN_STRING)) {
+                    queryPlan = Nson.readNsonString(in);
+                } else if (name.equals(QUERY_OPERATION)) {
+                    operation = (byte)Nson.readNsonInt(in);
+                } else {
+                    // log/warn
+                    walker.skip();
+                }
+            }
+
+            result.setContinuationKey(contKey);
+            qreq.setContKey(result.getContinuationKey());
+
+            if (!isPreparedRequest) {
+                //assert(proxyPreparedQuery != null);
+                //assert(driverQueryPlan != null);
+                TopologyInfo ti = null;
+                if (proxyTopoSeqNum >= 0) {
+                    ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
+                }
+                prep = new PreparedStatement(qreq.getStatement(),
+                                     queryPlan,
+                                     ti,
+                                     proxyPreparedQuery,
+                                     (dpi!=null)?dpi.driverQueryPlan:null,
+                                     (dpi!=null)?dpi.numIterators:0,
+                                     (dpi!=null)?dpi.numRegisters:0,
+                                     (dpi!=null)?dpi.externalVars:null,
+                                     namespace,
+                                     tableName,
+                                     operation);
+                qreq.setPreparedStatement(prep);
+                if (!prep.isSimpleQuery()) {
+                    QueryDriver driver = new QueryDriver(qreq);
+                    driver.setTopologyInfo(prep.topologyInfo());
+                    driver.setPrepCost(result.getReadKB());
+                    result.setComputed(false);
+                }
+            } else {
+                // TODO update topo info
+            }
+
+            return result;
+        }
+
+        private static void readPhase1Results(byte[] arr, QueryResult result)
+            throws IOException {
+            ByteBuf buf = Unpooled.wrappedBuffer(arr);
+            ByteInputStream bis = new NettyByteInputStream(buf);
+            result.setIsInPhase1(bis.readBoolean());
+            int[] pids = Nson.readIntArray(bis);
+            if (pids != null) {
+                result.setPids(pids);
+                result.setNumResultsPerPid(Nson.readIntArray(bis));
+                byte[][] contKeys = new byte[pids.length][];
+                for (int i = 0; i < pids.length; ++i) {
+                    contKeys[i] = Nson.readByteArray(bis);
+                }
+                result.setPartitionContKeys(contKeys);
+            }
+        }
+
+        private DriverPlanInfo getDriverPlanInfo(byte[] arr,
+                                                 short serialVersion)
+            throws IOException {
+            if (arr == null || arr.length == 0) {
+                return null;
+            }
+            ByteBuf buf = Unpooled.wrappedBuffer(arr);
+            ByteInputStream bis = new NettyByteInputStream(buf);
+            DriverPlanInfo dpi = new DriverPlanInfo();
+            dpi.driverQueryPlan = PlanIter.deserializeIter(bis, serialVersion);
+            if (dpi.driverQueryPlan == null) {
+                return null;
+            }
+            dpi.numIterators = bis.readInt();
+            dpi.numRegisters = bis.readInt();
+            int len = bis.readInt();
+            if (len <= 0) {
+                return dpi;
+            }
+            dpi.externalVars = new HashMap<String, Integer>(len);
+            for (int i = 0; i < len; ++i) {
+                String varName = Nson.readString(bis);
+                int varId = bis.readInt();
+                dpi.externalVars.put(varName, varId);
+            }
+            return dpi;
+        }
+
+        private static List<MapValue> readQueryResults(ByteInputStream bis)
+            throws IOException {
+            int t = bis.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalArgumentException("Bad type in queryResults: "+
+                            Nson.typeString(t) + ", should be ARRAY");
+            }
+            int totalLength = bis.readInt(); /* length of array in bytes */
+            int numElements = bis.readInt(); /* number of array elements */
+            List<MapValue> results = new ArrayList<MapValue>(numElements);
+            for (int i = 0; i < numElements; i++) {
+                 results.add(Nson.readNsonMap(bis));
+            }
+            return results;
+        }
+
+        // TODO: move this to Nson
+        private static int[] readNsonIntArray(ByteInputStream bis)
+            throws IOException {
+            int t = bis.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalArgumentException("Bad type in integer array: "+
+                            Nson.typeString(t) + ", should be ARRAY");
+            }
+            int totalLength = bis.readInt(); /* length of array in bytes */
+            int numElements = bis.readInt(); /* number of array elements */
+            int[] arr = new int[numElements];
+            for (int i = 0; i < numElements; i++) {
+                 arr[i] = Nson.readNsonInt(bis);
+            }
+            return arr;
+        }
+
+        /*
+         * Bind variables:
+         * "variables": [
+         *   { "name": "foo", "value": {...}},
+         *   .....
+         * ]
+         */
+        private void writeBindVariables(NsonSerializer ns,
+                                        ByteOutputStream bos,
+                                        Map<String, FieldValue> vars)
+            throws IOException {
+            if (vars == null || vars.size() == 0) {
+                return;
+            }
+            startArray(ns, BIND_VARIABLES);
+            for (Map.Entry<String, FieldValue> entry : vars.entrySet()) {
+                Nson.writeString(bos, entry.getKey());
+                Nson.writeFieldValue(bos, entry.getValue());
+                ns.incrSize(1);
+            }
+            endArray(ns, BIND_VARIABLES);
         }
     }
 
@@ -957,6 +1251,32 @@ public class NsonSerializerFactory implements SerializerFactory {
             ns.endMapField(KEY);
         }
 
+        protected void writeMathContext(NsonSerializer ns,
+                                        MathContext mathContext)
+            throws IOException {
+
+            int val = 0;
+            if (mathContext == null) {
+                return;
+            } else if (MathContext.DECIMAL32.equals(mathContext)) {
+                return; // default: no need to write
+            } else if (MathContext.DECIMAL64.equals(mathContext)) {
+                val = 2;
+            } else if (MathContext.DECIMAL128.equals(mathContext)) {
+                val = 3;
+            } else if (MathContext.UNLIMITED.equals(mathContext)) {
+                val = 4;
+            } else {
+                val = 5;
+                writeMapField(ns, MATH_CONTEXT_PRECISION,
+                              mathContext.getPrecision());
+                writeMapField(ns, MATH_CONTEXT_ROUNDING_MODE,
+                              mathContext.getRoundingMode().ordinal());
+
+            }
+            writeMapField(ns, MATH_CONTEXT_CODE, val);
+        }
+
         /**
          * Writes a row value:
          *  "value": {...}
@@ -975,6 +1295,15 @@ public class NsonSerializerFactory implements SerializerFactory {
             ns.startMapField(fieldName);
             ns.integerValue(value);
             ns.endMapField(fieldName);
+        }
+
+        /* only write field if value is nonzero */
+        protected static void writeMapFieldNZ(NsonSerializer ns,
+                                              String fieldName,
+                                              int value) throws IOException {
+            if (value != 0) {
+                writeMapField(ns, fieldName, value);
+            }
         }
 
         protected static void writeMapField(NsonSerializer ns,
@@ -1043,7 +1372,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
         }
 
-        private static int getConsistency(Consistency consistency) {
+        protected static int getConsistency(Consistency consistency) {
             if (consistency == Consistency.ABSOLUTE) {
                 return ABSOLUTE;
             }

@@ -38,6 +38,7 @@ public class NsonProtocol {
     public static String RETURN_ROW = "return_row";
     public static String KEY = "key";
     public static String VALUE = "value";
+    public static String NAME = "name";
     public static String IS_JSON = "is_json";
     public static String QUERY = "query";
     public static String PREPARE = "prepare";
@@ -57,7 +58,16 @@ public class NsonProtocol {
     public static String OPERATIONS = "operations";
     public static String NUM_OPERATIONS = "num_operations";
     public static String IDENTITY_CACHE_SIZE = "id_cache_size";
+    public static String TOPO_SEQ_NUM = "topo_seq";
+    public static String SHARD_ID = "shard_id";
+    public static String NUMBER_LIMIT = "number_limit";
+    public static String IS_PREPARED = "is_prepared";
+    public static String QUERY_VERSION = "query_ver";
+    public static String TRACE_LEVEL = "trace_level";
+    public static String PREPARED_QUERY = "prepared_query";
+    public static String IS_SIMPLE_QUERY = "is_simple";
     public static String CONTINUATION_KEY = "cont_key";
+    public static String BIND_VARIABLES = "bind_vars";
 
     /*
      * response fields
@@ -97,4 +107,21 @@ public class NsonProtocol {
     public static String EXISTING_VERSION = "existing_version";
     public static String EXISTING_VALUE = "existing_value";
     // RETURN_ROW defined above
+
+    /* query response fields */
+    public static String QUERY_RESULTS = "query_results";
+    public static String QUERY_PLAN_STRING = "query_planstr";
+    public static String SORT_PHASE1_RESULTS = "sp1_results";
+    public static String NUM_RESULTS = "num_results";
+    public static String DRIVER_QUERY_PLAN = "dq_plan";
+    public static String REACHED_LIMIT = "reached_limit";
+    public static String TOPOLOGY_INFO = "topo_info";
+    public static String TABLE_ACCESS_INFO = "access_info";
+    public static String NOT_TARGET_TABLES = "not_tables";
+    public static String QUERY_OPERATION = "query_op";
+    public static String PROXY_TOPO_SEQNUM = "ptopo_seqnum";
+    public static String SHARD_IDS = "shard_ids";
+    public static String MATH_CONTEXT_CODE = "mc_c";
+    public static String MATH_CONTEXT_PRECISION = "mc_p";
+    public static String MATH_CONTEXT_ROUNDING_MODE = "mc_rm";
 }
