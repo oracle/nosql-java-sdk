@@ -68,6 +68,7 @@ public class NsonProtocol {
     public static String IS_SIMPLE_QUERY = "is_simple";
     public static String CONTINUATION_KEY = "cont_key";
     public static String BIND_VARIABLES = "bind_vars";
+    public static String GET_QUERY_PLAN = "get_qplan";
 
     /*
      * response fields

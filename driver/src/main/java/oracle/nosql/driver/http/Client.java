@@ -65,6 +65,7 @@ import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -173,6 +174,8 @@ public class Client {
 
     /* temporary */
     private boolean useV4;
+    private boolean queryUseV4;
+    private boolean prepareUseV4;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -249,6 +252,8 @@ public class Client {
 
         /* temporary */
         useV4 = Boolean.getBoolean("test.usev4");
+        queryUseV4 = Boolean.getBoolean("test.queryv4");
+        prepareUseV4 = Boolean.getBoolean("test.preparev4");
     }
 
     /**
@@ -1270,6 +1275,12 @@ e.printStackTrace();
     }
 
     private SerializerFactory chooseFactory(Request rq) {
+        if (rq instanceof oracle.nosql.driver.ops.QueryRequest) {
+            return (queryUseV4)?v4factory:v3factory;
+        }
+        if (rq instanceof oracle.nosql.driver.ops.PrepareRequest) {
+            return (prepareUseV4)?v4factory:v3factory;
+        }
         if (useV4 == false) {
             return v3factory;
         }
@@ -1278,7 +1289,6 @@ e.printStackTrace();
             rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
             rq instanceof oracle.nosql.driver.ops.PutRequest ||
             rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.QueryRequest ||
             rq instanceof oracle.nosql.driver.ops.TableRequest) {
             // not quite yet: rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
             return v4factory;

@@ -46,9 +46,11 @@ import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
-import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.MultiDeleteRequest;
 import oracle.nosql.driver.ops.MultiDeleteResult;
+import oracle.nosql.driver.ops.PrepareRequest;
+import oracle.nosql.driver.ops.PrepareResult;
+import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
@@ -98,10 +100,10 @@ public class NsonSerializerFactory implements SerializerFactory {
         new GetTableRequestSerializer();
     static final Serializer querySerializer =
         new QueryRequestSerializer();
+    static final Serializer prepareSerializer =
+        new PrepareRequestSerializer();
 
     // TODO
-    static final Serializer prepareSerializer =
-        null; //new PrepareV4RequestSerializer();
     static final Serializer getTableUsageSerializer =
         null; //new TableUsageV4RequestSerializer();
     static final Serializer systemSerializer =
@@ -786,7 +788,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             ns.endMap(0); // top level object
         }
 
-        private class DriverPlanInfo {
+        private static class DriverPlanInfo {
             PlanIter driverQueryPlan;
             int numIterators;
             int numRegisters;
@@ -799,10 +801,29 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
 
             QueryRequest qreq = (QueryRequest) request;
-            PreparedStatement prep = qreq.getPreparedStatement();
-            boolean isPreparedRequest = (prep != null);
-
             QueryResult result = new QueryResult(qreq);
+
+            deserializePrepareOrQuery(qreq, result, null, null,
+                                      in, serialVersion);
+            return result;
+        }
+
+
+        /**
+         * Deserialize either a QueryResult or a PrepareResult.
+         * Either qreq/qres are given, or preq/pres are given.
+         */
+        public static void deserializePrepareOrQuery(
+                               QueryRequest qreq, QueryResult qres,
+                               PrepareRequest preq, PrepareResult pres,
+                               ByteInputStream in,
+                               short serialVersion) throws IOException {
+
+            PreparedStatement prep = null;
+            if (qreq != null ) {
+                prep = qreq.getPreparedStatement();
+            }
+            boolean isPreparedRequest = (prep != null);
 
             byte[] proxyPreparedQuery = null;
 
@@ -823,25 +844,24 @@ public class NsonSerializerFactory implements SerializerFactory {
                 if (name.equals(ERROR_CODE)) {
                     handleErrorCode(walker);
                 } else if (name.equals(CONSUMED)) {
-                    readConsumedCapacity(in, result);
-                } else if (name.equals(QUERY_RESULTS)) {
-                    result.setResults(readQueryResults(in));
+                    readConsumedCapacity(in, (qres!=null)?qres:pres);
+                } else if (name.equals(QUERY_RESULTS) && qres != null) {
+                    qres.setResults(readQueryResults(in));
                 } else if (name.equals(CONTINUATION_KEY)) {
                     contKey = Nson.readNsonBinary(in);
-                } else if (name.equals(SORT_PHASE1_RESULTS)) {
+                } else if (name.equals(SORT_PHASE1_RESULTS) && qres != null) {
                     byte[] arr = Nson.readNsonBinary(in);
-                    readPhase1Results(arr, result);
+                    readPhase1Results(arr, qres);
                 } else if (name.equals(PREPARED_QUERY)) {
                     proxyPreparedQuery = Nson.readNsonBinary(in);
                 } else if (name.equals(DRIVER_QUERY_PLAN)) {
                     dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
                                             serialVersion);
-                } else if (name.equals(REACHED_LIMIT)) {
-                    result.setReachedLimit(Nson.readNsonBoolean(in));
+                } else if (name.equals(REACHED_LIMIT) && qres != null) {
+                    qres.setReachedLimit(Nson.readNsonBoolean(in));
                 } else if (name.equals(PROXY_TOPO_SEQNUM)) {
                     proxyTopoSeqNum = Nson.readNsonInt(in);
                 } else if (name.equals(SHARD_IDS)) {
-                    // TODO shardIds = Nson.readNsonIntArray(in);
                     shardIds = readNsonIntArray(in);
                 } else if (name.equals(TABLE_NAME)) {
                     tableName = Nson.readNsonString(in);
@@ -857,39 +877,52 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
 
-            result.setContinuationKey(contKey);
-            qreq.setContKey(result.getContinuationKey());
+            if (qres != null) {
+                qres.setContinuationKey(contKey);
+                qreq.setContKey(qres.getContinuationKey());
+            }
 
-            if (!isPreparedRequest) {
-                //assert(proxyPreparedQuery != null);
-                //assert(driverQueryPlan != null);
-                TopologyInfo ti = null;
-                if (proxyTopoSeqNum >= 0) {
-                    ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
+            if (isPreparedRequest) {
+                if (qreq != null) {
+                    // TODO update topo info
                 }
-                prep = new PreparedStatement(qreq.getStatement(),
-                                     queryPlan,
-                                     ti,
-                                     proxyPreparedQuery,
-                                     (dpi!=null)?dpi.driverQueryPlan:null,
-                                     (dpi!=null)?dpi.numIterators:0,
-                                     (dpi!=null)?dpi.numRegisters:0,
-                                     (dpi!=null)?dpi.externalVars:null,
-                                     namespace,
-                                     tableName,
-                                     operation);
+                return;
+            }
+
+            //assert(proxyPreparedQuery != null);
+            //assert(driverQueryPlan != null);
+            TopologyInfo ti = null;
+            if (proxyTopoSeqNum >= 0) {
+                ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
+            }
+            String statement;
+            if (qreq != null) {
+                statement = qreq.getStatement();
+            } else {
+                statement = preq.getStatement();
+            }
+            prep = new PreparedStatement(statement,
+                                 queryPlan,
+                                 ti,
+                                 proxyPreparedQuery,
+                                 (dpi!=null)?dpi.driverQueryPlan:null,
+                                 (dpi!=null)?dpi.numIterators:0,
+                                 (dpi!=null)?dpi.numRegisters:0,
+                                 (dpi!=null)?dpi.externalVars:null,
+                                 namespace,
+                                 tableName,
+                                 operation);
+            if (pres != null) {
+                pres.setPreparedStatement(prep);
+            } else if (qreq != null) {
                 qreq.setPreparedStatement(prep);
                 if (!prep.isSimpleQuery()) {
                     QueryDriver driver = new QueryDriver(qreq);
                     driver.setTopologyInfo(prep.topologyInfo());
-                    driver.setPrepCost(result.getReadKB());
-                    result.setComputed(false);
+                    driver.setPrepCost(qres.getReadKB());
+                    qres.setComputed(false);
                 }
-            } else {
-                // TODO update topo info
             }
-
-            return result;
         }
 
         private static void readPhase1Results(byte[] arr, QueryResult result)
@@ -909,7 +942,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
         }
 
-        private DriverPlanInfo getDriverPlanInfo(byte[] arr,
+        private static DriverPlanInfo getDriverPlanInfo(byte[] arr,
                                                  short serialVersion)
             throws IOException {
             if (arr == null || arr.length == 0) {
@@ -991,6 +1024,53 @@ public class NsonSerializerFactory implements SerializerFactory {
                 ns.incrSize(1);
             }
             endArray(ns, BIND_VARIABLES);
+        }
+    }
+
+    public static class PrepareRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            PrepareRequest rq = (PrepareRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.PREPARE.ordinal(), rq);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+
+            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            writeMapField(ns, STATEMENT, rq.getStatement());
+            if (rq.getQueryPlan()) {
+                writeMapField(ns, GET_QUERY_PLAN, true);
+            }
+
+            endMap(ns, PAYLOAD);
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+
+            PrepareRequest prepRq = (PrepareRequest) request;
+            PrepareResult result = new PrepareResult();
+
+            QueryRequestSerializer.deserializePrepareOrQuery(
+                                   null, null, prepRq, result,
+                                   in, serialVersion);
+            return result;
         }
     }
 
