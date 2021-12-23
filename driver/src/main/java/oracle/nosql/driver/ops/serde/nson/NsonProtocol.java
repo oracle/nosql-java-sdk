@@ -24,6 +24,9 @@ public class NsonProtocol {
     public static String OP = "op";
     public static String TIMEOUT = "timeout";
     public static String TABLE_NAME = "table_name";
+    public static String INDEX = "index";
+    public static String INDEXES = "indexes";
+    public static String FIELDS = "fields";
     public static String CONSISTENCY = "consistency";
     public static String DURABILITY = "durability";
     public static String MAX_READ_KB = "max_read_kb";
@@ -69,6 +72,15 @@ public class NsonProtocol {
     public static String CONTINUATION_KEY = "cont_key";
     public static String BIND_VARIABLES = "bind_vars";
     public static String GET_QUERY_PLAN = "get_qplan";
+    public static String LIST_START_INDEX = "start_index";
+    public static String LIST_MAX_TO_READ = "limit_max_to_read";
+    public static String LAST_INDEX = "last_index";
+    public static String TABLES = "tables";
+    public static String TABLE_USAGE = "usage";
+    public static String TABLE_USAGE_PERIOD = "period";
+    public static String READ_THROTTLE_COUNT = "read_throttle";
+    public static String WRITE_THROTTLE_COUNT = "write_throttle";
+    public static String STORAGE_THROTTLE_COUNT = "storage_throttle";
 
     /*
      * response fields
@@ -86,6 +98,10 @@ public class NsonProtocol {
     // table metadata
     public static String TABLE_STATE = "table_state";
     public static String TABLE_SCHEMA = "table_schema";
+
+    /* system request */
+    public static String SYSOP_STATE = "state";
+    public static String SYSOP_RESULT = "result";
 
     // throughput used and limits
     public static String LIMITS = "limits";

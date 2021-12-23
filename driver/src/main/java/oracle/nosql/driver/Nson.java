@@ -247,10 +247,22 @@ public class Nson {
     static public void writeCharArrayAsUTF8(ByteOutputStream out,
                                             char [] chars)
         throws IOException {
+        writeByteArray(out, getCharArrayAsUTF8(chars));
+    }
+
+    /**
+     * Returns a char array as a UTF8 byte array. This is used for
+     * system queries that may contain a password.
+     * @param out the output stream
+     * @param chars the characters to write
+     * @throws IOException if there is a problem with the stream
+     */
+    static public byte[] getCharArrayAsUTF8(char [] chars)
+        throws IOException {
         ByteBuffer buf = StandardCharsets.UTF_8.encode(CharBuffer.wrap(chars));
         byte[] array = new byte[buf.limit()];
         buf.get(array);
-        writeByteArray(out, array);
+        return array;
     }
 
     public static int getSerializedSize(FieldValue value) {

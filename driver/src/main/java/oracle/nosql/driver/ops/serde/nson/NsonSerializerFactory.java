@@ -14,6 +14,7 @@ package oracle.nosql.driver.ops.serde.nson;
 import static oracle.nosql.driver.ops.serde.BinaryProtocol.mapException;
 import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.*;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
+import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NO_SYNC;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
@@ -23,6 +24,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
+import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 
 import java.io.IOException;
 import java.math.MathContext;
@@ -41,11 +43,17 @@ import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.FieldFinder;
+import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.GetIndexesRequest;
+import oracle.nosql.driver.ops.GetIndexesResult;
+import oracle.nosql.driver.ops.GetIndexesResult.IndexInfo;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.ListTablesRequest;
+import oracle.nosql.driver.ops.ListTablesResult;
 import oracle.nosql.driver.ops.MultiDeleteRequest;
 import oracle.nosql.driver.ops.MultiDeleteResult;
 import oracle.nosql.driver.ops.PrepareRequest;
@@ -59,6 +67,12 @@ import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.ReadRequest;
 import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableUsageRequest;
+import oracle.nosql.driver.ops.TableUsageResult;
+import oracle.nosql.driver.ops.TableUsageResult.TableUsage;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
@@ -102,18 +116,16 @@ public class NsonSerializerFactory implements SerializerFactory {
         new QueryRequestSerializer();
     static final Serializer prepareSerializer =
         new PrepareRequestSerializer();
-
-    // TODO
     static final Serializer getTableUsageSerializer =
-        null; //new TableUsageV4RequestSerializer();
+        new TableUsageRequestSerializer();
     static final Serializer systemSerializer =
-        null; //new SystemV4RequestSerializer();
+        new SystemRequestSerializer();
     static final Serializer systemStatusSerializer =
-        null; //new SystemStatusV4RequestSerializer();
+        new SystemStatusRequestSerializer();
     static final Serializer listTablesSerializer =
-        null; //new ListTablesV4RequestSerializer();
+        new ListTablesRequestSerializer();
     static final Serializer getIndexesSerializer =
-        null; //new GetIndexesV4RequestSerializer();
+        new GetIndexesRequestSerializer();
     static final Serializer writeMultipleSerializer =
         new WriteMultipleRequestSerializer();
     static final Serializer multiDeleteSerializer =
@@ -305,7 +317,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
             writeMapField(ns, STATEMENT, rq.getStatement());
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeLimits(ns, rq.getTableLimits());
             endMap(ns, PAYLOAD);
 
@@ -355,7 +366,6 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, OPERATION_ID, rq.getOperationId());
             endMap(ns, PAYLOAD);
 
@@ -560,7 +570,6 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, DURABILITY,
                           getDurability(rq.getDurability()));
             writeMapField(ns, MAX_WRITE_KB, rq.getMaxWriteKB());
@@ -731,7 +740,8 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  value
      */
     public static class QueryRequestSerializer extends NsonSerializerBase {
-        @Override
+        @SuppressWarnings("deprecation")
+		@Override
         public void serialize(Request request,
                               short serialVersion,
                               ByteOutputStream out)
@@ -977,7 +987,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 throw new IllegalArgumentException("Bad type in queryResults: "+
                             Nson.typeString(t) + ", should be ARRAY");
             }
-            int totalLength = bis.readInt(); /* length of array in bytes */
+            bis.readInt(); /* length of array in bytes */
             int numElements = bis.readInt(); /* number of array elements */
             List<MapValue> results = new ArrayList<MapValue>(numElements);
             for (int i = 0; i < numElements; i++) {
@@ -991,10 +1001,11 @@ public class NsonSerializerFactory implements SerializerFactory {
             throws IOException {
             int t = bis.readByte();
             if (t != Nson.TYPE_ARRAY) {
-                throw new IllegalArgumentException("Bad type in integer array: "+
-                            Nson.typeString(t) + ", should be ARRAY");
+                throw new IllegalArgumentException(
+                    "Bad type in integer array: "+
+                    Nson.typeString(t) + ", should be ARRAY");
             }
-            int totalLength = bis.readInt(); /* length of array in bytes */
+            bis.readInt(); /* length of array in bytes */
             int numElements = bis.readInt(); /* number of array elements */
             int[] arr = new int[numElements];
             for (int i = 0; i < numElements; i++) {
@@ -1122,7 +1133,6 @@ public class NsonSerializerFactory implements SerializerFactory {
              * deserialize efficiently
              */
             startMap(ns, PAYLOAD);
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, DURABILITY,
                           getDurability(rq.getDurability()));
             writeMapField(ns, NUM_OPERATIONS,
@@ -1141,11 +1151,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                  */
                 ns.startMap(0);
                 WriteRequest wr = op.getRequest();
-                if (op.isAbortIfUnsuccessful()) {
-                    writeMapField(ns, ABORT_ON_FAIL,
-                                  op.isAbortIfUnsuccessful());
-                }
-
                 /*
                  * write op first -- this is important!
                  */
@@ -1164,6 +1169,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
                 /* common to both delete and put */
                 writeMapField(ns, RETURN_ROW, wr.getReturnRowInternal());
+                if (op.isAbortIfUnsuccessful()) {
+                    writeMapField(ns, ABORT_ON_FAIL,
+                                  op.isAbortIfUnsuccessful());
+                }
                 ns.endMap(0);
                 ns.endArrayField(0);
             }
@@ -1180,8 +1189,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
             WriteMultipleResult  result = new WriteMultipleResult();
-
-            in.setOffset(0);
             FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
@@ -1198,7 +1205,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                             "Operations: bad type in writemultiple: " +
                             Nson.typeString(t) + ", should be ARRAY");
                     }
-                    int totalLength = in.readInt();
+                    in.readInt();
                     int numElements = in.readInt();
                     for (int i = 0; i < numElements; i++) {
                         result.addResult(createOperationResult(in));
@@ -1213,11 +1220,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                             result.setFailedOperationIndex(
                                 Nson.readNsonInt(in));
                         } else if (fname.equals(WM_FAIL_RESULT)) {
-                            /* this is another map */
-                            // TODO
-                            fw.skip();
+                            result.addResult(createOperationResult(in));
                         } else {
-                            fw.skip();
+                            skipUnknownField(fw, name);
                         }
                     }
                 } else {
@@ -1260,6 +1265,429 @@ public class NsonSerializerFactory implements SerializerFactory {
     }
 
     /**
+     * System request:
+     *  Payload:
+     *    statement (DDL)
+     *
+     * System result:
+     *  state (int)
+     *  operation id (string)
+     *  statement(string)
+     *  result string (string)
+     */
+    public static class SystemRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            SystemRequest rq = (SystemRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.SYSTEM_REQUEST.ordinal(), request);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, STATEMENT,
+                          Nson.getCharArrayAsUTF8(rq.getStatement()));
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            return deserializeSystemResult(request, in);
+        }
+    }
+
+    /**
+     * System status request:
+     *  Payload:
+     *    statement (DDL)
+     *    operation id
+     *
+     * System result:
+     *  state (int)
+     *  operation id (string)
+     *  statement(string)
+     *  result string (string)
+     */
+    public static class SystemStatusRequestSerializer
+        extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            SystemStatusRequest rq = (SystemStatusRequest) request;
+
+            NsonSerializer ns = new NsonSerializer(out);
+            ns.startMap(0);
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.SYSTEM_STATUS_REQUEST.ordinal(), request);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, OPERATION_ID, rq.getOperationId());
+            writeMapField(ns, STATEMENT, rq.getStatement());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            return deserializeSystemResult(request, in);
+        }
+    }
+
+    /**
+     * List tables request:
+     *  Payload:
+     *    start index (int)
+     *    limit (int)
+     *    namespace (string, on-prem only)
+     *
+     * List tables result:
+     *  array of table names (string)
+     *  last index returned (int)
+     *
+     *  if no tables, the result is empty and this code should create an
+     *  empty array for the API
+     */
+    public static class ListTablesRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            ListTablesRequest rq = (ListTablesRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.LIST_TABLES.ordinal(), request);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, LIST_START_INDEX, rq.getStartIndex());
+            writeMapField(ns, LIST_MAX_TO_READ, rq.getLimit());
+            writeMapField(ns, NAMESPACE, rq.getNamespace());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            ListTablesResult  result = new ListTablesResult();
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(TABLES)) {
+                    /* array of table names */
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "Operations: bad type in list tables result: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+                    in.readInt();
+                    int numElements = in.readInt();
+                    String[] tables = new String[numElements];
+                    for (int i = 0; i < numElements; i++) {
+                        tables[i] = Nson.readNsonString(in);
+                    }
+                    result.setTables(tables);
+                } else if (name.equals(LAST_INDEX)) {
+                    result.setLastIndexReturned(Nson.readNsonInt(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            /*
+             * The result API guarantees non-null, even if empty
+             */
+            if (result.getTables() == null) {
+                result.setTables(new String[0]);
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Get indexes request:
+     *  Payload:
+     *    tableName (in header)
+     *    index name (optional -- if no set, get all indexes on table)
+     *
+     * Get indexes result:
+     *  array of indexes, where each is:
+     *  "index": {
+     *    "name": ...
+     *    "fields": [field1, ..., fieldN]
+     *  }
+     *
+     *  if no index, the result is empty and this code should create an
+     *  empty array for the API
+     */
+    public static class GetIndexesRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            GetIndexesRequest rq = (GetIndexesRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.GET_INDEXES.ordinal(), request);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, INDEX, rq.getIndexName());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            GetIndexesResult  result = new GetIndexesResult();
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(INDEXES)) {
+                    /* array of index info */
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "Operations: bad type in get indexes result: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+                    in.readInt();
+                    int numElements = in.readInt();
+                    IndexInfo[] indexes = new IndexInfo[numElements];
+                    for (int i = 0; i < numElements; i++) {
+                        indexes[i] = readIndexInfo(in);
+                    }
+                    result.setIndexes(indexes);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            /*
+             * The result API guarantees non-null, even if empty
+             */
+            if (result.getIndexes() == null) {
+                result.setIndexes(new IndexInfo[0]);
+            }
+            return result;
+        }
+
+        private IndexInfo readIndexInfo(ByteInputStream in)
+            throws IOException {
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            String indexName = null;
+            String[] fields = null;
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(NAME)) {
+                    indexName = Nson.readNsonString(in);
+                } else if (name.equals(FIELDS)) {
+                    /* array of string */
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "Operations: bad type in get indexes result: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+                    in.readInt();
+                    int numElements = in.readInt();
+                    fields = new String[numElements];
+                    for (int i = 0; i < numElements; i++) {
+                        fields[i] = Nson.readNsonString(in);
+                    }
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            if (indexName == null || fields == null) {
+                throw new IllegalStateException(
+                    "Bad GetIndexes result, missing name or fields");
+            }
+            return new IndexInfo(indexName, fields);
+        }
+    }
+
+
+    /**
+     * Table Usage request:
+     *  Payload:
+     *    tableName (in header)
+     *    start time (string)
+     *    end time (string)
+     *    limit (int)
+     *
+     * Table Usage result:
+     *  table name (it's in the result class)
+     *  array of TableUsage records:
+     *  {
+     *    "start_time": (string or long?)
+     *    "seconds" : (int, seconds in period sample)
+     *    "read_units" :
+     *    "write_units" :
+     *    "storage_gb" :
+     *    "read_throttle_count":
+     *    "write_throttle_count":
+     *    "storage_throttle_count":
+     *  }
+     */
+    public static class TableUsageRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            TableUsageRequest rq = (TableUsageRequest) request;
+
+            NsonSerializer ns = new NsonSerializer(out);
+            ns.startMap(0);
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.GET_TABLE_USAGE.ordinal(), request);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, START, rq.getStartTimeString());
+            writeMapField(ns, END, rq.getEndTimeString());
+            writeMapField(ns, LIST_MAX_TO_READ, rq.getLimit());
+
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            TableUsageResult result = new TableUsageResult();
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(TABLE_NAME)) {
+                    result.setTableName(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_USAGE)) {
+                    /* array usage records */
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "Operations: bad type in table usage result: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+                    in.readInt();
+                    int numElements = in.readInt();
+                    TableUsage[] usageRecords = new TableUsage[numElements];
+                    for (int i = 0; i < numElements; i++) {
+                        usageRecords[i] = readUsageRecord(in);
+                    }
+                    result.setUsageRecords(usageRecords);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            /*
+             * The result API guarantees non-null, even if empty
+             */
+            if (result.getUsageRecords() == null) {
+                result.setUsageRecords(new TableUsage[0]);
+            }
+            return result;
+        }
+
+        private TableUsage readUsageRecord(ByteInputStream in)
+            throws IOException {
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            TableUsage usage = new TableUsage();
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(START)) {
+                    usage.startTimeMillis = timeToLong(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_USAGE_PERIOD)) {
+                    usage.secondsInPeriod = Nson.readNsonInt(in);
+                } else if (name.equals(READ_UNITS)) {
+                    usage.readUnits = Nson.readNsonInt(in);
+                } else if (name.equals(WRITE_UNITS)) {
+                    usage.writeUnits = Nson.readNsonInt(in);
+                } else if (name.equals(STORAGE_GB)) {
+                    usage.storageGB = Nson.readNsonInt(in);
+                } else if (name.equals(READ_THROTTLE_COUNT)) {
+                    usage.readThrottleCount = Nson.readNsonInt(in);
+                } else if (name.equals(WRITE_THROTTLE_COUNT)) {
+                    usage.writeThrottleCount = Nson.readNsonInt(in);
+                } else if (name.equals(STORAGE_THROTTLE_COUNT)) {
+                    usage.storageThrottleCount = Nson.readNsonInt(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return usage;
+        }
+    }
+
+    /**
      * Base class that implements common methods for serialization and
      * deserialization of V4 protocol
      */
@@ -1270,13 +1698,20 @@ public class NsonSerializerFactory implements SerializerFactory {
          *  version (int)
          *  operation (int)
          *  timeout (int)
-         * tableName was considered but it is part of the payloads. Maybe
-         * reconsider for single table ops... we'll see.
+         *  tableName if available
+         *   it is helpful to have the tableName available as early as possible
+         *   when processing requests as it's used for authorization, filtering,
+         *   etc. It's not present in all requests and there may be a future
+         *   where a request can have multiple tables but that information
+         *   would be in the payload
          */
         protected static void writeHeader(NsonSerializer ns, int op, Request rq)
             throws IOException {
 
             writeMapField(ns, VERSION, V4_VERSION);
+            if (rq.getTableName() != null) {
+                writeMapField(ns, TABLE_NAME, rq.getTableName());
+            }
             writeMapField(ns, OP, op);
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
         }
@@ -1289,7 +1724,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                                                ReadRequest rq)
             throws IOException {
 
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, CONSISTENCY,
                           getConsistency(rq.getConsistencyInternal()));
         }
@@ -1302,7 +1736,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                                                 WriteRequest rq)
             throws IOException {
 
-            writeMapField(ns, TABLE_NAME, rq.getTableName());
             writeMapField(ns, DURABILITY,
                           getDurability(rq.getDurability()));
             writeMapField(ns, RETURN_ROW, rq.getReturnRowInternal());
@@ -1687,6 +2120,48 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         /*
+         * Shared code to deserialize a SystemResult
+         */
+        protected static SystemResult deserializeSystemResult(
+            Request request,
+            ByteInputStream in) throws IOException {
+
+            SystemResult result = new SystemResult();
+
+            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(SYSOP_STATE)) {
+                    result.setState(getOperationState(Nson.readNsonInt(in)));
+                } else if (name.equals(SYSOP_RESULT)) {
+                    result.setResultString(Nson.readNsonString(in));
+                } else if (name.equals(STATEMENT)) {
+                    result.setStatement(Nson.readNsonString(in));
+                } else if (name.equals(OPERATION_ID)) {
+                    result.setOperationId(Nson.readNsonString(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
+        }
+
+        private static SystemResult.State getOperationState(int state) {
+            switch (state) {
+            case COMPLETE:
+                return SystemResult.State.COMPLETE;
+            case WORKING:
+                return SystemResult.State.WORKING;
+            default:
+                throw new IllegalStateException("Unknown operation state " +
+                                                state);
+            }
+        }
+
+        /*
          * Shared code to deserialize a TableResult
          */
         protected static TableResult deserializeTableResult(Request request,
@@ -1786,6 +2261,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                 throw new IllegalStateException(
                     "Unknown capacity mode " + mode);
             }
+        }
+
+        protected static long timeToLong(String timestamp) {
+            return new TimestampValue(timestamp).getLong();
         }
     }
 }

@@ -65,7 +65,6 @@ import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
-import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -1284,13 +1283,20 @@ e.printStackTrace();
         if (useV4 == false) {
             return v3factory;
         }
-        if (rq instanceof oracle.nosql.driver.ops.GetRequest ||
+        if (rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
+            rq instanceof oracle.nosql.driver.ops.GetIndexesRequest ||
+            rq instanceof oracle.nosql.driver.ops.GetRequest ||
             rq instanceof oracle.nosql.driver.ops.GetTableRequest ||
-            rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.PutRequest ||
+            rq instanceof oracle.nosql.driver.ops.ListTablesRequest ||
             rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.TableRequest) {
-            // not quite yet: rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
+            rq instanceof oracle.nosql.driver.ops.PutRequest ||
+            rq instanceof oracle.nosql.driver.ops.PrepareRequest ||
+            rq instanceof oracle.nosql.driver.ops.QueryRequest ||
+            rq instanceof oracle.nosql.driver.ops.SystemRequest ||
+            rq instanceof oracle.nosql.driver.ops.SystemStatusRequest ||
+            rq instanceof oracle.nosql.driver.ops.TableRequest ||
+            rq instanceof oracle.nosql.driver.ops.TableUsageRequest ||
+            rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
             return v4factory;
         } else {
             return v3factory;

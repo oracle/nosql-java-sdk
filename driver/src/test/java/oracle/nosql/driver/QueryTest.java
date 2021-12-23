@@ -7,10 +7,8 @@
 
 package oracle.nosql.driver;
 
-import static oracle.nosql.driver.util.BinaryProtocol.READ_KB_LIMIT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -1939,10 +1937,6 @@ public class QueryTest extends ProxyTestBase {
                               int recordKB,
                               Consistency consistency) {
 
-        final int minRead = 1;
-        final boolean isAbsolute = (consistency == Consistency.ABSOLUTE);
-        boolean isDelete = statement.contains("delete");
-
         final QueryRequest queryReq = new QueryRequest()
             .setStatement(statement)
             .setLimit(numLimit)
@@ -1958,8 +1952,6 @@ public class QueryTest extends ProxyTestBase {
         int writeKB = 0;
         int readUnits = 0;
         int numBatches = 0;
-        int totalPrepCost = 0;
-
         do {
             QueryResult queryRes = handle.query(queryReq);
 
@@ -1992,8 +1984,6 @@ public class QueryTest extends ProxyTestBase {
             readKB += rkb;
             readUnits += runits;
             writeKB += wkb;
-            totalPrepCost += prepCost;
-
             numBatches++;
         } while (!queryReq.isDone());
 
