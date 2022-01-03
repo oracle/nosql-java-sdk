@@ -180,7 +180,7 @@ public class ResponseHandler implements Closeable {
             String resReqId = requestState.getHeaders().get(REQUEST_ID_HEADER);
             if (resReqId == null || !resReqId.equals(requestId)) {
                 logFine(logger,
-                        "Discards unpaired response: expect for request " +
+                        "Discarding unpaired response: expect for request " +
                         requestId + ", but for request " + resReqId);
                 if (requestState.getResponse() != null) {
                     ReferenceCountUtil.release(requestState.getResponse());
@@ -188,6 +188,16 @@ public class ResponseHandler implements Closeable {
                 return;
             }
         }
+
+        /*
+         * We got a valid message: don't accept any more for this handler.
+         * This logic may change if we enable full async and allow multiple
+         * messages to be processed by the same channel for the same client.
+         * This clears the response handler from this channel so that any
+         * additional messages on this channel will be properly discarded.
+         */
+        channel.attr(HttpClient.STATE_KEY).set(null);
+
         state = requestState;
         try {
             responseReceived(state.getStatus(),
