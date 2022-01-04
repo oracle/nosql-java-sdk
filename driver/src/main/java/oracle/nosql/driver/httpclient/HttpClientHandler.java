@@ -7,6 +7,9 @@
 
 package oracle.nosql.driver.httpclient;
 
+import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
+import static oracle.nosql.driver.util.LogUtil.isFineEnabled;
+import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
@@ -43,6 +46,26 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
 
         if (msg instanceof FullHttpResponse) {
             FullHttpResponse fhr = (FullHttpResponse) msg;
+
+            if (state == null) {
+                /*
+                 * This message came in after the client was done processing
+                 * a request in a different thread.
+                 * The client may have timed out waiting for this message.
+                 * Discard the message by releasing it and not calling receive().
+                 */
+                if (isFineEnabled(logger)) {
+                    String requestId = fhr.headers().get(REQUEST_ID_HEADER);
+                    if (requestId == null) {
+                        requestId = "(none)";
+                    }
+                    logFine(logger, "Discarding message with no response " +
+                                    "handler. requestId=" + requestId);
+                }
+                fhr.release();
+                return;
+            }
+
             state.setResponse(fhr);
 
             /*

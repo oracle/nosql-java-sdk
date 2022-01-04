@@ -117,7 +117,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         boolean val = channel.isActive();
 
         if (!val) {
-            logInfo(client.getLogger(),
+            logFine(client.getLogger(),
                     "HttpClient " + client.getName() +
                     ", channel inactive in health check: " + channel);
         }
