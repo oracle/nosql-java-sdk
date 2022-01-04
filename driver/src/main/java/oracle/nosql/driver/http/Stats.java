@@ -608,7 +608,9 @@ public class Stats {
             extraQueryStats = new ExtraQueryStats(statsControl);
         }
 
-        if (extraQueryStats != null) {
+        if (extraQueryStats != null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
             if (kvRequest instanceof QueryRequest) {
                 QueryRequest queryRequest = (QueryRequest)kvRequest;
 
@@ -629,7 +631,9 @@ public class Stats {
             extraQueryStats = new ExtraQueryStats(statsControl);
         }
 
-        if (extraQueryStats != null) {
+        if (extraQueryStats != null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
             extraQueryStats.observeQuery(qreq);
         }
     }

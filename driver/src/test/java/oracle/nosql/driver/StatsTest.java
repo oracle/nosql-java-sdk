@@ -25,7 +25,11 @@ import org.junit.Test;
 
 public class StatsTest extends ProxyTestBase {
 
-    final static private String TABLE_NAME = "statsTestTable";
+    final private static String TABLE_NAME = "statsTestTable";
+    // Logging of stats set to 3 seconds
+    final private static int INTERVAL_SEC = 3;
+    // Wait for stats to be logged a little more than 3 seconds.
+    final private static int SLEEP_MSEC = INTERVAL_SEC * 1000 + 200;
 
     List<MapValue> statsList = null;
 
@@ -46,12 +50,14 @@ public class StatsTest extends ProxyTestBase {
     @Override
     protected void perTestHandleConfig(NoSQLHandleConfig config) {
         assertNull(config.getStatsHandler());
-        assertEquals(600, config.getStatsInterval());
+        assertEquals(NoSQLHandleConfig.DEFAULT_STATS_INTERVAL,
+            config.getStatsInterval());
         assertFalse(config.getStatsPrettyPrint());
-        assertEquals(StatsControl.Profile.NONE, config.getStatsProfile());
+        assertEquals(NoSQLHandleConfig.DEFAULT_STATS_PROFILE,
+            config.getStatsProfile());
 
-        config.setStatsInterval(3);
-        assertEquals(3, config.getStatsInterval());
+        config.setStatsInterval(INTERVAL_SEC);
+        assertEquals(INTERVAL_SEC, config.getStatsInterval());
 
         config.setStatsProfile(StatsControl.Profile.REGULAR);
         assertEquals(StatsControl.Profile.REGULAR, config.getStatsProfile());
@@ -79,7 +85,7 @@ public class StatsTest extends ProxyTestBase {
     @Test
     public void testStatsControl() {
         StatsControl statsControl = handle.getStatsControl();
-        assertEquals(3, statsControl.getInterval());
+        assertEquals(INTERVAL_SEC, statsControl.getInterval());
         assertEquals(StatsControl.Profile.REGULAR, statsControl.getProfile());
         assertTrue(statsControl.getPrettyPrint());
         assertNotNull(statsControl.getStatsHandler());
@@ -114,12 +120,12 @@ public class StatsTest extends ProxyTestBase {
             handle.getStatsControl().getProfile());
 
         // the code above should have triggered the stats collection.
-        // wait for the stats handle to be called at the end of the 3s interval
-        Thread.sleep(3200);
+        // wait for the stats handle to be called at the end of the interval
+        Thread.sleep(SLEEP_MSEC);
 
         assertNotNull(statsList);
 
-        // In at least 3.1 seconds it's most likely to be called 1 time, but
+        // In the interval, stats handle is most likely to be called 1 time, but
         // it's possible to be called more times.
         assertTrue(statsList.size() > 0);
 
@@ -147,6 +153,123 @@ public class StatsTest extends ProxyTestBase {
             .count();
         assertTrue(count >=1);
 
+        // At least one entry should have a request with everything inside
+        count =
+            statsList.stream()
+                .filter(s -> s.get("requests") != null &&
+                    s.get("requests").isArray() &&
+                    s.get("requests").asArray().size() > 0 &&
+                    s.get("requests").asArray().get(0).isMap() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestCount") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestCount").isNumeric() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("name") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("name").isString() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("rateLimitDelayMs") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("rateLimitDelayMs").isNumeric() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("errors") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("errors").isNumeric() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").isMap() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap() != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("min") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("min").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("avg") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("avg").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("max") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("requestSize").asMap().get("max").isNumeric() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").isMap() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap() != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("min") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("min").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("avg") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("avg").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("max") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("resultSize").asMap().get("max").isNumeric() &&
+
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").isMap() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap() != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("min") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("min").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("avg") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("avg").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("max") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("httpRequestLatencyMs").asMap()
+                        .get("max").isNumeric() &&
+
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").isMap() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap() != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("delayMs") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("delayMs").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("authCount") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("authCount").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("throttleCount") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("throttleCount").isNumeric() &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("count") != null &&
+                    s.get("requests").asArray().get(0).asMap()
+                        .get("retry").asMap().get("count").isNumeric()
+                ).count();
+        assertTrue(count >=1);
+
         //  - at least 1 connection
         count =
             statsList.stream()
@@ -165,10 +288,143 @@ public class StatsTest extends ProxyTestBase {
                 s.get("queries").asArray().size()==1 &&
                 s.get("queries").asArray().get(0) != null &&
                 s.get("queries").asArray().get(0).isMap() &&
-                s.get("queries").asArray().get(0).asMap().get("query") != null
-                && s.get("queries").asArray().get(0).asMap().get("query")
+                s.get("queries").asArray().get(0).asMap()
+                    .get("query") != null &&
+                s.get("queries").asArray().get(0).asMap().get("query")
                     .asString().getValue().equals(query))
             .count();
+        assertTrue(count >=1);
+
+        //  - at least 1 query with everything in it
+        count =
+            statsList.stream().filter(s -> s.get("queries") != null &&
+                s.get("queries").isArray() &&
+                s.get("queries").asArray().size()==1 &&
+                s.get("queries").asArray().get(0) != null &&
+                s.get("queries").asArray().get(0).isMap() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("query") != null &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("doesWrites") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("doesWrites").isBoolean() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("unprepared") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("unprepared").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestCount") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestCount").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("count") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("count").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("simple") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("simple").isBoolean() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("rateLimitDelayMs") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("rateLimitDelayMs").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("errors") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("errors").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").isMap() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("min") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("min").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("avg") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("avg").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("max") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("requestSize").asMap().get("max").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").isMap() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("min") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("min").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("avg") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("avg").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("max") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("resultSize").asMap().get("max").isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").isMap() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("min") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("min")
+                    .isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("avg") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("avg")
+                    .isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("max") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("max")
+                    .isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("95th") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("95th")
+                    .isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("99th") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("httpRequestLatencyMs").asMap().get("99th")
+                    .isNumeric() &&
+
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").isMap() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("delayMs") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("delayMs").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("authCount") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("authCount").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("throttleCount") != null &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("throttleCount").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("count").isNumeric() &&
+                s.get("queries").asArray().get(0).asMap()
+                    .get("retry").asMap().get("count").isNumeric()
+            ).count();
         assertTrue(count >=1);
     }
 
@@ -184,7 +440,7 @@ public class StatsTest extends ProxyTestBase {
         assertFalse(handle.getStatsControl().isStarted());
 
         // wait for all observations to be reset
-        Thread.sleep(3200);
+        Thread.sleep(SLEEP_MSEC);
 
         // Start fresh
         statsList = new ArrayList<>();
@@ -208,12 +464,12 @@ public class StatsTest extends ProxyTestBase {
             handle.getStatsControl().getProfile());
 
         // the code above should have triggered the stats collection.
-        // wait for the stats handle to be called at the end of the 3s interval
-        Thread.sleep(3200);
+        // wait for the stats handle to be called at the end of the interval
+        Thread.sleep(SLEEP_MSEC);
 
         assertNotNull(statsList);
 
-        // In at least 3.2 seconds it's most likely to be called 1 time, but
+        // In the interval it's most likely to be called 1 time, but
         // it's possible to be called more times.
         assertTrue(statsList.size() > 0);
 
@@ -261,12 +517,12 @@ public class StatsTest extends ProxyTestBase {
             handle.getStatsControl().getProfile());
 
         // the code above should have triggered the stats collection.
-        // wait for the stats handle to be called at the end of the 3s interval
-        Thread.sleep(3200);
+        // wait for the stats handle to be called at the end of the interval
+        Thread.sleep(SLEEP_MSEC);
 
         assertNotNull(statsList);
 
-        // In at least 3.1 seconds it's most likely to be called 1 time, but
+        // In the interval it's most likely to be called 1 time, but
         // it's possible to be called more times.
         assertTrue(statsList.size() > 0);
 
