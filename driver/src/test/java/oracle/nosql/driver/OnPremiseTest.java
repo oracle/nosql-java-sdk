@@ -146,6 +146,9 @@ public class OnPremiseTest extends ProxyTestBase {
       }
     */
     protected void dropRegions(NoSQLHandle nosqlHandle) {
+        if (checkKVVersion(nosqlHandle, 20, 1, 1) == false) {
+            return;
+        }
         SystemResult res = doSysOp(nosqlHandle, "show as json regions");
         String regionString = res.getResultString();
         if (regionString != null) {
@@ -234,7 +237,7 @@ public class OnPremiseTest extends ProxyTestBase {
     @Test
     public void testChildTables()
         throws Exception {
-
+        assumeKVVersion(handle, "testChildTable", 20, 1, 1);
         String tableName = "parent";
         String createTableStatement =
             "CREATE TABLE IF NOT EXISTS " + tableName +
@@ -568,6 +571,7 @@ public class OnPremiseTest extends ProxyTestBase {
 
     @Test
     public void testLargeRow() {
+        assumeKVVersion(handle, "testLargeRow", 20, 1, 1);
         doLargeRow(handle, true);
     }
 
@@ -576,6 +580,7 @@ public class OnPremiseTest extends ProxyTestBase {
      */
     @Test
     public void testMultiRegion() {
+        assumeKVVersion(handle, "testMultiRegion", 20, 1, 1);
         final String show = "show regions";
         final String createRegion = "create region remoteRegion";
         final String setRegion = "set local region localRegion";

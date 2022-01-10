@@ -16,6 +16,7 @@ import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
+import static oracle.nosql.driver.util.HttpConstants.PROXY_VERSION_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
@@ -150,6 +151,13 @@ public class Client {
      * singe thread executor for updating table limits
      */
     private ExecutorService threadPool;
+
+    /*
+     * Version strings for connected proxy and store
+     * Used mainly for tests
+     */
+    private String proxyVersion;
+    private String KVVersion;
 
     /**
      * config for statistics
@@ -526,6 +534,8 @@ public class Client {
                     logTrace(logger, "Response: " + requestClass + ", status " +
                              responseHandler.getStatus());
                 }
+
+                processVersionHeader(responseHandler.getHeaders());
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
@@ -1163,6 +1173,59 @@ public class Client {
             }
         }
     }
+
+    /**
+     * Get the proxy and kv versions from the response header.
+     * Update local values if different.
+     */
+    private void processVersionHeader(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        String versions = headers.get(PROXY_VERSION_HEADER);
+        if (versions == null) {
+            return;
+        }
+        /* versions string is space-separated k=v pairs */
+        String[] kvs = versions.split(" ");
+        if (kvs == null || kvs.length == 0) {
+            return;
+        }
+        for (int x=0; x<kvs.length; x++) {
+            String[] kv = kvs[x].split("=");
+            if (kv == null || kv.length != 2) {
+                continue;
+            }
+            if (kv[0].compareTo("proxy")==0) {
+                if (proxyVersion == null ||
+                    proxyVersion.compareTo(kv[1]) != 0) {
+                    proxyVersion = kv[1];
+                }
+            } else if (kv[0].compareTo("kv")==0) {
+                if (KVVersion == null ||
+                    KVVersion.compareTo(kv[1]) != 0) {
+                    KVVersion = kv[1];
+                }
+            }
+        }
+    }
+
+    /**
+     * @hidden
+     * For testing use.
+     */
+    public String getKVVersion() {
+        return KVVersion;
+    }
+
+    /**
+     * @hidden
+     * For testing use.
+     */
+    public String getProxyVersion() {
+        return proxyVersion;
+    }
+
 
     /**
      * Returns the statistics control object.

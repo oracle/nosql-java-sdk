@@ -24,6 +24,7 @@ package oracle.nosql.driver;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.HashSet;
 
+import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.ListTablesRequest;
@@ -247,7 +249,7 @@ public class ProxyTestBase {
     public void afterTest() throws Exception {
 
         if (handle != null) {
-            dropAllTables(handle, false);
+            dropAllTables(handle, true);
             handle.close();
         }
     }
@@ -283,6 +285,12 @@ public class ProxyTestBase {
                 }
                 TableResult tres = dropTableWithoutWait(nosqlHandle, tableName);
                 droppedTables.add(tres);
+            } catch (TableNotFoundException tnfe) {
+                /* this is expected in 20.X and older */
+                if (checkKVVersion(nosqlHandle, 21, 1, 1)) {
+                    System.err.println("DropAllTables: drop fail, table "
+                                       + tableName + ": " + tnfe);
+                }
             } catch (Exception e) {
                 System.err.println("DropAllTables: drop fail, table "
                                    + tableName + ": " + e);
@@ -306,6 +314,12 @@ public class ProxyTestBase {
             /* ignore, but note exceptions */
             try {
                 tres.waitForCompletion(nosqlHandle, 30000, 300);
+            } catch (TableNotFoundException tnfe) {
+                /* this is expected in 20.X and older */
+                if (checkKVVersion(nosqlHandle, 21, 1, 1)) {
+                    System.err.println("DropAllTables: drop wait fail, table "
+                                       + tres + ": " + tnfe);
+                }
             } catch (Exception e) {
                 System.err.println("DropAllTables: drop wait fail, table "
                                    + tres + ": " + e);
@@ -318,13 +332,20 @@ public class ProxyTestBase {
     }
 
     static void dropTable(NoSQLHandle nosqlHandle, String tableName) {
-        TableResult tres = dropTableWithoutWait(nosqlHandle, tableName);
+        try {
+            TableResult tres = dropTableWithoutWait(nosqlHandle, tableName);
 
-        if (tres.getTableState().equals(TableResult.State.DROPPED)) {
-            return;
+            if (tres.getTableState().equals(TableResult.State.DROPPED)) {
+                return;
+            }
+
+            tres.waitForCompletion(nosqlHandle, 20000, 1000);
+        } catch (TableNotFoundException e) {
+            /* 20.2 and below have a known issue with drop table */
+            if (checkKVVersion(nosqlHandle, 20, 3, 1) == true) {
+                throw e;
+            }
         }
-
-        tres.waitForCompletion(nosqlHandle, 20000, 1000);
     }
 
     static private TableResult dropTableWithoutWait(NoSQLHandle nosqlHandle,
@@ -364,14 +385,24 @@ public class ProxyTestBase {
         /* allow test cases to add/modify handle config */
         perTestHandleConfig(config);
 
-        return getHandle(config);
+        NoSQLHandle h = getHandle(config);
+
+        /* this will set up the right protocol serial version */
+        /* and get the proxy/kv versions into the client */
+        try {
+            getTable("noop", h);
+        } catch (Exception e) {
+            /* ignore errors */
+        }
+
+        return h;
     }
 
     /**
      * sub classes can override this to affect the handle config
      */
     protected void perTestHandleConfig(NoSQLHandleConfig config) {
-        // no-op
+        /* no-op */
     }
 
     /**
@@ -379,11 +410,14 @@ public class ProxyTestBase {
      */
     protected NoSQLHandle getHandle(NoSQLHandleConfig config) {
         /*
-         * Create a Logger, set to WARNING. TODO: use a property
-         * for level.
+         * Create a Logger, set to WARNING by default.
          */
         Logger logger = Logger.getLogger(getClass().getName());
-        logger.setLevel(Level.WARNING);
+        String level = System.getProperty("test.loglevel");
+        if (level == null) {
+            level = "WARNING";
+        }
+        logger.setLevel(Level.parse(level));
         config.setLogger(logger);
 
         /*
@@ -541,5 +575,106 @@ public class ProxyTestBase {
         if (verbose) {
             System.out.println(msg);
         }
+    }
+
+    /*
+     * convert a version string in X.Y.Z format to an
+     * integer value of (X * 1M) + (Y * 1K) + Z
+     * return -1 if the string isn't in valid X.Y.Z format
+     */
+    protected static int getIntegerVersion(String version) {
+        if (version == null || version.length() < 5) {
+            return -1;
+        }
+        String[] arr = version.split("\\.");
+        if (arr == null || arr.length != 3) {
+            return -1;
+        }
+        try {
+            return (Integer.parseInt(arr[0]) * 1000000) +
+                   (Integer.parseInt(arr[1]) * 1000) +
+                   Integer.parseInt(arr[2]);
+        } catch (Exception e) {}
+        return -1;
+    }
+
+    private static String getKVVersion(NoSQLHandle handle) {
+        /*
+         * Currently the proxy will only return the KV version that it was
+         * built against, and not the actual kv version of the store it's
+         * connected to.
+         * To enable testing with different proxy/kv combinations, allow
+         * an environment setting to override the kv value returned from
+         * the proxy.
+         */
+        String kvver = System.getenv("KV_VERSION");
+        if (getIntegerVersion(kvver) > 0) {
+            return kvver;
+        }
+        return ((NoSQLHandleImpl)handle).getClient().getKVVersion();
+    }
+
+    private static String getProxyVersion(NoSQLHandle handle) {
+        /*
+         * Use the value returned from the proxy. If that doesn't
+         * exist, fall back to an environment setting.
+         */
+        String proxyver =
+                   ((NoSQLHandleImpl)handle).getClient().getProxyVersion();
+        if (getIntegerVersion(proxyver) > 0) {
+            return proxyver;
+        }
+        return System.getenv("PROXY_VERSION");
+    }
+
+    private static String getMinimumVersion(NoSQLHandle handle) {
+        /*
+         * We need to use the minumum of the kv and proxy versions to
+         * determine what features should be valid to test.
+         */
+        String kvver = getKVVersion(handle);
+        String proxyver = getProxyVersion(handle);
+        int kvIntVer = getIntegerVersion(kvver);
+        if (kvIntVer < 0) {
+            return proxyver;
+        }
+        int proxyIntVer = getIntegerVersion(proxyver);
+        if (proxyIntVer < 0 || proxyIntVer > kvIntVer) {
+            return kvver;
+        }
+        return proxyver;
+    }
+
+    /*
+     * Used to skip test if run against KV prior to the specified version
+     * <major>.<minor>.<patch>.
+     */
+    protected static void assumeKVVersion(NoSQLHandle handle,
+                                          String test,
+                                          int major,
+                                          int minor,
+                                          int patch) {
+        if (checkKVVersion(handle, major, minor, patch)) {
+            return;
+        }
+        assumeTrue("Skipping " + test + " if run against KV prior to " +
+                   (major + "." + minor + "." + patch) + ": " +
+                   getMinimumVersion(handle), false);
+    }
+
+    /*
+     * Returns true if the current KV is >= version <major.minor.patch>
+     */
+    public static boolean checkKVVersion(NoSQLHandle handle,
+                                         int major,
+                                         int minor,
+                                         int patch) {
+        String minVersion = getMinimumVersion(handle);
+        int minIntVersion = getIntegerVersion(minVersion);
+        if (minIntVersion <= 0) {
+            return false; // we have no way of knowing for sure
+        }
+        int desiredIntVersion = (major * 1000000) + (minor * 1000) + patch;
+        return (minIntVersion >= desiredIntVersion);
     }
 }
