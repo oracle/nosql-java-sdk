@@ -95,6 +95,11 @@ public class HttpConstants {
     public static final String USER_AGENT = "User-Agent";
 
     /*
+     * NoSQL versions header
+     */
+    public static final String PROXY_VERSION_HEADER = "x-nosql-version";
+
+    /*
      * Content type values
      */
     public static final String APPLICATION_JSON =
