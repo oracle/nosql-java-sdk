@@ -449,7 +449,7 @@ public class BasicTest extends ProxyTestBase {
             tres = tableOperation(handle, DROP_TABLE, null);
         } catch (TableNotFoundException e) {
             /* versions before 20.3 had known issues with drop table */
-            if (checkKVVersion(handle, 20, 3, 1)) {
+            if (checkKVVersion(20, 3, 1)) {
                 throw e;
             }
         }
@@ -1344,7 +1344,7 @@ public class BasicTest extends ProxyTestBase {
      */
     @Test
     public void testFlexibleMapping() throws Exception {
-        assumeKVVersion(handle, "testFlexibleMapping", 20, 2, 1);
+        assumeKVVersion("testFlexibleMapping", 20, 2, 1);
         final String createTable =
             "create table flex(id integer, primary key(id), " +
             "str string, " +

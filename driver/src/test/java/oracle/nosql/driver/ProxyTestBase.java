@@ -78,6 +78,18 @@ public class ProxyTestBase {
     protected static int DEFAULT_DML_TIMEOUT = 5000;
     protected static String TEST_TABLE_NAME = "drivertest";
 
+    protected static String PROXY_VERSION_PROP = "test.proxy.version";
+    protected static String KVCLIENT_VERSION_PROP = "test.kv.client.version";
+    protected static String KVSERVER_VERSION_PROP = "test.kv.server.version";
+    protected static String PROXY_VERSION_ENV = "PROXY_VERSION";
+    protected static String KVCLIENT_VERSION_ENV = "KV_CLIENT_VERSION";
+    protected static String KVSERVER_VERSION_ENV = "KV_SERVER_VERSION";
+
+    /* (major * 1M) + (minor * 1K) + patch */
+    protected static int proxyVersion;
+    protected static int kvClientVersion;
+    protected static int kvServerVersion;
+
     protected static String serverType;
     protected static String endpoint;
     protected static boolean verbose;
@@ -132,6 +144,20 @@ public class ProxyTestBase {
         verbose = Boolean.getBoolean(VERBOSE);
         local = Boolean.getBoolean(LOCAL);
         trace = Boolean.getBoolean(TRACE);
+
+        proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
+        if (proxyVersion <= 0) {
+            proxyVersion = intVersion(System.getenv(PROXY_VERSION_ENV));
+        }
+        kvClientVersion = intVersion(System.getProperty(KVCLIENT_VERSION_PROP));
+        if (kvClientVersion <= 0) {
+            kvClientVersion = intVersion(System.getenv(KVCLIENT_VERSION_ENV));
+        }
+        kvServerVersion = intVersion(System.getProperty(KVSERVER_VERSION_PROP));
+        if (kvServerVersion <= 0) {
+            kvServerVersion = intVersion(System.getenv(KVSERVER_VERSION_ENV));
+        }
+
         /* these features are not yet available in the cloud */
         uuidSupported = onprem;
         arrayAsRecordSupported = onprem;
@@ -287,7 +313,7 @@ public class ProxyTestBase {
                 droppedTables.add(tres);
             } catch (TableNotFoundException tnfe) {
                 /* this is expected in 20.X and older */
-                if (checkKVVersion(nosqlHandle, 21, 1, 1)) {
+                if (checkKVVersion(21, 1, 1)) {
                     System.err.println("DropAllTables: drop fail, table "
                                        + tableName + ": " + tnfe);
                 }
@@ -316,7 +342,7 @@ public class ProxyTestBase {
                 tres.waitForCompletion(nosqlHandle, 30000, 300);
             } catch (TableNotFoundException tnfe) {
                 /* this is expected in 20.X and older */
-                if (checkKVVersion(nosqlHandle, 21, 1, 1)) {
+                if (checkKVVersion(21, 1, 1)) {
                     System.err.println("DropAllTables: drop wait fail, table "
                                        + tres + ": " + tnfe);
                 }
@@ -342,7 +368,7 @@ public class ProxyTestBase {
             tres.waitForCompletion(nosqlHandle, 20000, 1000);
         } catch (TableNotFoundException e) {
             /* 20.2 and below have a known issue with drop table */
-            if (checkKVVersion(nosqlHandle, 20, 3, 1) == true) {
+            if (checkKVVersion(20, 3, 1) == true) {
                 throw e;
             }
         }
@@ -388,7 +414,6 @@ public class ProxyTestBase {
         NoSQLHandle h = getHandle(config);
 
         /* this will set up the right protocol serial version */
-        /* and get the proxy/kv versions into the client */
         try {
             getTable("noop", h);
         } catch (Exception e) {
@@ -582,7 +607,7 @@ public class ProxyTestBase {
      * integer value of (X * 1M) + (Y * 1K) + Z
      * return -1 if the string isn't in valid X.Y.Z format
      */
-    protected static int getIntegerVersion(String version) {
+    protected static int intVersion(String version) {
         if (version == null || version.length() < 5) {
             return -1;
         }
@@ -598,95 +623,61 @@ public class ProxyTestBase {
         return -1;
     }
 
-    protected static String getKVServerVersion(NoSQLHandle handle) {
-        /*
-         * Use the value returned from the proxy. If that doesn't
-         * exist, fall back to an environment setting.
-         * Note: currently, the proxy will not return this value. So the
-         * environment setting will always be used.
-         */
-        String kvver =
-                   ((NoSQLHandleImpl)handle).getClient().getKVServerVersion();
-        if (getIntegerVersion(kvver) > 0) {
-            return kvver;
+    /*
+     * Inverse of above, for messages
+     */
+    protected static String stringVersion(int ver) {
+        if (ver <= 0) {
+            return "unknown";
         }
-        return System.getenv("KV_SERVER_VERSION");
+        return (ver / 1000000) + "." +
+               ((ver / 1000) % 1000) + "." +
+               (ver % 1000);
     }
 
-    protected static String getKVClientVersion(NoSQLHandle handle) {
+    private static int getMinimumKVVersion() {
         /*
-         * Use the value returned from the proxy. If that doesn't
-         * exist, fall back to an environment setting.
-         */
-        String kvver =
-                   ((NoSQLHandleImpl)handle).getClient().getKVClientVersion();
-        if (getIntegerVersion(kvver) > 0) {
-            return kvver;
-        }
-        return System.getenv("KV_CLIENT_VERSION");
-    }
-
-    protected static String getProxyVersion(NoSQLHandle handle) {
-        /*
-         * Use the value returned from the proxy. If that doesn't
-         * exist, fall back to an environment setting.
-         */
-        String proxyver =
-                   ((NoSQLHandleImpl)handle).getClient().getProxyVersion();
-        if (getIntegerVersion(proxyver) > 0) {
-            return proxyver;
-        }
-        return System.getenv("PROXY_VERSION");
-    }
-
-    private static String getMinimumKVVersion(NoSQLHandle handle) {
-        /*
-         * We need to use the minumum of the kv client and server versions to
+         * Use the minumum of the kv client and server versions to
          * determine what features should be valid to test.
          */
-        String serverVer = getKVServerVersion(handle);
-        String clientVer = getKVClientVersion(handle);
-        int serverIntVer = getIntegerVersion(serverVer);
-        if (serverIntVer < 0) {
-            return clientVer;
+        if (kvServerVersion <= 0) {
+            return kvClientVersion;
+        } else if (kvClientVersion <= 0) {
+            return kvServerVersion;
         }
-        int clientIntVer = getIntegerVersion(clientVer);
-        if (clientIntVer < 0 || clientIntVer > serverIntVer) {
-            return serverVer;
+        if (kvServerVersion < kvClientVersion) {
+            return kvServerVersion;
         }
-        return clientVer;
+        return kvClientVersion;
     }
 
     /*
      * Used to skip test if run against KV prior to the specified version
      * <major>.<minor>.<patch>.
      */
-    protected static void assumeKVVersion(NoSQLHandle handle,
-                                          String test,
+    protected static void assumeKVVersion(String test,
                                           int major,
                                           int minor,
                                           int patch) {
-        if (checkKVVersion(handle, major, minor, patch)) {
+        if (checkKVVersion(major, minor, patch)) {
             return;
         }
         assumeTrue("Skipping " + test + " if run against KV prior to " +
                    (major + "." + minor + "." + patch) + ": " +
-                   getMinimumKVVersion(handle), false);
+                   stringVersion(getMinimumKVVersion()), false);
     }
 
     /*
      * Returns true if the current KV is >= version <major.minor.patch>
      */
-    public static boolean checkKVVersion(NoSQLHandle handle,
-                                         int major,
+    public static boolean checkKVVersion(int major,
                                          int minor,
                                          int patch) {
-        String minVersion = getMinimumKVVersion(handle);
-        int minIntVersion = getIntegerVersion(minVersion);
-        if (minIntVersion <= 0) {
+        int minVersion = getMinimumKVVersion();
+        if (minVersion <= 0) {
             return false; // we have no way of knowing for sure
         }
-        int desiredIntVersion = (major * 1000000) + (minor * 1000) + patch;
-        return (minIntVersion >= desiredIntVersion);
+        int desiredVersion = (major * 1000000) + (minor * 1000) + patch;
+        return (minVersion >= desiredVersion);
     }
 }

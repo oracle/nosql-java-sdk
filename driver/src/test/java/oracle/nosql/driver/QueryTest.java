@@ -1014,7 +1014,7 @@ public class QueryTest extends ProxyTestBase {
 
     @Test
     public void testUpdatePrepared() {
-        assumeKVVersion(handle, "testUpdatePrepared", 21, 3, 1);
+        assumeKVVersion("testUpdatePrepared", 21, 3, 1);
         final int numMajor = 1;
         final int numPerMajor = 10;
         final int recordKB = 2;
@@ -1602,7 +1602,7 @@ public class QueryTest extends ProxyTestBase {
         assertNotNull(putRet.getVersion());
         assertNotNull(putRet.getGeneratedValue());
 
-        if (checkKVVersion(handle, 20, 3, 1) == false) {
+        if (checkKVVersion(20, 3, 1) == false) {
             return;
         }
 
@@ -1672,7 +1672,7 @@ public class QueryTest extends ProxyTestBase {
     @Test
     public void testLowThroughput() {
         if (onprem == false) {
-            assumeKVVersion(handle, "testLowThroughput", 21, 3, 1);
+            assumeKVVersion("testLowThroughput", 21, 3, 1);
         }
         final int numRows = 500;
         String name = "testThroughput";
@@ -1742,9 +1742,9 @@ public class QueryTest extends ProxyTestBase {
     @Test
     public void testLargeQueryStrings() {
         if (onprem) {
-            assumeKVVersion(handle, "testLargeQueryStrings", 20, 1, 1);
+            assumeKVVersion("testLargeQueryStrings", 20, 1, 1);
         } else {
-            assumeKVVersion(handle, "testLargeQueryStrings", 21, 3, 1);
+            assumeKVVersion("testLargeQueryStrings", 21, 3, 1);
         }
         final String tableName = "LargeQuery";
         final String createTable = "create table " + tableName +
@@ -1786,7 +1786,7 @@ public class QueryTest extends ProxyTestBase {
         if (!arrayAsRecordSupported) {
             return;
         }
-        assumeKVVersion(handle, "testBindArrayValue", 20, 3, 1);
+        assumeKVVersion("testBindArrayValue", 20, 3, 1);
         final String tableName = "testBindArrayValue";
         final String createTable = "create table if not exists " + tableName +
                 "(id integer, " +

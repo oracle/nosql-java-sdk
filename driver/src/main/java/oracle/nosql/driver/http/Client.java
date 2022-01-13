@@ -152,14 +152,6 @@ public class Client {
      */
     private ExecutorService threadPool;
 
-    /*
-     * Version strings for connected proxy and store
-     * Used mainly for tests
-     */
-    private String proxyVersion;
-    private String KVClientVersion;
-    private String KVServerVersion;
-
     /**
      * config for statistics
      */
@@ -535,8 +527,6 @@ public class Client {
                     logTrace(logger, "Response: " + requestClass + ", status " +
                              responseHandler.getStatus());
                 }
-
-                processVersionHeader(responseHandler.getHeaders());
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
@@ -1174,80 +1164,6 @@ public class Client {
             }
         }
     }
-
-    /**
-     * Get the proxy and kv versions from the response header.
-     * Update local values if different.
-     */
-    private void processVersionHeader(HttpHeaders headers) {
-        if (headers == null) {
-            return;
-        }
-        String versions = headers.get(PROXY_VERSION_HEADER);
-        if (versions == null) {
-            return;
-        }
-        /* versions string is space-separated k=v pairs */
-        String[] kvs = versions.split(" ");
-        if (kvs == null || kvs.length == 0) {
-            return;
-        }
-        for (int x=0; x<kvs.length; x++) {
-            String[] kv = kvs[x].split("=");
-            if (kv == null || kv.length != 2) {
-                continue;
-            }
-            if (kv[0].compareTo("proxy")==0) {
-                if (proxyVersion == null ||
-                    proxyVersion.compareTo(kv[1]) != 0) {
-                    proxyVersion = kv[1];
-                }
-            } else if (kv[0].compareTo("kv")==0 ||
-                       kv[0].compareTo("client")==0) {
-                if (KVClientVersion == null ||
-                    KVClientVersion.compareTo(kv[1]) != 0) {
-                    KVClientVersion = kv[1];
-                }
-            } else if (kv[0].compareTo("server")==0) {
-                /* note: not yet implemented in proxy */
-                if (KVServerVersion == null ||
-                    KVServerVersion.compareTo(kv[1]) != 0) {
-                    KVServerVersion = kv[1];
-                }
-            }
-        }
-    }
-
-    /**
-     * Get the current KV client version used by the proxy.
-     * For testing use.
-     * The version is a string in X.Y.Z format, like "21.3.14".
-     * @return version, or null of not returned in proxy headers
-     */
-    public String getKVClientVersion() {
-        return KVClientVersion;
-    }
-
-    /**
-     * Get the current KV server version used through the proxy.
-     * For testing use.
-     * The version is a string in X.Y.Z format, like "21.3.14".
-     * @return version, or null of not returned in proxy headers
-     */
-    public String getKVServerVersion() {
-        return KVServerVersion;
-    }
-
-    /**
-     * Get the current proxy version.
-     * For testing use.
-     * The version is a string in X.Y.Z format, like "21.3.14".
-     * @return version, or null of not returned in proxy headers
-     */
-    public String getProxyVersion() {
-        return proxyVersion;
-    }
-
 
     /**
      * Returns the statistics control object.
