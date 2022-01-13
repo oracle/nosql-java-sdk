@@ -7,10 +7,8 @@
 
 package oracle.nosql.driver;
 
-import static oracle.nosql.driver.util.BinaryProtocol.READ_KB_LIMIT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -20,8 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import oracle.nosql.driver.Consistency;
-import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.PrepareRequest;
@@ -1018,6 +1014,7 @@ public class QueryTest extends ProxyTestBase {
 
     @Test
     public void testUpdatePrepared() {
+        assumeKVVersion("testUpdatePrepared", 21, 3, 1);
         final int numMajor = 1;
         final int numPerMajor = 10;
         final int recordKB = 2;
@@ -1581,7 +1578,6 @@ public class QueryTest extends ProxyTestBase {
                  "PRIMARY KEY(id))";
 
         tableOperation(handle, createTableId, new TableLimits(100, 100, 1));
-        tableOperation(handle, createTableUUID, new TableLimits(100, 100, 1));
 
         /*
          * Putting a row with a value for "id" should fail because always
@@ -1606,12 +1602,11 @@ public class QueryTest extends ProxyTestBase {
         assertNotNull(putRet.getVersion());
         assertNotNull(putRet.getGeneratedValue());
 
-        /*
-         * When the cloud supports UUID remove this
-         */
-        if (!uuidSupported) {
+        if (checkKVVersion(20, 3, 1) == false) {
             return;
         }
+
+        tableOperation(handle, createTableUUID, new TableLimits(100, 100, 1));
 
         /*
          * Now the UUID table
@@ -1676,6 +1671,9 @@ public class QueryTest extends ProxyTestBase {
 
     @Test
     public void testLowThroughput() {
+        if (onprem == false) {
+            assumeKVVersion("testLowThroughput", 21, 3, 1);
+        }
         final int numRows = 500;
         String name = "testThroughput";
         String createTableDdl =
@@ -1743,6 +1741,11 @@ public class QueryTest extends ProxyTestBase {
      */
     @Test
     public void testLargeQueryStrings() {
+        if (onprem) {
+            assumeKVVersion("testLargeQueryStrings", 20, 1, 1);
+        } else {
+            assumeKVVersion("testLargeQueryStrings", 21, 3, 1);
+        }
         final String tableName = "LargeQuery";
         final String createTable = "create table " + tableName +
             "(id integer, data json, primary key(id))";
@@ -1783,6 +1786,7 @@ public class QueryTest extends ProxyTestBase {
         if (!arrayAsRecordSupported) {
             return;
         }
+        assumeKVVersion("testBindArrayValue", 20, 3, 1);
         final String tableName = "testBindArrayValue";
         final String createTable = "create table if not exists " + tableName +
                 "(id integer, " +
@@ -1939,10 +1943,6 @@ public class QueryTest extends ProxyTestBase {
                               int recordKB,
                               Consistency consistency) {
 
-        final int minRead = 1;
-        final boolean isAbsolute = (consistency == Consistency.ABSOLUTE);
-        boolean isDelete = statement.contains("delete");
-
         final QueryRequest queryReq = new QueryRequest()
             .setStatement(statement)
             .setLimit(numLimit)
@@ -1958,7 +1958,6 @@ public class QueryTest extends ProxyTestBase {
         int writeKB = 0;
         int readUnits = 0;
         int numBatches = 0;
-        int totalPrepCost = 0;
 
         do {
             QueryResult queryRes = handle.query(queryReq);
@@ -1975,7 +1974,6 @@ public class QueryTest extends ProxyTestBase {
             int rkb = queryRes.getReadKB();
             int runits = queryRes.getReadUnits();
             int wkb = queryRes.getWriteKB();
-            int prepCost = (numBatches == 0 ? getMinQueryCost() : 0);
 
             if (showResults) {
                 for (int i = 0; i < results.size(); ++i) {
@@ -1983,16 +1981,16 @@ public class QueryTest extends ProxyTestBase {
                     System.out.println(results.get(i));
                 }
 
-                System.out.println("Batch ReadKB = " + rkb +
-                                   " Batch ReadUnits = " + runits +
-                                   " Batch WriteKB = " + wkb);
+                System.out.println("Batch " + numBatches +
+                                   " ReadKB=" + rkb +
+                                   " ReadUnits=" + runits +
+                                   " WriteKB=" + wkb);
             }
 
             numRows += cnt;
             readKB += rkb;
             readUnits += runits;
             writeKB += wkb;
-            totalPrepCost += prepCost;
 
             numBatches++;
         } while (!queryReq.isDone());
