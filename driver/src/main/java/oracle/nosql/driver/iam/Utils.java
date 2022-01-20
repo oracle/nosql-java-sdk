@@ -99,28 +99,38 @@ class Utils {
         "https://auth.{0}.oraclegovcloud.uk");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud8.com");
+    private final static MessageFormat OC9_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud9.com");
+    private final static MessageFormat OC10_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud10.com");
 
     static {
         /* OC1 */
+        IAM_URI.put("jnb", OC1_EP_BASE.format(new Object[] {"af-johannesburg-1"}));
+
+        IAM_URI.put("yny", OC1_EP_BASE.format(new Object[] {"ap-chuncheon-1"}));
+        IAM_URI.put("hyd", OC1_EP_BASE.format(new Object[] {"ap-hyderabad-1"}));
+        IAM_URI.put("mel", OC1_EP_BASE.format(new Object[] {"ap-melbourne-1"}));
         IAM_URI.put("bom", OC1_EP_BASE.format(new Object[] {"ap-mumbai-1"}));
+        IAM_URI.put("kix", OC1_EP_BASE.format(new Object[] {"ap-osaka-1"}));
         IAM_URI.put("icn", OC1_EP_BASE.format(new Object[] {"ap-seoul-1"}));
+        IAM_URI.put("sin", OC1_EP_BASE.format(new Object[] {"ap-singapore-1"}));
         IAM_URI.put("syd", OC1_EP_BASE.format(new Object[] {"ap-sydney-1"}));
         IAM_URI.put("nrt", OC1_EP_BASE.format(new Object[] {"ap-tokyo-1"}));
-        IAM_URI.put("mel", OC1_EP_BASE.format(new Object[] {"ap-melbourne-1"}));
-        IAM_URI.put("kix", OC1_EP_BASE.format(new Object[] {"ap-osaka-1"}));
-        IAM_URI.put("hyd", OC1_EP_BASE.format(new Object[] {"ap-hyderabad-1"}));
-        IAM_URI.put("yny", OC1_EP_BASE.format(new Object[] {"ap-chuncheon-1"}));
 
-        IAM_URI.put("lhr", OC1_EP_BASE.format(new Object[] {"uk-london-1"}));
         IAM_URI.put("cwl", OC1_EP_BASE.format(new Object[] {"uk-cardiff-1"}));
+        IAM_URI.put("lhr", OC1_EP_BASE.format(new Object[] {"uk-london-1"}));
 
-        IAM_URI.put("fra", OC1_EP_BASE.format(new Object[] {"eu-frankfurt-1"}));
-        IAM_URI.put("zrh", OC1_EP_BASE.format(new Object[] {"eu-zurich-1"}));
         IAM_URI.put("ams", OC1_EP_BASE.format(new Object[] {"eu-amsterdam-1"}));
+        IAM_URI.put("fra", OC1_EP_BASE.format(new Object[] {"eu-frankfurt-1"}));
+        IAM_URI.put("mrs", OC1_EP_BASE.format(new Object[] {"eu-marseille-1"}));
         IAM_URI.put("lin", OC1_EP_BASE.format(new Object[] {"eu-milan-1"}));
+        IAM_URI.put("arn", OC1_EP_BASE.format(new Object[] {"eu-stockholm-1"}));
+        IAM_URI.put("zrh", OC1_EP_BASE.format(new Object[] {"eu-zurich-1"}));
 
-        IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
+        IAM_URI.put("auh", OC1_EP_BASE.format(new Object[] {"me-abudhabi-1"}));
         IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
+        IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
 
         IAM_URI.put("mtz", OC1_EP_BASE.format(new Object[] {"il-jerusalem-1"}));
 
@@ -151,6 +161,12 @@ class Utils {
         /* OC8 */
         IAM_URI.put("nja", OC8_EP_BASE.format(new Object[] {"ap-chiyoda-1"}));
         IAM_URI.put("ukb", OC8_EP_BASE.format(new Object[] {"ap-ibaraki-1"}));
+
+        /* OC9 */
+        IAM_URI.put("mct", OC9_EP_BASE.format(new Object[] {"me-dcc-muscat-1"}));
+
+        /* OC10 */
+        IAM_URI.put("wga", OC10_EP_BASE.format(new Object[] {"ap-dcc-canberra-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -167,6 +183,12 @@ class Utils {
             }
             if (Region.isOC8Region(regionIdOrCode)) {
                 return OC8_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC9Region(regionIdOrCode)) {
+                return OC9_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC10Region(regionIdOrCode)) {
+                return OC10_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 

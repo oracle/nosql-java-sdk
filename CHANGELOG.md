@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- Updated OCI regions
+
 ### Added
 - Added client statistics. Users can enable internal driver statistics by
 using system property -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=

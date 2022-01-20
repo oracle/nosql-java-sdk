@@ -51,27 +51,35 @@ public class Region {
     private static final Map<String, Region> GOV_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC4_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC8_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC9_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC10_REGIONS = new HashMap<>();
 
     /* OC1 */
-    public static final Region AP_SEOUL_1 = new Region("ap-seoul-1");
-    public static final Region AP_TOKYO_1 = new Region("ap-tokyo-1");
-    public static final Region AP_MUMBAI_1 = new Region("ap-mumbai-1");
-    public static final Region AP_SYDNEY_1 = new Region("ap-sydney-1");
-    public static final Region AP_MELBOURNE_1 = new Region("ap-melbourne-1");
-    public static final Region AP_OSAKA_1 = new Region("ap-osaka-1");
-    public static final Region AP_HYDERABAD_1 = new Region("ap-hyderabad-1");
+    public static final Region AF_JOHANNESBURG_1 = new Region("af-johannesburg-1");
+
     public static final Region AP_CHUNCHEON_1 = new Region("ap-chuncheon-1");
+    public static final Region AP_HYDERABAD_1 = new Region("ap-hyderabad-1");
+    public static final Region AP_MELBOURNE_1 = new Region("ap-melbourne-1");
+    public static final Region AP_MUMBAI_1 = new Region("ap-mumbai-1");
+    public static final Region AP_OSAKA_1 = new Region("ap-osaka-1");
+    public static final Region AP_SINGAPORE_1 = new Region("ap-singapore-1");
+    public static final Region AP_SEOUL_1 = new Region("ap-seoul-1");
+    public static final Region AP_SYDNEY_1 = new Region("ap-sydney-1");
+    public static final Region AP_TOKYO_1 = new Region("ap-tokyo-1");
 
-    public static final Region UK_LONDON_1 = new Region("uk-london-1");
     public static final Region UK_CARDIFF_1 = new Region("uk-cardiff-1");
+    public static final Region UK_LONDON_1 = new Region("uk-london-1");
 
-    public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
-    public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
     public static final Region EU_AMSTERDAM_1 = new Region("eu-amsterdam-1");
+    public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
+    public static final Region EU_MARSEILLE_1 = new Region("eu-marseille-1");
     public static final Region EU_MILAN_1 = new Region("eu-milan-1");
+    public static final Region EU_STOCKHOLM_1 = new Region("eu-stockholm-1");
+    public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
 
-    public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
+    public static final Region ME_ABUDHABI_1 = new Region("me-abudhabi-1");
     public static final Region ME_DUBAI_1 = new Region("me-dubai-1");
+    public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
 
     public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
 
@@ -79,8 +87,8 @@ public class Region {
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
 
-    public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
+    public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
 
     public static final Region SA_SAOPAULO_1 = new Region("sa-saopaulo-1");
     public static final Region SA_SANTIAGO_1 = new Region("sa-santiago-1");
@@ -103,29 +111,39 @@ public class Region {
     public static final Region AP_CHIYODA_1 = new Region("ap-chiyoda-1");
     public static final Region AP_IBARAKI_1 = new Region("ap-ibaraki-1");
 
+    /* OC9 */
+    public static final Region ME_DCC_MUSCAT_1 = new Region("me-dcc-muscat-1");
+
+    /* OC10 */
+    public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
+
     static {
         /* OC1 */
         /* APAC */
-        OC1_REGIONS.put(AP_SEOUL_1.getRegionId(), AP_SEOUL_1);
-        OC1_REGIONS.put(AP_TOKYO_1.getRegionId(), AP_TOKYO_1);
-        OC1_REGIONS.put(AP_MUMBAI_1.getRegionId(), AP_MUMBAI_1);
-        OC1_REGIONS.put(AP_SYDNEY_1.getRegionId(), AP_SYDNEY_1);
-        OC1_REGIONS.put(AP_MELBOURNE_1.getRegionId(), AP_MELBOURNE_1);
-        OC1_REGIONS.put(AP_OSAKA_1.getRegionId(), AP_OSAKA_1);
-        OC1_REGIONS.put(AP_HYDERABAD_1.getRegionId(), AP_HYDERABAD_1);
         OC1_REGIONS.put(AP_CHUNCHEON_1.getRegionId(), AP_CHUNCHEON_1);
+        OC1_REGIONS.put(AP_HYDERABAD_1.getRegionId(), AP_HYDERABAD_1);
+        OC1_REGIONS.put(AP_MELBOURNE_1.getRegionId(), AP_MELBOURNE_1);
+        OC1_REGIONS.put(AP_MUMBAI_1.getRegionId(), AP_MUMBAI_1);
+        OC1_REGIONS.put(AP_OSAKA_1.getRegionId(), AP_OSAKA_1);
+        OC1_REGIONS.put(AP_SINGAPORE_1.getRegionId(), AP_SINGAPORE_1);
+        OC1_REGIONS.put(AP_SEOUL_1.getRegionId(), AP_SEOUL_1);
+        OC1_REGIONS.put(AP_SYDNEY_1.getRegionId(), AP_SYDNEY_1);
+        OC1_REGIONS.put(AP_TOKYO_1.getRegionId(), AP_TOKYO_1);
 
         /* EMEA */
-        OC1_REGIONS.put(UK_LONDON_1.getRegionId(), UK_LONDON_1);
         OC1_REGIONS.put(UK_CARDIFF_1.getRegionId(), UK_CARDIFF_1);
+        OC1_REGIONS.put(UK_LONDON_1.getRegionId(), UK_LONDON_1);
 
-        OC1_REGIONS.put(EU_FRANKFURT_1.getRegionId(), EU_FRANKFURT_1);
-        OC1_REGIONS.put(EU_ZURICH_1.getRegionId(), EU_ZURICH_1);
         OC1_REGIONS.put(EU_AMSTERDAM_1.getRegionId(), EU_AMSTERDAM_1);
+        OC1_REGIONS.put(EU_FRANKFURT_1.getRegionId(), EU_FRANKFURT_1);
+        OC1_REGIONS.put(EU_MARSEILLE_1.getRegionId(), EU_MARSEILLE_1);
         OC1_REGIONS.put(EU_MILAN_1.getRegionId(), EU_MILAN_1);
+        OC1_REGIONS.put(EU_STOCKHOLM_1.getRegionId(), EU_STOCKHOLM_1);
+        OC1_REGIONS.put(EU_ZURICH_1.getRegionId(), EU_ZURICH_1);
 
-        OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
+        OC1_REGIONS.put(ME_ABUDHABI_1.getRegionId(), ME_ABUDHABI_1);
         OC1_REGIONS.put(ME_DUBAI_1.getRegionId(), ME_DUBAI_1);
+        OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
 
         OC1_REGIONS.put(IL_JERUSALEM_1.getRegionId(), IL_JERUSALEM_1);
 
@@ -139,8 +157,8 @@ public class Region {
         OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
         OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
 
-        OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
         OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
+        OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
 
         /* OC2 */
         GOV_REGIONS.put(US_LANGLEY_1.getRegionId(), US_LANGLEY_1);
@@ -158,6 +176,12 @@ public class Region {
         /* OC8 */
         OC8_REGIONS.put(AP_CHIYODA_1.getRegionId(), AP_CHIYODA_1);
         OC8_REGIONS.put(AP_IBARAKI_1.getRegionId(), AP_IBARAKI_1);
+
+        /* OC9 */
+        OC9_REGIONS.put(ME_DCC_MUSCAT_1.getRegionId(), ME_DCC_MUSCAT_1);
+
+        /* OC10 */
+        OC10_REGIONS.put(AP_DCC_CANBERRA_1.getRegionId(), AP_DCC_CANBERRA_1);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -168,6 +192,10 @@ public class Region {
         "https://nosql.{0}.oci.oraclegovcloud.uk");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud8.com");
+    private final static MessageFormat OC9_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud9.com");
+    private final static MessageFormat OC10_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud10.com");
 
     private String regionId;
 
@@ -191,6 +219,12 @@ public class Region {
         }
         if (isOC8Region(regionId)) {
             return OC8_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC9Region(regionId)) {
+            return OC9_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC10Region(regionId)) {
+            return OC10_EP_BASE.format(new Object[] { regionId });
         }
         throw new IllegalArgumentException(
             "Unable to find endpoint for unknwon region" + regionId);
@@ -218,6 +252,12 @@ public class Region {
         }
         if (region == null) {
             region = OC8_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC9_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC10_REGIONS.get(regionId);
         }
 
         return region;
@@ -275,6 +315,26 @@ public class Region {
     /**
      * @hidden
      * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC9Region(String regionId) {
+        return (OC9_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC10Region(String regionId) {
+        return (OC10_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
      * @return the regions
      */
     public static Collection<Region> getOC1Regions() {
@@ -306,6 +366,24 @@ public class Region {
      */
     public static Collection<Region> getOC8Regions() {
         return OC8_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
+    public static Collection<Region> getOC9Regions() {
+        return OC9_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
+    public static Collection<Region> getOC10Regions() {
+        return OC10_REGIONS.values();
     }
 
     /**

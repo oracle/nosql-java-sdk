@@ -457,8 +457,13 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         }
 
         /* test IAM URI by airport code */
+        assertEquals(Utils.getIAMURL("jnb"),
+                    "https://auth.af-johannesburg-1.oraclecloud.com");
+
         assertEquals(Utils.getIAMURL("bom"),
                     "https://auth.ap-mumbai-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("sin"),
+                    "https://auth.ap-singapore-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("icn"),
                     "https://auth.ap-seoul-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("syd"),
@@ -474,6 +479,10 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         assertEquals(Utils.getIAMURL("yny"),
                     "https://auth.ap-chuncheon-1.oraclecloud.com");
 
+        assertEquals(Utils.getIAMURL("mrs"),
+                    "https://auth.eu-marseille-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("arn"),
+                    "https://auth.eu-stockholm-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("fra"),
                     "https://auth.eu-frankfurt-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("zrh"),
@@ -482,12 +491,16 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                     "https://auth.uk-london-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("ams"),
                     "https://auth.eu-amsterdam-1.oraclecloud.com");
+
+        assertEquals(Utils.getIAMURL("auh"),
+                    "https://auth.me-abudhabi-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("jed"),
                     "https://auth.me-jeddah-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("cwl"),
-                    "https://auth.uk-cardiff-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("dxb"),
                     "https://auth.me-dubai-1.oraclecloud.com");
+
+        assertEquals(Utils.getIAMURL("cwl"),
+                    "https://auth.uk-cardiff-1.oraclecloud.com");
 
         assertEquals(Utils.getIAMURL("iad"),
                     "https://auth.us-ashburn-1.oraclecloud.com");
@@ -522,5 +535,11 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         assertEquals(Utils.getIAMURL("nja"),
                      "https://auth.ap-chiyoda-1.oraclecloud8.com");
+
+        assertEquals(Utils.getIAMURL("mct"),
+                     "https://auth.me-dcc-muscat-1.oraclecloud9.com");
+
+        assertEquals(Utils.getIAMURL("wga"),
+                     "https://auth.ap-dcc-canberra-1.oraclecloud10.com");
     }
 }
