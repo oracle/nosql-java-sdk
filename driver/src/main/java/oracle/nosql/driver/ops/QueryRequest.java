@@ -131,6 +131,25 @@ public class QueryRequest extends Request {
 
     /**
      * @hidden
+     * Creates an exact copy with a new copy of QueryDriver
+     * @return a copy of the instance in a new object
+     */
+    public QueryRequest copy() {
+        QueryRequest internalReq = copyInternal();
+        internalReq.statement = statement;
+        internalReq.isInternal = isInternal;
+        internalReq.shardId = shardId;
+        // leave continuationKey null to start from the beginning
+        //internalReq.continuationKey = continuationKey;
+        if (driver != null) {
+            internalReq.driver = driver.copy(internalReq);
+        }
+
+        return internalReq;
+    }
+
+    /**
+     * @hidden
      *
      * @return the internal QueryDriver instance
      */
@@ -145,10 +164,10 @@ public class QueryRequest extends Request {
      */
     public void setDriver(QueryDriver driver) {
 
-        if (this.driver != null) {
-            throw new IllegalArgumentException(
-                "QueryRequest is already bound to a QueryDriver");
-        }
+//        if (this.driver != null) {
+//            throw new IllegalArgumentException(
+//                "QueryRequest is already bound to a QueryDriver");
+//        }
 
         this.driver = driver;
     }

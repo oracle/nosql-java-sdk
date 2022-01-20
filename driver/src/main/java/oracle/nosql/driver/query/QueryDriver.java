@@ -15,8 +15,6 @@ import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
-import oracle.nosql.driver.query.PlanIter;
-import oracle.nosql.driver.query.RuntimeControlBlock;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -228,5 +226,18 @@ public class QueryDriver {
             theResults.clear();
             theResults = null;
         }
+    }
+
+    public QueryDriver copy(QueryRequest queryRequest) {
+        QueryDriver copy = new QueryDriver(queryRequest);
+        copy.theClient = theClient;
+        copy.theTopologyInfo = theTopologyInfo;
+        copy.thePrepCost = thePrepCost;
+        copy.theResults = theResults;
+        copy.theError = theError;
+        // leave continuationKey and theRCB null to start from the beginning
+        //copy.theContinuationKey = theContinuationKey;
+        //copy.theRCB = theRCB;
+        return copy;
     }
 }

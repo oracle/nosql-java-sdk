@@ -7,11 +7,13 @@
 
 package oracle.nosql.driver.ops;
 
+import java.util.Iterator;
 import java.util.List;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RateLimiter;
+import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.values.MapValue;
 
@@ -79,6 +81,7 @@ public class QueryResult extends Result {
     private int[] numResultsPerPid;
 
     private byte[][] continuationKeys;
+    private Client client;
 
     /**
      * @hidden
@@ -364,5 +367,169 @@ public class QueryResult extends Result {
         }
         sb.append("\n");
         return sb.toString();
+    }
+
+    public QueryResult copy(QueryRequest newRequest) {
+        QueryResult copy = new QueryResult(newRequest, isComputed);
+        //copy.results = new ArrayList<>(results);
+        copy.continuationKey = continuationKey;
+        copy.reachedLimit = reachedLimit;
+        copy.isInPhase1 = isInPhase1;
+        copy.pids = pids;
+        copy.numResultsPerPid = numResultsPerPid;
+        copy.continuationKeys = continuationKeys;
+        copy.client = client;
+        return copy;
+    }
+
+    public ResultsIterable getAllResults() {
+        return new ResultsIterable(this);
+    }
+
+    public void setClient(Client client) {
+        this.client = client;
+    }
+
+    public Client getClient() {
+        return client;
+    }
+
+    public static class ResultsIterable implements Iterable<MapValue> {
+        final QueryResult internalResult;
+        private int readKB, readUnits, writeKB, writeUnits;
+
+        ResultsIterable(QueryResult queryResult) {
+            QueryRequest internalRequest = queryResult.request.copy();
+            if (internalRequest.isSimpleQuery()) {
+                // at this time the simple query result has already the first
+                // batch of results already computed
+                this.internalResult = (QueryResult)
+                    queryResult.getClient().execute(internalRequest);
+            } else {
+                this.internalResult = new QueryResult(internalRequest, false);
+            }
+        }
+
+        @Override
+        public Iterator<MapValue> iterator() {
+            return new ResultsIterator(this);
+        }
+
+        public RateLimiter getReadRateLimiter() {
+            return internalResult.request.getReadRateLimiter();
+        }
+
+        public void setReadLimiter(RateLimiter rateLimiter) {
+            internalResult.request.setReadRateLimiter(rateLimiter);
+        }
+
+        public RateLimiter getWriteRateLimiter() {
+            return internalResult.request.getWriteRateLimiter();
+        }
+
+        public void setWriteRateLimiter(RateLimiter rateLimiter) {
+            internalResult.request.setWriteRateLimiter(rateLimiter);
+        }
+
+        /**
+         * Returns the read throughput consumed by this operation, in KBytes.
+         * This is the actual amount of data read by the operation. The number
+         * of read units consumed is returned by {@link #getReadUnits} which may
+         * be a larger number if the operation used {@link Consistency#ABSOLUTE}
+         *
+         * @return the read KBytes consumed
+         */
+        public int getReadKB() {
+            return internalResult.getReadKB();
+        }
+
+        /**
+         * Returns the write throughput consumed by this operation, in KBytes.
+         *
+         * @return the write KBytes consumed
+         */
+        public int getWriteKB() {
+            return internalResult.getWriteKB();
+        }
+
+        /**
+         * Returns the read throughput consumed by this operation, in read units.
+         * This number may be larger than that returned by {@link #getReadKB} if
+         * the operation used {@link Consistency#ABSOLUTE}
+         *
+         * @return the read units consumed
+         */
+        public int getReadUnits() {
+            return internalResult.getReadUnits();
+        }
+
+        /**
+         * Returns the write throughput consumed by this operation, in write
+         * units.
+         *
+         * @return the write units consumed
+         */
+        public int getWriteUnits() {
+            return internalResult.getWriteUnits();
+        }
+
+        // get/setTimeout ???
+    }
+
+    private static class ResultsIterator implements Iterator<MapValue> {
+        final ResultsIterable resultsIterable;
+        final QueryRequest internalRequest;
+        QueryResult internalResult;
+        Iterator<MapValue> partialResultsIterator;
+
+        ResultsIterator(ResultsIterable resultsIterable) {
+            this.resultsIterable = resultsIterable;
+            internalRequest = resultsIterable.internalResult.request;
+            internalResult = resultsIterable.internalResult;
+        }
+
+        private void compute() {
+            if (partialResultsIterator == null) {
+                List<MapValue> partialResults = internalResult.getResults();
+                if (partialResults != null) {
+                    partialResultsIterator = partialResults.iterator();
+                } else {
+                    return;
+                }
+            }
+
+            while (!partialResultsIterator.hasNext() &&
+                !internalRequest.isDone()) {
+                if (internalRequest.isSimpleQuery()) {
+                    Client client = internalResult.getClient();
+                    internalResult =
+                        (QueryResult)(client.execute(internalRequest));
+                } else {
+                    internalResult.isComputed = false;
+                    internalResult.compute();
+                }
+                partialResultsIterator = internalResult.getResults().iterator();
+                resultsIterable.readKB += internalResult.getReadKB();
+                resultsIterable.readUnits += internalResult.getReadUnits();
+                resultsIterable.writeKB += internalResult.getWriteKB();
+                resultsIterable.writeUnits += internalResult.getWriteUnits();
+            }
+
+            if (internalRequest.isDone()) {
+                internalRequest.close();
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            compute();
+            return partialResultsIterator.hasNext();
+        }
+
+        @Override
+        public MapValue next() {
+            compute();
+            return partialResultsIterator.next();
+        }
     }
 }
