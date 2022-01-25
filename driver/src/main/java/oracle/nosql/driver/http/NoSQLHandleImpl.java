@@ -192,6 +192,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     @Override
+    public QueryResult.QueryIterableResult queryIterable(QueryRequest request) {
+        checkClient();
+        return new QueryResult.QueryIterableResult(request, this);
+    }
+
+    @Override
     public PrepareResult prepare(PrepareRequest request) {
         checkClient();
         return (PrepareResult) client.execute(request);

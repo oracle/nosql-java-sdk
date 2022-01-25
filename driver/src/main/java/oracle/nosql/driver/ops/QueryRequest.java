@@ -314,7 +314,7 @@ public class QueryRequest extends Request {
 
     /**
      * Returns the limit on number of items returned by the operation. If
-     * not set by the application this value will be 0 which means no limit.
+     * not set by the application this value will be 0 which means no limit set.
      *
      * @return the limit, or 0 if not set
      */

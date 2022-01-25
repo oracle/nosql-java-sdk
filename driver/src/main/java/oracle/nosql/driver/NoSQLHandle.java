@@ -7,9 +7,6 @@
 
 package oracle.nosql.driver;
 
-import oracle.nosql.driver.ops.SystemRequest;
-import oracle.nosql.driver.ops.SystemResult;
-import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetIndexesRequest;
@@ -30,6 +27,9 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
@@ -310,6 +310,36 @@ public interface NoSQLHandle {
      * reason
      */
     QueryResult query(QueryRequest request);
+
+    /**
+     * Queries a table based on the query statement specified in the
+     * {@link QueryRequest} while returning an iterable result.
+     *
+     * Queries that include a full shard key will execute much more efficiently
+     * than more distributed queries that must go to multiple shards.
+     * <p>
+     * Table- and system-style queries such as "CREATE TABLE ..." or "DROP TABLE .."
+     * are not supported by this interfaces. Those operations must be performed using
+     * {@link #tableRequest} or {@link #systemRequest} as appropriate.
+     * <p>
+     * The results are returned through an iterator, the SDK uses the
+     * read/write rate limits set in the NoSQLHandleConfig or they can be
+     * overwritten using the
+     * {@link QueryResult.QueryResultIterator#setReadRateLimiter(RateLimiter)}
+     * and
+     * {@link QueryResult.QueryResultIterator#setWriteRateLimiter(RateLimiter)}.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the iterable result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     */
+    QueryResult.QueryIterableResult queryIterable(QueryRequest request);
 
     /**
      * Prepares a query for execution and reuse. See {@link #query} for general

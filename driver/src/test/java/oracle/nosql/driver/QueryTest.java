@@ -1982,6 +1982,104 @@ public class QueryTest extends ProxyTestBase {
         } while (!qreq.isDone());
     }
 
+    @Test
+    public void testQueryIterable() {
+        final int numMajor = 10;
+        final int numPerMajor = 1;
+
+        /* Load rows to table */
+        loadRowsToScanTable(numMajor, numPerMajor, 1);
+
+        /* check simple queries */
+        checkQueryIterableUnordered("select * from testTable");
+
+        /* check non-simple queries, ie. group by, order by */
+        checkQueryIterableUnordered("select sid, count(*) from testTable " +
+            "group by sid");
+
+        checkQueryIterableOrdered("select * from testTable order by sid, " +
+            "id");
+        checkQueryIterableOrdered("select sid, count(*) from testTable group" +
+            " by sid order by sid");
+    }
+
+    /**
+     * Runs query twice and checks if results from getAllResults iterator are
+     * the same as regular running results.
+     */
+    private void checkQueryIterableUnordered(String query) {
+        QueryRequest qreq = new QueryRequest().setStatement(query).setLimit(3);
+
+        QueryResult qres;
+        Set<MapValue> expectedSet = new HashSet<>();
+
+        do {
+            qres = handle.query(qreq);
+            for( MapValue row : qres.getResults() ) {
+                expectedSet.add(row);
+                System.out.println("  expected row: " + row);
+            }
+            System.out.println("     ReadKB: " + qres.getReadKB() + "     " +
+                "ReadUnits: " + qres.getReadUnits());
+        } while (!qreq.isDone());
+
+        //qreq = new QueryRequest().setStatement(query).setLimit(3);
+        QueryResult.QueryIterableResult qires = handle.queryIterable(qreq);
+        Set<MapValue> actualSet = new HashSet<>();
+
+        for (MapValue qiRow : qires) {
+            actualSet.add(qiRow);
+            System.out.println("  actual row: " + qiRow);
+        }
+
+        try {
+            assertEquals(expectedSet.size(), actualSet.size());
+        } catch (Throwable ex) {
+            for (MapValue r : actualSet) {
+                if (!expectedSet.contains(r)) {
+                    System.out.println("fail following row not existent in " +
+                        "expected result: " + r);
+                }
+            }
+            fail("previous rows not existent. expected size: " +
+                expectedSet.size() + "   actual size: " + actualSet.size());
+        }
+
+        assertEquals(expectedSet, actualSet);
+    }
+
+    /**
+     * Runs query twice and checks if results from getAllResults iterator are
+     * the same as regular running results.
+     */
+    private void checkQueryIterableOrdered(String query) {
+        QueryRequest qreq = new QueryRequest().setStatement(query);
+        QueryResult qres;
+
+        qres = handle.query(qreq);
+        QueryResult.QueryIterableResult qires = handle.queryIterable(qreq);
+
+        Iterator<MapValue> qiIter = qires.iterator();
+        do {
+            qres = handle.query(qreq);
+            for( MapValue row : qres.getResults() ) {
+                assertTrue(qiIter.hasNext());
+                MapValue qiItem = qiIter.next();
+                //System.out.println("\n  exp: " + row + " " + "\n  act: " +
+                // qiItem);
+
+                assertEquals(row.entrySet().size(),
+                    qiItem.entrySet().size());
+                for(Entry<String, FieldValue> e : row.entrySet()) {
+                    assertEquals(row.get(e.getKey()).getType(),
+                        qiItem.get(e.getKey()).getType());
+                    assertEquals(row.get(e.getKey()),
+                        qiItem.get(e.getKey()));
+                }
+            }
+        } while (!qreq.isDone());
+    }
+
     private void execInsertAndCheckInfo(PreparedStatement pstmt,
                                         int id,
                                         FieldValue info,

@@ -51,8 +51,45 @@ public class RetryStats {
      * @param e the exception class
      */
     public void addException(Class<? extends Throwable> e) {
-        int i = getNumExceptions(e) + 1;
+        addException(e, 1);
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Adds an exception class to the stats object.
+     * This increments the exception count and adds to the count of
+     * this type of exception class.
+     * @param e the exception class
+     * @param n the number of such exceptions
+     */
+    public void addException(Class<? extends Throwable> e, int n) {
+        int i = getNumExceptions(e) + n;
         exceptionMap.put(e, i);
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Adds an exception class to the stats object.
+     * This increments the exception count and adds to the count of
+     * this type of exception class.
+     * @param e the exception class
+     */
+    public void addExceptions(Map<Class<? extends Throwable>, Integer> e) {
+        for (Map.Entry<Class<? extends Throwable>, Integer> entry :
+            e.entrySet()) {
+            addException(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Returns the map of exceptions and their count.
+     */
+    Map<Class<? extends Throwable>, Integer> getExceptionMap() {
+        return exceptionMap;
     }
 
     /**
@@ -72,6 +109,15 @@ public class RetryStats {
      */
     public void incrementRetries() {
         retries++;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Increments the number of retries with n amount.
+     */
+    public void incrementRetries(int n) {
+        retries += n;
     }
 
     /**
