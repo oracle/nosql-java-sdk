@@ -23,6 +23,7 @@ import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutRequest.Option;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -325,9 +326,9 @@ public interface NoSQLHandle {
      * The results are returned through an iterator, the SDK uses the
      * read/write rate limits set in the NoSQLHandleConfig or they can be
      * overwritten using the
-     * {@link QueryResult.QueryResultIterator#setReadRateLimiter(RateLimiter)}
+     * {@link QueryIterableResult.QueryResultIterator#setReadRateLimiter(RateLimiter)}
      * and
-     * {@link QueryResult.QueryResultIterator#setWriteRateLimiter(RateLimiter)}.
+     * {@link QueryIterableResult.QueryResultIterator#setWriteRateLimiter(RateLimiter)}.
      *
      * @param request the input parameters for the operation
      *
@@ -339,7 +340,7 @@ public interface NoSQLHandle {
      * @throws NoSQLException if the operation cannot be performed for any other
      * reason
      */
-    QueryResult.QueryIterableResult queryIterable(QueryRequest request);
+    QueryIterableResult queryIterable(QueryRequest request);
 
     /**
      * Prepares a query for execution and reuse. See {@link #query} for general

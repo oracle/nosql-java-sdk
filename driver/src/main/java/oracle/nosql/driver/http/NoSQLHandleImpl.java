@@ -9,6 +9,7 @@ package oracle.nosql.driver.http;
 
 import java.util.ArrayList;
 import java.util.logging.Logger;
+
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
@@ -18,9 +19,6 @@ import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
-import oracle.nosql.driver.ops.SystemRequest;
-import oracle.nosql.driver.ops.SystemResult;
-import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetIndexesRequest;
@@ -36,8 +34,12 @@ import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
@@ -192,9 +194,9 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     @Override
-    public QueryResult.QueryIterableResult queryIterable(QueryRequest request) {
+    public QueryIterableResult queryIterable(QueryRequest request) {
         checkClient();
-        return new QueryResult.QueryIterableResult(request, this);
+        return new QueryIterableResult(request, this);
     }
 
     @Override
