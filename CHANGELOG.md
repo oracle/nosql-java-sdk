@@ -11,7 +11,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 - Added client statistics. Users can enable internal driver statistics by
 using system property -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=
-[none|regular|more|all] or by using the NoSQLConfig.setStatsProfile() api.
+[none|regular|more|all] or by using the NoSQLHandleConfig.setStatsProfile() api.
+- Added StatsControl interface as well as methods to control stats in
+NoSQLHandleConfig and NoSQLHandle.
+- Added to NoSQLHandleConfig:
+ - get/setStatsInterval
+ - get/setStatsProfile
+ - get/setStatsPrettyPrint
+ - getStatsHandler
+- Added to NoSQLHandle:
+ - getStatsControl
 
 ## [5.2.29] 2021-11-18
 

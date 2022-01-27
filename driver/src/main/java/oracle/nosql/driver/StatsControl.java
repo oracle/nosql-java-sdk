@@ -82,6 +82,8 @@ import oracle.nosql.driver.values.MapValue;
  *
  * For a detailed statistics log entries structure and values see
  * {@link oracle.nosql.driver}</p>
+ *
+ * @since 5.2.30
  */
 public interface StatsControl {
 

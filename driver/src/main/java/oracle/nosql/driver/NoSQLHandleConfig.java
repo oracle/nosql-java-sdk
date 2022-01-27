@@ -1211,6 +1211,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsInterval stats logging interval in seconds
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsInterval(int statsInterval) {
         if (statsInterval < 1) {
@@ -1226,6 +1228,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default interval is 600 seconds, i.e. 10 min.
      *
      * @return the current interval in seconds
+     *
+     * @since 5.2.30
      */
     public int getStatsInterval() {
         return this.statsInterval;
@@ -1237,6 +1241,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsProfile profile to use
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
     {
@@ -1249,6 +1255,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default profile is NONE.
      *
      * @return the current profile
+     *
+     * @since 5.2.30
      */
     public StatsControl.Profile getStatsProfile() {
         return this.statsProfile;
@@ -1261,6 +1269,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsPrettyPrint flag to enable JSON pretty print
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsPrettyPrint(boolean statsPrettyPrint) {
         this.statsPrettyPrint = statsPrettyPrint;
@@ -1272,6 +1282,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default is disabled.
      *
      * @return the current JSON pretty print flag
+     *
+     * @since 5.2.30
      */
     public boolean getStatsPrettyPrint() {
         return this.statsPrettyPrint;
@@ -1283,6 +1295,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param statsHandler User defined StatsHandler.
      *
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsHandler(
         StatsControl.StatsHandler statsHandler) {
@@ -1294,6 +1308,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Returns the registered statistics handler, otherwise null.
      *
      * @return this
+     *
+     * @since 5.2.30
      */
     public StatsControl.StatsHandler getStatsHandler() {
         return this.statsHandler;

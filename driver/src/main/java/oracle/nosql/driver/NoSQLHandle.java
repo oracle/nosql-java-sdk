@@ -575,6 +575,8 @@ public interface NoSQLHandle {
      * Returns an object that allows control over how statistics are collected.
      *
      * @return the StatsControl object
+     *
+     * @since 5.2.30
      */
     public StatsControl getStatsControl();
 
