@@ -28,6 +28,7 @@ import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.TableLimits;
@@ -2024,7 +2025,7 @@ public class QueryTest extends ProxyTestBase {
         } while (!qreq.isDone());
 
         //qreq = new QueryRequest().setStatement(query).setLimit(3);
-        QueryResult.QueryIterableResult qires = handle.queryIterable(qreq);
+        QueryIterableResult qires = handle.queryIterable(qreq);
         Set<MapValue> actualSet = new HashSet<>();
 
         for (MapValue qiRow : qires) {
@@ -2054,14 +2055,12 @@ public class QueryTest extends ProxyTestBase {
      */
     private void checkQueryIterableOrdered(String query) {
         QueryRequest qreq = new QueryRequest().setStatement(query);
-        QueryResult qres;
 
-        qres = handle.query(qreq);
-        QueryResult.QueryIterableResult qires = handle.queryIterable(qreq);
+        QueryIterableResult qires = handle.queryIterable(qreq);
 
         Iterator<MapValue> qiIter = qires.iterator();
         do {
-            qres = handle.query(qreq);
+            QueryResult qres = handle.query(qreq);
             for( MapValue row : qres.getResults() ) {
                 assertTrue(qiIter.hasNext());
                 MapValue qiItem = qiIter.next();
