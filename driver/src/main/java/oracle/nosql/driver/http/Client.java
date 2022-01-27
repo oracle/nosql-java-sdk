@@ -353,6 +353,15 @@ public class Client {
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
 
+        /*
+         * If the request doesn't set an explicit compartment, use
+         * the config default if provided.
+         */
+        if (kvRequest.getCompartment() == null) {
+            kvRequest.setCompartmentInternal(
+                config.getDefaultCompartment());
+        }
+
         int rateDelayedMs = 0;
         boolean checkReadUnits = false;
         boolean checkWriteUnits = false;
@@ -376,7 +385,8 @@ public class Client {
                 writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
                 if (readLimiter == null && writeLimiter == null) {
                     if (kvRequest.doesReads() || kvRequest.doesWrites()) {
-                        backgroundUpdateLimiters(tableName);
+                        backgroundUpdateLimiters(tableName,
+                                                 kvRequest.getCompartment());
                     }
                 } else {
                     checkReadUnits = kvRequest.doesReads();
@@ -499,14 +509,6 @@ public class Client {
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
 
-                /*
-                 * If the request doesn't set an explicit compartment, use
-                 * the config default if provided.
-                 */
-                if (kvRequest.getCompartment() == null) {
-                    kvRequest.setCompartmentInternal(
-                        config.getDefaultCompartment());
-                }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
                 if (isLoggable(logger, Level.FINE)) {
@@ -1020,14 +1022,17 @@ public class Client {
      * Query table limits and create rate limiters for a table in a
      * short-lived background thread.
      */
-    private synchronized void backgroundUpdateLimiters(String tableName) {
+    private synchronized void backgroundUpdateLimiters(String tableName,
+                                                       String compartmentId) {
         if (tableNeedsRefresh(tableName) == false) {
             return;
         }
         setTableNeedsRefresh(tableName, false);
 
         try {
-            threadPool.execute(() -> {updateTableLimiters(tableName);});
+            threadPool.execute(() -> {
+                updateTableLimiters(tableName, compartmentId);
+            });
         } catch (RejectedExecutionException e) {
             setTableNeedsRefresh(tableName, true);
         }
@@ -1036,10 +1041,11 @@ public class Client {
     /*
      * This is meant to be run in a background thread
      */
-    private void updateTableLimiters(String tableName) {
+    private void updateTableLimiters(String tableName, String compartmentId) {
 
         GetTableRequest gtr = new GetTableRequest()
             .setTableName(tableName)
+            .setCompartment(compartmentId)
             .setTimeout(1000);
         TableResult res = null;
         try {

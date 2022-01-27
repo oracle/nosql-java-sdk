@@ -3,10 +3,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- Updated copyrights to 2022
+
+### Fixed
+- Cloud only: Updated internal rate limiter processing to work
+properly with Instance Principals
+
 ## [5.2.30] 2022-01-21
 
 ### Changed
-- Updated OCI regions
+- Cloud only: Updated OCI regions
 
 ### Added
 - Added client statistics. Users can enable internal driver statistics by
