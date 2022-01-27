@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.httpclient;
 
+import static oracle.nosql.driver.util.LogUtil.isFineEnabled;
+import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
@@ -309,6 +311,18 @@ public class HttpClient {
              * Ensure that the channel is in good shape
              */
             if (fut.isSuccess() && retChan.isActive()) {
+                /*
+                 * Clear out any previous state. The channel should not
+                 * have any state associated with it, but this code is here
+                 * just in case it does.
+                 */
+                if (retChan.attr(STATE_KEY).get() != null) {
+                    if (isFineEnabled(logger)) {
+                        logFine(logger, "HttpClient acquired a channel with " +
+                                "a still-active state: clearing.");
+                    }
+                    retChan.attr(STATE_KEY).set(null);
+                }
                 return retChan;
             }
             logInfo(logger,
@@ -319,6 +333,9 @@ public class HttpClient {
     }
 
     public void releaseChannel(Channel channel) {
+        /* Clear any response handler state from channel before releasing it */
+        channel.attr(STATE_KEY).set(null);
+
         /*
          * If channel is not healthy/active it will be closed and removed
          * from the pool. Don't wait for completion.

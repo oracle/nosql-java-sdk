@@ -1,8 +1,8 @@
 /*-
- * See the file LICENSE for redistribution information.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
- * Copyright (c) 2011, 2018 Oracle and/or its affiliates.  All rights reserved.
- *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
  */
 
 package oracle.nosql.driver;
@@ -146,6 +146,9 @@ public class OnPremiseTest extends ProxyTestBase {
       }
     */
     protected void dropRegions(NoSQLHandle nosqlHandle) {
+        if (checkKVVersion(20, 1, 1) == false) {
+            return;
+        }
         SystemResult res = doSysOp(nosqlHandle, "show as json regions");
         String regionString = res.getResultString();
         if (regionString != null) {
@@ -234,7 +237,7 @@ public class OnPremiseTest extends ProxyTestBase {
     @Test
     public void testChildTables()
         throws Exception {
-
+        assumeKVVersion("testChildTable", 20, 1, 1);
         String tableName = "parent";
         String createTableStatement =
             "CREATE TABLE IF NOT EXISTS " + tableName +
@@ -568,6 +571,7 @@ public class OnPremiseTest extends ProxyTestBase {
 
     @Test
     public void testLargeRow() {
+        assumeKVVersion("testLargeRow", 20, 1, 1);
         doLargeRow(handle, true);
     }
 
@@ -576,6 +580,7 @@ public class OnPremiseTest extends ProxyTestBase {
      */
     @Test
     public void testMultiRegion() {
+        assumeKVVersion("testMultiRegion", 20, 1, 1);
         final String show = "show regions";
         final String createRegion = "create region remoteRegion";
         final String setRegion = "set local region localRegion";

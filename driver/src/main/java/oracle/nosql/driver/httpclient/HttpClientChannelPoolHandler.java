@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -117,7 +117,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         boolean val = channel.isActive();
 
         if (!val) {
-            logInfo(client.getLogger(),
+            logFine(client.getLogger(),
                     "HttpClient " + client.getName() +
                     ", channel inactive in health check: " + channel);
         }
