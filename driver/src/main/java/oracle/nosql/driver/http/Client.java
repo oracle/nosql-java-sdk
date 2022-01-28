@@ -401,9 +401,12 @@ public class Client {
         kvRequest.setStartTimeMs(startTime);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
+        String requestId = "";
+        int thisIterationTimeoutMs = 0;
+
         do {
             long thisTime = System.currentTimeMillis();
-            int thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
 
             /*
              * Check rate limiters before executing the request.
@@ -462,7 +465,7 @@ public class Client {
                  * operations in the loop.
                  */
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
-                String requestId = Long.toString(nextRequestId());
+                requestId = Long.toString(nextRequestId());
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel, requestId);
 
@@ -521,7 +524,7 @@ public class Client {
                     responseHandler.await(thisIterationTimeoutMs);
                 if (isTimeout) {
                     throw new TimeoutException("Request timed out after " +
-                        timeoutMs + " milliseconds");
+                        timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
                 if (isLoggable(logger, Level.FINE)) {
@@ -687,6 +690,7 @@ public class Client {
                 throw new NoSQLException(
                     "Unable to execute request: " + ee.getCause().getMessage());
             } catch (TimeoutException te) {
+                exception = te;
                 logInfo(logger, "Timeout exception: " + te);
                 break; /* fall through to exception below */
             } catch (Throwable t) {
@@ -721,8 +725,9 @@ public class Client {
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
         throw new RequestTimeoutException(timeoutMs,
-            "Request timed out after " + kvRequest.getNumRetries() +
-            (kvRequest.getNumRetries() == 1 ? " retry. " : " retries. ") +
+            requestClass + " timed out: requestId=" + requestId + " " +
+            " nextRequestId=" + nextRequestId() +
+            " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
     }
