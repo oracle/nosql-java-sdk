@@ -98,6 +98,12 @@ public class HttpClient {
     private final String name;
 
     /*
+     * Amount of time to wait for acquiring a channel before timing
+     * out and possibly retrying
+     */
+    private final int acquireRetryIntervalMs;
+
+    /*
      * Non-null if using SSL
      */
     private final SslContext sslCtx;
@@ -225,6 +231,11 @@ public class HttpClient {
             connectionPoolSize,
             poolMaxPending,
             true); /* do health check on release */
+
+        /* TODO: eventually add this to Config? */
+        acquireRetryIntervalMs = Integer.getInteger(
+                                    "oracle.nosql.driver.acquire.retryinterval",
+                                    1000);
     }
 
     SslContext getSslContext() {
@@ -304,31 +315,67 @@ public class HttpClient {
     public Channel getChannel(int timeoutMs)
         throws InterruptedException, ExecutionException, TimeoutException {
 
+        long startMs = System.currentTimeMillis();
+        long now = startMs;
+        int retries = 0;
+
         while (true) {
-            Future<Channel> fut = pool.acquire();
-            Channel retChan = fut.get(timeoutMs, TimeUnit.MILLISECONDS);
-            /*
-             * Ensure that the channel is in good shape
-             */
-            if (fut.isSuccess() && retChan.isActive()) {
-                /*
-                 * Clear out any previous state. The channel should not
-                 * have any state associated with it, but this code is here
-                 * just in case it does.
-                 */
-                if (retChan.attr(STATE_KEY).get() != null) {
-                    if (isFineEnabled(logger)) {
-                        logFine(logger, "HttpClient acquired a channel with " +
-                                "a still-active state: clearing.");
-                    }
-                    retChan.attr(STATE_KEY).set(null);
-                }
-                return retChan;
+            long msDiff = now - startMs;
+
+            /* retry loop with at most (retryInterval) ms timeouts */
+            long thisTimeoutMs = (timeoutMs - msDiff);
+            if (thisTimeoutMs <= 0) {
+                String msg = "Timed out after " + msDiff +
+                             "ms (" + retries + " retries) trying " +
+                             "to acquire channel";
+                logInfo(logger, "HttpClient " + name + " " + msg);
+                throw new TimeoutException(msg);
             }
-            logInfo(logger,
-                    "HttpClient " + name + ", acquired an inactive channel, " +
-                    "releasing it and retrying, reason: " + fut.cause());
-            releaseChannel(retChan);
+            if (thisTimeoutMs > acquireRetryIntervalMs) {
+                thisTimeoutMs = acquireRetryIntervalMs;
+            }
+            Future<Channel> fut = pool.acquire();
+            Channel retChan = null;
+            try {
+                retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                if (retries == 0) {
+                    logInfo(logger, "Timed out after " + msDiff +
+                             "ms trying to acquire channel: retrying");
+                }
+                /* fall through */
+            }
+
+            /*
+             * Ensure that the channel is in good shape. retChan is null
+             * on a timeout exception from above; that path will retry.
+             */
+            if (retChan != null) {
+                if (fut.isSuccess() && retChan.isActive()) {
+                    /*
+                     * Clear out any previous state. The channel should not
+                     * have any state associated with it, but this code is here
+                     * just in case it does.
+                     */
+                    if (retChan.attr(STATE_KEY).get() != null) {
+                        if (isFineEnabled(logger)) {
+                            logFine(logger,
+                                    "HttpClient acquired a channel with " +
+                                    "a still-active state: clearing.");
+                        }
+                        retChan.attr(STATE_KEY).set(null);
+                    }
+                    return retChan;
+                }
+                logFine(logger,
+                        "HttpClient " + name + ", acquired an inactive " +
+                        "channel, releasing it and retrying, reason: " +
+                        fut.cause());
+                releaseChannel(retChan);
+            }
+            /* reset "now" and increment retries */
+            now = System.currentTimeMillis();
+            retries++;
         }
     }
 
