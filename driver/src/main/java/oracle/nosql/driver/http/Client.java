@@ -927,8 +927,6 @@ public class Client {
                     QueryRequest qreq = (QueryRequest)kvRequest;
                     if (!qreq.isSimpleQuery()) {
                         qreq.getDriver().setClient(this);
-                    } else {
-                        ((QueryResult)res).setClient(this);
                     }
                 }
 

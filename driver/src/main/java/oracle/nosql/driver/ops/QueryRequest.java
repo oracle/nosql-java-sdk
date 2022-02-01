@@ -151,7 +151,8 @@ public class QueryRequest extends Request {
 
     /**
      * @hidden
-     * Creates an exact copy with a new copy of QueryDriver
+     * Creates a copy (with a new copy of QueryDriver) that starts fresh from
+     * the beginning.
      * @return a copy of the instance in a new object
      */
     public QueryRequest copy() {
@@ -184,10 +185,10 @@ public class QueryRequest extends Request {
      */
     public void setDriver(QueryDriver driver) {
 
-//        if (this.driver != null) {
-//            throw new IllegalArgumentException(
-//                "QueryRequest is already bound to a QueryDriver");
-//        }
+        if (this.driver != null) {
+            throw new IllegalArgumentException(
+                "QueryRequest is already bound to a QueryDriver");
+        }
 
         this.driver = driver;
     }
