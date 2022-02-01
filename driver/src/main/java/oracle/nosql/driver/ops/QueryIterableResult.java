@@ -2,13 +2,42 @@ package oracle.nosql.driver.ops;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import oracle.nosql.driver.Consistency;
+import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.values.MapValue;
 
+/**
+ * QueryIterableResult represents an {@link Iterable} over all the query
+ * results.
+ *<p>
+ * The shape of the values is based on the schema implied by the query. For
+ * example a query such as "SELECT * FROM ..." that returns an intact row will
+ * return values that conform to the schema of the table. Projections return
+ * instances that conform to the schema implied by the statement. UPDATE
+ * queries either return values based on a RETURNING clause or, by default,
+ * the number of rows affected by the statement.
+ * <p>
+ * Example:
+ * <pre>
+ * NoSQLHandle handle = ...;
+ *
+ * QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ *
+ * for (MapValue row : handle.queryIterable(qreq)) {
+ *     // do something with row
+ * }
+ * </pre>
+ *
+ * Note: The read/write KB/Units, rate limit delay and retry stats are summed
+ * up from the beginning of the iteration.
+ *
+ * @see NoSQLHandle#queryIterable(QueryRequest)
+ */
 public class QueryIterableResult
     extends Result
     implements Iterable<MapValue> {
@@ -18,6 +47,11 @@ public class QueryIterableResult
 
     private int readKB, readUnits, writeKB, writeUnits;
 
+    /**
+     * @hidden
+     * @param request the request used
+     * @param handle the NoSQL handle
+     */
     public QueryIterableResult(QueryRequest request, NoSQLHandle handle) {
         assert request != null : "request should not be null";
         assert handle != null : "handle should not be null";
@@ -25,6 +59,10 @@ public class QueryIterableResult
         this.handle = handle;
     }
 
+    /**
+     * Returns an iterator over all results of a query.
+     * @return the iterator
+     */
     @Override
     public Iterator<MapValue> iterator() {
         return new QueryResultIterator(this);
@@ -74,7 +112,11 @@ public class QueryIterableResult
 
 
     /**
-     * Implements an iterator over all results of a query. The implementation
+     * Implements an iterator over all results of a query.
+     * Internally the driver gets a batch of rows, at a time, from the server.
+     *
+     * During iteration, user can adjust, at any time, the timeout, rate limiters
+     * and max number of items in one batch.
      */
     public static class QueryResultIterator implements Iterator<MapValue> {
         final QueryIterableResult queryIterableResult;
@@ -161,8 +203,6 @@ public class QueryIterableResult
          *
          * @param timeoutMs the timeout value, in milliseconds
          *
-         * @return this
-         *
          * @throws IllegalArgumentException if the timeout value is less than
          * or equal to 0
          */
@@ -205,7 +245,7 @@ public class QueryIterableResult
             internalRequest.setLimit(limit);
         }
 
-        private synchronized void compute() {
+        private void compute() {
             if (partialResultsIterator == null) {
                 if (internalResult == null) {
                     internalResult =
@@ -259,16 +299,50 @@ public class QueryIterableResult
             }
         }
 
+        /**
+         * Returns {@code true} if the iteration has more results.
+         *
+         * @return {@code true} if the iteration has more results
+         *
+         * @throws IllegalArgumentException if any of the parameters are invalid
+         * or required parameters are missing
+         *
+         * @throws NoSQLException if the operation cannot be performed for
+         * any other reason
+         */
         @Override
-        public synchronized boolean hasNext() {
+        public boolean hasNext() {
             compute();
             return partialResultsIterator.hasNext();
         }
 
+        /**
+         * Returns the next result for the query.
+         *
+         * @return the next result
+         *
+         * @throws NoSuchElementException if the iteration has no more results
+         *
+         * @throws IllegalArgumentException if any of the parameters are invalid
+         * or required parameters are missing
+         *
+         * @throws NoSQLException if the operation cannot be performed for
+         * any other reason
+         */
         @Override
-        public synchronized MapValue next() {
+        public MapValue next() {
             compute();
             return partialResultsIterator.next();
+        }
+
+        /**
+         * Terminates the query execution and releases any memory consumed by
+         * the query at the driver. An application should use this method if it
+         * wishes to terminate query execution before retrieving all of the
+         * query results.
+         */
+        public void close() {
+            internalRequest.close();
         }
     }
 }

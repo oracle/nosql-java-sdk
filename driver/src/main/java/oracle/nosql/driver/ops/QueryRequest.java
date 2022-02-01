@@ -28,6 +28,25 @@ import oracle.nosql.driver.query.TopologyInfo;
  * may be reused. This is because prepared queries bypass query compilation.
  * They also allow for parameterized queries using bind variables.
  * <p>
+ * There are two ways to get the results of a query: using an iterator or
+ * loop through partial results.
+ * <p>
+ * <b>Iterator</b>
+ * <p>
+ * Use {@link NoSQLHandle#queryIterable(QueryRequest)} to get an iterable
+ * that contains all the results. Usage example:
+ * <pre>
+ *    NoSQLHandle handle = ...;
+ *
+ *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ *
+ *    for (MapValue row : handle.queryIterable(qreq) ) {
+ *        // do something with row
+ *    }
+ * </pre>
+ * <p>
+ * <b>Partial results</b>
+ * <p>
  * To compute and retrieve the full result set of a query, the same QueryRequest
  * instance will, in general, have to be executed multiple times (via
  * {@link NoSQLHandle#query}. Each execution returns a {@link QueryResult},
@@ -60,8 +79,9 @@ import oracle.nosql.driver.query.TopologyInfo;
  * application threads need to run the same query concurrently, they must
  * create and use their own QueryRequest instances.
  *
- * @see NoSQLHandle#query
- * @see NoSQLHandle#prepare
+ * @see NoSQLHandle#queryIterable(QueryRequest)
+ * @see NoSQLHandle#query(QueryRequest)
+ * @see NoSQLHandle#prepare(PrepareRequest)
  */
 public class QueryRequest extends Request {
 
