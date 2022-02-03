@@ -8,7 +8,9 @@
 package oracle.nosql.driver;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -19,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 import oracle.nosql.driver.ops.GetRequest;
@@ -119,6 +122,15 @@ public class QueryTest extends ProxyTestBase {
                        new TableLimits(45000, 15000, 50));
 
         tableOperation(handle, createIdxNameDDL, null);
+    }
+
+    @Override
+    public void afterTest() throws Exception {
+        handle.queryIterable(new QueryRequest().setStatement("DELETE FROM " +
+            "testTable"));
+        tableOperation(handle, "DROP TABLE testTable", null);
+        super.afterTest();
+
     }
 
     @Test
@@ -1865,7 +1877,7 @@ public class QueryTest extends ProxyTestBase {
         try {
             handle.query(req);
             fail("Expected IAE");
-        } catch(IllegalArgumentException ex) {
+        } catch (IllegalArgumentException ex) {
         }
 
         /*
@@ -1920,19 +1932,14 @@ public class QueryTest extends ProxyTestBase {
             qres = handle.query(qreq);
             for( MapValue row : qres.getResults() ) {
                 expectedSet.add(row);
-                System.out.println("  expected row: " + row);
             }
-            System.out.println("     ReadKB: " + qres.getReadKB() + "     " +
-                "ReadUnits: " + qres.getReadUnits());
         } while (!qreq.isDone());
 
-        //qreq = new QueryRequest().setStatement(query).setLimit(3);
         QueryIterableResult qires = handle.queryIterable(qreq);
         Set<MapValue> actualSet = new HashSet<>();
 
         for (MapValue qiRow : qires) {
             actualSet.add(qiRow);
-            System.out.println("  actual row: " + qiRow);
         }
 
         try {
@@ -1966,8 +1973,6 @@ public class QueryTest extends ProxyTestBase {
             for( MapValue row : qres.getResults() ) {
                 assertTrue(qiIter.hasNext());
                 MapValue qiItem = qiIter.next();
-                //System.out.println("\n  exp: " + row + " " + "\n  act: " +
-                // qiItem);
 
                 assertEquals(row.entrySet().size(),
                     qiItem.entrySet().size());
@@ -1979,6 +1984,56 @@ public class QueryTest extends ProxyTestBase {
                 }
             }
         } while (!qreq.isDone());
+    }
+
+
+    @Test
+    public void testQueryIterableReuse() {
+        final int numMajor = 10;
+        final int numPerMajor = 2;
+
+        /* Load rows to table */
+        loadRowsToScanTable(numMajor, numPerMajor, 1);
+
+        /* Get all results and try to use the iterator again */
+        QueryRequest qr = new QueryRequest()
+            .setLimit(4)
+            .setStatement("select * from testTable");
+
+        QueryIterableResult qires = handle.queryIterable(qr);
+        QueryIterableResult.QueryResultIterator qrit = qires.iterator();
+        int count = 0;
+        while (qrit.hasNext()) {
+            MapValue row = qrit.next();
+            assertNotNull(row);
+            count ++;
+        }
+
+        assertEquals(numMajor*numPerMajor, count);
+        assertFalse(qrit.hasNext());
+
+        assertThrows(NoSuchElementException.class, qrit::next);
+
+        /* New iterator from the same iterable, close in the middle. */
+        qrit = qires.iterator();
+        for (int i = 0; i < numMajor*numPerMajor/2; i++) {
+            MapValue row = qrit.next();
+            assertNotNull(row);
+        }
+
+        qrit.close();
+        assertThrows(NoSuchElementException.class, qrit::next);
+
+        /* Get new iterable from the same QueryRequest */
+        count = 0;
+        for( MapValue row : handle.queryIterable(qr)) {
+            assertNotNull(row);
+            count ++;
+        }
+        assertEquals(numMajor*numPerMajor, count);
+        assertFalse(qrit.hasNext());
+
+        assertThrows(NoSuchElementException.class, qrit::next);
     }
 
     private void execInsertAndCheckInfo(PreparedStatement pstmt,

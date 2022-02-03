@@ -64,7 +64,7 @@ public class QueryIterableResult
      * @return the iterator
      */
     @Override
-    public Iterator<MapValue> iterator() {
+    public QueryResultIterator iterator() {
         return new QueryResultIterator(this);
     }
 
@@ -123,6 +123,7 @@ public class QueryIterableResult
         final QueryRequest internalRequest;
         QueryResult internalResult;
         Iterator<MapValue> partialResultsIterator;
+        boolean closed = false;
 
         QueryResultIterator(QueryIterableResult queryIterableResult) {
             assert queryIterableResult != null;
@@ -312,6 +313,9 @@ public class QueryIterableResult
          */
         @Override
         public boolean hasNext() {
+            if (closed) {
+                return false;
+            }
             compute();
             return partialResultsIterator.hasNext();
         }
@@ -331,6 +335,9 @@ public class QueryIterableResult
          */
         @Override
         public MapValue next() {
+            if (closed) {
+                throw new NoSuchElementException("Iterator already closed.");
+            }
             compute();
             return partialResultsIterator.next();
         }
@@ -342,6 +349,7 @@ public class QueryIterableResult
          * query results.
          */
         public void close() {
+            closed = true;
             internalRequest.close();
         }
     }
