@@ -410,7 +410,16 @@ public class ProxyTestBase {
         /* allow test cases to add/modify handle config */
         perTestHandleConfig(config);
 
-        return getHandle(config);
+        NoSQLHandle h = getHandle(config);
+
+        /* this will set up the right protocol serial version */
+        try {
+            getTable("noop", h);
+        } catch (Exception e) {
+            /* ignore errors */
+        }
+
+        return h;
     }
 
     /**

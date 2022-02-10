@@ -21,7 +21,7 @@ import oracle.nosql.driver.NoSQLHandleConfig;
  * about the existing value of the target row on failure. By default
  * no previous information is returned.
  */
-public abstract class WriteRequest extends Request {
+public abstract class WriteRequest extends DurableRequest {
 
     private boolean returnRow;
 
@@ -56,13 +56,5 @@ public abstract class WriteRequest extends Request {
                 (requestName +
                  " requires table name"));
         }
-    }
-
-    /**
-     * @hidden
-     */
-    @Override
-    public boolean doesWrites() {
-        return true;
     }
 }
