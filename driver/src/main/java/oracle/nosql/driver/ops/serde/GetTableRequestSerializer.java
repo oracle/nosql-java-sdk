@@ -38,7 +38,7 @@ class GetTableRequestSerializer extends BinaryProtocol implements Serializer {
                                    short serialVersion)
         throws IOException {
 
-        return deserializeTableResult(in);
+        return deserializeTableResult(in, serialVersion);
     }
 
 }

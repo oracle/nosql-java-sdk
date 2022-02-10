@@ -38,12 +38,23 @@ import oracle.nosql.driver.NoSQLHandle;
  */
 public class TableLimits {
 
+    /**
+     * Table limits option
+     *
+     * @since 5.3.0
+     */
+    public enum CapacityMode {
+        PROVISIONED,
+        ON_DEMAND;
+    }
+
     private int readUnits;
     private int writeUnits;
     private int storageGB;
+    private CapacityMode mode;
 
     /**
-     * Constructs a TableLimits instance.
+     * Constructs a TableLimits instance for provisioned capacity table.
      *
      * @param readUnits the desired throughput of read operation in terms of
      * read units. A read unit represents 1 eventually consistent read
@@ -61,9 +72,48 @@ public class TableLimits {
     public TableLimits(int readUnits,
                        int writeUnits,
                        int storageGB) {
+        this(readUnits, writeUnits, storageGB, CapacityMode.PROVISIONED);
+    }
+
+    /**
+     * Constructs a TableLimits instance for on demand capacity table.
+     *
+     * @param storageGB the maximum storage to be consumed by the table, in
+     * gigabytes
+     *
+     * @since 5.3.0
+     */
+    public TableLimits(int storageGB) {
+        this(0, 0, storageGB, CapacityMode.ON_DEMAND);
+    }
+
+    /**
+     * @hidden
+     * Limits constructor for read from response.
+     *
+     * @param readUnits the desired throughput of read operation in terms of
+     * read units. A read unit represents 1 eventually consistent read
+     * per second for data up to 1 KB in size. A read that is absolutely
+     * consistent is double that, consuming 2 read units for a read of up to
+     * 1 KB in size. See {@link Consistency}.
+     *
+     * @param writeUnits the desired throughput of write operation in terms of
+     * write units. A write unit represents 1 write per second of data up to
+     * 1 KB in size.
+     *
+     * @param storageGB the maximum storage to be consumed by the table, in
+     * gigabytes
+     *
+     * @param mode the capacity mode used by the table.
+     */
+    public TableLimits(int readUnits,
+                       int writeUnits,
+                       int storageGB,
+                       CapacityMode mode) {
         this.readUnits = readUnits;
         this.writeUnits = writeUnits;
         this.storageGB = storageGB;
+        this.mode = mode;
     }
 
     /**
@@ -88,6 +138,16 @@ public class TableLimits {
      */
     public int getStorageGB() {
         return storageGB;
+    }
+
+    /**
+     * Returns the capacity mode
+     * @return capacity mode
+     *
+     * @since 5.3.0
+     */
+    public CapacityMode getMode() {
+        return mode;
     }
 
     /**
@@ -136,9 +196,25 @@ public class TableLimits {
      * @hidden
      */
     void validate() {
-        if (readUnits <= 0 || writeUnits <= 0 || storageGB <= 0) {
+        if (storageGB <= 0) {
             throw new IllegalArgumentException(
-                "TableLimits values must be non-negative");
+                "storageGB must be non-negative");
+        }
+        switch (mode) {
+        case PROVISIONED:
+            if (readUnits <= 0 || writeUnits <= 0) {
+                throw new IllegalArgumentException(
+                    "readUnits and writeUnits must be non-negative for " +
+                    "provisioned capacity table");
+            }
+            break;
+        case ON_DEMAND:
+            if (readUnits > 0 || writeUnits > 0) {
+                throw new IllegalArgumentException(
+                    "Cannot set readUnits or writeUnits for " +
+                    "on demand capacity table");
+            }
+            break;
         }
     }
 }
