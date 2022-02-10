@@ -15,10 +15,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [5.2.30] 2022-01-21
+## [5.2.31] 2022-01-28
+
+Oracle internal use release
 
 ### Changed
-- Updated OCI regions
+- Updated copyrights to 2022
+- Internal changes to handling of channel (connection) acquisition, including
+addition of retries, within the request timeout period.
+- Enhanced logging of timeout and connection-related exceptions
+
+### Fixed
+- Cloud only: Updated internal rate limiter processing to work
+properly with Instance Principals
+
+## [5.2.30] 2022-01-21
+
+Oracle internal use release
+
+### Changed
+- Cloud only: Updated OCI regions
 
 ### Added
 - Added client statistics. Users can enable internal driver statistics by
