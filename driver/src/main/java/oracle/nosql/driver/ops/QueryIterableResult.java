@@ -121,7 +121,6 @@ public class QueryIterableResult
     public static class QueryResultIterator implements Iterator<MapValue> {
         final QueryIterableResult queryIterableResult;
         final QueryRequest internalRequest;
-        QueryResult internalResult;
         Iterator<MapValue> partialResultsIterator;
         boolean closed = false;
 
@@ -247,15 +246,15 @@ public class QueryIterableResult
         }
 
         private void compute() {
+            QueryResult internalResult;
             if (partialResultsIterator == null) {
-                if (internalResult == null) {
-                    internalResult =
-                        queryIterableResult.handle.query(internalRequest);
-                }
+                internalResult =
+                    queryIterableResult.handle.query(internalRequest);
                 List<MapValue> partialResults = internalResult.getResults();
                 assert partialResults != null : "partialResults should not be" +
                     " null";
                 partialResultsIterator = partialResults.iterator();
+                setStats(internalResult);
             }
 
             while (!partialResultsIterator.hasNext() &&
@@ -266,37 +265,42 @@ public class QueryIterableResult
                     queryIterableResult.handle.query(internalRequest);
 
                 partialResultsIterator = internalResult.getResults().iterator();
-                queryIterableResult.readKB += internalResult.getReadKB();
-                queryIterableResult.readUnits += internalResult.getReadUnits();
-                queryIterableResult.writeKB += internalResult.getWriteKB();
-                queryIterableResult.writeUnits += internalResult.getWriteUnits();
-                queryIterableResult.setRateLimitDelayedMs(
-                    queryIterableResult.getRateLimitDelayedMs() +
-                        internalResult.getRateLimitDelayedMs());
-                queryIterableResult.setReadKB(queryIterableResult.getReadKB() +
-                    internalResult.getReadKB());
-                queryIterableResult.setReadUnits(
-                    queryIterableResult.getReadUnits() +
-                        internalResult.getReadUnits());
-                queryIterableResult.setWriteKB(queryIterableResult.getWriteKB()
-                    + internalResult.getWriteKB());
-
-                if( internalResult.getRetryStats() != null) {
-                    if (queryIterableResult.getRetryStats() == null) {
-                        queryIterableResult.setRetryStats(
-                            internalRequest.getRetryStats());
-                    }
-                    queryIterableResult.getRetryStats().addDelayMs(
-                        internalResult.getRetryStats().getDelayMs());
-                    queryIterableResult.getRetryStats().incrementRetries(
-                        internalResult.getRetryStats().getRetries());
-                    queryIterableResult.getRetryStats().addExceptions(
-                        internalResult.getRetryStats().getExceptionMap());
-                }
+                setStats(internalResult);
             }
 
             if (internalRequest.isDone()) {
                 internalRequest.close();
+                closed = true;
+            }
+        }
+
+        private void setStats(QueryResult internalResult) {
+            queryIterableResult.readKB += internalResult.getReadKB();
+            queryIterableResult.readUnits += internalResult.getReadUnits();
+            queryIterableResult.writeKB += internalResult.getWriteKB();
+            queryIterableResult.writeUnits += internalResult.getWriteUnits();
+            queryIterableResult.setRateLimitDelayedMs(
+                queryIterableResult.getRateLimitDelayedMs() +
+                    internalResult.getRateLimitDelayedMs());
+            queryIterableResult.setReadKB(queryIterableResult.getReadKB() +
+                internalResult.getReadKB());
+            queryIterableResult.setReadUnits(
+                queryIterableResult.getReadUnits() +
+                    internalResult.getReadUnits());
+            queryIterableResult.setWriteKB(queryIterableResult.getWriteKB()
+                + internalResult.getWriteKB());
+
+            if( internalResult.getRetryStats() != null) {
+                if (queryIterableResult.getRetryStats() == null) {
+                    queryIterableResult.setRetryStats(
+                        new RetryStats());
+                }
+                queryIterableResult.getRetryStats().addDelayMs(
+                    internalResult.getRetryStats().getDelayMs());
+                queryIterableResult.getRetryStats().incrementRetries(
+                    internalResult.getRetryStats().getRetries());
+                queryIterableResult.getRetryStats().addExceptions(
+                    internalResult.getRetryStats().getExceptionMap());
             }
         }
 
