@@ -2,7 +2,9 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [5.3.0] 2022-02-17
+
+See also sections on 5.2.30 and 5.2.31 as they were not released publicly. The last public release was 5.2.29.
 
 ### Added
 - Cloud only: Support for On-Demand tables in TableLimits

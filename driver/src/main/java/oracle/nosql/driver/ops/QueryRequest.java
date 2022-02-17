@@ -454,11 +454,6 @@ public class QueryRequest extends Request {
      * @return the statement, or null if it has not been set
      */
     public String getStatement() {
-
-        if (statement == null && preparedStatement != null) {
-            return preparedStatement.getSQLText();
-        }
-
         return statement;
     }
 

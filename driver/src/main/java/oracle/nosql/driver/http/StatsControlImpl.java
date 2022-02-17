@@ -42,7 +42,10 @@ public class StatsControlImpl
         this.statsHandler = config.getStatsHandler();
 
         if (profile != Profile.NONE) {
-            logger.setLevel(Level.INFO);
+            if (config.getStatsEnableLog() &&
+                logger.getLevel().intValue() > Level.INFO.intValue()) {
+                logger.setLevel(Level.INFO);
+            }
             logger.log(Level.INFO, LOG_PREFIX +
                 "{\"sdkName\" : \"Oracle NoSQL SDK for Java" +
                 "\", \"sdkVersion\" : \"" +
@@ -101,12 +104,12 @@ public class StatsControlImpl
 
     @Override
     public void start() {
-        if (profile == Profile.NONE) {
-            stats = null;
-        } else if (stats == null) {
-            stats = new Stats(this);
-            enableCollection = true;
+        if (profile != Profile.NONE) {
+            if (stats == null) {
+                stats = new Stats(this);
+            }
         }
+        enableCollection = true;
     }
 
     @Override
