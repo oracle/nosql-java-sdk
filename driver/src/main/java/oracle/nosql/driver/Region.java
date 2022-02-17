@@ -119,6 +119,9 @@ public class Region {
 
     static {
         /* OC1 */
+        /* AF */
+        OC1_REGIONS.put(AF_JOHANNESBURG_1.getRegionId(), AF_JOHANNESBURG_1);
+
         /* APAC */
         OC1_REGIONS.put(AP_CHUNCHEON_1.getRegionId(), AP_CHUNCHEON_1);
         OC1_REGIONS.put(AP_HYDERABAD_1.getRegionId(), AP_HYDERABAD_1);
