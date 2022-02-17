@@ -7,10 +7,13 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.iam.Utils.getIAMURL;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,6 +24,10 @@ import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.OCIConfigFileReader.OCIConfigFile;
+import oracle.nosql.driver.values.ArrayValue;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.JsonUtils;
+import oracle.nosql.driver.values.MapValue;
 
 import org.junit.After;
 import org.junit.Before;
@@ -242,6 +249,125 @@ public class ConfigFileTest extends DriverTestBase {
             new NoSQLHandleConfig(Region.ME_JEDDAH_1, provider);
             fail("mismatch region");
         } catch (IllegalArgumentException iae) {
+        }
+    }
+
+    private MapValue getRealm(ArrayValue realms, String realm) {
+        for (FieldValue fv : realms) {
+            MapValue mv = fv.asMap();
+            String name = mv.get("name").asString().getValue();
+            if (realm.compareTo(name) == 0) {
+                return mv;
+            }
+        }
+        return null;
+    }
+
+    private String nosqlEndpoint(ArrayValue realms, MapValue mv) {
+        String realm = mv.get("realm").asString().getValue();
+        MapValue realmVals = getRealm(realms, realm);
+        if (realmVals == null) {
+            return null;
+        }
+        String prefix = realmVals.get("epprefix").asString().getValue();
+        String suffix = realmVals.get("epsuffix").asString().getValue();
+        String regionId = mv.get("name").asString().getValue();
+        return "https://" + prefix + regionId + suffix;
+    }
+
+    private String authEndpoint(ArrayValue realms, MapValue mv) {
+        String realm = mv.get("realm").asString().getValue();
+        MapValue realmVals = getRealm(realms, realm);
+        if (realmVals == null) {
+            return null;
+        }
+        String prefix = realmVals.get("authprefix").asString().getValue();
+        String suffix = realmVals.get("authsuffix").asString().getValue();
+        String regionId = mv.get("name").asString().getValue();
+        return "https://" + prefix + regionId + suffix;
+    }
+
+
+    @Test
+    public void testAllRegionCodes() {
+        /* only execute if we're supplied a path to regions.json file */
+        String jsonPath = System.getProperty("test.regionsfile");
+        assumeTrue("Skipping region codes test: no regionsfile given",
+            (jsonPath != null && !jsonPath.isEmpty()));
+        MapValue jsonMap = null;
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(jsonPath);
+            jsonMap = JsonUtils.createValueFromJson(fis, null).asMap();
+        } catch (Exception e) {
+            fail("Can't read regions json file '" + jsonPath + "': " + e);
+        } finally {
+            if (fis != null) {
+                try {
+                    fis.close();
+                } catch (Exception e) {}
+            }
+        }
+
+        /*
+         * Regions json has two fields: "realms" and "regions":
+         *  "realms": [
+         *      {
+         *         "name": "oc1",
+         *         "epprefix": "nosql.",
+         *         "epsuffix": ".oci.oraclecloud.com",
+         *         "authprefix": "auth.",
+         *         "authsuffix": ".oraclecloud.com"
+         *      },
+         *      ...]
+         *
+         *  "regions": [
+         *      {"tlc": "jnb", "realm": "oc1", "name": "af-johannesburg-1"},
+         *      {"tlc": "yny", "realm": "oc1", "name": "ap-chuncheon-1"},
+         *      {"tlc": "nja", "realm": "oc8", "name": "ap-chiyoda-1"},
+         *      ...]
+         *
+         * Walk all regions, and verify endpoints for each.
+         */
+        ArrayValue realms = jsonMap.get("realms").asArray();
+        StringBuilder errs = new StringBuilder();
+        ArrayValue regions = jsonMap.get("regions").asArray();
+        for (FieldValue fv : regions) {
+            MapValue mv = fv.asMap();
+            String regionId = mv.get("name").asString().getValue();
+            Region r = Region.fromRegionId(regionId);
+            if (r == null) {
+                errs.append(" Missing region '").append(regionId).append("'\n");
+            } else {
+                String endpoint = r.endpoint();
+                String expEndpoint = nosqlEndpoint(realms, mv);
+                if (expEndpoint.compareTo(endpoint) != 0) {
+                    errs.append(" Wrong nosql endpoint for region '")
+                        .append(regionId).append("':\n")
+                        .append("  expected=").append(expEndpoint).append("\n")
+                        .append("  observed=").append(endpoint).append("\n");
+                }
+            }
+            String expAuthURL = authEndpoint(realms, mv);
+
+            String authURL = getIAMURL(regionId);
+            if (authURL == null || expAuthURL.compareTo(authURL) != 0) {
+                errs.append(" Wrong auth endpoint for region '")
+                    .append(regionId).append("':\n")
+                    .append("  expected=").append(expAuthURL).append("\n")
+                    .append("  observed=").append(authURL).append("\n");
+            }
+            String regionCode = mv.get("tlc").asString().getValue();
+            authURL = getIAMURL(regionCode);
+            if (authURL == null ||expAuthURL.compareTo(authURL) != 0) {
+                errs.append(" Wrong auth endpoint for region code '")
+                    .append(regionCode).append("':\n")
+                    .append("  expected=").append(expAuthURL).append("\n")
+                    .append("  observed=").append(authURL).append("\n");
+            }
+        }
+        if (errs.length() > 0) {
+            fail("\nErrors found in regions:\n" + errs.toString());
         }
     }
 }
