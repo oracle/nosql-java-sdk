@@ -37,7 +37,11 @@ import oracle.nosql.driver.values.MapValue;
  *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
  *   to enable pretty printing of the JSON data, default value is
- *   false</li></ul>
+ *   false</li><li>
+ *
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.enable-log=false Option
+ *   to turn on logging automatically if stats are enabled, default value is
+ *   true</li></ul>
  *
  * Statistics can also be enabled by using the API:
  * {@link NoSQLHandleConfig#setStatsProfile(StatsControl.Profile)} or

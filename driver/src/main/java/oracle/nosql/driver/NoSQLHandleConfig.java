@@ -201,16 +201,26 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Statistics configuration, optional.
      */
-    private final static String PROFILE_PROPERTY =
+    public static final String STATS_PROFILE_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.profile";
-    private final static String INTERVAL_PROPERTY =
+    public static final String STATS_INTERVAL_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.interval";
-    private final static String PRETTY_PRINT_PROPERTY =
+    public static final String STATS_PRETTY_PRINT_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    public static final String STATS_ENABLE_LOG_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
+
     /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
-    private int statsInterval = 600;
-    private StatsControl.Profile statsProfile = StatsControl.Profile.NONE;
-    private boolean statsPrettyPrint = false;
+    public static final int DEFAULT_STATS_INTERVAL = 600;
+    public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
+        StatsControl.Profile.NONE;
+    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    public static final boolean DEFAULT_ENABLE_LOG = true;
+
+    private int statsInterval = DEFAULT_STATS_INTERVAL;
+    private StatsControl.Profile statsProfile = DEFAULT_STATS_PROFILE;
+    private boolean statsPrettyPrint = DEFAULT_STATS_PRETTY_PRINT;
+    private boolean statsEnableLog = DEFAULT_ENABLE_LOG;
     private StatsControl.StatsHandler statsHandler = null;
 
     /**
@@ -1290,6 +1300,33 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     * When stats are enabled the logging is automatically turned on. Setting
+     * this to false avoids turning the log on when enabling stats.
+     * Default is on.
+     *
+     * @param statsEnableLog flag to enable JSON pretty print
+     * @return this
+     *
+     * @since 5.2.30
+     */
+    public NoSQLHandleConfig setStatsEnableLog(boolean statsEnableLog) {
+        this.statsEnableLog = statsEnableLog;
+        return this;
+    }
+
+    /**
+     * Returns the current value of enabling the log when stats are turned on.
+     * Default is enabled.
+     *
+     * @return the current state of stats enable log flag.
+     *
+     * @since 5.2.30
+     */
+    public boolean getStatsEnableLog() {
+        return this.statsEnableLog;
+    }
+
+    /**
      * Registers a handler that is called every time the statistics are logged.
      * Note: setting a stats handler will not affect the stats log entries.
      * @param statsHandler User defined StatsHandler.
@@ -1352,7 +1389,7 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     private void setConfigFromEnvironment() {
-        String profileProp = System.getProperty(PROFILE_PROPERTY);
+        String profileProp = System.getProperty(STATS_PROFILE_PROPERTY);
         if (profileProp != null) {
             try {
                 setStatsProfile(StatsControl.Profile.valueOf(
@@ -1361,29 +1398,36 @@ public class NoSQLHandleConfig implements Cloneable {
                 if (logger != null) {
                     logger.log(Level.SEVERE, StatsControl.LOG_PREFIX +
                         "Invalid profile value for system property " +
-                        PROFILE_PROPERTY + ": " + profileProp);
+                        STATS_PROFILE_PROPERTY + ": " + profileProp);
                 }
             }
         }
 
-        String intervalProp = System.getProperty(INTERVAL_PROPERTY);
+        String intervalProp = System.getProperty(STATS_INTERVAL_PROPERTY);
         if (intervalProp != null) {
             try {
                 setStatsInterval(Integer.valueOf(intervalProp));
             } catch (NumberFormatException nfe) {
                 if (logger != null) {
                     logger.log(Level.SEVERE, "Invalid integer value for " +
-                        "system property " + INTERVAL_PROPERTY + ": " +
+                        "system property " + STATS_INTERVAL_PROPERTY + ": " +
                         intervalProp);
                 }
             }
         }
 
-        String ppProp = System.getProperty(PRETTY_PRINT_PROPERTY);
+        String ppProp = System.getProperty(STATS_PRETTY_PRINT_PROPERTY);
         if (ppProp != null &&
             ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
              "on".equals(ppProp.toLowerCase()))) {
             statsPrettyPrint = Boolean.valueOf(ppProp);
+        }
+
+        String elProp = System.getProperty(STATS_ENABLE_LOG_PROPERTY);
+        if (elProp != null &&
+            ("false".equals(elProp.toLowerCase()) || "0".equals(elProp) ||
+                "off".equals(elProp.toLowerCase()))) {
+            statsEnableLog = Boolean.FALSE;
         }
     }
 }
