@@ -64,6 +64,8 @@ public class DeleteResult extends WriteResult {
      * method {@link DeleteRequest#setReturnRow} was called with a true value.
      *
      * @return the modification time in milliseconds since Jan 1, 1970
+     *
+     * @since 5.3.0
      */
     public long getExistingModificationTime() {
         return super.getExistingModificationTimeInternal();

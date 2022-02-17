@@ -166,6 +166,8 @@ public class WriteMultipleRequest extends DurableRequest {
      * the default durability setting on the kvstore server.
      *
      * @return this
+     *
+     * @since 5.3.0
      */
     public WriteMultipleRequest setDurability(Durability durability) {
         setDurabilityInternal(durability);

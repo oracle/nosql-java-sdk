@@ -316,6 +316,8 @@ public class PutRequest extends WriteRequest {
      * the default durability setting on the kvstore server.
      *
      * @return this
+     *
+     * @since 5.3.0
      */
     public PutRequest setDurability(Durability durability) {
         setDurabilityInternal(durability);

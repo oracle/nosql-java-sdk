@@ -1,10 +1,11 @@
 # Change Log
 All notable changes to this project will be documented in this file.
+The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
 ### Added
-- Cloud only: Support for AutoScaling tables in TableLimits
+- Cloud only: Support for On-Demand tables in TableLimits
 - Row modification time made available in GetResult
 - Existing row modification time made available in PutResult and DeleteResult when operation fails and previous value is requested
 - On-Prem only: Support for setting Durability in write operations (put/delete/writeMultiple/multiDelete)
@@ -12,8 +13,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Internally, the SDK now detects the serial version of the server it's connected to, and adjusts its capabilities to match. If the server is an older version, and some features may not be available, client apps may get a one-time log message (at INFO level) with text like "The requested feature is not supported by the connected server".
 
-
-The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [5.2.31] 2022-01-28
 

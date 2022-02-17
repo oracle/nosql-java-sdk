@@ -40,6 +40,8 @@ public class TableLimits {
 
     /**
      * Table limits option
+     *
+     * @since 5.3.0
      */
     public enum CapacityMode {
         PROVISIONED,
@@ -78,6 +80,8 @@ public class TableLimits {
      *
      * @param storageGB the maximum storage to be consumed by the table, in
      * gigabytes
+     *
+     * @since 5.3.0
      */
     public TableLimits(int storageGB) {
         this(0, 0, storageGB, CapacityMode.ON_DEMAND);
@@ -139,6 +143,8 @@ public class TableLimits {
     /**
      * Returns the capacity mode
      * @return capacity mode
+     *
+     * @since 5.3.0
      */
     public CapacityMode getMode() {
         return mode;

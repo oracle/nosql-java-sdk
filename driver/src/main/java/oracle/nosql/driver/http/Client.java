@@ -1023,7 +1023,7 @@ public class Client {
             String err = readString(in);
             throw handleResponseErrorCode(code, err);
         } catch (IOException e) {
-e.printStackTrace();
+            e.printStackTrace();
             /*
              * TODO: Retrying here will not actually help, the
              * operation should be abandoned; we need a specific

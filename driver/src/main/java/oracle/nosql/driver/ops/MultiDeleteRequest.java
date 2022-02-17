@@ -203,6 +203,8 @@ public class MultiDeleteRequest extends DurableRequest {
      * the default durability setting on the kvstore server.
      *
      * @return this
+     *
+     * @since 5.3.0
      */
     public MultiDeleteRequest setDurability(Durability durability) {
         setDurabilityInternal(durability);

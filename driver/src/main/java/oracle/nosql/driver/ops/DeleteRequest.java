@@ -160,6 +160,8 @@ public class DeleteRequest extends WriteRequest {
      * @param durability the durability value
      *
      * @return this
+     *
+     * @since 5.3.0
      */
     public DeleteRequest setDurability(Durability durability) {
         setDurabilityInternal(durability);

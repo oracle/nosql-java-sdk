@@ -78,6 +78,8 @@ public class PutResult extends WriteResult {
      * {@link PutRequest#setReturnRow}.
      *
      * @return the existing modification time in milliseconds since Jan 1, 1970
+     *
+     * @since 5.3.0
      */
     public long getExistingModificationTime() {
         return super.getExistingModificationTimeInternal();

@@ -78,6 +78,8 @@ public class GetResult extends Result {
      *
      * @return the modification time in milliseconds since January 1, 1970,
      * or zero if the row does not exist
+     *
+     * @since 5.3.0
      */
     public long getModificationTime() {
         if (modificationTime < 0 && client != null) {
