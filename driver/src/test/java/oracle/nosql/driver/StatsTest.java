@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  */
 
@@ -71,6 +71,11 @@ public class StatsTest extends ProxyTestBase {
             }
         });
         assertNotNull(config.getStatsHandler());
+
+        /* suppress logging noise unless explicitly set to true */
+        boolean enableLog = Boolean.getBoolean(
+            NoSQLHandleConfig.STATS_ENABLE_LOG_PROPERTY);
+        config.setStatsEnableLog(enableLog);
     }
 
     @Override

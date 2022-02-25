@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -150,7 +150,7 @@ public class NoSQLHandleConfig implements Cloneable {
     private List<String> ciphers;
 
     /**
-     * The protocols used by the driver, or null if not configured
+     * The SSL protocols used by the driver, or null if not configured
      * by the user.
      */
     private List<String> protocols;
@@ -207,16 +207,21 @@ public class NoSQLHandleConfig implements Cloneable {
         "com.oracle.nosql.sdk.nosqldriver.stats.interval";
     public static final String STATS_PRETTY_PRINT_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    public static final String STATS_ENABLE_LOG_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
 
     /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
     public static final int DEFAULT_STATS_INTERVAL = 600;
     public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
         StatsControl.Profile.NONE;
-    public static final boolean DEFAULT_STATS_PRETY_PRINT = false;
+    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    public static final boolean DEFAULT_ENABLE_LOG = true;
 
     private int statsInterval = DEFAULT_STATS_INTERVAL;
     private StatsControl.Profile statsProfile = DEFAULT_STATS_PROFILE;
-    private boolean statsPrettyPrint = DEFAULT_STATS_PRETY_PRINT;
+    private boolean statsPrettyPrint = DEFAULT_STATS_PRETTY_PRINT;
+    private boolean statsEnableLog = DEFAULT_ENABLE_LOG;
+
     private StatsControl.StatsHandler statsHandler = null;
 
     /**
@@ -1217,6 +1222,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsInterval stats logging interval in seconds
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsInterval(int statsInterval) {
         if (statsInterval < 1) {
@@ -1232,6 +1239,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default interval is 600 seconds, i.e. 10 min.
      *
      * @return the current interval in seconds
+     *
+     * @since 5.2.30
      */
     public int getStatsInterval() {
         return this.statsInterval;
@@ -1243,6 +1252,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsProfile profile to use
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
     {
@@ -1255,6 +1266,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default profile is NONE.
      *
      * @return the current profile
+     *
+     * @since 5.2.30
      */
     public StatsControl.Profile getStatsProfile() {
         return this.statsProfile;
@@ -1267,6 +1280,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @param statsPrettyPrint flag to enable JSON pretty print
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsPrettyPrint(boolean statsPrettyPrint) {
         this.statsPrettyPrint = statsPrettyPrint;
@@ -1278,9 +1293,38 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default is disabled.
      *
      * @return the current JSON pretty print flag
+     *
+     * @since 5.2.30
      */
     public boolean getStatsPrettyPrint() {
         return this.statsPrettyPrint;
+    }
+
+    /**
+     * When stats are enabled the logging is automatically turned on. Setting
+     * this to false avoids turning the log on when enabling stats.
+     * Default is on.
+     *
+     * @param statsEnableLog flag to enable JSON pretty print
+     * @return this
+     *
+     * @since 5.2.30
+     */
+    public NoSQLHandleConfig setStatsEnableLog(boolean statsEnableLog) {
+        this.statsEnableLog = statsEnableLog;
+        return this;
+    }
+
+    /**
+     * Returns the current value of enabling the log when stats are turned on.
+     * Default is enabled.
+     *
+     * @return the current state of stats enable log flag.
+     *
+     * @since 5.2.30
+     */
+    public boolean getStatsEnableLog() {
+        return this.statsEnableLog;
     }
 
     /**
@@ -1289,6 +1333,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param statsHandler User defined StatsHandler.
      *
      * @return this
+     *
+     * @since 5.2.30
      */
     public NoSQLHandleConfig setStatsHandler(
         StatsControl.StatsHandler statsHandler) {
@@ -1300,6 +1346,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * Returns the registered statistics handler, otherwise null.
      *
      * @return this
+     *
+     * @since 5.2.30
      */
     public StatsControl.StatsHandler getStatsHandler() {
         return this.statsHandler;
@@ -1374,6 +1422,13 @@ public class NoSQLHandleConfig implements Cloneable {
             ("true".equals(ppProp.toLowerCase()) || "1".equals(ppProp) ||
              "on".equals(ppProp.toLowerCase()))) {
             statsPrettyPrint = Boolean.valueOf(ppProp);
+        }
+
+        String elProp = System.getProperty(STATS_ENABLE_LOG_PROPERTY);
+        if (elProp != null &&
+            ("false".equals(elProp.toLowerCase()) || "0".equals(elProp) ||
+                "off".equals(elProp.toLowerCase()))) {
+            statsEnableLog = Boolean.FALSE;
         }
     }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -69,6 +69,20 @@ public class PutResult extends WriteResult {
      */
     public MapValue getExistingValue() {
         return super.getExistingValueInternal();
+    }
+
+    /**
+     * Returns the existing modification time if available. This value will
+     * only be available if the conditional put operation failed and the request
+     * specified that return information be returned using
+     * {@link PutRequest#setReturnRow}.
+     *
+     * @return the existing modification time in milliseconds since Jan 1, 1970
+     *
+     * @since 5.3.0
+     */
+    public long getExistingModificationTime() {
+        return super.getExistingModificationTimeInternal();
     }
 
     /* from Result */

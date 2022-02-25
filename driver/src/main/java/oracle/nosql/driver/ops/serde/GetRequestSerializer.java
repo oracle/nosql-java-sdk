@@ -1,11 +1,14 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
  */
 
 package oracle.nosql.driver.ops.serde;
+
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
 
 import java.io.IOException;
 
@@ -39,11 +42,17 @@ class GetRequestSerializer extends BinaryProtocol implements Serializer {
 
         GetResult result = new GetResult();
         deserializeConsumedCapacity(in, result);
+        if (serialVersion < V3) {
+            result.setModificationTime(-1);
+        }
         boolean hasRow = in.readBoolean();
         if (hasRow) {
             result.setValue(readFieldValue(in).asMap());
             result.setExpirationTime(readLong(in));
             result.setVersion(readVersion(in));
+            if (serialVersion > V2) {
+                result.setModificationTime(readLong(in));
+            }
         }
         return result;
     }

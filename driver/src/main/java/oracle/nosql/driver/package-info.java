@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -164,7 +164,11 @@ io.netty.level=FINE
  *   seconds to log the stats, by default is 10 minutes.</li><li>
  *
  *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
- *   to enable pretty printing of the JSON data, default value is false</li>
+ *   to enable pretty printing of the JSON data, default value is false</li><li>
+ *
+ *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.enable-log=false Option
+ *   to turn on logging automatically if stats are enabled, default value is
+ *   true</li>
  *   </ol><p>
  *
  * Statistics can also be enabled by using the API:

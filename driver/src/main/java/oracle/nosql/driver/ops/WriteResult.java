@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,6 +9,7 @@ package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.MapValue;
+import oracle.nosql.driver.http.Client;
 
 /**
  * @hidden
@@ -19,6 +20,8 @@ import oracle.nosql.driver.values.MapValue;
 public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
+    private long existingModificationTime;
+    private Client client;
 
     protected WriteResult() {}
 
@@ -37,6 +40,19 @@ public class WriteResult extends Result {
      */
     public MapValue getExistingValueInternal() {
         return existingValue;
+    }
+
+    /**
+     * @hidden
+     * @return the modification time
+     */
+    public long getExistingModificationTimeInternal() {
+        if (existingModificationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                          "the connected server: getExistingModificationTime");
+            return 0;
+        }
+        return existingModificationTime;
     }
 
     /*
@@ -61,5 +77,24 @@ public class WriteResult extends Result {
     public WriteResult setExistingValue(MapValue existingValue) {
         this.existingValue = existingValue;
         return this;
+    }
+
+    /**
+     * @hidden
+     * @param existingModificationTime the modification time
+     * @return this
+     */
+    public WriteResult setExistingModificationTime(
+        long existingModificationTime) {
+        this.existingModificationTime = existingModificationTime;
+        return this;
+    }
+
+    /*
+     * @hidden
+     * for internal use
+     */
+    public void setClient(Client client) {
+        this.client = client;
     }
 }

@@ -1,14 +1,55 @@
 # Change Log
 All notable changes to this project will be documented in this file.
-
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [5.3.1] 2022-02-17
+
+See also sections on 5.2.30 and 5.2.31 as they were not released publicly. The last public release was 5.2.29.
+
+### Added
+- Cloud only: Support for On-Demand tables in TableLimits
+- Row modification time made available in GetResult
+- Existing row modification time made available in PutResult and DeleteResult when operation fails and previous value is requested
+- On-Prem only: Support for setting Durability in write operations (put/delete/writeMultiple/multiDelete)
+
+### Changed
+- Internally, the SDK now detects the serial version of the server it's connected to, and adjusts its capabilities to match. If the server is an older version, and some features may not be available, client apps may get a one-time log message (at INFO level) with text like "The requested feature is not supported by the connected server".
+
+
+## [5.2.31] 2022-01-28
+
+Oracle internal use release
+
+### Changed
+- Updated copyrights to 2022
+- Internal changes to handling of channel (connection) acquisition, including
+addition of retries, within the request timeout period.
+- Enhanced logging of timeout and connection-related exceptions
+
+### Fixed
+- Cloud only: Updated internal rate limiter processing to work
+properly with Instance Principals
+
+## [5.2.30] 2022-01-21
+
+Oracle internal use release
+
+### Changed
+- Cloud only: Updated OCI regions
 
 ### Added
 - Added client statistics. Users can enable internal driver statistics by
 using system property -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=
-[none|regular|more|all] or by using the NoSQLConfig.setStatsProfile() api.
+[none|regular|more|all] or by using the NoSQLHandleConfig.setStatsProfile() api.
+- Added StatsControl interface as well as methods to control stats in
+NoSQLHandleConfig and NoSQLHandle.
+- Added to NoSQLHandleConfig:
+ - get/setStatsInterval
+ - get/setStatsProfile
+ - get/setStatsPrettyPrint
+ - getStatsHandler
+- Added to NoSQLHandle:
+ - getStatsControl
 
 ## [5.2.29] 2021-11-18
 
@@ -50,7 +91,7 @@ NoSQLHandleConfig.setPoolMaxPending() and NoSQLHandleConfig.getPoolMaxPending().
   - Added new SignatureProvider constructors to allow use of an instance principal with delegation token in a file for authorization and authentication.
     - SignatureProvider.createInstancePrincipalForDelegation(File delegationTokenFile)
     - SignatureProvider.createInstancePrincipalForDelegation(String iamAuthUri, Region region, File delegationTokenFile, Logger logger)
-- Added is* methods on FieldValue for convenience checking of whether an instance is
+- Added methods on FieldValue for convenience checking of whether an instance is
 of a given type, e.g. FieldValue.isInteger(), etc.
 
 ### Changed

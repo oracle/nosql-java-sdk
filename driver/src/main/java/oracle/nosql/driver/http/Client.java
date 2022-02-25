@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,7 +10,16 @@ package oracle.nosql.driver.http;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
+import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
+import static oracle.nosql.driver.util.BinaryProtocol.V2;
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
+import static oracle.nosql.driver.util.LogUtil.isLoggable;
+import static oracle.nosql.driver.util.LogUtil.logFine;
+import static oracle.nosql.driver.util.LogUtil.logInfo;
+import static oracle.nosql.driver.util.LogUtil.logTrace;
+import static oracle.nosql.driver.util.LogUtil.logWarning;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -18,13 +27,10 @@ import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
-import static oracle.nosql.driver.util.LogUtil.isLoggable;
-import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
-import static oracle.nosql.driver.util.LogUtil.logTrace;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -51,17 +57,22 @@ import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.WriteThrottlingException;
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
@@ -151,6 +162,11 @@ public class Client {
      */
     private ExecutorService threadPool;
 
+    private short serialVersion = DEFAULT_SERIAL_VERSION;
+
+    /* for one-time messages */
+    private final HashSet<String> oneTimeMessages;
+
     /**
      * config for statistics
      */
@@ -225,6 +241,7 @@ public class Client {
             threadPool = null;
         }
 
+        oneTimeMessages = new HashSet<String>();
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
     }
@@ -353,6 +370,15 @@ public class Client {
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
 
+        /*
+         * If the request doesn't set an explicit compartment, use
+         * the config default if provided.
+         */
+        if (kvRequest.getCompartment() == null) {
+            kvRequest.setCompartmentInternal(
+                config.getDefaultCompartment());
+        }
+
         int rateDelayedMs = 0;
         boolean checkReadUnits = false;
         boolean checkWriteUnits = false;
@@ -376,7 +402,8 @@ public class Client {
                 writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
                 if (readLimiter == null && writeLimiter == null) {
                     if (kvRequest.doesReads() || kvRequest.doesWrites()) {
-                        backgroundUpdateLimiters(tableName);
+                        backgroundUpdateLimiters(tableName,
+                                                 kvRequest.getCompartment());
                     }
                 } else {
                     checkReadUnits = kvRequest.doesReads();
@@ -391,9 +418,12 @@ public class Client {
         kvRequest.setStartTimeMs(startTime);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
+        String requestId = "";
+        int thisIterationTimeoutMs = 0;
+
         do {
             long thisTime = System.currentTimeMillis();
-            int thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
 
             /*
              * Check rate limiters before executing the request.
@@ -440,6 +470,23 @@ public class Client {
                 logRetries(kvRequest.getNumRetries(), exception);
             }
 
+            if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
+                if (((DurableRequest)kvRequest).getDurability() != null) {
+                    oneTimeMessage("The requested feature is not supported " +
+                                   "by the connected server: Durability");
+                }
+            }
+
+            if (serialVersion < 3 && kvRequest instanceof TableRequest) {
+                TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
+                if (limits != null &&
+                    limits.getMode() == CapacityMode.ON_DEMAND) {
+                    oneTimeMessage("The requested feature is not supported " +
+                                   "by the connected server: on demand " +
+                                   "capacity table");
+                }
+            }
+
             ResponseHandler responseHandler = null;
 
             ByteBuf buffer = null;
@@ -452,7 +499,7 @@ public class Client {
                  * operations in the loop.
                  */
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
-                String requestId = Long.toString(nextRequestId());
+                requestId = Long.toString(nextRequestId());
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel, requestId);
 
@@ -499,14 +546,6 @@ public class Client {
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
 
-                /*
-                 * If the request doesn't set an explicit compartment, use
-                 * the config default if provided.
-                 */
-                if (kvRequest.getCompartment() == null) {
-                    kvRequest.setCompartmentInternal(
-                        config.getDefaultCompartment());
-                }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
                 if (isLoggable(logger, Level.FINE)) {
@@ -519,7 +558,7 @@ public class Client {
                     responseHandler.await(thisIterationTimeoutMs);
                 if (isTimeout) {
                     throw new TimeoutException("Request timed out after " +
-                        timeoutMs + " milliseconds");
+                        timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
                 if (isLoggable(logger, Level.FINE)) {
@@ -533,6 +572,16 @@ public class Client {
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
+
+                if (serialVersion < 3) {
+                    /* so we can emit a one-time message if the app */
+                    /* tries to access modificationTime */
+                    if (res instanceof GetResult) {
+                        ((GetResult)res).setClient(this);
+                    } else if (res instanceof WriteResult) {
+                        ((WriteResult)res).setClient(this);
+                    }
+                }
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
                     /* update rate limiter settings for table */
@@ -638,6 +687,16 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = re;
                 continue;
+            } catch (UnsupportedProtocolException upe) {
+                /* reduce protocol version and try again */
+                if (decrementSerialVersion() == true) {
+                    exception = upe;
+                    logInfo(logger, "Got unsupported protocol error " +
+                            "from server: decrementing serial version to " +
+                            serialVersion + " and trying again.");
+                    continue;
+                }
+                throw upe;
             } catch (NoSQLException nse) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
@@ -685,6 +744,7 @@ public class Client {
                 throw new NoSQLException(
                     "Unable to execute request: " + ee.getCause().getMessage());
             } catch (TimeoutException te) {
+                exception = te;
                 logInfo(logger, "Timeout exception: " + te);
                 break; /* fall through to exception below */
             } catch (Throwable t) {
@@ -719,8 +779,9 @@ public class Client {
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
         throw new RequestTimeoutException(timeoutMs,
-            "Request timed out after " + kvRequest.getNumRetries() +
-            (kvRequest.getNumRetries() == 1 ? " retry. " : " retries. ") +
+            requestClass + " timed out: requestId=" + requestId + " " +
+            " nextRequestId=" + nextRequestId() +
+            " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
     }
@@ -875,10 +936,10 @@ public class Client {
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        BinaryProtocol.writeSerialVersion(bos);
+        bos.writeShort(serialVersion);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
-                      BinaryProtocol.getSerialVersion(),
+                      serialVersion,
                       bos);
     }
 
@@ -921,7 +982,7 @@ public class Client {
                 Result res = kvRequest.createDeserializer(factory).
                              deserialize(kvRequest,
                                          in,
-                                         BinaryProtocol.getSerialVersion());
+                                         serialVersion);
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1020,14 +1081,17 @@ public class Client {
      * Query table limits and create rate limiters for a table in a
      * short-lived background thread.
      */
-    private synchronized void backgroundUpdateLimiters(String tableName) {
+    private synchronized void backgroundUpdateLimiters(String tableName,
+                                                       String compartmentId) {
         if (tableNeedsRefresh(tableName) == false) {
             return;
         }
         setTableNeedsRefresh(tableName, false);
 
         try {
-            threadPool.execute(() -> {updateTableLimiters(tableName);});
+            threadPool.execute(() -> {
+                updateTableLimiters(tableName, compartmentId);
+            });
         } catch (RejectedExecutionException e) {
             setTableNeedsRefresh(tableName, true);
         }
@@ -1036,10 +1100,11 @@ public class Client {
     /*
      * This is meant to be run in a background thread
      */
-    private void updateTableLimiters(String tableName) {
+    private void updateTableLimiters(String tableName, String compartmentId) {
 
         GetTableRequest gtr = new GetTableRequest()
             .setTableName(tableName)
+            .setCompartment(compartmentId)
             .setTimeout(1000);
         TableResult res = null;
         try {
@@ -1169,5 +1234,39 @@ public class Client {
      */
     StatsControl getStatsControl() {
         return statsControl;
+    }
+
+    /**
+     * @hidden
+     *
+     * Try to decrement the serial protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number.
+     */
+    public boolean decrementSerialVersion() {
+        if (serialVersion == V3) {
+            serialVersion = V2;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public short getSerialVersion() {
+        return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * for internal use
+     */
+    public synchronized void oneTimeMessage(String msg) {
+        if (oneTimeMessages.add(msg) == false) {
+            return;
+        }
+        logWarning(logger, msg);
     }
 }

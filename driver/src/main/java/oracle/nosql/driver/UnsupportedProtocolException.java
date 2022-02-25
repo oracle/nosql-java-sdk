@@ -8,22 +8,20 @@
 package oracle.nosql.driver;
 
 /**
- * A base exception for all exceptions that may be retried with a reasonable
- * expectation that they may succeed on retry.
+ * This exception is thrown if the server does not support the current
+ * driver protocol version.
+ *
+ * @since 5.3.0
  */
-public class RetryableException extends NoSQLException {
+public class UnsupportedProtocolException extends NoSQLException {
 
     private static final long serialVersionUID = 1L;
 
     /**
      * @hidden
+     * @param msg the exception message
      */
-    protected RetryableException(String msg) {
+    public UnsupportedProtocolException(String msg) {
         super(msg);
-    }
-
-    @Override
-    public boolean okToRetry() {
-        return true;
     }
 }

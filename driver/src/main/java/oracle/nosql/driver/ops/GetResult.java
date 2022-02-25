@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,6 +10,7 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.Version;
+import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -26,6 +27,8 @@ public class GetResult extends Result {
     private MapValue value;
     private Version version;
     private long expirationTime;
+    private long modificationTime;
+    private Client client;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -69,6 +72,25 @@ public class GetResult extends Result {
     }
 
     /**
+     * Returns the modification time of the row.
+     * This value is valid only if the operation
+     * successfully returned a row ({@link #getValue} returns non-null).
+     *
+     * @return the modification time in milliseconds since January 1, 1970,
+     * or zero if the row does not exist
+     *
+     * @since 5.3.0
+     */
+    public long getModificationTime() {
+        if (modificationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                                  "the connected server: getModificationTime");
+            return 0;
+        }
+        return modificationTime;
+    }
+
+    /**
      * @hidden
      * Internal use only.
      *
@@ -95,6 +117,21 @@ public class GetResult extends Result {
      */
     public GetResult setExpirationTime(long expirationTime) {
         this.expirationTime = expirationTime;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     *
+     * Sets the modification time.
+     *
+     * @param modificationTime the modification time
+     *
+     * @return this
+     */
+    public GetResult setModificationTime(long modificationTime) {
+        this.modificationTime = modificationTime;
         return this;
     }
 
@@ -160,5 +197,13 @@ public class GetResult extends Result {
     @Override
     public String toString() {
         return getJsonValue();
+    }
+
+    /*
+     * @hidden
+     * for internal use
+     */
+    public void setClient(Client client) {
+        this.client = client;
     }
 }

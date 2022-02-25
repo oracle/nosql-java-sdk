@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -51,7 +51,7 @@ class DeleteRequestSerializer extends BinaryProtocol implements Serializer {
         if (isSubRequest) {
             out.writeBoolean(deleteRq.getReturnRow());
         } else {
-            serializeWriteRequest(deleteRq,out);
+            serializeWriteRequest(deleteRq, out, serialVersion);
         }
         writeFieldValue(out, deleteRq.getKey());
         if (matchVersion != null) {
@@ -69,7 +69,7 @@ class DeleteRequestSerializer extends BinaryProtocol implements Serializer {
         deserializeConsumedCapacity(in, result);
         boolean success = in.readBoolean();
         result.setSuccess(success);
-        deserializeWriteResponse(in, result);
+        deserializeWriteResponse(in, result, serialVersion);
         return result;
     }
 }

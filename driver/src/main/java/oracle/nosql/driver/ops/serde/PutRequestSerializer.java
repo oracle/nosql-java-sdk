@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -49,7 +49,7 @@ class PutRequestSerializer extends BinaryProtocol implements Serializer {
         if (isSubRequest) {
             out.writeBoolean(putRq.getReturnRow());
         } else {
-            serializeWriteRequest(putRq, out);
+            serializeWriteRequest(putRq, out, serialVersion);
         }
         out.writeBoolean(putRq.getExactMatch());
         writeInt(out, putRq.getIdentityCacheSize());
@@ -76,7 +76,7 @@ class PutRequestSerializer extends BinaryProtocol implements Serializer {
         }
 
         /* return row info */
-        deserializeWriteResponse(in, result);
+        deserializeWriteResponse(in, result, serialVersion);
 
         /* generated identity column value */
         deserializeGeneratedValue(in, result);

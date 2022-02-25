@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -29,6 +29,7 @@ class MultiDeleteRequestSerializer extends BinaryProtocol
         writeOpCode(out, OpCode.MULTI_DELETE);
         serializeRequest(mdRq, out);
         writeString(out, mdRq.getTableName());
+        writeDurability(out, mdRq.getDurability(), serialVersion);
         writeFieldValue(out, mdRq.getKey());
         writeFieldRange(out, mdRq.getRange());
         writeInt(out, mdRq.getMaxWriteKB());
