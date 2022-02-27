@@ -286,9 +286,11 @@ public class InstancePrincipalsProvider
             logTrace(logger, "Detecting IAM endpoint using " + instanceMDURL);
             HttpClient client = null;
             try {
-                client = new HttpClient(METADATA_SERVICE_HOST, 80,
-                                        0, 0, 0, null, "InstanceMDClient",
-                                        logger);
+                client = HttpClient.createMinimalClient(METADATA_SERVICE_HOST,
+                                                        80,
+                                                        null,
+                                                        "InstanceMDClient",
+                                                        logger);
                 HttpResponse response = HttpRequestUtil.doGetRequest
                     (client, instanceMDURL, headers(), timeout, logger);
 

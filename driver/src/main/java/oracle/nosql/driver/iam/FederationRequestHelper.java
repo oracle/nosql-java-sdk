@@ -95,8 +95,11 @@ class FederationRequestHelper {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return new HttpClient(endpoint.getHost(), endpoint.getPort(),
-                                  0, 0, 0, null, "FederationClient", logger);
+            return HttpClient.createMinimalClient(endpoint.getHost(),
+                                                  endpoint.getPort(),
+                                                  null,
+                                                  "FederationClient",
+                                                  logger);
         }
 
         SslContext sslCtx = null;
@@ -106,9 +109,11 @@ class FederationRequestHelper {
             throw new IllegalStateException(
                 "Unable to build SSL context for http client", se);
         }
-
-        return new HttpClient(endpoint.getHost(), 443, 0, 0, 0,
-                              sslCtx, "FederationClient", logger);
+        return HttpClient.createMinimalClient(endpoint.getHost(),
+                                              443,
+                                              sslCtx,
+                                              "FederationClient",
+                                              logger);
     }
 
     /*

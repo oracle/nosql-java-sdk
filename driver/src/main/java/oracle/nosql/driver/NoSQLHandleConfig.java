@@ -91,15 +91,16 @@ public class NoSQLHandleConfig implements Cloneable {
     private Consistency consistency;
 
     /**
-     * The size of the connection pool, which is a fixed-size pool, defaults
-     * to nCPUs * 2
+     * The minimum size (low water mark) to keep in the pool, and keep alive
      */
-    private int connectionPoolSize;
+    private int connectionPoolMinSize;
 
     /**
-     * The maximum number of pending acquires for the pool
+     * The number of seconds to use to cause unused connections to be closed.
+     * 0 means don't close unused connections, but they can still be closed
+     * by the server side
      */
-    private int poolMaxPending;
+    private int connectionPoolInactivityPeriod;
 
     /**
      * The number of threads to configure for handling asynchronous netty
@@ -678,14 +679,62 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param poolSize the pool size
      *
      * @return this
+     * @deprecated The connection pool no longer supports a size setting.
+     * It will expand as needed based on concurrent demand.
      */
+    @Deprecated
     public NoSQLHandleConfig setConnectionPoolSize(int poolSize) {
-        if (poolSize < 0) {
+        return this;
+    }
+
+    /**
+     * Sets the minimum number of connections to keep in the connection pool
+     * when the connections are inactive. This number is used to generate
+     * keep-alive messages that prevent this many connections from timing out in
+     * environments that can time out, such as the NoSQL Cloud Service.
+     * This setting can reduce the latency required to re-create secure
+     * connections after an application goes idle for a while (minutes).
+     * <p>
+     * If this value is 0 (the default) all connections are allowed to time out.
+     * If the number of connections in the pool never reaches this minimum,
+     * but the minimum is set, those connections will be kept alive. Additional
+     * connections are only created on demand. This setting can be thought of
+     * as a low-water mark.
+     *
+     * @param poolMinSize the minimum pool size
+     *
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setConnectionPoolMinSize(int poolMinSize) {
+        if (poolMinSize < 0) {
             throw new IllegalArgumentException(
-                "NoSQLHandleConfig.setConnectionPoolSize: poolSize must " +
-                "be a non-negative value");
+                "NoSQLHandleConfig.setConnectionPoolMinSize: poolMinSize must" +
+                " be a non-negative value");
         }
-        this.connectionPoolSize = poolSize;
+        this.connectionPoolMinSize = poolMinSize;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * Sets an inactivity period, in seconds, used to time out idle connections
+     * in the connection pool. This setting allows unused connections to be
+     * reclaimed when the system goes idle, reducing resource use. If 0 for
+     * the default value. A negative number means inactive connections are not
+     * timed out.
+     *
+     * @param poolInactivityPeriod the period, in seconds
+     *
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setConnectionPoolInactivityPeriod(
+        int poolInactivityPeriod) {
+        this.connectionPoolInactivityPeriod = poolInactivityPeriod;
         return this;
     }
 
@@ -698,15 +747,12 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param poolMaxPending the maximum number allowed
      *
      * @return this
+     * @deprecated The connection pool no longer supports pending requests.
+     * If concurrent requests exceed the pool capacity an exception is thrown.
+     * The pool needs to be sized correctly for the anticipated concurrency.
      */
+    @Deprecated
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
-        if (poolMaxPending < 0) {
-            throw new IllegalArgumentException(
-                "NoSQLHandleConfig.setPoolMaxPending: poolMaxPending must " +
-                "be a non-negative value");
-        }
-
-        this.poolMaxPending = poolMaxPending;
         return this;
     }
 
@@ -777,20 +823,53 @@ public class NoSQLHandleConfig implements Cloneable {
      * concurrent requests. Additional requests will wait for a connection to
      * become available.
      *
-     * @return the pool size or 0 if not set
+     * @return 0
+     * @deprecated The connection pool no longer supports a size setting.
+     * It will expand as needed based on concurrent demand.
      */
+    @Deprecated
     public int getConnectionPoolSize() {
-        return connectionPoolSize;
+        return 0;
+    }
+
+    /**
+     * Returns the minimum number of connections to keep alive in the connection
+     * pool.
+     *
+     * @return the minimum pool size or 0 if not set
+     *
+     * @since 5.3.2
+     */
+    public int getConnectionPoolMinSize() {
+        return connectionPoolMinSize;
+    }
+
+    /**
+     * @hidden
+     * Returns the inactivity period, in seconds, to use to time out idle
+     * connections. This allows the connection pool to shrink after a period
+     * of inactivity, reducing resource use.
+     *
+     * @return the inactivity period, or 0 if not set
+     *
+     * @since 5.3.2
+     */
+    public int getConnectionPoolInactivityPeriod() {
+        return connectionPoolInactivityPeriod;
     }
 
     /**
      * Returns the maximum number of pending acquire operations allowed on
      * the connection pool.
      *
-     * @return the maximum pending size or 0 if not set
+     * @return 0
+     * @deprecated The connection pool no longer supports pending requests.
+     * If concurrent requests exceed the pool capacity an exception is thrown.
+     * The pool needs to be sized correctly for the anticipated concurrency.
      */
+    @Deprecated
     public int getPoolMaxPending() {
-        return poolMaxPending;
+        return 0;
     }
 
     /**

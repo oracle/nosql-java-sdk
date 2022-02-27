@@ -2,6 +2,22 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unpublished]
+
+### Added
+- new methods in NoSQLHandleConfig to control keeping a minimum number of connections alive in the connection pool
+ - get/setConnectionPoolMinSize
+
+### Deprecated
+- several methods in NoSQLHandleConfig are deprecated as they have no effect on the new connection pool implementation. The methods remain, temporarily, but they do not control the pool
+ - get/setConnectionPoolSize
+ - get/setPoolMaxPending
+
+### Changed
+- there is a new connection pool implementation to simplify management of connections by reducing the need for configuration. The new pool will create new connections on demand, with no maximum.  It will also remove them to the configured minimum (default 0) after a period of inactivity
+- the new connection pool will send periodic keep-alive style HTTP requests to maintain activity level. These requests are only sent if a minimum size is configured using NoSQLHandleConfig. setConnectionPoolMinSize.
+
+
 ## [5.3.1] 2022-02-17
 
 See also sections on 5.2.30 and 5.2.31 as they were not released publicly. The last public release was 5.2.29.

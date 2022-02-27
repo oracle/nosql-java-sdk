@@ -207,16 +207,17 @@ public class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(url.getHost(),
-                                    url.getPort(),
-                                    httpConfig.getNumThreads(),
-                                    httpConfig.getConnectionPoolSize(),
-                                    httpConfig.getPoolMaxPending(),
-                                    httpConfig.getMaxContentLength(),
-                                    httpConfig.getMaxChunkSize(),
-                                    sslCtx,
-                                    "NoSQL Driver",
-                                    logger);
+        httpClient = new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            "NoSQL Driver",
+            logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -268,6 +269,14 @@ public class Client {
 
     public int getAcquiredChannelCount() {
         return httpClient.getAcquiredChannelCount();
+    }
+
+    public int getTotalChannelCount() {
+        return httpClient.getTotalChannelCount();
+    }
+
+    public int getFreeChannelCount() {
+        return httpClient.getFreeChannelCount();
     }
 
     /**

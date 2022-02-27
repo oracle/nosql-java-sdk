@@ -91,7 +91,7 @@
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
-          OnPremiseTest.java
+          OnPremiseTest.java, ConnectionPoolTest.java
         </excluded.tests>
       </properties>
     </profile>
@@ -108,7 +108,7 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
       </properties>
     </profile>

@@ -8,7 +8,6 @@
 package oracle.nosql.driver.httpclient;
 
 import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLEngine;
