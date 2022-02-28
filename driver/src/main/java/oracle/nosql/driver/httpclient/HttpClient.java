@@ -481,12 +481,12 @@ public class HttpClient {
         try {
             final HttpRequest request =
                 new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
+
             /*
              * All requests need a HOST header or the LBaaS (nginx) or
              * other server may reject them and close the connection
              */
-            request.headers().set(HOST, host);
-
+            request.headers().add(HOST, host);
             runRequest(request, responseHandler, ch);
             boolean isTimeout = responseHandler.await(keepAliveTimeout);
             if (isTimeout) {
@@ -495,8 +495,8 @@ public class HttpClient {
                 return false;
             }
             /*
-             * LBaaS may return a non-200 status but that is expected as the
-             * path does not map to the service. This is ok because all that
+             * LBaaS will return a non-200 status but that is expected as the
+             * path "/" does not map to the service. This is ok because all that
              * matters is that the connection remain alive.
              */
             String conn = responseHandler.getHeaders().get(CONNECTION);

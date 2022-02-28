@@ -116,8 +116,10 @@ class ConnectionPool {
              * get the EventExecutor for scheduling the task. If inacivity
              * period is short, make the refresh period short as well
              */
-            int refreshPeriod = Math.min(DEFAULT_REFRESH_PERIOD_SECS,
-                                         inactivityPeriodSeconds);
+            int refreshPeriod = inactivityPeriodSeconds < 0 ?
+                DEFAULT_REFRESH_PERIOD_SECS :
+                Math.min(DEFAULT_REFRESH_PERIOD_SECS,
+                         inactivityPeriodSeconds);
             this.bootstrap.config().group().next()
                 .scheduleAtFixedRate(new RefreshTask(),
                                      refreshPeriod, refreshPeriod,

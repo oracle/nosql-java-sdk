@@ -14,13 +14,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
+import java.net.URL;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-import oracle.nosql.driver.ProxyTestBase;
+
+import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
  * This test is excluded from the test profiles and must be run standalone.
@@ -33,7 +36,23 @@ import oracle.nosql.driver.ProxyTestBase;
  *    -DargLine="-Dtest.endpoint=http://localhost:8080 \
  *    -Dtest.cloudendpoint=some_cloud_endpoint"
  */
-public class ConnectionPoolTest extends ProxyTestBase {
+public class ConnectionPoolTest {
+
+    private static String endpoint = System.getProperty("test.endpoint");
+    private static Logger logger = getLogger();
+    private URL serviceURL;
+
+    @Before
+    public void beforeTest() {
+        if (endpoint == null) {
+            throw new IllegalArgumentException(
+                "Test requires test.endpoint system property");
+        }
+
+        /* serviceURL is used in the test but a handle is not required */
+        NoSQLHandleConfig config = new NoSQLHandleConfig(endpoint);
+        serviceURL = config.getServiceURL();
+    }
 
     @Test
     public void poolTest() throws Exception {
@@ -51,7 +70,7 @@ public class ConnectionPoolTest extends ProxyTestBase {
             0, // chunkSize
             null, // sslCtx
             "Pool Test",
-            getLogger());
+            logger);
 
         ConnectionPool pool = client.getConnectionPool();
 
@@ -90,12 +109,12 @@ public class ConnectionPoolTest extends ProxyTestBase {
         assertEquals(0, pool.pruneChannels());
 
         /*
-         * sleep 2x inactivity period, prune again,
-         * verifying that all but poolMinSize channels are gone
+         * sleep 3x inactivity period, check again,
+         * verifying that all but poolMinSize channels are gone.
+         * The pool sets the refresh task interval to the inactivity
+         * period so it should prune the inactive channels
          */
-        Thread.sleep(poolInactivityPeriod * 2000);
-
-        assertEquals(poolSize - poolMinSize, pool.pruneChannels());
+        Thread.sleep(poolInactivityPeriod * 3000);
         assertEquals(poolMinSize, pool.getTotalChannels());
 
         Thread.sleep(poolInactivityPeriod * 2000);
@@ -149,7 +168,7 @@ public class ConnectionPoolTest extends ProxyTestBase {
             0, // chunkSize
             buildSslContext(),
             "Pool Cloud Test",
-            getLogger());
+            logger);
 
         ConnectionPool pool = client.getConnectionPool();
 
@@ -192,14 +211,20 @@ public class ConnectionPoolTest extends ProxyTestBase {
         client.shutdown();
     }
 
-    private Logger getLogger() {
-        Logger logger = Logger.getLogger(getClass().getName());
+    private static Logger getLogger() {
+        Logger tlogger = Logger.getLogger("oracle.nosql");
         String level = System.getProperty("test.loglevel");
         if (level == null) {
             level = "WARNING";
         }
-        logger.setLevel(Level.parse(level));
-        return logger;
+        Level propLevel = Level.parse(level);
+        Level tLevel = tlogger.getLevel();
+        /* don't *decrease* the logging; logging decreases with higher values */
+        if (tLevel == null ||
+            propLevel.intValue() < tLevel.intValue()) {
+            tlogger.setLevel(propLevel);
+        }
+        return tlogger;
     }
 
     /*

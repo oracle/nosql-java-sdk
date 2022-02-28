@@ -33,6 +33,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.HashSet;
 
+import io.netty.util.ResourceLeakDetector;
+
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -79,6 +81,7 @@ public class ProxyTestBase {
     protected static int DEFAULT_DML_TIMEOUT = 5000;
     protected static String TEST_TABLE_NAME = "drivertest";
     protected static int INACTIVITY_PERIOD_SECS = 2;
+    protected static String NETTY_LEAK_PROP="test.detectleaks";
 
     protected static String PROXY_VERSION_PROP = "test.proxy.version";
     protected static String KVCLIENT_VERSION_PROP = "test.kv.client.version";
@@ -148,6 +151,9 @@ public class ProxyTestBase {
         verbose = Boolean.getBoolean(VERBOSE);
         local = Boolean.getBoolean(LOCAL);
         trace = Boolean.getBoolean(TRACE);
+        if (Boolean.getBoolean(NETTY_LEAK_PROP)) {
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+        }
 
         proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
         if (proxyVersion <= 0) {
