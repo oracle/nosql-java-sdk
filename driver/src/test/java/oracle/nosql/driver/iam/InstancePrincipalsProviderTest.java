@@ -8,7 +8,6 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -18,6 +17,7 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyPair;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -26,6 +26,7 @@ import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.FreePortLocator;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
 import oracle.nosql.driver.ops.Request;
@@ -184,7 +185,9 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setLeafCertificateSupplier(leaf)
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
+            .setSessionKeyPairSupplier(new TestSupplier(keypair.getKeyPair()))
             .build();
+        provider.prepare(new NoSQLHandleConfig("http://test"));
         assertEquals("ST$" + securityToken(), provider.getKeyId());
     }
 
@@ -207,6 +210,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setFederationEndpoint(base)
             .setLeafCertificateSupplier(leaf)
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
+            .setSessionKeyPairSupplier(new TestSupplier(keypair.getKeyPair()))
             .setTenantId(tenantId)
             .build();
 
@@ -380,11 +384,12 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
             .build();
+        provider.prepare(new NoSQLHandleConfig("http://test"));
 
         try {
             provider.getKeyId();
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "Failed to get");
+        } catch (SecurityInfoNotReadyException iae) {
+            assertThat(iae.getMessage(), "Error getting security token");
         }
     }
 
@@ -411,15 +416,14 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
             .build();
-        provider.setTokenExpirationRefreshWindow(REFRESH_WINDOW_SEC * 1000);
-        String keyId = provider.getKeyId();
-        long start = System.currentTimeMillis();
-        while ((System.currentTimeMillis() - start) < 3000) {
-            if (!provider.isKeyValid(keyId)) {
-                break;
-            }
+        provider.setMinTokenLifetime(REFRESH_WINDOW_SEC * 1000 + 100);
+        provider.prepare(new NoSQLHandleConfig("http://test"));
+        try {
+            provider.getKeyId();
+            fail("expected");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "less lifetime");
         }
-        assertFalse(provider.isKeyValid(keyId));
     }
 
     @Test
@@ -541,5 +545,22 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         assertEquals(Utils.getIAMURL("wga"),
                      "https://auth.ap-dcc-canberra-1.oraclecloud10.com");
+    }
+
+    private static class TestSupplier implements SessionKeyPairSupplier {
+        final private KeyPair keyPair;
+
+        TestSupplier(KeyPair kp) {
+            this.keyPair = kp;
+        }
+
+        @Override
+        public KeyPair getKeyPair() {
+            return keyPair;
+        }
+
+        @Override
+        public void refreshKeys() {
+        }
     }
 }

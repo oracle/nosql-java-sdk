@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unpublished]
+
+### Added
+- Added new methods in NoSQLHandleConfig to control the SSL handshake timeout,
+default 3000 milliseconds.
+  - get/setSslHandshakeTimeout
+
+### Fixed
+- Cloud only: Fixed an issue that a request may have unexpected latency when
+authenticated with instance/resource principal due to security token refresh.
+
 ## [5.3.1] 2022-02-17
 
 See also sections on 5.2.30 and 5.2.31 as they were not released publicly. The last public release was 5.2.29.

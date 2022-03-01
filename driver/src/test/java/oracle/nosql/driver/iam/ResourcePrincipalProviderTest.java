@@ -8,7 +8,6 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -232,14 +231,12 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
             new ResourcePrincipalProvider(fileSupplier,
                                           keySupplier,
                                           Region.US_ASHBURN_1);
-        rpProvider.setTokenExpirationRefreshWindow((refreshWindowSec * 1000));
-        String keyId = rpProvider.getKeyId();
-        long start = System.currentTimeMillis();
-        while ((System.currentTimeMillis() - start) < 3000) {
-            if (!rpProvider.isKeyValid(keyId)) {
-                break;
-            }
+        rpProvider.setMinTokenLifetime((refreshWindowSec * 1000) + 100);
+        try {
+            rpProvider.getKeyId();
+            fail("expected");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "less lifetime");
         }
-        assertFalse(rpProvider.isKeyValid(keyId));
     }
 }

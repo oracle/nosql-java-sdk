@@ -144,14 +144,16 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                     endpoint = endpoint.substring(0, endpoint.length() - 1);
                 }
                 stProvider.setEndpoint(endpoint)
-                          .setSslContext(config.getSslContext());
+                          .setSslContext(config.getSslContext())
+                          .setSslHandshakeTimeout(
+                              config.getSSLHandshakeTimeout());
             }
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
-            sigProvider.prepare(config);
             if (sigProvider.getLogger() == null) {
                 sigProvider.setLogger(logger);
             }
+            sigProvider.prepare(config);
         }
     }
 

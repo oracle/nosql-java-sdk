@@ -7,7 +7,9 @@
 
 package oracle.nosql.driver.iam;
 
-import static oracle.nosql.driver.iam.Utils.*;
+import static oracle.nosql.driver.iam.Utils.createParser;
+import static oracle.nosql.driver.iam.Utils.findField;
+import static oracle.nosql.driver.iam.Utils.logTrace;
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.IOException;
@@ -23,12 +25,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLException;
 import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Refreshable;
 
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
+import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SignatureProvider.ResourcePrincipalClaimKeys;
 
 import com.fasterxml.jackson.core.JsonParser;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 
 /**
  * @hidden
@@ -44,13 +52,13 @@ import com.fasterxml.jackson.core.JsonParser;
 class SecurityTokenSupplier {
     private String tenantId;
     private int timeoutMS;
-    private URI federationEndpoint;
+    private URI federationURL;
+    private HttpClient federationClient;
     private final CertificateSupplier leafCertSupplier;
     private final Set<CertificateSupplier> intermediateCertificateSuppliers;
     private final SessionKeyPairSupplier keyPairSupplier;
     private final String purpose;
-    private volatile SecurityToken currentToken = null;
-    private long tokenExpirationRefreshWindow;
+    private long minTokenLifetime;
     private final Logger logger;
 
     SecurityTokenSupplier(String federationEndpoint,
@@ -61,92 +69,112 @@ class SecurityTokenSupplier {
                           String purpose,
                           int timeoutMS,
                           Logger logger) {
-
-        this.federationEndpoint = URI.create(federationEndpoint + "/v1/x509");
+        this.federationURL = URI.create(federationEndpoint + "/v1/x509");
         requireNonNullIAE(leafCertSupplier,
-                                 "Certificate supplier cannot be null");
+                          "Certificate supplier cannot be null");
         this.leafCertSupplier = leafCertSupplier;
         requireNonNullIAE(keyPairSupplier,
-                                 "Keypair supplier cannot be null");
+                          "Keypair supplier cannot be null");
         this.keyPairSupplier = keyPairSupplier;
         this.intermediateCertificateSuppliers = interCertificateSuppliers;
         requireNonNullIAE(tenantId, "Tenant id cannot be null");
         this.tenantId = tenantId;
         requireNonNullIAE(purpose, "Purpose cannot be null");
         this.purpose = purpose;
-        this.currentToken = new SecurityToken(null,
-                                              tokenExpirationRefreshWindow,
-                                              keyPairSupplier);
         this.timeoutMS = timeoutMS;
         this.logger = logger;
     }
 
     String getSecurityToken() {
-        if (currentToken.isValid(logger)) {
-            return currentToken.getSecurityToken();
+        return refreshAndGetTokenInternal();
+    }
+
+    void setMinTokenLifetime(long lifetimeMS) {
+        this.minTokenLifetime = lifetimeMS;
+    }
+
+    void close() {
+        if (federationClient != null) {
+            federationClient.shutdown();
+        }
+    }
+
+    synchronized void prepare(NoSQLHandleConfig config) {
+        if (federationClient == null) {
+            federationClient = buildHttpClient(
+                federationURL,
+                config.getSslContext(),
+                config.getSSLHandshakeTimeout(), logger);
+        }
+    }
+
+    private static HttpClient buildHttpClient(URI endpoint,
+                                              SslContext sslCtx,
+                                              int sslHandshakeTimeout,
+                                              Logger logger) {
+        String scheme = endpoint.getScheme();
+        if (scheme == null) {
+            throw new IllegalArgumentException(
+                "Unable to find URL scheme, invalid URL " +
+                 endpoint.toString());
+        }
+        if (scheme.equalsIgnoreCase("http")) {
+            return new HttpClient(endpoint.getHost(), endpoint.getPort(),
+                                  0, 0, 0, null, 0, "FederationClient", logger);
         }
 
-        return refreshAndGetTokenInternal(true);
-    }
-
-    String getCurrentToken() {
-        if (currentToken.isValid(logger, false)) {
-            return currentToken.getSecurityToken();
+        if (sslCtx == null) {
+            try {
+                sslCtx = SslContextBuilder.forClient().build();
+            } catch (SSLException se) {
+                throw new IllegalStateException(
+                    "Unable to build SSL context for http client", se);
+            }
         }
-        return null;
+
+        return new HttpClient(endpoint.getHost(), 443, 0, 0, 0,
+                              sslCtx, sslHandshakeTimeout,
+                              "FederationClient", logger);
     }
 
-    void setTokenExpirationRefreshWindow(long refreshWindowMS) {
-        this.tokenExpirationRefreshWindow = refreshWindowMS;
-    }
-
-    private String refreshAndGetTokenInternal(boolean doFinalValidityCheck) {
-        synchronized (this) {
-            if (doFinalValidityCheck && currentToken.isValid(logger)) {
-                return currentToken.getSecurityToken();
+    private synchronized String refreshAndGetTokenInternal() {
+        keyPairSupplier.refreshKeys();
+        if (leafCertSupplier instanceof Refreshable) {
+            try {
+                ((Refreshable) leafCertSupplier).refresh();
+            } catch (RefreshFailedException rfe) {
+                throw new IllegalStateException(
+                    "Can't refresh the leaf certification!", rfe);
             }
 
-            keyPairSupplier.refreshKeys();
-            if (leafCertSupplier instanceof Refreshable) {
+            String newTenantId = Utils.getTenantId(
+                leafCertSupplier
+                .getCertificateAndKeyPair()
+                .getCertificate());
+            logTrace(logger, "Tenant id in refreshed certificate " +
+                     newTenantId);
+
+            if (!tenantId.equals(newTenantId)) {
+                throw new IllegalArgumentException(
+                    "The tenant id should never be changed in certificate");
+            }
+        }
+
+        for (CertificateSupplier supplier :
+             intermediateCertificateSuppliers) {
+
+            if (supplier instanceof Refreshable) {
                 try {
-                    ((Refreshable) leafCertSupplier).refresh();
-                } catch (RefreshFailedException rfe) {
+                    ((Refreshable) supplier).refresh();
+                } catch (RefreshFailedException e) {
                     throw new IllegalStateException(
-                        "Can't refresh the leaf certification!", rfe);
+                        "Can't refresh the intermediate certification!", e);
                 }
-
-                String newTenantId = Utils.getTenantId(
-                    leafCertSupplier
-                    .getCertificateAndKeyPair()
-                    .getCertificate());
-                logTrace(logger, "Tenant id in refreshed certificate " +
-                         newTenantId);
-
-                if (!tenantId.equals(newTenantId)) {
-                    throw new IllegalArgumentException(
-                        "The tenant id should never be changed in certificate");
-                }
-            }
-
-            for (CertificateSupplier supplier :
-                 intermediateCertificateSuppliers) {
-
-                if (supplier instanceof Refreshable) {
-                    try {
-                        ((Refreshable) supplier).refresh();
-                    } catch (RefreshFailedException e) {
-                        throw new IllegalStateException(
-                            "Can't refresh the intermediate certification!", e);
-                    }
-                }
-            }
-
-            currentToken = getSecurityTokenFromIAM();
-            if (!currentToken.isValid(logger)) {
-                logTrace(logger, "Token from IAM is not valid");
             }
         }
-        return currentToken.getSecurityToken();
+        SecurityToken token = getSecurityTokenFromIAM();
+        token.validate(minTokenLifetime);
+        return token.getSecurityToken();
     }
 
     private SecurityToken getSecurityTokenFromIAM() {
@@ -159,13 +187,13 @@ class SecurityTokenSupplier {
         CertificateSupplier.X509CertificateKeyPair certificateAndKeyPair =
             leafCertSupplier.getCertificateAndKeyPair();
         requireNonNullIAE(certificateAndKeyPair,
-                                 "Certificate and key pair not present");
+                          "Certificate and key pair not present");
 
         X509Certificate leafCertificate = certificateAndKeyPair.getCertificate();
         requireNonNullIAE(leafCertificate,
-                                 "Leaf certificate not present");
+                          "Leaf certificate not present");
         requireNonNullIAE(certificateAndKeyPair.getKey(),
-                                 "Leaf certificate's private key not present");
+                          "Leaf certificate's private key not present");
 
         try {
             Set<String> intermediateStrings = null;
@@ -190,12 +218,9 @@ class SecurityTokenSupplier {
                 Utils.base64EncodeNoChunking(certificateAndKeyPair),
                 intermediateStrings);
 
-            return new SecurityToken(securityToken,
-                                     tokenExpirationRefreshWindow,
-                                     keyPairSupplier);
+            return new SecurityToken(securityToken, keyPairSupplier);
         } catch (Exception e) {
-            throw new IllegalArgumentException(
-                "Failed to get encoded x509 certificate", e);
+            throw new SecurityInfoNotReadyException(e.getMessage());
         }
     }
 
@@ -207,7 +232,7 @@ class SecurityTokenSupplier {
             publicKey, leafCertificate, interCerts, purpose);
         logTrace(logger, "Federation request body " + body);
         return FederationRequestHelper.getSecurityToken(
-            federationEndpoint, timeoutMS, tenantId,
+            federationClient, federationURL, timeoutMS, tenantId,
             leafCertSupplier.getCertificateAndKeyPair(),
             body, logger);
     }
@@ -222,42 +247,14 @@ class SecurityTokenSupplier {
         private final SessionKeyPairSupplier keyPairSupplier;
         private final String securityToken;
         private final Map<String, String> tokenClaims;
-        private long tokenExpirationRefreshWindow;
+        private final long creationTime;
         private long expiryMS = -1;
 
-        SecurityToken(String token,
-                      long refreshWindowMS,
-                      SessionKeyPairSupplier supplier) {
+        SecurityToken(String token, SessionKeyPairSupplier supplier) {
             this.securityToken = token;
             this.keyPairSupplier = supplier;
+            this.creationTime = System.currentTimeMillis();
             this.tokenClaims = parseToken(token);
-            setTokenExpirationRefreshWindow(refreshWindowMS);
-        }
-
-        /*
-         * Parse expiration in token claims and set token expiration refresh
-         * window with specified refresh window. When given refresh window is
-         * larger than the overall lifetime of token, use half of token lifetime
-         * as refresh window instead.
-         */
-        private void setTokenExpirationRefreshWindow(long refreshWindowMS) {
-            if (tokenClaims == null) {
-                return;
-            }
-            if (expiryMS == -1) {
-                String exp = tokenClaims.get("exp");
-                if (exp == null) {
-                    return;
-                }
-                expiryMS = Long.parseLong(exp) * 1000;
-            }
-
-            long lifetime = expiryMS - System.currentTimeMillis();
-            if (lifetime < tokenExpirationRefreshWindow) {
-                tokenExpirationRefreshWindow = lifetime / 2;
-            } else {
-                tokenExpirationRefreshWindow = refreshWindowMS;
-            }
         }
 
         String getSecurityToken() {
@@ -268,36 +265,41 @@ class SecurityTokenSupplier {
             return tokenClaims.get(key);
         }
 
-        boolean isValid(Logger logger) {
-            return isValid(logger, true /* checkPublicKey */);
-        }
-
         /*
-         * Return if the current token is still valid
+         * Validate the token, also check if the lifetime of token
+         * is longer than specified minimal lifetime, throws IAE
+         * if any validation fails.
          */
-        boolean isValid(Logger logger, boolean checkPublicKey) {
+        void validate(long minTokenLifetime) {
             if (tokenClaims == null) {
-                logTrace(logger, "No security token cached");
-                return false;
+                throw new IllegalArgumentException(
+                    "No security token cached");
             }
 
             if (expiryMS == -1) {
-                logTrace(logger, "Security token lack of expiration info");
-                return false;
+                String exp = tokenClaims.get("exp");
+                if (exp != null) {
+                    expiryMS = Long.parseLong(exp) * 1000;
+                }
+                if (exp == null || expiryMS == -1) {
+                    throw new IllegalArgumentException(
+                        "No expiration info in token:\n" + securityToken);
+                }
             }
 
-            long now = System.currentTimeMillis();
-            if ((expiryMS - tokenExpirationRefreshWindow) < now) {
-                logTrace(logger,
-                         "Security token doesn't have enough lifetime" +
-                         ", tokenExpirationRefreshWindow=" +
-                         tokenExpirationRefreshWindow +
-                         ", expiry=" + expiryMS + ", now=" + now);
-                return false;
-            }
-
-            if (!checkPublicKey) {
-                return true;
+            /*
+             * This is just a safety check, shouldn't happen in OCI environment,
+             * because security tokens always have more than one hour lifetime.
+             * It would only be thrown if short-living token being used or
+             * signature cache is misconfigured. To fix, must adjust the cache
+             * duration in both cases.
+             */
+            long tokenLifetime = expiryMS - creationTime;
+            if (tokenLifetime < minTokenLifetime) {
+                throw new IllegalArgumentException(
+                    "Security token has less lifetime than signature cache " +
+                    "duration, reduce signature cache duration less than " +
+                    tokenLifetime + " milliseconds, token:\n" + securityToken);
             }
 
             /*
@@ -307,17 +309,31 @@ class SecurityTokenSupplier {
              */
             String modulus = tokenClaims.get("n");
             String exponent = tokenClaims.get("e");
-            if (modulus != null) {
-                RSAPublicKey jwkRsa = Utils.toPublicKey(modulus, exponent);
-                RSAPublicKey expected = (RSAPublicKey)
-                    keyPairSupplier.getKeyPair().getPublic();
-                if (jwkRsa != null &&
-                    isEqualPublicKey(jwkRsa, expected)) {
-                    logTrace(logger, "JWK in token is valid");
-                    return true;
-                }
+
+            if (modulus == null) {
+                throw new IllegalArgumentException(
+                    "Invalid JWK, no modulus in token:\n" +
+                    securityToken);
             }
-            return false;
+            if (exponent == null) {
+                throw new IllegalArgumentException(
+                    "Invalid JWK, no exponent in token:\n" +
+                    securityToken);
+            }
+            RSAPublicKey jwkRsa = Utils.toPublicKey(modulus, exponent);
+            RSAPublicKey expected = (RSAPublicKey)
+                keyPairSupplier.getKeyPair().getPublic();
+
+            if (jwkRsa == null) {
+                throw new IllegalArgumentException(
+                    "Invalid JWK, unable to find public key in token:\n" +
+                    securityToken);
+            }
+            if (!isEqualPublicKey(jwkRsa, expected)) {
+                throw new IllegalArgumentException(
+                    "Invalid JWK, public key not match in token:\n" +
+                    securityToken);
+            }
         }
 
         /**
@@ -424,14 +440,13 @@ class SecurityTokenSupplier {
 
         /**
          * @hidden
-         * Set token expiration refresh window in milliseconds.
+         * Set the expected minimal token lifetime in milliseconds.
          *
-         * When refreshing the signature, if the token would expire
-         * within the token expiration refresh window, fetch a new token
-         * before calculating the signature. When token lifetime is
-         * smaller than the specified window, half of token lifetime
-         * will be used.
+         * The expected minimal lifetime is configured by SignatureProvider,
+         * the same as the signature cache duration. Security token providers
+         * should validate token to ensure it has the expected minimal lifetime,
+         * throw an error otherwise.
          */
-        void setTokenExpirationRefreshWindow(long refreshWindowMS);
+        void setMinTokenLifetime(long lifeTimeMS);
     }
 }

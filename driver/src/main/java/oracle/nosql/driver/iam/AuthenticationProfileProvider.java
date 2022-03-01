@@ -42,13 +42,4 @@ public interface AuthenticationProfileProvider {
      * @return The passphrase as character array, or null if not applicable
      */
     char[] getPassphraseCharacters();
-
-    /**
-     * Check validity of key identified by given id.
-     * @param keyId key id
-     * @return true if key identified by given id is valid
-     */
-    default boolean isKeyValid(String keyId) {
-        return true;
-    }
 }
