@@ -48,6 +48,8 @@ class ConnectionPool {
     /* remove channels that have not been used in this many seconds */
     final static int DEFAULT_INACTIVITY_PERIOD_SECS = 30;
     final static int DEFAULT_REFRESH_PERIOD_SECS = 30;
+    /* max ensures that keepalives are done within the service idle itimeout */
+    final static int MAX_INACTIVITY_PERIOD_SECS = 30;
 
     private final Bootstrap bootstrap;
     private final ChannelPoolHandler handler;
@@ -74,6 +76,27 @@ class ConnectionPool {
         boolean keepAlive(Channel ch);
     }
 
+    /**
+     * A pool of Netty Channels. Channels are reused when available and if none
+     * are available a new channel is created. There is no limit to how many
+     * will be created if requested. Unless a "minimal" pool is created a
+     * refresh task is created that will close idle connections down to the
+     * minimum, if configured, or 0 if not.
+     *
+     * @param bootstrap (netty)
+     * @param handler the handler, mostly used for event callbacks
+     * @param logger
+     * @param isMinimalPool set to true if this is a one-time, or minimal time
+     *  use. In this case no refresh task is created
+     * @param poolMin the minimum size at which the pool should be maintained.
+     *  The pool will only close or otherwise release down to this many
+     *  channels. It also sends keepalive requests on up to this many channels.
+     * @param inactivityPeriodSeconds an internal idle channel timeout. If a
+     * refresh task is running channels idle for this long will be closed, down
+     * to the minimum (if set). This allows bursty behavior to automatically
+     * clean up when channels are no longer required. This is more for on-prem
+     * than the cloud service but applies to both.
+     */
     ConnectionPool(Bootstrap bootstrap,
                    ChannelPoolHandler handler,
                    Logger logger,
@@ -98,9 +121,10 @@ class ConnectionPool {
         this.handler = handler;
         this.logger = logger;
         this.poolMin = poolMin;
+        /* period can be between 1 and MAX */
         this.inactivityPeriodSeconds =
             inactivityPeriodSeconds == 0 ? DEFAULT_INACTIVITY_PERIOD_SECS :
-            inactivityPeriodSeconds;
+            Math.min(inactivityPeriodSeconds, MAX_INACTIVITY_PERIOD_SECS);
 
         queue = new ConcurrentLinkedDeque<Channel>();
         stats = new ConcurrentHashMap<Channel, ChannelStats>();
