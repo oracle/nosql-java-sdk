@@ -488,7 +488,7 @@ public class Client {
             }
 
             ResponseHandler responseHandler = null;
-            int serialVersionUsed = serialVersion;
+            short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
             long networkLatency;
             try {
@@ -932,11 +932,11 @@ public class Client {
      *
      * @throws IOException
      */
-    private int writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        final int versionUsed = serialVersion;
+        final short versionUsed = serialVersion;
         bos.writeShort(versionUsed);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
@@ -1245,7 +1245,7 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    private synchronized boolean decrementSerialVersion(int versionUsed) {
+    private synchronized boolean decrementSerialVersion(short versionUsed) {
         if (serialVersion != versionUsed) {
             return true;
         }
