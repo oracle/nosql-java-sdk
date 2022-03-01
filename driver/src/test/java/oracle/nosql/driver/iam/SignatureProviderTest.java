@@ -10,6 +10,7 @@ package oracle.nosql.driver.iam;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -75,6 +76,8 @@ public class SignatureProviderTest extends DriverTestBase {
             .build(),
             1 /* duration 1 seconds */,
             10 /* 10 ms */);
+        SigRefresh refreshCallback = new SigRefresh();
+        provider.setOnSignatureRefresh(refreshCallback);
         provider.prepare(new NoSQLHandleConfig("http://test"));
 
         Request request = new TableRequest();
@@ -83,6 +86,10 @@ public class SignatureProviderTest extends DriverTestBase {
 
         /* the new signature string should be cached */
         assertNotEquals(authzString, provider.getAuthorizationString(request));
+        /*
+         * refresh should have happened twice. Be flexible and only check >= 1
+         */
+        assertTrue(refreshCallback.getNumCalls() >= 1);
 
         /*
          * Exercise concurrent refresh schedule. The refresh might be scheduled
@@ -99,7 +106,8 @@ public class SignatureProviderTest extends DriverTestBase {
                 public void run() {
                     try {
                         startFlag.await();
-                        assertNotNull(provider.getSignatureDetailsInternal());
+                        assertNotNull(
+                            provider.getSignatureDetailsInternal(false));
                     } catch (InterruptedException e) {
                     }
                 }
@@ -174,5 +182,22 @@ public class SignatureProviderTest extends DriverTestBase {
         .append(Base64.getEncoder().encodeToString(key.getEncoded()))
         .append("\n-----END PRIVATE KEY-----");
         return sb.toString();
+    }
+
+    private class SigRefresh implements SignatureProvider.OnSignatureRefresh {
+        private int numCalls;
+
+        /*
+         * Attempt to refresh the server's authentication and authorization
+         * information for a new signature.
+         */
+        @Override
+        public void refresh() {
+            ++numCalls;
+        }
+
+        private int getNumCalls() {
+            return numCalls;
+        }
     }
 }

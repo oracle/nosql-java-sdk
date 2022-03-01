@@ -66,6 +66,11 @@ public abstract class Request {
     private RateLimiter writeRateLimiter;
     private int rateLimitDelayedMs;
 
+    /**
+     * @hidden
+     */
+    private boolean isRefresh;
+
     protected Request() {}
 
     /**
@@ -415,6 +420,24 @@ public abstract class Request {
 
     public int getRateLimitDelayedMs() {
         return rateLimitDelayedMs;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * @param value true or false
+     */
+    public void setIsRefresh(boolean value) {
+        isRefresh = value;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * @return is refresh
+     */
+    public boolean getIsRefresh() {
+        return isRefresh;
     }
 
     /**
