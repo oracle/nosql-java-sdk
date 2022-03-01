@@ -69,6 +69,7 @@ public class ConnectionPoolTest {
             0, // contentLen
             0, // chunkSize
             null, // sslCtx
+            0,    // ssl handshake timeout
             "Pool Test",
             logger);
 
@@ -167,6 +168,7 @@ public class ConnectionPoolTest {
             0, // contentLen
             0, // chunkSize
             buildSslContext(),
+            0,    // ssl handshake timeout
             "Pool Cloud Test",
             logger);
 

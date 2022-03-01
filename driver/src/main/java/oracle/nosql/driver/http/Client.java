@@ -216,6 +216,7 @@ public class Client {
             httpConfig.getMaxContentLength(),
             httpConfig.getMaxChunkSize(),
             sslCtx,
+            config.getSSLHandshakeTimeout(),
             "NoSQL Driver",
             logger);
         if (httpConfig.getProxyHost() != null) {
@@ -510,8 +511,8 @@ public class Client {
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
-                    new ResponseHandler(httpClient, logger, channel, requestId);
-
+                    new ResponseHandler(httpClient, logger, channel,
+                                        requestId, kvRequest.shouldRetry());
                 buffer = channel.alloc().directBuffer();
                 buffer.retain();
 

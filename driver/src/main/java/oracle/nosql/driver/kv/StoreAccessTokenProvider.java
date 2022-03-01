@@ -157,6 +157,10 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     private SslContext sslContext;
 
+    /*
+     * SSL handshake timeout in milliseconds;
+     */
+    private int sslHandshakeTimeoutMs;
     /**
      * @hidden
      * This is only used for unit test
@@ -392,6 +396,11 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    public StoreAccessTokenProvider setSslHandshakeTimeout(int timeout) {
+        this.sslHandshakeTimeoutMs = timeout;
+        return this;
+    }
+
     /**
      * Returns whether the provider is accessing a secured store
      *
@@ -475,6 +484,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                 (loginHost,
                  loginPort,
                  (isSecure && !disableSSLHook) ? sslContext : null,
+                 sslHandshakeTimeoutMs,
                  serviceName,
                  logger);
             return HttpRequestUtil.doGetRequest(

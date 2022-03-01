@@ -32,6 +32,7 @@ import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.LruCache;
@@ -366,18 +367,18 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      *
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri) {
+        createWithInstancePrincipal(String iamAuthUrl) {
 
         return new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .build());
     }
 
@@ -395,22 +396,22 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param logger the logger used by the SignatureProvider.
      *
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri,
+        createWithInstancePrincipal(String iamAuthUrl,
                                     Region region,
                                     Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -465,9 +466,9 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param delegationToken the string of delegation token that allows an
      * instance to assume the privileges of a specific user and act
@@ -477,14 +478,14 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipalForDelegation(String iamAuthUri,
+        createWithInstancePrincipalForDelegation(String iamAuthUrl,
                                                  Region region,
                                                  String delegationToken,
                                                  Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -548,9 +549,9 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param delegationTokenFile the file of delegation token that allows
      * an instance to assume the privileges of a specific user and act
@@ -561,14 +562,14 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipalForDelegation(String iamAuthUri,
+        createWithInstancePrincipalForDelegation(String iamAuthUrl,
                                                  Region region,
                                                  File delegationTokenFile,
                                                  Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -667,7 +668,7 @@ public class SignatureProvider
         }
         if (this.provider instanceof SecurityTokenBasedProvider) {
             ((SecurityTokenBasedProvider) provider)
-                .setTokenExpirationRefreshWindow(durationMS);
+                .setMinTokenLifetime(durationMS);
         }
     }
 
@@ -740,6 +741,9 @@ public class SignatureProvider
             refresher.cancel();
             refresher = null;
         }
+        if (provider instanceof InstancePrincipalsProvider) {
+            ((InstancePrincipalsProvider)this.provider).close();
+        }
     }
 
     @Override
@@ -764,6 +768,14 @@ public class SignatureProvider
                 "Must set service URL first");
         }
         this.serviceHost = serviceURL.getHost();
+
+        /*
+         * pass SSL related configuration to its SecurityTokenSupplier
+         * to create the HTTP client
+         */
+        if (provider instanceof InstancePrincipalsProvider) {
+            ((InstancePrincipalsProvider)this.provider).prepare(config);
+        }
 
         /* creates and caches a signature as warm-up */
         getSignatureDetailsInternal();
@@ -831,20 +843,10 @@ public class SignatureProvider
     private SignatureDetails getSignatureDetails() {
         SignatureDetails sigDetails = signatureCache.get(CACHE_KEY);
         if (sigDetails != null) {
-            if (provider instanceof UserAuthenticationProfileProvider) {
-                return sigDetails;
-            }
-
-            /*
-             * Check key id is still valid and same as latest one.
-             * For instance and resource principal, getKeyId check
-             * validity of security token and refresh if it's expired.
-             */
-            if (provider.isKeyValid(sigDetails.getKeyId())) {
-                return sigDetails;
-            }
+            return sigDetails;
         }
 
+        logMessage(Level.WARNING, "No signature in cache");
         return getSignatureDetailsInternal();
     }
 
@@ -852,7 +854,6 @@ public class SignatureProvider
     synchronized SignatureDetails getSignatureDetailsInternal() {
         String date = createFormatter().format(new Date());
         String keyId = provider.getKeyId();
-
         if (provider instanceof InstancePrincipalsProvider) {
             privateKeyProvider.reload(provider.getPrivateKey(),
                                       provider.getPassphraseCharacters());
@@ -873,9 +874,7 @@ public class SignatureProvider
                                          RSA,
                                          signature,
                                          SINGATURE_VERSION);
-
-        SignatureDetails sigDetails =
-            new SignatureDetails(keyId, sigHeader, date);
+        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
         signatureCache.put(CACHE_KEY, sigDetails);
         scheduleRefresh();
         return sigDetails;
@@ -926,23 +925,43 @@ public class SignatureProvider
         return sb.toString();
     }
     private class RefreshTask extends TimerTask {
+        private static final int DELAY_MS = 500;
 
         @Override
         public void run() {
-            try {
-                getSignatureDetailsInternal();
-            } catch (Exception e) {
-                /*
-                 * Ignore the failure of refresh. The driver would try to
-                 * generate signature in the next request if signature is not
-                 * available, the failure would be reported at that moment.
-                 */
-                logMessage(Level.WARNING,
-                           "Unable to refresh cached request signature, " +
-                           e.getMessage());
-                refresher.cancel();
-                refresher = null;
-            }
+            long startTime = System.currentTimeMillis();
+            Exception lastException;
+            do {
+                try {
+                    getSignatureDetailsInternal();
+                    return;
+                } catch (SecurityInfoNotReadyException se) {
+                    /*
+                     * This exception is thrown only if instance principal
+                     * is configured to use, indicates the last attempt of
+                     * security token acquisition is failed.
+                     */
+                    lastException = se;
+                    try {
+                        Thread.sleep(DELAY_MS);
+                    } catch (InterruptedException ie) {}
+                    continue;
+                } catch (Exception e) {
+                    lastException = e;
+                    break;
+                }
+            } while ((System.currentTimeMillis() - startTime) < refreshAheadMs);
+
+            /*
+             * Ignore the failure of refresh. The driver would try to
+             * generate signature in the next request if signature is not
+             * available, the failure would be reported at that moment.
+             */
+            logMessage(Level.WARNING,
+                       "Unable to refresh cached request signature, " +
+                       lastException.getMessage());
+            refresher.cancel();
+            refresher = null;
         }
     }
 
@@ -958,19 +977,10 @@ public class SignatureProvider
          */
         private String date;
 
-        /* Id of key used to sign the request */
-        private String keyId;
-
-        SignatureDetails(String keyId,
-                         String signatureHeader,
+        SignatureDetails(String signatureHeader,
                          String date) {
-            this.keyId = keyId;
             this.signatureHeader = signatureHeader;
             this.date = date;
-        }
-
-        String getKeyId() {
-            return keyId;
         }
 
         String getDate() {
@@ -979,13 +989,6 @@ public class SignatureProvider
 
         String getSignatureHeader() {
             return signatureHeader;
-        }
-
-        boolean isValid(String header) {
-            if (header == null) {
-                return false;
-            }
-            return header.equals(signatureHeader);
         }
    }
 

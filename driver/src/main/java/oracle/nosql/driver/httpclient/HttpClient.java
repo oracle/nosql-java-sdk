@@ -80,6 +80,7 @@ public class HttpClient {
 
     static final int DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024; // 32MB
     static final int DEFAULT_MAX_CHUNK_SIZE = 65536;
+    static final int DEFAULT_HANDSHAKE_TIMEOUT_MS = 3000;
 
     static final AttributeKey<RequestState> STATE_KEY =
         AttributeKey.<RequestState>valueOf("rqstate");
@@ -105,6 +106,7 @@ public class HttpClient {
      * Non-null if using SSL
      */
     private final SslContext sslCtx;
+    private final int handshakeTimeoutMs;
 
     private final Logger logger;
 
@@ -120,6 +122,7 @@ public class HttpClient {
      * May want boss and worker groups at some point
      */
     final NioEventLoopGroup workerGroup;
+
     /**
      * Creates a minimal HttpClient instance that is configured for
      * single-use or minimal use without concurrency.
@@ -127,12 +130,14 @@ public class HttpClient {
      * @param host the hostname for the HTTP server
      * @param port the port for the HTTP server
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
     public static HttpClient createMinimalClient(String host,
                                                  int port,
                                                  SslContext sslCtx,
+                                                 int handshakeTimeoutMs,
                                                  String name,
                                                  Logger logger) {
         return new HttpClient(host,
@@ -143,7 +148,7 @@ public class HttpClient {
                               true, /* minimal client */
                               DEFAULT_MAX_CONTENT_LENGTH,
                               DEFAULT_MAX_CHUNK_SIZE,
-                              sslCtx, name, logger);
+                              sslCtx, handshakeTimeoutMs, name, logger);
     }
 
     /**
@@ -169,6 +174,7 @@ public class HttpClient {
      * @param maxChunkSize maximum size in bytes of chunked response messages.
      * If 0, a default value is used (64KB).
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
@@ -180,12 +186,13 @@ public class HttpClient {
                       int maxContentLength,
                       int maxChunkSize,
                       SslContext sslCtx,
+                      int handshakeTimeoutMs,
                       String name,
                       Logger logger) {
 
         this(host, port, numThreads, connectionPoolMinSize,
              inactivityPeriodSeconds, false /* not minimal */,
-             maxContentLength, maxChunkSize, sslCtx, name, logger);
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
     }
 
     /*
@@ -200,6 +207,7 @@ public class HttpClient {
                        int maxContentLength,
                        int maxChunkSize,
                        SslContext sslCtx,
+                       int handshakeTimeoutMs,
                        String name,
                        Logger logger) {
 
@@ -210,9 +218,12 @@ public class HttpClient {
         this.name = name;
 
         this.maxContentLength = (maxContentLength == 0 ?
-                              DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
+            DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
         this.maxChunkSize = (maxChunkSize == 0 ?
-                              DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+            DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+
+        this.handshakeTimeoutMs = (handshakeTimeoutMs == 0 ?
+            DEFAULT_HANDSHAKE_TIMEOUT_MS : handshakeTimeoutMs);
 
         int cores = Runtime.getRuntime().availableProcessors();
 
@@ -275,6 +286,10 @@ public class HttpClient {
 
     Logger getLogger() {
         return logger;
+    }
+
+    int getHandshakeTimeoutMs() {
+        return handshakeTimeoutMs;
     }
 
     public int getMaxContentLength() {
@@ -372,8 +387,9 @@ public class HttpClient {
                 retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 if (retries == 0) {
-                    logInfo(logger, "Timed out after " + msDiff +
-                             "ms trying to acquire channel: retrying");
+                    logInfo(logger, "Timed out after " +
+                            (System.currentTimeMillis() - startMs) +
+                            "ms trying to acquire channel: retrying");
                 }
                 /* fall through */
             }
@@ -477,7 +493,7 @@ public class HttpClient {
     boolean doKeepAlive(Channel ch) {
         final int keepAliveTimeout = 3000; /* ms */
         ResponseHandler responseHandler =
-            new ResponseHandler(this, logger, ch, null);
+            new ResponseHandler(this, logger, ch);
         try {
             final HttpRequest request =
                 new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
