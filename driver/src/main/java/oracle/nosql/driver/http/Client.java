@@ -30,9 +30,11 @@ import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,15 +58,19 @@ import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
+import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -77,6 +83,7 @@ import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -171,6 +178,14 @@ public class Client {
      * config for statistics
      */
     private StatsControlImpl statsControl;
+
+    /**
+     * list of Request instances to refresh when auth changes. This will only
+     * exist in a cloud configuration
+     */
+    private ConcurrentLinkedQueue<Request> authRefreshRequests;
+    /* used as key and value for auth requests -- guaranteed illegal */
+    private MapValue badValue;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -558,7 +573,7 @@ public class Client {
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE)) {
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
                     logTrace(logger, "Request: " + requestClass);
                 }
                 networkLatency = System.currentTimeMillis();
@@ -571,7 +586,7 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE)) {
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
                     logTrace(logger, "Response: " + requestClass + ", status " +
                              responseHandler.getStatus());
                 }
@@ -621,6 +636,8 @@ public class Client {
 
                 statsControl.observe(kvRequest, Math.toIntExact(networkLatency),
                     contentLength, resSize);
+
+                checkAuthRefreshList(kvRequest);
 
                 return res;
 
@@ -716,8 +733,11 @@ public class Client {
             } catch (RuntimeException e) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
-                logFine(logger, "Client execute runtime exception: " +
-                        e.getMessage());
+                if (!kvRequest.getIsRefresh()) {
+                    /* don't log expected failures from refresh */
+                    logFine(logger, "Client execute runtime exception: " +
+                            e.getMessage());
+                }
                 throw e;
             } catch (IOException ioe) {
                 /* Maybe make this logFine */
@@ -1267,6 +1287,117 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * tell the Client to track auth refresh requests. This will be called
+     * in a cloud service configuration
+     */
+    void createAuthRefreshList() {
+        authRefreshRequests = new ConcurrentLinkedQueue<Request>();
+        badValue = new MapValue().put("@bad", 0);
+    }
+
+    /**
+     * Run refresh requests
+     */
+    void doRefresh() {
+        logFine(logger,
+                "Performing auth refresh, number of requests: " +
+                authRefreshRequests.size());
+        /*
+         * Because there are 3 proxies and scheduling is round-robin
+         * do this 3 times to attempt to catch all of them. It's possible
+         * that the main request path could cause one or more to be
+         * missed. Short of doing more requests here or stopping "real"
+         * requests that can't be helped
+         * TODO: is there a better way?
+         */
+        final int numCallsPerRequest = 3;
+
+        /* use iterator so that remove works more simply */
+        Iterator<Request> iter = authRefreshRequests.iterator();
+        while (iter.hasNext()) {
+            Request rq = iter.next();
+            for (int i = 0; i < numCallsPerRequest; i++) {
+                try {
+                    execute(rq);
+                } catch (TableNotFoundException tnf) {
+                    /* table is gone -- remove from list */
+                    logFine(logger, "Auth refresh table not found, removing: " +
+                            rq.getClass().getSimpleName() + " for " +
+                            rq.getTableName());
+                    iter.remove();
+                    break;
+                } catch (Throwable th) {
+                    /* ignore */
+                }
+            }
+        }
+    }
+
+    /**
+     * Look for the compartment, table, type combination in the list. If
+     * present, do nothing. If not, add an appropriate Request to the list.
+     * This is not particular efficient but it is not expected that a given
+     * handle will be accessing a large number of tables
+     */
+    private void checkAuthRefreshList(Request request) {
+        if (authRefreshRequests != null) {
+            /*
+             * don't add refresh requests and those without table names can't be
+             * added. They may be a query or admin op
+             */
+            if (request.getIsRefresh() || request.getTableName() == null ||
+                !(request.doesReads() || request.doesWrites())) {
+                return;
+            }
+            for (Request rq : authRefreshRequests) {
+                if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
+                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment()) &&
+                    rq.doesReads() == request.doesReads() &&
+                    rq.doesWrites() == request.doesWrites()) {
+                    return;
+                }
+            }
+            /* request compartment, table, type isn't present - add it */
+            addRequestToRefreshList(request);
+        }
+    }
+
+    private boolean stringsEqualOrNull(String s1, String s2) {
+        if (s1 == null) {
+            return s2 == null;
+        }
+        return s1.equalsIgnoreCase(s2);
+    }
+
+    private void addRequestToRefreshList(Request request) {
+        if (request.doesWrites()) {
+            PutRequest pr =
+                new PutRequest().setTableName(request.getTableName());
+            pr.setCompartmentInternal(request.getCompartment());
+            pr.setValue(badValue);
+            pr.setIsRefresh(true);
+            authRefreshRequests.add(pr);
+        }
+        if (request.doesReads()) {
+            GetRequest gr =
+                new GetRequest().setTableName(request.getTableName());
+            gr.setCompartmentInternal(request.getCompartment());
+            gr.setKey(badValue);
+            gr.setIsRefresh(true);
+            authRefreshRequests.add(gr);
+        }
+        /* delete is its own permission type */
+        if (request instanceof DeleteRequest) {
+            DeleteRequest dr =
+                new DeleteRequest().setTableName(request.getTableName());
+            dr.setCompartmentInternal(request.getCompartment());
+            dr.setKey(badValue);
+            dr.setIsRefresh(true);
+            authRefreshRequests.add(dr);
+        }
     }
 
     /**

@@ -409,7 +409,7 @@ class ConnectionPool {
                     continue;
                 }
                 logFine(logger,
-                        "Sending keepalive on channel " + ch);
+                        "Sending keepalive on channel " + ch + ", stats: " + cs);
                 keepAlive.keepAlive(ch);
                 cs.acquired(); /* update lastAcquired time */
                 numSent++;
@@ -526,7 +526,14 @@ class ConnectionPool {
 
         void toStringBuilder(StringBuilder sb) {
             sb.append("useCount=" + useCount +
-                      ", lastAcquired=" + lastAcquired);
+                      ", lastAcquired=" + java.time.Instant.ofEpochMilli(lastAcquired));
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            toStringBuilder(sb);
+            return sb.toString();
         }
     }
 

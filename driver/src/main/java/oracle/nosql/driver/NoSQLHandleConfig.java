@@ -21,8 +21,6 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
-import oracle.nosql.driver.ops.Request;
-
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -205,14 +203,6 @@ public class NoSQLHandleConfig implements Cloneable {
     private int proxyPort;
     private String proxyUsername;
     private String proxyPassword;
-
-    /**
-     * Cloud only: Request instances to call when auth information is
-     * refreshed, which happens every several minutes. This allows auth
-     * information to be refreshed at the server side outside of the
-     * normal request path, reducing the change of unexpected latency.
-     */
-    private ArrayList<Request> authRefreshRequests;
 
     /**
      * Statistics configuration, optional.
@@ -1475,60 +1465,6 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public StatsControl.StatsHandler getStatsHandler() {
         return this.statsHandler;
-    }
-
-    /**
-     * Cloud service only. Sets a list of {@link Request} instances to be
-     * called when authentication information is refreshed. This happens
-     * every few minutes. These calls allow authorization information
-     * to be refreshed on the server out of band with normal requests.
-     * This helps reduce the chance of authorization-related latency
-     * added to the request path.
-     * <p>
-     * The system itself will ensure that <i>authentication</i> information
-     * is refreshed without the need for these request operations. These
-     * should only be set if the application wishes to ensure that
-     * <i>authorization</i> information is also refreshed.
-     * <p>
-     * The {@link Request} instances should include one for each <i>type</i>
-     * of authorization desired - read and write. In order to avoid
-     * incurring excessive throughput cost these requests should use
-     * keys that are invalid for the table schema, which will cause an
-     * exception but will still be re-authorized based on the request type.
-     * Examples are:
-     * <pre>
-     * // authorize a get on table "mytable"
-     * GetRequest gr = new GetRequest.set(tableName)
-     *    .setKey(new MapValue().put("@notAKey", 0));
-     * // authorize a put on table "mytable"
-     * PutRequest pr = new PutRequest.set(tableName)
-     *    .setValue(new MapValue().put("@notAKey", 0));
-     * </pre>
-     * Such requests can be created before an actual handle has been created.
-     * Note that the requests are <b>not</b> copied and therefore donated
-     * to the system. The application must not modify them after the fact.
-     * @param requests the Requests to call
-     * @return this
-     * @since 5.3.2
-     */
-    public NoSQLHandleConfig setAuthRefreshRequests(Request ... requests) {
-        if (requests == null || requests.length == 0) {
-            throw new IllegalArgumentException(
-                "setAuthRefreshRequests requires at least one Request");
-        }
-        authRefreshRequests = new ArrayList<Request>(Arrays.asList(requests));
-        return this;
-    }
-
-    /**
-     * Cloud service only. Returns the list of {@link Request} instances
-     * to call upon authentication refresh.
-     * @return the list, or null if not set
-     * @see #setAuthRefreshRequests
-     * @since 5.3.2
-     */
-    public ArrayList<Request> getAuthRefreshRequests() {
-        return authRefreshRequests;
     }
 
     @Override

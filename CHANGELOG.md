@@ -10,8 +10,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Added new methods in NoSQLHandleConfig to control the SSL handshake timeout,
 default 3000 milliseconds.
   - get/setSslHandshakeTimeout
-- Cloud only: Added new methods to NoSQLHandleConfig to configure one or more Request instances to be called when the authentication information for the application is refreshed. This happens every few minutes. This allows authorization information for a table (read, write) cached on the server side to be refreshed outside of the application main request path.
- - get/setAuthRefreshRequests
 
 ### Deprecated
 - several methods in NoSQLHandleConfig are deprecated as they have no effect on the new connection pool implementation. The methods remain, temporarily, but they do not control the pool
@@ -21,6 +19,7 @@ default 3000 milliseconds.
 ### Changed
 - there is a new connection pool implementation to simplify management of connections by reducing the need for configuration. The new pool will create new connections on demand, with no maximum.  It will also remove them to the configured minimum (default 0) after a period of inactivity
 - the new connection pool will send periodic keep-alive style HTTP requests to maintain activity level. These requests are only sent if a minimum size is configured using NoSQLHandleConfig.setConnectionPoolMinSize. This mechanism is mostly useful in the cloud service because the server side will close idle connections. Creating new connections requires a new SSL handshake and can add latency to requests after idle time.
+- Cloud only: modified authentication/authorization path to internally refresh the server's auth information when the driver refreshes its signature, which happens every 4 minutes or so. This results in occasional internal requests in the background and eliminates any latency caused by this operation in the main request path.
 
 ### Fixed
 - Cloud only: Fixed an issue that a request may have unexpected latency when

@@ -7,8 +7,6 @@
 
 package oracle.nosql.driver.http;
 
-import static oracle.nosql.driver.util.LogUtil.logFine;
-
 import java.util.ArrayList;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
@@ -37,7 +35,6 @@ import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
-import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
@@ -78,8 +75,9 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * will reuse the context in NoSQLHandleConfig
          */
         configSslContext(config);
-        configAuthProvider(logger, config);
         client = new Client(logger, config);
+        /* configAuthProvider may use client */
+        configAuthProvider(logger, config);
     }
 
     /**
@@ -157,7 +155,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 sigProvider.setLogger(logger);
             }
             sigProvider.prepare(config);
-            sigProvider.setOnSignatureRefresh(new SigRefresh(config, logger));
+            sigProvider.setOnSignatureRefresh(new SigRefresh());
+            client.createAuthRefreshList();
         }
     }
 
@@ -412,41 +411,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * in SignatureProvider. This happens every 4 minutes or so. This mechanism
      * allows the authentication and authorization information cached by the
      * server to be refreshed out of band with the normal request path.
-     *
-     * If the user has configured re-auth Requests, use those for both
-     * authN and authZ. If user has not, use a fake GetRequest to force
-     * at least authN refresh.
-     *
-     * Requests in this path need to use the temporary SignatureDetails
-     * object. This is indicated with a hidden flag in the Request class
-     * and used by SignatureProvider when signing the request.
      */
     private class SigRefresh implements SignatureProvider.OnSignatureRefresh {
-
-        private final ArrayList<Request> authRefreshRequests;
-        private final Logger logger;
-
-        private SigRefresh(NoSQLHandleConfig config, Logger logger) {
-            this.logger = logger;
-            if (config.getAuthRefreshRequests() == null) {
-                /*
-                 * use illegal table name and key name. This is sufficient to
-                 * cause re-authentication (but not authorization) to occur
-                 * on the server side
-                 */
-                GetRequest gr = new GetRequest().setTableName("@badName&")
-                    .setKey(new MapValue().put("@badId", 0));
-                authRefreshRequests = new ArrayList<Request>();
-                authRefreshRequests.add(gr);
-            } else {
-                authRefreshRequests = config.getAuthRefreshRequests();
-            }
-
-            /* mark as refresh requests */
-            for (Request rq : authRefreshRequests) {
-                rq.setIsRefresh(true);
-            }
-        }
 
         /*
          * Attempt to refresh the server's authentication and authorization
@@ -454,35 +420,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          */
         @Override
         public void refresh() {
-            logFine(logger,
-                    "Performing auth refresh, number of requests: " +
-                    authRefreshRequests.size());
-            /*
-             * Because there are 3 proxies and scheduling is round-robin
-             * do this 3 times to attempt to catch all of them. It's possible
-             * that the main request path could cause one or more to be
-             * missed. Short of doing more requests here or stopping "real"
-             * requests that can't be helped
-             */
-            final int numCallsPerRequest = 3;
-
-            for (Request rq : authRefreshRequests) {
-                for (int i = 0; i < numCallsPerRequest; i++) {
-                    try {
-                        client.execute(rq);
-                        /*
-                         * Shouldn't get here unless a user provided a
-                         * legitimate request, consuming read/write units
-                         */
-                        logFine(logger,
-                                "Refresh Request succeeded. This may have " +
-                                "consumed throughput; consider an invalid " +
-                                " request.");
-                    } catch (Throwable th) {
-                        /* ignore */
-                    }
-                }
-            }
+            client.doRefresh();
         }
     }
 }
