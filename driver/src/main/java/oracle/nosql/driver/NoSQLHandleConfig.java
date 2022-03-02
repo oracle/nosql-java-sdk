@@ -753,8 +753,6 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @return this
      * @deprecated The connection pool no longer supports pending requests.
-     * If concurrent requests exceed the pool capacity an exception is thrown.
-     * The pool needs to be sized correctly for the anticipated concurrency.
      */
     @Deprecated
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
@@ -869,8 +867,6 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @return 0
      * @deprecated The connection pool no longer supports pending requests.
-     * If concurrent requests exceed the pool capacity an exception is thrown.
-     * The pool needs to be sized correctly for the anticipated concurrency.
      */
     @Deprecated
     public int getPoolMaxPending() {
