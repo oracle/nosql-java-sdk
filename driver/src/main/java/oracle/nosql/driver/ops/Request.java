@@ -81,7 +81,11 @@ public abstract class Request {
         return timeoutMs;
     }
 
-    protected void setTimeoutInternal(int timeoutMs) {
+    /**
+     * @hidden
+     * this is public to allow access from Client during refresh
+     */
+    public void setTimeoutInternal(int timeoutMs) {
         if (timeoutMs <= 0) {
             throw new IllegalArgumentException("timeout must be > 0");
         }

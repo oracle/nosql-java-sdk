@@ -34,7 +34,7 @@
  * SignatureProvider caches the request signature to improve the driver-side
  * performance. The default cache duration is 4 minutes. The cached signature
  * is refreshed asynchronously by a refresh task that is scheduled to renew
- * the cached signature 10 seconds ahead of the cache eviction.
+ * the cached signature 20 seconds ahead of the cache eviction.
  * <p>
  * When SignatureProvider is created with a user principal either using
  * OCI configuration file or passing user authentication information directly,

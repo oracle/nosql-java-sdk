@@ -129,8 +129,8 @@ public class SignatureProvider
     /* Maximum lifetime of signature 240 seconds */
     protected static final int MAX_ENTRY_LIFE_TIME = 240;
 
-    /* Default refresh time before signature expiry, 10 seconds*/
-    protected static final int DEFAULT_REFRESH_AHEAD = 10000;
+    /* Default refresh time before signature expiry, 20 seconds*/
+    protected static final int DEFAULT_REFRESH_AHEAD = 20000;
 
     /* User profile and key providers */
     private final AuthenticationProfileProvider provider;
@@ -162,7 +162,8 @@ public class SignatureProvider
      */
     @FunctionalInterface
     public interface OnSignatureRefresh {
-        public void refresh();
+        /* refreshMs is the max amount of time this operation can/should take */
+        public void refresh(long refreshMs);
     }
 
     private OnSignatureRefresh onSigRefresh;
@@ -976,7 +977,7 @@ public class SignatureProvider
     private class RefreshTask extends TimerTask {
         private static final int DELAY_MS = 500;
 
-        private void handleRefreshCallback() {
+        private void handleRefreshCallback(long refreshMs) {
             SignatureDetails sigDetails = signatureCache.get(REFRESH_CACHE_KEY);
             if (sigDetails == null) {
                 logMessage(Level.FINE,
@@ -987,7 +988,7 @@ public class SignatureProvider
             if (onSigRefresh != null) {
                 /* don't let problems in the callback affect this path */
                 try {
-                    onSigRefresh.refresh();
+                    onSigRefresh.refresh(refreshMs);
                 } catch (Throwable t) {
                     logMessage(Level.FINE,
                                "Exception from OnSignatureRefresh: " + t);
@@ -1006,7 +1007,7 @@ public class SignatureProvider
             do {
                 try {
                     getSignatureDetailsInternal(true);
-                    handleRefreshCallback();
+                    handleRefreshCallback(refreshAheadMs);
                     return;
                 } catch (SecurityInfoNotReadyException se) {
                     /*

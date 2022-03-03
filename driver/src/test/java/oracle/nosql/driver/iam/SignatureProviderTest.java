@@ -192,7 +192,7 @@ public class SignatureProviderTest extends DriverTestBase {
          * information for a new signature.
          */
         @Override
-        public void refresh() {
+        public void refresh(long refreshMs) {
             ++numCalls;
         }
 

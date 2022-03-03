@@ -60,6 +60,26 @@ public class NoSQLHandleConfig implements Cloneable {
         VALID_SSL_PROTOCOLS.add("TLSv1.3");
     }
 
+    /**
+     * Statistics configuration, optional.
+     */
+    public static final String STATS_PROFILE_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
+    public static final String STATS_INTERVAL_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
+    public static final String STATS_PRETTY_PRINT_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    public static final String STATS_ENABLE_LOG_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
+
+    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
+    public static final int DEFAULT_STATS_INTERVAL = 600;
+    public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
+        StatsControl.Profile.NONE;
+    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    public static final boolean DEFAULT_ENABLE_LOG = true;
+
+
     /*
      * The url used to contact an HTTP proxy
      */
@@ -196,7 +216,7 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     private double defaultRateLimiterPercentage;
 
-    /*
+    /**
      * HTTP Proxy configuration, optional
      */
     private String proxyHost;
@@ -207,27 +227,16 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Statistics configuration, optional.
      */
-    public static final String STATS_PROFILE_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
-    public static final String STATS_INTERVAL_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
-    public static final String STATS_PRETTY_PRINT_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
-    public static final String STATS_ENABLE_LOG_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
-
-    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
-    public static final int DEFAULT_STATS_INTERVAL = 600;
-    public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
-        StatsControl.Profile.NONE;
-    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
-    public static final boolean DEFAULT_ENABLE_LOG = true;
-
     private int statsInterval = DEFAULT_STATS_INTERVAL;
     private StatsControl.Profile statsProfile = DEFAULT_STATS_PROFILE;
     private boolean statsPrettyPrint = DEFAULT_STATS_PRETTY_PRINT;
     private boolean statsEnableLog = DEFAULT_ENABLE_LOG;
     private StatsControl.StatsHandler statsHandler = null;
+
+    /**
+     * Hidden flag to turn off automatic auth refresh in cloud service
+     */
+    private boolean noAuthRefresh;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -1460,7 +1469,38 @@ public class NoSQLHandleConfig implements Cloneable {
      * @since 5.2.30
      */
     public StatsControl.StatsHandler getStatsHandler() {
-        return this.statsHandler;
+        return statsHandler;
+    }
+
+    /**
+     * @hidden
+     *
+     * Cloud service only.
+     * Turns off internal, automatic refresh of auth information based on
+     * tracked requests. This is present in case the refresh really isn't
+     * desired or the mechanism fails for some reason.
+     *
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setNoAuthRefresh() {
+        this.noAuthRefresh = true;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * Cloud service only.
+     * Returns the state of the noAuthRefresh flag
+     *
+     * @return true if auth refresh is turned off
+     *
+     * @since 5.3.2
+     */
+    public boolean getNoAuthRefresh() {
+        return noAuthRefresh;
     }
 
     @Override

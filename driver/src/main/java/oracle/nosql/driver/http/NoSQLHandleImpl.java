@@ -155,8 +155,10 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 sigProvider.setLogger(logger);
             }
             sigProvider.prepare(config);
-            sigProvider.setOnSignatureRefresh(new SigRefresh());
-            client.createAuthRefreshList();
+            if (!config.getNoAuthRefresh()) {
+                sigProvider.setOnSignatureRefresh(new SigRefresh());
+                client.createAuthRefreshList();
+            }
         }
     }
 
@@ -419,8 +421,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * information for a new signature.
          */
         @Override
-        public void refresh() {
-            client.doRefresh();
+        public void refresh(long refreshMs) {
+            client.doRefresh(refreshMs);
         }
     }
 }

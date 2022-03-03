@@ -574,7 +574,7 @@ public class Client {
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
                 if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Request: " + requestClass);
+                    logTrace(logger, "Request: " + requestClass + ", id " + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -588,7 +588,7 @@ public class Client {
 
                 if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
                     logTrace(logger, "Response: " + requestClass + ", status " +
-                             responseHandler.getStatus());
+                             responseHandler.getStatus() + ", id " + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
@@ -1301,16 +1301,35 @@ public class Client {
     /**
      * Run refresh requests
      */
-    void doRefresh() {
+    void doRefresh(long refreshMs) {
+        final long minMsPerRequest = 20L; // this is somewhat arbitrary
+        int numRequests = authRefreshRequests.size();
+
+        /*
+         * Divide the total time allowed (refreshMs) by the number of requests
+         * (x 3) to determine a reasonable timeout for each request. A timed out
+         * request still does the re-auth assuming it made it to the server, but
+         * can result in creating/consuming additional communication channels
+         */
+        int msPerRequest = (int) (refreshMs/(numRequests * 3));
+        if (msPerRequest < minMsPerRequest) {
+            logFine(logger,
+                    "Not enough time per request to perform auth refresh. Num " +
+                    "requests, totalMs, msPerRequest: " + numRequests + ", " +
+                    refreshMs + ", " + msPerRequest);
+            return;
+        }
+
         logFine(logger,
                 "Performing auth refresh, number of requests: " +
-                authRefreshRequests.size());
+                numRequests + " in " + refreshMs + " ms, ms per request: " +
+                msPerRequest);
+
         /*
          * Because there are 3 proxies and scheduling is round-robin
-         * do this 3 times to attempt to catch all of them. It's possible
-         * that the main request path could cause one or more to be
-         * missed. Short of doing more requests here or stopping "real"
-         * requests that can't be helped
+         * do this 3 times to attempt to catch all of them. Unfortunately
+         * this heuristic will not work much of the time because the
+         * round-robin scheduling isn't per-connection or IP address.
          * TODO: is there a better way?
          */
         final int numCallsPerRequest = 3;
@@ -1319,6 +1338,8 @@ public class Client {
         Iterator<Request> iter = authRefreshRequests.iterator();
         while (iter.hasNext()) {
             Request rq = iter.next();
+            /* set timeout calculated above */
+            rq.setTimeoutInternal(msPerRequest);
             for (int i = 0; i < numCallsPerRequest; i++) {
                 try {
                     execute(rq);
@@ -1337,16 +1358,21 @@ public class Client {
     }
 
     /**
-     * Look for the compartment, table, type combination in the list. If
-     * present, do nothing. If not, add an appropriate Request to the list.
+     * Look for the compartment,table combination in the list. If
+     * present, do nothing. If not, add that combination to the list.
      * This is not particular efficient but it is not expected that a given
-     * handle will be accessing a large number of tables
+     * handle will be accessing a large number of tables.
+     *
+     * The operation type is not checked -- all 3 types of requests are created
+     * no matter the access. This simplifies the logic and if a given type is
+     * not given to this Principal it doesn't hurt.
      */
     private void checkAuthRefreshList(Request request) {
         if (authRefreshRequests != null) {
             /*
              * don't add refresh requests and those without table names can't be
-             * added. They may be a query or admin op
+             * added. They may be a query or admin op. Also eliminate ops that
+             * don't read or write, which includes GetTableRequest
              */
             if (request.getIsRefresh() || request.getTableName() == null ||
                 !(request.doesReads() || request.doesWrites())) {
@@ -1354,9 +1380,7 @@ public class Client {
             }
             for (Request rq : authRefreshRequests) {
                 if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
-                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment()) &&
-                    rq.doesReads() == request.doesReads() &&
-                    rq.doesWrites() == request.doesWrites()) {
+                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
                     return;
                 }
             }
@@ -1372,32 +1396,31 @@ public class Client {
         return s1.equalsIgnoreCase(s2);
     }
 
-    private void addRequestToRefreshList(Request request) {
-        if (request.doesWrites()) {
-            PutRequest pr =
-                new PutRequest().setTableName(request.getTableName());
-            pr.setCompartmentInternal(request.getCompartment());
-            pr.setValue(badValue);
-            pr.setIsRefresh(true);
-            authRefreshRequests.add(pr);
-        }
-        if (request.doesReads()) {
-            GetRequest gr =
-                new GetRequest().setTableName(request.getTableName());
-            gr.setCompartmentInternal(request.getCompartment());
-            gr.setKey(badValue);
-            gr.setIsRefresh(true);
-            authRefreshRequests.add(gr);
-        }
-        /* delete is its own permission type */
-        if (request instanceof DeleteRequest) {
-            DeleteRequest dr =
-                new DeleteRequest().setTableName(request.getTableName());
-            dr.setCompartmentInternal(request.getCompartment());
-            dr.setKey(badValue);
-            dr.setIsRefresh(true);
-            authRefreshRequests.add(dr);
-        }
+    /**
+     * Add get, put, delete to cover all auth types
+     * This is synchronized to avoid 2 requests adding the same table
+     */
+    private synchronized void addRequestToRefreshList(Request request) {
+        logFine(logger, "Adding table to request list: " +
+                request.getCompartment() + ":" + request.getTableName());
+        PutRequest pr =
+            new PutRequest().setTableName(request.getTableName());
+        pr.setCompartmentInternal(request.getCompartment());
+        pr.setValue(badValue);
+        pr.setIsRefresh(true);
+        authRefreshRequests.add(pr);
+        GetRequest gr =
+            new GetRequest().setTableName(request.getTableName());
+        gr.setCompartmentInternal(request.getCompartment());
+        gr.setKey(badValue);
+        gr.setIsRefresh(true);
+        authRefreshRequests.add(gr);
+        DeleteRequest dr =
+            new DeleteRequest().setTableName(request.getTableName());
+        dr.setCompartmentInternal(request.getCompartment());
+        dr.setKey(badValue);
+        dr.setIsRefresh(true);
+        authRefreshRequests.add(dr);
     }
 
     /**
