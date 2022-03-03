@@ -387,7 +387,6 @@ public class ProxyTestBase {
     }
 
     protected NoSQLHandle getHandle(String ep) {
-
         NoSQLHandleConfig config = new NoSQLHandleConfig(ep);
         serviceURL = config.getServiceURL();
         return setupHandle(config);
@@ -395,7 +394,6 @@ public class ProxyTestBase {
 
     /* Set configuration values for the handle */
     protected NoSQLHandle setupHandle(NoSQLHandleConfig config) {
-
         /*
          * 5 retries, default retry algorithm
          */
@@ -412,12 +410,7 @@ public class ProxyTestBase {
 
         NoSQLHandle h = getHandle(config);
 
-        /* this will set up the right protocol serial version */
-        try {
-            getTable("noop", h);
-        } catch (Exception e) {
-            /* ignore errors */
-        }
+        /* serial version will be set by default ListTables() in beforeTest */
 
         return h;
     }
