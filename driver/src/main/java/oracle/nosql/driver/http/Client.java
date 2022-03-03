@@ -24,12 +24,14 @@ import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
+import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -171,6 +173,11 @@ public class Client {
      * config for statistics
      */
     private StatsControlImpl statsControl;
+
+    /* for session persistence, if used */
+    private volatile String sessionCookie;
+    /* note this must end with '=' */
+    private final String SESSION_COOKIE_FIELD = "session=";
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -546,6 +553,9 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
+                if (sessionCookie != null && sessionCookie.length() > 0) {
+                    headers.add(COOKIE, SESSION_COOKIE_FIELD + sessionCookie);
+                }
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
@@ -569,6 +579,7 @@ public class Client {
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
+                                       responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
@@ -955,6 +966,7 @@ public class Client {
      * @return the programmatic response object
      */
     final Result processResponse(HttpResponseStatus status,
+                                 HttpHeaders headers,
                                  ByteBuf content,
                                  Request kvRequest) {
 
@@ -965,6 +977,8 @@ public class Client {
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
         }
+
+        setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
             return processOKResponse(bis, kvRequest);
@@ -1036,6 +1050,36 @@ public class Client {
         throw new NoSQLException("Error response = " + status +
                                  ", reason = " + status.reasonPhrase());
     }
+
+    /* set session cookie, if set in response headers */
+    private void setSessionCookie(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        List<String> values = headers.getAll("Set-Cookie");
+        if (values == null) {
+            return;
+        }
+        for (String v : values) {
+            /* note this has appended '=' */
+            if (!v.startsWith(SESSION_COOKIE_FIELD)) {
+                continue;
+            }
+            int equals = v.indexOf("=");
+            int semi = v.indexOf(";");
+            if (semi <= equals) {
+                semi = v.length();
+            }
+            String pVal = v.substring(equals+1, semi);
+            setSessionCookieValue(pVal);
+            return;
+        }
+    }
+
+    private synchronized void setSessionCookieValue(String pVal) {
+        sessionCookie = pVal;
+    }
+
 
     /**
      * Return true if table needs limits refresh.
