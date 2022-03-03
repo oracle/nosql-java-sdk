@@ -169,7 +169,7 @@ public class Client {
      */
     private ExecutorService threadPool;
 
-    private short serialVersion = DEFAULT_SERIAL_VERSION;
+    private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
@@ -513,7 +513,7 @@ public class Client {
             }
 
             ResponseHandler responseHandler = null;
-
+            short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
             long networkLatency;
             try {
@@ -538,7 +538,7 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                writeContent(buffer, kvRequest);
+                serialVersionUsed = writeContent(buffer, kvRequest);
 
                 /*
                  * If on-premise the authProvider will always be a
@@ -598,7 +598,7 @@ public class Client {
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
-                if (serialVersion < 3) {
+                if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
                     /* tries to access modificationTime */
                     if (res instanceof GetResult) {
@@ -716,7 +716,7 @@ public class Client {
                 continue;
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
-                if (decrementSerialVersion() == true) {
+                if (decrementSerialVersion(serialVersionUsed) == true) {
                     exception = upe;
                     logInfo(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
@@ -962,15 +962,17 @@ public class Client {
      *
      * @throws IOException
      */
-    void writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        bos.writeShort(serialVersion);
+        final short versionUsed = serialVersion;
+        bos.writeShort(versionUsed);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
-                      serialVersion,
+                      versionUsed,
                       bos);
+        return versionUsed;
     }
 
     /**
@@ -1273,7 +1275,10 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    public boolean decrementSerialVersion() {
+    private synchronized boolean decrementSerialVersion(short versionUsed) {
+        if (serialVersion != versionUsed) {
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;
