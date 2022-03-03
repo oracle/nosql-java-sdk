@@ -636,7 +636,7 @@ public class ProxyTestBase {
 
     private static int getMinimumKVVersion() {
         /*
-         * Use the minumum of the kv client and server versions to
+         * Use the minimum of the kv client and server versions to
          * determine what features should be valid to test.
          */
         if (kvServerVersion <= 0) {

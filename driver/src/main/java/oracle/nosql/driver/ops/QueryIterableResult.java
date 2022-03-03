@@ -1,3 +1,10 @@
+/*-
+ * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
 package oracle.nosql.driver.ops;
 
 import java.util.Iterator;
@@ -245,7 +252,7 @@ public class QueryIterableResult
             internalRequest.setLimit(limit);
         }
 
-        private void compute() {
+        private void compute(boolean skipClose) {
             QueryResult internalResult;
             if (partialResultsIterator == null) {
                 internalResult =
@@ -270,7 +277,9 @@ public class QueryIterableResult
 
             if (internalRequest.isDone()) {
                 internalRequest.close();
-                closed = true;
+                if (!skipClose && !partialResultsIterator.hasNext()) {
+                    closed = true;
+                }
             }
         }
 
@@ -320,7 +329,7 @@ public class QueryIterableResult
             if (closed) {
                 return false;
             }
-            compute();
+            compute(true);
             return partialResultsIterator.hasNext();
         }
 
@@ -342,7 +351,7 @@ public class QueryIterableResult
             if (closed) {
                 throw new NoSuchElementException("Iterator already closed.");
             }
-            compute();
+            compute(false);
             return partialResultsIterator.next();
         }
 
