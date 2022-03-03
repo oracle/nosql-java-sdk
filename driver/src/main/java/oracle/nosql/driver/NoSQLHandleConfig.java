@@ -709,7 +709,8 @@ public class NoSQLHandleConfig implements Cloneable {
      * This setting can reduce the latency required to re-create secure
      * connections after an application goes idle for a while (minutes).
      * <p>
-     * If this value is 0 (the default) all connections are allowed to time out.
+     * If this value is 0 (default) the minimum is set to the number of cores
+     * avalable. If set to -1 then all connections are allowed to time out.
      * If the number of connections in the pool never reaches this minimum,
      * but the minimum is set, those connections will be kept alive. Additional
      * connections are only created on demand. This setting can be thought of
@@ -722,11 +723,6 @@ public class NoSQLHandleConfig implements Cloneable {
      * @since 5.3.2
      */
     public NoSQLHandleConfig setConnectionPoolMinSize(int poolMinSize) {
-        if (poolMinSize < 0) {
-            throw new IllegalArgumentException(
-                "NoSQLHandleConfig.setConnectionPoolMinSize: poolMinSize must" +
-                " be a non-negative value");
-        }
         this.connectionPoolMinSize = poolMinSize;
         return this;
     }

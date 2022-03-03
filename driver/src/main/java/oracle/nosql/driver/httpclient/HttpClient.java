@@ -81,6 +81,7 @@ public class HttpClient {
     static final int DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024; // 32MB
     static final int DEFAULT_MAX_CHUNK_SIZE = 65536;
     static final int DEFAULT_HANDSHAKE_TIMEOUT_MS = 3000;
+    static final int DEFAULT_MIN_POOL_SIZE = 2; // min pool size
 
     static final AttributeKey<RequestState> STATE_KEY =
         AttributeKey.<RequestState>valueOf("rqstate");
@@ -229,6 +230,13 @@ public class HttpClient {
 
         if (numThreads == 0) {
             numThreads = cores*2;
+        }
+
+        /* default pool min */
+        if (connectionPoolMinSize == 0) {
+            connectionPoolMinSize = DEFAULT_MIN_POOL_SIZE;
+        } else if (connectionPoolMinSize < 0) {
+            connectionPoolMinSize = 0; // no min size
         }
 
         workerGroup = new NioEventLoopGroup(numThreads);

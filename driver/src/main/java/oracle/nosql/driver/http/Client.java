@@ -1314,16 +1314,15 @@ public class Client {
         int msPerRequest = (int) (refreshMs/(numRequests * 3));
         if (msPerRequest < minMsPerRequest) {
             logFine(logger,
-                    "Not enough time per request to perform auth refresh. Num " +
-                    "requests, totalMs, msPerRequest: " + numRequests + ", " +
-                    refreshMs + ", " + msPerRequest);
+                    "Not enough time per request to perform auth refresh. " +
+                    "numRequests=" + numRequests + " totalMs=" + refreshMs +
+                    " msPerRequest=" + msPerRequest);
             return;
         }
 
         logFine(logger,
-                "Performing auth refresh, number of requests: " +
-                numRequests + " in " + refreshMs + " ms, ms per request: " +
-                msPerRequest);
+                "Performing auth refresh. numRequests=" + numRequests +
+                " refreshMs=" + refreshMs + "ms per request=" + msPerRequest);
 
         /*
          * Because there are 3 proxies and scheduling is round-robin

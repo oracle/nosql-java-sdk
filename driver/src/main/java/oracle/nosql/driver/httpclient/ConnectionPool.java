@@ -32,21 +32,45 @@ import io.netty.util.concurrent.Promise;
  * and tracking of Channels.
  *
  * Configuration:
- *   minSize - actively keep this many alive, even after inactivity
+ *   minSize - actively keep this many alive, even after inactivity, by default
+ *     this is the number of cores
  *   inactivityPeriod - remove inactive channels after this many seconds.
  *     If negative, don't ever remove them
  *   Logger
  *
- *
  * Usage
  *  o acquire()
  *  o release()
+ *
+ * How the pool works
+ * Basic Operation
+ *  o the pool is a double-ended queue, treated as LIFO. Channels in the queue
+ *    are *not* in use. In-use channels are "owned" by the acquiring caller
+ *  o Channels are "acquired" from the front end and released there
+ *  o acquired channels are *removed* from the queue and only returned upon
+ *    release
+ *  o if no Channels are in the queue for acquire a new one is created and
+ *    placed in the queue on release
+ *
+ * Keep-alive and minimum size
+ *  o if a pool is not a minimal pool a refresh task is created on construction.
+ *    This task does this:
+ *     o walks the queue from the "end" (least recently used) side, closing
+ *       Channels that are beyond their inactivity period
+ *     o Channels will only be removed down to the minimum size. If minSize is 0
+ *       then all channels may be pruned
+ *     o if a keepalive callback is configured as well as a minimum size,
+ *       keepalive callbacks are performed on minSize channels if they've
+ *       exceeded the keepalive inactivity period (30s). In the cloud service
+ *       this prevents the server side from closing inactive channels after
+ *       65s (a default that cannot be modified).
  */
 
 class ConnectionPool {
 
     /* remove channels that have not been used in this many seconds */
     final static int DEFAULT_INACTIVITY_PERIOD_SECS = 30;
+    /* run the refresh task this often */
     final static int DEFAULT_REFRESH_PERIOD_SECS = 30;
     /* max ensures that keepalives are done within the service idle itimeout */
     final static int MAX_INACTIVITY_PERIOD_SECS = 30;
@@ -60,17 +84,25 @@ class ConnectionPool {
     private KeepAlive keepAlive;
 
     /*
-     * Double-ended queue. Remove and insert to front to keep channels "hot"
+     * Double-ended queue of created, but not in-use Channels. In-use
+     * Channels are owned by the acquirer.
+     *
+     * Remove and insert to front to keep channels "hot"
      * and allow them to time out from the end when demand is reduced
      */
     private final ConcurrentLinkedDeque<Channel> queue;
 
     /*
-     * stats
+     * Map of allocated (both in-use and not) Channel stats. All non-closed
+     * Channels exist in this map. They are removed only when the Channel is
+     * closed.
      */
     private final Map<Channel, ChannelStats> stats;
     private int acquiredChannelCount;
 
+    /**
+     * Keepalive callback interface
+     */
     @FunctionalInterface
     interface KeepAlive {
         boolean keepAlive(Channel ch);
@@ -151,10 +183,16 @@ class ConnectionPool {
         }
     }
 
+    /**
+     * Sets a keepalive callback
+     */
     void setKeepAlive(KeepAlive ka) {
         this.keepAlive = ka;
     }
 
+    /**
+     * See below
+     */
     final Future<Channel> acquire() {
         return acquire(bootstrap.config().group().next().<Channel>newPromise());
     }
@@ -163,10 +201,14 @@ class ConnectionPool {
      * Acquire a Future for an existing or new Channel. If a not-active/healthy
      * channel is found on the queue, close it and retry. This is not a
      * significant time sink in terms of affecting overall latency of this call
+     *
+     * Acquired channels are removed from the queue and are "owned" by the
+     * caller until released, at which time they are put back on the queue.
      */
     final Future<Channel> acquire(final Promise<Channel> promise) {
         try {
             while (true) {
+                /* this *removes* the channel from the queue */
                 final Channel channel = queue.pollFirst();
                 if (channel == null) {
                     /* need a new Channel */
@@ -227,12 +269,16 @@ class ConnectionPool {
         try { handler.channelReleased(channel); } catch (Exception e) {}
     }
 
+    /**
+     * Closes and removes a channel from the pool entirely. This channel
+     * must not exist in the queue at this time
+     */
     private void removeChannel(Channel channel) {
         stats.remove(channel);
         channel.close();
     }
 
-    /*
+    /**
      * close the pool, removing all channels. This leaves the pool
      * available but empty. Nothing (yet) prevents new acquire() calls.
      * This method should only be called when shutting down the NoSQL handle,
@@ -250,6 +296,9 @@ class ConnectionPool {
         validatePool();
     }
 
+    /**
+     * How many channels have been acquired since this pool was created
+     */
     int getAcquiredChannelCount() {
         return acquiredChannelCount;
     }
@@ -291,17 +340,20 @@ class ConnectionPool {
     }
 
     /**
-     * returns the total number of channels, acquired and not, in the pool
+     * Returns the total number of channels, acquired and not, in the pool
      */
     int getTotalChannels() {
         return queue.size() + acquiredChannelCount;
     }
 
+    /**
+     * Returns the number of created, but not in-use (acquired) Channels
+     */
     int getFreeChannels() {
         return queue.size();
     }
 
-    /*
+    /**
      * Prune channels
      *  1. remove any inactive channels (closed by other side)
      *  2. remove excess channels that have not been used for
@@ -442,7 +494,7 @@ class ConnectionPool {
         }
     }
 
-    /*
+    /**
      * Update stats, global and per-Channel
      */
     private void updateStats(Channel channel, boolean isAcquire) {
@@ -465,7 +517,8 @@ class ConnectionPool {
         logFine(logger, getStats());
     }
 
-    /*
+    /**
+     * Returns stats in String form
      * TODO: JSON-format?
      */
     String getStats() {
@@ -501,7 +554,7 @@ class ConnectionPool {
         return 0;
     }
 
-    /*
+    /**
      * An internal class that maintains stats on Channels. Consider exposing
      * it beyond tests.
      */
