@@ -1304,6 +1304,9 @@ public class Client {
     void doRefresh(long refreshMs) {
         final long minMsPerRequest = 20L; // this is somewhat arbitrary
         int numRequests = authRefreshRequests.size();
+        if (numRequests == 0) {
+            return;
+        }
 
         /*
          * Divide the total time allowed (refreshMs) by the number of requests
