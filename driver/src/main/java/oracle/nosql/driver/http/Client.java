@@ -31,7 +31,6 @@ import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -174,7 +173,10 @@ public class Client {
      */
     private StatsControlImpl statsControl;
 
-    /* for session persistence, if used */
+    /*
+     * for session persistence, if used. This has the
+     * full "session=xxxxx" key/value pair.
+     */
     private volatile String sessionCookie;
     /* note this must end with '=' */
     private final String SESSION_COOKIE_FIELD = "session=";
@@ -553,8 +555,8 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
-                if (sessionCookie != null && sessionCookie.length() > 0) {
-                    headers.add(COOKIE, SESSION_COOKIE_FIELD + sessionCookie);
+                if (sessionCookie != null) {
+                    headers.add(COOKIE, sessionCookie);
                 }
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
@@ -1056,30 +1058,32 @@ public class Client {
         if (headers == null) {
             return;
         }
-        List<String> values = headers.getAll("Set-Cookie");
-        if (values == null) {
+        /*
+         * NOTE: this code assumes there will always be at most
+         * one Set-Cookie header in the response. If the load balancer
+         * settings change, or the proxy changes to add Set-Cookie
+         * headers, this code may need to be changed to look for
+         * multiple Set-Cookie headers.
+         */
+        String v = headers.get("Set-Cookie");
+        /* note SESSION_COOKIE_FIELD has appended '=' */
+        if (v == null || v.startsWith(SESSION_COOKIE_FIELD) == false) {
             return;
         }
-        for (String v : values) {
-            /* note this has appended '=' */
-            if (!v.startsWith(SESSION_COOKIE_FIELD)) {
-                continue;
-            }
-            int equals = v.indexOf("=");
-            int semi = v.indexOf(";");
-            if (semi <= equals) {
-                semi = v.length();
-            }
-            String pVal = v.substring(equals+1, semi);
-            setSessionCookieValue(pVal);
-            return;
+        int semi = v.indexOf(";");
+        if (semi < 0) {
+            setSessionCookieValue(v);
+        } else {
+            setSessionCookieValue(v.substring(0, semi));
+        }
+        if (isLoggable(logger, Level.FINE)) {
+            logTrace(logger, "Set session cookie to \"" + sessionCookie + "\"");
         }
     }
 
     private synchronized void setSessionCookieValue(String pVal) {
         sessionCookie = pVal;
     }
-
 
     /**
      * Return true if table needs limits refresh.
