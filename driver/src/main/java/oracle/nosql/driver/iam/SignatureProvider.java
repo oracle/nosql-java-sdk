@@ -374,11 +374,11 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri) {
+        createWithInstancePrincipal(String iamAuthUrl) {
 
         return new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .build());
     }
 
