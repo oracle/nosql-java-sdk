@@ -293,4 +293,12 @@ public class WriteMultipleRequest extends DurableRequest {
             return request;
         }
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
+    }
 }

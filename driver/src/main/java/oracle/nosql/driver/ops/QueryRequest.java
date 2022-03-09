@@ -696,4 +696,12 @@ public class QueryRequest extends Request {
         }
         return preparedStatement.getTableName();
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
+    }
 }

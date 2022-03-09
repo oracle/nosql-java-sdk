@@ -24,6 +24,7 @@ import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
+import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
@@ -161,7 +162,7 @@ public class Client {
      */
     private ExecutorService threadPool;
 
-    private short serialVersion = DEFAULT_SERIAL_VERSION;
+    private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
@@ -175,6 +176,14 @@ public class Client {
     private boolean useV4;
     private boolean queryUseV4;
     private boolean prepareUseV4;
+
+    /*
+     * for session persistence, if used. This has the
+     * full "session=xxxxx" key/value pair.
+     */
+    private volatile String sessionCookie;
+    /* note this must end with '=' */
+    private final String SESSION_COOKIE_FIELD = "session=";
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -219,6 +228,7 @@ public class Client {
                                     httpConfig.getMaxContentLength(),
                                     httpConfig.getMaxChunkSize(),
                                     sslCtx,
+                                    config.getSSLHandshakeTimeout(),
                                     "NoSQL Driver",
                                     logger);
         if (httpConfig.getProxyHost() != null) {
@@ -497,7 +507,7 @@ public class Client {
             }
 
             ResponseHandler responseHandler = null;
-
+            short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
             long networkLatency;
             try {
@@ -510,8 +520,8 @@ public class Client {
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
-                    new ResponseHandler(httpClient, logger, channel, requestId);
-
+                    new ResponseHandler(httpClient, logger, channel,
+                                        requestId, kvRequest.shouldRetry());
                 buffer = channel.alloc().directBuffer();
                 buffer.retain();
 
@@ -522,7 +532,7 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                writeContent(buffer, kvRequest);
+                serialVersionUsed = writeContent(buffer, kvRequest);
 
                 /*
                  * If on-premise the authProvider will always be a
@@ -554,6 +564,9 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
+                if (sessionCookie != null) {
+                    headers.add(COOKIE, sessionCookie);
+                }
 
                 String serdeVersion = getSerdeVersion(kvRequest);
                 if (serdeVersion != null) {
@@ -590,12 +603,13 @@ public class Client {
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
+                                       responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
-                if (serialVersion < 3) {
+                if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
                     /* tries to access modificationTime */
                     if (res instanceof GetResult) {
@@ -711,7 +725,7 @@ public class Client {
                 continue;
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
-                if (decrementSerialVersion() == true) {
+                if (decrementSerialVersion(serialVersionUsed) == true) {
                     exception = upe;
                     logInfo(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
@@ -954,15 +968,17 @@ public class Client {
      *
      * @throws IOException
      */
-    void writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
+        final short versionUsed = serialVersion;
         SerializerFactory factory = chooseFactory(kvRequest);
-        factory.writeSerialVersion(serialVersion, bos);
+        factory.writeSerialVersion(versionUsed, bos);
         kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                      serialVersion,
+                                                      versionUsed,
                                                       bos);
+        return versionUsed;
     }
 
     /**
@@ -974,6 +990,7 @@ public class Client {
      * @return the programmatic response object
      */
     final Result processResponse(HttpResponseStatus status,
+                                 HttpHeaders headers,
                                  ByteBuf content,
                                  Request kvRequest) {
 
@@ -984,6 +1001,8 @@ public class Client {
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
         }
+
+        setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
             return processOKResponse(bis, kvRequest);
@@ -1055,6 +1074,38 @@ public class Client {
         }
         throw new NoSQLException("Error response = " + status +
                                  ", reason = " + status.reasonPhrase());
+    }
+
+    /* set session cookie, if set in response headers */
+    private void setSessionCookie(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        /*
+         * NOTE: this code assumes there will always be at most
+         * one Set-Cookie header in the response. If the load balancer
+         * settings change, or the proxy changes to add Set-Cookie
+         * headers, this code may need to be changed to look for
+         * multiple Set-Cookie headers.
+         */
+        String v = headers.get("Set-Cookie");
+        /* note SESSION_COOKIE_FIELD has appended '=' */
+        if (v == null || v.startsWith(SESSION_COOKIE_FIELD) == false) {
+            return;
+        }
+        int semi = v.indexOf(";");
+        if (semi < 0) {
+            setSessionCookieValue(v);
+        } else {
+            setSessionCookieValue(v.substring(0, semi));
+        }
+        if (isLoggable(logger, Level.FINE)) {
+            logTrace(logger, "Set session cookie to \"" + sessionCookie + "\"");
+        }
+    }
+
+    private synchronized void setSessionCookieValue(String pVal) {
+        sessionCookie = pVal;
     }
 
     /**
@@ -1266,7 +1317,10 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    public boolean decrementSerialVersion() {
+    private synchronized boolean decrementSerialVersion(short versionUsed) {
+        if (serialVersion != versionUsed) {
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;

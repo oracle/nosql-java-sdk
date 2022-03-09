@@ -78,6 +78,7 @@ public class HttpClient {
     static final int DEFAULT_MAX_PENDING = 3;
     static final int DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024; // 32MB
     static final int DEFAULT_MAX_CHUNK_SIZE = 65536;
+    static final int DEFAULT_HANDSHAKE_TIMEOUT_MS = 3000;
     /*
      * timeout for acquiring a Netty channel in ms. If exceeded a new
      * connection is created
@@ -107,6 +108,7 @@ public class HttpClient {
      * Non-null if using SSL
      */
     private final SslContext sslCtx;
+    private final int handshakeTimeoutMs;
 
     private final Logger logger;
 
@@ -136,6 +138,7 @@ public class HttpClient {
      * @param connectionPoolSize the max number of HTTP connections to use
      * for concurrent requests. If 0, a default value is used (2)
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
@@ -145,11 +148,12 @@ public class HttpClient {
                       int connectionPoolSize,
                       int poolMaxPending,
                       SslContext sslCtx,
+                      int handshakeTimeoutMs,
                       String name,
                       Logger logger) {
         this(host, port, numThreads, connectionPoolSize, poolMaxPending,
             DEFAULT_MAX_CONTENT_LENGTH, DEFAULT_MAX_CHUNK_SIZE,
-            sslCtx, name, logger);
+            sslCtx, handshakeTimeoutMs, name, logger);
     }
 
     /**
@@ -169,6 +173,7 @@ public class HttpClient {
      * @param maxChunkSize maximum size in bytes of chunked response messages.
      * If 0, a default value is used (64KB).
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
@@ -180,6 +185,7 @@ public class HttpClient {
                       int maxContentLength,
                       int maxChunkSize,
                       SslContext sslCtx,
+                      int handshakeTimeoutMs,
                       String name,
                       Logger logger) {
 
@@ -190,12 +196,15 @@ public class HttpClient {
         this.name = name;
 
         poolMaxPending = (poolMaxPending == 0 ?
-                              DEFAULT_MAX_PENDING : poolMaxPending);
+            DEFAULT_MAX_PENDING : poolMaxPending);
 
         this.maxContentLength = (maxContentLength == 0 ?
-                              DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
+            DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
         this.maxChunkSize = (maxChunkSize == 0 ?
-                              DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+            DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+
+        this.handshakeTimeoutMs = (handshakeTimeoutMs == 0 ?
+            DEFAULT_HANDSHAKE_TIMEOUT_MS : handshakeTimeoutMs);
 
         int cores = Runtime.getRuntime().availableProcessors();
 
@@ -256,6 +265,10 @@ public class HttpClient {
 
     Logger getLogger() {
         return logger;
+    }
+
+    int getHandshakeTimeoutMs() {
+        return handshakeTimeoutMs;
     }
 
     public int getMaxContentLength() {
@@ -340,8 +353,9 @@ public class HttpClient {
                 retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 if (retries == 0) {
-                    logInfo(logger, "Timed out after " + msDiff +
-                             "ms trying to acquire channel: retrying");
+                    logInfo(logger, "Timed out after " +
+                            (System.currentTimeMillis() - startMs) +
+                            "ms trying to acquire channel: retrying");
                 }
                 /* fall through */
             }
