@@ -498,18 +498,6 @@ public class Client {
             }
 
             ResponseHandler responseHandler = null;
-
-            if (serialVersion < 3 && kvRequest instanceof TableRequest) {
-                TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
-                if (limits != null &&
-                    limits.getMode() == CapacityMode.ON_DEMAND) {
-                    oneTimeMessage("The requested feature is not supported " +
-                                   "by the connected server: on demand " +
-                                   "capacity table");
-                }
-            }
-
-            ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
             long networkLatency;
