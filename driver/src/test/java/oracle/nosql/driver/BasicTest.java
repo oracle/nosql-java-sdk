@@ -1,8 +1,8 @@
 /*-
- * See the file LICENSE for redistribution information.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
- *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
  */
 
 package oracle.nosql.driver;
@@ -448,9 +448,14 @@ public class BasicTest extends ProxyTestBase {
         PutResult pres = handle.put(pr);
         assertNotNull(pres.getVersion());
 
-        tres = tableOperation(handle,
-                              DROP_TABLE,
-                              null);
+        try {
+            tres = tableOperation(handle, DROP_TABLE, null);
+        } catch (TableNotFoundException e) {
+            /* versions before 20.3 had known issues with drop table */
+            if (checkKVVersion(20, 3, 1)) {
+                throw e;
+            }
+        }
 
         tres = tableOperation(handle,
                               CREATE_TABLE,
@@ -1389,6 +1394,7 @@ public class BasicTest extends ProxyTestBase {
      */
     @Test
     public void testFlexibleMapping() throws Exception {
+        assumeKVVersion("testFlexibleMapping", 20, 2, 1);
         final String createTable =
             "create table flex(id integer, primary key(id), " +
             "str string, " +

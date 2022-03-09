@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -46,9 +46,9 @@ public class DefaultRetryHandler implements RetryHandler {
      * Decide whether to retry or not.
      * Default behavior is to *not* retry OperationThrottlingException
      * because the retry time is likely much longer than normal because
-     * they are DDL operations. In addition, *not* retry any requests that
-     * should not be retried: TableRequest, ListTablesRequest,
-     * GetTableRequest, TableUsageRequest, GetIndexesRequest.
+     * they are DDL operations. Read and Write throttling exceptions are
+     * always retryable. Otherwise check the request itself to see if
+     * it should not be retried.
      */
     @Override
     public boolean doRetry(Request request,
@@ -56,10 +56,13 @@ public class DefaultRetryHandler implements RetryHandler {
                            RetryableException re) {
         if (re instanceof OperationThrottlingException) {
             return false;
-        } else if (!request.shouldRetry()) {
-            return false;
         }
-        return (numRetries < maxRetries);
+        if (re instanceof ReadThrottlingException ||
+            re instanceof WriteThrottlingException ||
+            request.shouldRetry()) {
+            return (numRetries < maxRetries);
+        }
+        return false;
     }
 
     /**
@@ -100,15 +103,17 @@ public class DefaultRetryHandler implements RetryHandler {
 
         int delayMs = fixedDelayMs;
         if (delayMs == 0) {
-            // add 200ms plus a small random amount
+            /* add 200ms plus a small random amount */
             int mSecToAdd = 200 + (int)(Math.random() * 50);
 
             delayMs = request.getRetryDelayMs();
             delayMs += mSecToAdd;
         }
 
-        // if the delay would put us over the timeout, reduce it to just before
-        // the timeout would occur.
+        /*
+         * if the delay would put us over the timeout, reduce it to just before
+         * the timeout would occur.
+         */
         long nowMs = System.currentTimeMillis();
         long msLeft = (startTimeMs + (long)timeoutMs) - nowMs;
         if ((int)msLeft < delayMs) {

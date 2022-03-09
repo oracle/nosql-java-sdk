@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -18,6 +18,8 @@ package oracle.nosql.driver;
  * ReplicaAckPolicy} in effect for the Master, and the {@link SyncPolicy} in
  * effect for each Replica.
  * </p>
+ *
+ * @since 5.3.0
  */
 public class Durability {
 

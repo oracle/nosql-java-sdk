@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -11,6 +11,7 @@ import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 
 import java.io.Closeable;
+import java.net.ProtocolException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -48,6 +49,9 @@ public class ResponseHandler implements Closeable {
     /* this is set if there is an exception in send or receive */
     private Throwable cause;
 
+    /* OK to retry: affects logic when there are specific protocol errors */
+    private final boolean allowRetry;
+
     /*
      * the latch counts down when the response is received. It's only needed
      * in synchronous mode
@@ -57,17 +61,19 @@ public class ResponseHandler implements Closeable {
     public ResponseHandler(final HttpClient httpClient,
                            final Logger logger,
                            final Channel channel) {
-        this(httpClient, logger, channel, null);
+        this(httpClient, logger, channel, null, false);
     }
 
     public ResponseHandler(final HttpClient httpClient,
                            final Logger logger,
                            final Channel channel,
-                           final String requestId) {
+                           final String requestId,
+                           boolean allowRetry) {
         this.httpClient = httpClient;
         this.logger = logger;
         this.channel = channel;
         this.requestId = requestId;
+        this.allowRetry = allowRetry;
 
         /*
          * TODO: this won't be needed for an async client
@@ -180,14 +186,34 @@ public class ResponseHandler implements Closeable {
             String resReqId = requestState.getHeaders().get(REQUEST_ID_HEADER);
             if (resReqId == null || !resReqId.equals(requestId)) {
                 logFine(logger,
-                        "Discards unpaired response: expect for request " +
-                        requestId + ", but for request " + resReqId);
+                        "Expected response for request " + requestId +
+                        ", but got response for request " + resReqId +
+                        ": discarding response");
+                if (resReqId == null) {
+                    logFine(logger, "Headers for discarded response: " +
+                            requestState.getHeaders());
+                    if (this.allowRetry) {
+                        this.cause = new ProtocolException(
+                                "Received invalid response with no requestId");
+                        latch.countDown();
+                    }
+                }
                 if (requestState.getResponse() != null) {
                     ReferenceCountUtil.release(requestState.getResponse());
                 }
                 return;
             }
         }
+
+        /*
+         * We got a valid message: don't accept any more for this handler.
+         * This logic may change if we enable full async and allow multiple
+         * messages to be processed by the same channel for the same client.
+         * This clears the response handler from this channel so that any
+         * additional messages on this channel will be properly discarded.
+         */
+        channel.attr(HttpClient.STATE_KEY).set(null);
+
         state = requestState;
         try {
             responseReceived(state.getStatus(),

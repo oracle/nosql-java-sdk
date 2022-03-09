@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -459,11 +459,6 @@ public class QueryRequest extends Request {
      * @return the statement, or null if it has not been set
      */
     public String getStatement() {
-
-        if (statement == null && preparedStatement != null) {
-            return preparedStatement.getSQLText();
-        }
-
         return statement;
     }
 
@@ -705,5 +700,13 @@ public class QueryRequest extends Request {
             return null;
         }
         return preparedStatement.getTableName();
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
     }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -144,14 +144,16 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                     endpoint = endpoint.substring(0, endpoint.length() - 1);
                 }
                 stProvider.setEndpoint(endpoint)
-                          .setSslContext(config.getSslContext());
+                          .setSslContext(config.getSslContext())
+                          .setSslHandshakeTimeout(
+                              config.getSSLHandshakeTimeout());
             }
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
-            sigProvider.prepare(config);
             if (sigProvider.getLogger() == null) {
                 sigProvider.setLogger(logger);
             }
+            sigProvider.prepare(config);
         }
     }
 

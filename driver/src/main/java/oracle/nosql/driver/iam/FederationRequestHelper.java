@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -23,8 +23,6 @@ import java.util.Date;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import javax.net.ssl.SSLException;
-
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
 import oracle.nosql.driver.util.HttpRequestUtil;
@@ -35,8 +33,6 @@ import com.fasterxml.jackson.core.JsonParser;
 
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 /**
  * @hidden
@@ -49,66 +45,34 @@ class FederationRequestHelper {
     private static final String APP_JSON = "application/json";
     private static final String DEFAULT_FINGERPRINT = "SHA256";
 
-    static String getSecurityToken(URI endpoint,
+    static String getSecurityToken(HttpClient client,
+                                   URI endpoint,
                                    int timeoutMs,
                                    String tenantId,
                                    X509CertificateKeyPair pair,
                                    String body,
                                    Logger logger) {
+        CharBuffer charBuf = CharBuffer.wrap(body);
+        ByteBuffer buf = StandardCharsets.UTF_8.encode(charBuf);
+        byte[] payloadByte = new byte[buf.remaining()];
+        buf.get(payloadByte);
 
-        HttpClient client = null;
-        try {
-            client = buildHttpClient(endpoint, logger);
-            CharBuffer charBuf = CharBuffer.wrap(body);
-            ByteBuffer buf = StandardCharsets.UTF_8.encode(charBuf);
-            byte[] payloadByte = new byte[buf.remaining()];
-            buf.get(payloadByte);
+        HttpResponse response = HttpRequestUtil.doPostRequest(
+            client, endpoint.toString(),
+            headers(tenantId, endpoint, payloadByte, pair, logger),
+            payloadByte, timeoutMs, logger);
 
-            HttpResponse response = HttpRequestUtil.doPostRequest(
-                client, endpoint.toString(),
-                headers(tenantId, endpoint, payloadByte, pair, logger),
-                payloadByte, timeoutMs, logger);
-
-            int responseCode = response.getStatusCode();
-            if (responseCode > 299) {
-                throw new IllegalStateException(
-                    String.format(
-                        "Error getting security token from IAM, " +
-                        "status code %d, response \n%s",
-                        response.getStatusCode(),
-                        response.getOutput()));
-            }
-            logTrace(logger, "Federation response " + response.getOutput());
-            return parseResponse(response.getOutput());
-        } finally {
-            if (client != null) {
-                client.shutdown();
-            }
-        }
-    }
-
-    private static HttpClient buildHttpClient(URI endpoint, Logger logger) {
-        String scheme = endpoint.getScheme();
-        if (scheme == null) {
-            throw new IllegalArgumentException(
-                "Unable to find URL scheme, invalid URL " +
-                 endpoint.toString());
-        }
-        if (scheme.equalsIgnoreCase("http")) {
-            return new HttpClient(endpoint.getHost(), endpoint.getPort(),
-                                  0, 0, 0, null, "FederationClient", logger);
-        }
-
-        SslContext sslCtx = null;
-        try {
-            sslCtx = SslContextBuilder.forClient().build();
-        } catch (SSLException se) {
+        int responseCode = response.getStatusCode();
+        if (responseCode > 299) {
             throw new IllegalStateException(
-                "Unable to build SSL context for http client", se);
+                String.format(
+                    "Error getting security token from IAM, " +
+                    "status code %d, response \n%s",
+                    response.getStatusCode(),
+                    response.getOutput()));
         }
-
-        return new HttpClient(endpoint.getHost(), 443, 0, 0, 0,
-                              sslCtx, "FederationClient", logger);
+        logTrace(logger, "Federation response " + response.getOutput());
+        return parseResponse(response.getOutput());
     }
 
     /*

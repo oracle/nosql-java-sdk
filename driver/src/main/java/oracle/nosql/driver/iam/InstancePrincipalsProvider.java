@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -21,9 +21,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.httpclient.HttpClient;
@@ -66,15 +66,19 @@ public class InstancePrincipalsProvider
         this.region = region;
     }
 
+    public void prepare(NoSQLHandleConfig config) {
+        tokenSupplier.prepare(config);
+    }
+
+    public void close() {
+        tokenSupplier.close();
+    }
+
     @Override
     public String getKeyId() {
         return "ST$" + tokenSupplier.getSecurityToken();
     }
 
-    @Override
-    public boolean isKeyValid(String keyId) {
-        return keyId.equals("ST$" + tokenSupplier.getCurrentToken());
-    }
 
     @Override
     public InputStream getPrivateKey() {
@@ -92,8 +96,8 @@ public class InstancePrincipalsProvider
     }
 
     @Override
-    public void setTokenExpirationRefreshWindow(long refreshWindowMS) {
-        tokenSupplier.setTokenExpirationRefreshWindow(refreshWindowMS);
+    public void setMinTokenLifetime(long lifetimeMS) {
+        tokenSupplier.setMinTokenLifetime(lifetimeMS);
     }
 
     public static InstancePrincipalsProviderBuilder builder() {
@@ -253,7 +257,6 @@ public class InstancePrincipalsProvider
         public InstancePrincipalsProvider build() {
             if (logger == null) {
                 logger = Logger.getLogger(getClass().getName());
-                logger.setLevel(Level.WARNING);
             }
             autoDetectEndpointUsingMetadataUrl();
             autoDetectCertificatesUsingMetadataUrl();
@@ -287,7 +290,7 @@ public class InstancePrincipalsProvider
             HttpClient client = null;
             try {
                 client = new HttpClient(METADATA_SERVICE_HOST, 80,
-                                        0, 0, 0, null, "InstanceMDClient",
+                                        0, 0, 0, null, 0, "InstanceMDClient",
                                         logger);
                 HttpResponse response = HttpRequestUtil.doGetRequest
                     (client, instanceMDURL, headers(), timeout, logger);
@@ -323,8 +326,9 @@ public class InstancePrincipalsProvider
 
                 federationEndpoint = getIAMURL(insRegion);
                 if (federationEndpoint == null) {
-                    throw new IllegalStateException(
-                        "Invalid IAM URI, unknown region " + region);
+                    throw new IllegalArgumentException(
+                        "Unable to find IAM URL for unregistered region " +
+                        insRegion + ", specify the IAM URL instead");
                 }
             } finally {
                 if (client != null) {

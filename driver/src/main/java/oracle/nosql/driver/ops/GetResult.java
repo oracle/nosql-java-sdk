@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -78,6 +78,8 @@ public class GetResult extends Result {
      *
      * @return the modification time in milliseconds since January 1, 1970,
      * or zero if the row does not exist
+     *
+     * @since 5.3.0
      */
     public long getModificationTime() {
         if (modificationTime < 0 && client != null) {

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -25,8 +25,13 @@ import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
  * The class to supply security token for resource principal
  */
 abstract class ResourcePrincipalTokenSupplier {
-    /* Refresh window before token is expired */
-    protected long tokenExpirationRefreshWindow;
+    /*
+     * The expected minimal lifetime is configured by SignatureProvider,
+     * the same as the signature cache duration. Security token providers
+     * should validate token to ensure it has the expected minimal lifetime,
+     * throw an error otherwise.
+     */
+    protected long minTokenLifetime;
 
     /**
      * Return the security token of resource principal.
@@ -39,15 +44,10 @@ abstract class ResourcePrincipalTokenSupplier {
     abstract String getStringClaim(String key);
 
     /**
-     * Return current cached token.
+     * Set expected minimal token lifetime.
      */
-    abstract String getCurrentToken();
-
-    /**
-     * Set token expiration refresh window.
-     */
-    void setTokenExpirationRefreshWindow(long refreshWindowMS) {
-        this.tokenExpirationRefreshWindow = refreshWindowMS;
+    void setMinTokenLifetime(long lifetimeMS) {
+        this.minTokenLifetime = lifetimeMS;
     }
 
     /**
@@ -71,47 +71,31 @@ abstract class ResourcePrincipalTokenSupplier {
                                   Logger logger) {
             this.sessionKeyPairSupplier = sessKeyPairSupplier;
             this.sessionTokenPath = sessionTokenPath;
-            this.securityToken = new SecurityToken(null,
-                                                   tokenExpirationRefreshWindow,
-                                                   sessionKeyPairSupplier);
             this.logger = logger;
         }
 
         @Override
         public String getSecurityToken() {
-            if (securityToken.isValid(logger)) {
-                return securityToken.getSecurityToken();
-            }
             return refreshAndGetSecurityToken();
         }
 
         @Override
         public String getStringClaim(String key) {
-            refreshAndGetSecurityToken();
+            if (securityToken == null) {
+                refreshAndGetSecurityToken();
+            }
             return securityToken.getStringClaim(key);
         }
 
-        @Override
-        public String getCurrentToken() {
-            if (securityToken.isValid(logger, false)) {
-                return securityToken.getSecurityToken();
-            }
-            return null;
-        }
+        private synchronized String refreshAndGetSecurityToken() {
+            logTrace(logger, "Refreshing session keys");
+            sessionKeyPairSupplier.refreshKeys();
 
-        private String refreshAndGetSecurityToken() {
-            synchronized (this) {
-                if (!securityToken.isValid(logger)) {
-                    logTrace(logger, "Refreshing session keys");
-                    sessionKeyPairSupplier.refreshKeys();
-
-                    logTrace(logger, "Getting security token from file.");
-                    securityToken = getSecurityTokenFromFile();
-                    return securityToken.getSecurityToken();
-                }
-
-                return securityToken.getSecurityToken();
-            }
+            logTrace(logger, "Getting security token from file.");
+            SecurityToken token = getSecurityTokenFromFile();
+            token.validate(minTokenLifetime);
+            securityToken = token;
+            return securityToken.getSecurityToken();
         }
 
         SecurityToken getSecurityTokenFromFile() {
@@ -131,9 +115,7 @@ abstract class ResourcePrincipalTokenSupplier {
                     "Unable to read session token from " + sessionTokenPath, e);
             }
 
-            return new SecurityToken(sessToken,
-                                     tokenExpirationRefreshWindow,
-                                     sessionKeyPairSupplier);
+            return new SecurityToken(sessToken, sessionKeyPairSupplier);
         }
     }
 
@@ -154,23 +136,18 @@ abstract class ResourcePrincipalTokenSupplier {
         FixedSecurityTokenSupplier(SessionKeyPairSupplier sessionKeySupplier,
                                    String sessionToken) {
             this.securityToken = new SecurityToken(sessionToken,
-                                                   tokenExpirationRefreshWindow,
                                                    sessionKeySupplier);
         }
 
         @Override
         public String getSecurityToken() {
+            securityToken.validate(minTokenLifetime);
             return securityToken.getSecurityToken();
         }
 
         @Override
         public String getStringClaim(String key) {
             return securityToken.getStringClaim(key);
-        }
-
-        @Override
-        public String getCurrentToken() {
-            return securityToken.getSecurityToken();
         }
     }
 }

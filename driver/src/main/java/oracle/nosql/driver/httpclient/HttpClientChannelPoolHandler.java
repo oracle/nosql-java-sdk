@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,14 +8,15 @@
 package oracle.nosql.driver.httpclient;
 
 import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
-import java.net.InetSocketAddress;
 
+import java.net.InetSocketAddress;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelHealthChecker;
@@ -24,6 +25,7 @@ import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.concurrent.Future;
 
 /**
@@ -74,7 +76,10 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             final SSLParameters sslParameters = sslEngine.getSSLParameters();
             sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
             sslEngine.setSSLParameters(sslParameters);
+            sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
+
             p.addLast(sslHandler);
+            p.addLast(new ChannelLoggingHandler(client));
         }
         p.addLast(CODEC_HANDLER_NAME, new HttpClientCodec
                               (4096, // initial line
@@ -117,12 +122,54 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         boolean val = channel.isActive();
 
         if (!val) {
-            logInfo(client.getLogger(),
+            logFine(client.getLogger(),
                     "HttpClient " + client.getName() +
                     ", channel inactive in health check: " + channel);
         }
         EventLoop loop = channel.eventLoop();
         return val? loop.newSucceededFuture(Boolean.TRUE) :
             loop.newSucceededFuture(Boolean.FALSE);
+    }
+
+    private static class ChannelLoggingHandler
+        extends ChannelInboundHandlerAdapter {
+
+        private HttpClient client;
+
+        ChannelLoggingHandler(HttpClient client) {
+            this.client = client;
+        }
+
+        @Override
+        public void channelActive(ChannelHandlerContext ctx) {
+            logFine(client.getLogger(),
+                    "HttpClient " + client.getName() +
+                    ", channel " + ctx.channel() + " connected");
+            ctx.fireChannelActive();
+        }
+
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) {
+            logFine(client.getLogger(),
+                    "HttpClient " + client.getName() +
+                    ", channel " + ctx.channel() + " inactive");
+            ctx.fireChannelInactive();
+        }
+
+        @Override
+        public void userEventTriggered(ChannelHandlerContext ctx,
+                                       Object evt)
+            throws Exception {
+
+            if (evt instanceof SslHandshakeCompletionEvent) {
+                if (!((SslHandshakeCompletionEvent) evt).isSuccess()) {
+                    logFine(client.getLogger(),
+                            "HttpClient " + client.getName() +
+                            ", channel: " + ctx.channel() +
+                            " handshake failed: " + evt);
+                }
+            }
+            ctx.fireUserEventTriggered(evt);
+        }
     }
 }

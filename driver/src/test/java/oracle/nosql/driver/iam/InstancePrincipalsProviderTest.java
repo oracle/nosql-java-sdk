@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,7 +8,6 @@
 package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -18,6 +17,7 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyPair;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -26,6 +26,7 @@ import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.FreePortLocator;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
 import oracle.nosql.driver.ops.Request;
@@ -184,7 +185,9 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setLeafCertificateSupplier(leaf)
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
+            .setSessionKeyPairSupplier(new TestSupplier(keypair.getKeyPair()))
             .build();
+        provider.prepare(new NoSQLHandleConfig("http://test"));
         assertEquals("ST$" + securityToken(), provider.getKeyId());
     }
 
@@ -207,6 +210,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setFederationEndpoint(base)
             .setLeafCertificateSupplier(leaf)
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
+            .setSessionKeyPairSupplier(new TestSupplier(keypair.getKeyPair()))
             .setTenantId(tenantId)
             .build();
 
@@ -380,11 +384,12 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
             .build();
+        provider.prepare(new NoSQLHandleConfig("http://test"));
 
         try {
             provider.getKeyId();
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "Failed to get");
+        } catch (SecurityInfoNotReadyException iae) {
+            assertThat(iae.getMessage(), "Error getting security token");
         }
     }
 
@@ -411,15 +416,14 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             .setIntermediateCertificateSuppliers(Collections.singleton(inter))
             .setTenantId(tenantId)
             .build();
-        provider.setTokenExpirationRefreshWindow(REFRESH_WINDOW_SEC * 1000);
-        String keyId = provider.getKeyId();
-        long start = System.currentTimeMillis();
-        while ((System.currentTimeMillis() - start) < 3000) {
-            if (!provider.isKeyValid(keyId)) {
-                break;
-            }
+        provider.setMinTokenLifetime(REFRESH_WINDOW_SEC * 1000 + 100);
+        provider.prepare(new NoSQLHandleConfig("http://test"));
+        try {
+            provider.getKeyId();
+            fail("expected");
+        } catch (IllegalArgumentException iae) {
+            assertThat(iae.getMessage(), "less lifetime");
         }
-        assertFalse(provider.isKeyValid(keyId));
     }
 
     @Test
@@ -457,8 +461,13 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         }
 
         /* test IAM URI by airport code */
+        assertEquals(Utils.getIAMURL("jnb"),
+                    "https://auth.af-johannesburg-1.oraclecloud.com");
+
         assertEquals(Utils.getIAMURL("bom"),
                     "https://auth.ap-mumbai-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("sin"),
+                    "https://auth.ap-singapore-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("icn"),
                     "https://auth.ap-seoul-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("syd"),
@@ -474,6 +483,10 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         assertEquals(Utils.getIAMURL("yny"),
                     "https://auth.ap-chuncheon-1.oraclecloud.com");
 
+        assertEquals(Utils.getIAMURL("mrs"),
+                    "https://auth.eu-marseille-1.oraclecloud.com");
+        assertEquals(Utils.getIAMURL("arn"),
+                    "https://auth.eu-stockholm-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("fra"),
                     "https://auth.eu-frankfurt-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("zrh"),
@@ -482,12 +495,16 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
                     "https://auth.uk-london-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("ams"),
                     "https://auth.eu-amsterdam-1.oraclecloud.com");
+
+        assertEquals(Utils.getIAMURL("auh"),
+                    "https://auth.me-abudhabi-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("jed"),
                     "https://auth.me-jeddah-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("cwl"),
-                    "https://auth.uk-cardiff-1.oraclecloud.com");
         assertEquals(Utils.getIAMURL("dxb"),
                     "https://auth.me-dubai-1.oraclecloud.com");
+
+        assertEquals(Utils.getIAMURL("cwl"),
+                    "https://auth.uk-cardiff-1.oraclecloud.com");
 
         assertEquals(Utils.getIAMURL("iad"),
                     "https://auth.us-ashburn-1.oraclecloud.com");
@@ -522,5 +539,28 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
 
         assertEquals(Utils.getIAMURL("nja"),
                      "https://auth.ap-chiyoda-1.oraclecloud8.com");
+
+        assertEquals(Utils.getIAMURL("mct"),
+                     "https://auth.me-dcc-muscat-1.oraclecloud9.com");
+
+        assertEquals(Utils.getIAMURL("wga"),
+                     "https://auth.ap-dcc-canberra-1.oraclecloud10.com");
+    }
+
+    private static class TestSupplier implements SessionKeyPairSupplier {
+        final private KeyPair keyPair;
+
+        TestSupplier(KeyPair kp) {
+            this.keyPair = kp;
+        }
+
+        @Override
+        public KeyPair getKeyPair() {
+            return keyPair;
+        }
+
+        @Override
+        public void refreshKeys() {
+        }
     }
 }

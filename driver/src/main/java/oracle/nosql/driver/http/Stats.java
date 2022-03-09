@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -366,6 +366,9 @@ public class Stats {
         private QueryEntryStat getExtraQueryStat(
             QueryRequest queryRequest) {
             String sql = queryRequest.getStatement();
+            if (sql == null && queryRequest.getPreparedStatement() != null) {
+                sql = queryRequest.getPreparedStatement().getSQLText();
+            }
 
             QueryEntryStat qStat = queries.get(sql);
 
@@ -599,7 +602,15 @@ public class Stats {
 
         connectionStats.observe(connections);
 
-        if (extraQueryStats != null) {
+        if (extraQueryStats == null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
+            extraQueryStats = new ExtraQueryStats(statsControl);
+        }
+
+        if (extraQueryStats != null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
             if (kvRequest instanceof QueryRequest) {
                 QueryRequest queryRequest = (QueryRequest)kvRequest;
 
@@ -614,7 +625,15 @@ public class Stats {
      * Adds a new statistic entry for this query request.
      */
     void observeQuery(QueryRequest qreq) {
-        if (extraQueryStats != null) {
+        if (extraQueryStats == null &&
+            statsControl.getProfile().ordinal() >=
+            StatsControl.Profile.ALL.ordinal()) {
+            extraQueryStats = new ExtraQueryStats(statsControl);
+        }
+
+        if (extraQueryStats != null &&
+            statsControl.getProfile().ordinal() >=
+                StatsControl.Profile.ALL.ordinal()) {
             extraQueryStats.observeQuery(qreq);
         }
     }

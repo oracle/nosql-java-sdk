@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,7 +10,6 @@ package oracle.nosql.driver.iam;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region;
@@ -90,7 +89,6 @@ class ResourcePrincipalProvider
     public static ResourcePrincipalProvider build(Logger logger) {
         if (logger == null) {
             logger = Logger.getLogger(ResourcePrincipalProvider.class.getName());
-            logger.setLevel(Level.WARNING);
         }
         String version = System.getenv(OCI_RESOURCE_PRINCIPAL_VERSION);
         if (version == null) {
@@ -168,11 +166,6 @@ class ResourcePrincipalProvider
     }
 
     @Override
-    public boolean isKeyValid(String keyId) {
-        return keyId.equals("ST$" + tokenSupplier.getCurrentToken());
-    }
-
-    @Override
     public InputStream getPrivateKey() {
         return new ByteArrayInputStream(sessionKeySupplier.getPrivateKeyBytes());
     }
@@ -188,8 +181,8 @@ class ResourcePrincipalProvider
     }
 
     @Override
-    public void setTokenExpirationRefreshWindow(long refreshWindowMS) {
-        tokenSupplier.setTokenExpirationRefreshWindow(refreshWindowMS);
+    public void setMinTokenLifetime(long lifetimeMS) {
+        tokenSupplier.setMinTokenLifetime(lifetimeMS);
     }
 
     /**

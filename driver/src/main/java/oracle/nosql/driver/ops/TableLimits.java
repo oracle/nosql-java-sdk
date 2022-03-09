@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -40,6 +40,11 @@ public class TableLimits {
 
     /**
      * Table limits option
+<<<<<<< HEAD
+=======
+     *
+     * @since 5.3.0
+>>>>>>> e2e887454fd320051e7b0e18806a65f55b37b91a
      */
     public enum CapacityMode {
         PROVISIONED,
@@ -78,6 +83,11 @@ public class TableLimits {
      *
      * @param storageGB the maximum storage to be consumed by the table, in
      * gigabytes
+<<<<<<< HEAD
+=======
+     *
+     * @since 5.3.0
+>>>>>>> e2e887454fd320051e7b0e18806a65f55b37b91a
      */
     public TableLimits(int storageGB) {
         this(0, 0, storageGB, CapacityMode.ON_DEMAND);
@@ -139,6 +149,11 @@ public class TableLimits {
     /**
      * Returns the capacity mode
      * @return capacity mode
+<<<<<<< HEAD
+=======
+     *
+     * @since 5.3.0
+>>>>>>> e2e887454fd320051e7b0e18806a65f55b37b91a
      */
     public CapacityMode getMode() {
         return mode;

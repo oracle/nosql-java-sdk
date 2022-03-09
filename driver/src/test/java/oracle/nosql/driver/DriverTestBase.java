@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -229,7 +229,7 @@ public class DriverTestBase {
         }
         String certString = sw.toString();
 
-        return new KeyPairInfo(key, certString, keypair.getPublic());
+        return new KeyPairInfo(key, certString, keypair);
     }
 
     /**
@@ -257,12 +257,12 @@ public class DriverTestBase {
     protected static class KeyPairInfo {
         private String key;
         private String cert;
-        private PublicKey publicKey;
+        private KeyPair keyPair;
 
-        KeyPairInfo(String key, String cert, PublicKey publicKey) {
+        KeyPairInfo(String key, String cert, KeyPair keyPair) {
             this.key = key;
             this.cert = cert;
-            this.publicKey = publicKey;
+            this.keyPair = keyPair;
         }
 
         public String getKey() {
@@ -273,8 +273,12 @@ public class DriverTestBase {
             return cert;
         }
 
+        public KeyPair getKeyPair() {
+            return keyPair;
+        }
+
         public PublicKey getPublicKey() {
-            return publicKey;
+            return keyPair.getPublic();
         }
     }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -219,7 +219,10 @@ public class WriteMultipleResult extends Result {
         /**
          * Returns the previous modification time associated with the key if
          * available.
-         * @return the modification time if set, in milliseconds sine Jan 1, 1970
+         * @return the modification time if set, in milliseconds sine Jan 1,
+         * 1970
+         *
+         * @since 5.3.0
          */
         public long getExistingModificationTime() {
             return super.getExistingModificationTimeInternal();

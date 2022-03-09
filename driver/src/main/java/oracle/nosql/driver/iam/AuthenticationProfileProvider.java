@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -42,13 +42,4 @@ public interface AuthenticationProfileProvider {
      * @return The passphrase as character array, or null if not applicable
      */
     char[] getPassphraseCharacters();
-
-    /**
-     * Check validity of key identified by given id.
-     * @param keyId key id
-     * @return true if key identified by given id is valid
-     */
-    default boolean isKeyValid(String keyId) {
-        return true;
-    }
 }
