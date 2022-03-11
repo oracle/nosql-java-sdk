@@ -147,6 +147,19 @@ public class RetryStats {
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RetryStats)) {
+            return false;
+        }
+        RetryStats rs = (RetryStats)o;
+        if (retries != rs.retries ||
+            delayMs != rs.delayMs ||
+            exceptionMap.equals(rs.exceptionMap) == false) {
+            return false;
+        }
+        return true;
+    }
 
     @Override
     public String toString() {
