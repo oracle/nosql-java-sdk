@@ -325,6 +325,10 @@ public class Client {
          */
         kvRequest.validate();
 
+        /* clear any retry stats that may exist on this request object */
+        kvRequest.setRetryStats(null);
+        kvRequest.setRateLimitDelayedMs(0);
+
         if (kvRequest.isQueryRequest()) {
             QueryRequest qreq = (QueryRequest)kvRequest;
 
@@ -376,9 +380,6 @@ public class Client {
         int timeoutMs = kvRequest.getTimeoutInternal();
 
         Throwable exception = null;
-
-        /* clear any retry stats that may exist on this request object */
-        kvRequest.setRetryStats(null);
 
         /*
          * If the request doesn't set an explicit compartment, use
@@ -603,6 +604,12 @@ public class Client {
                     updateRateLimiters(((TableResult)res).getTableName(), tl);
                 }
 
+                /*
+                 * We may not have rate limiters yet because queries may
+                 * not have a tablename until after the first request.
+                 * So try to get rate limiters if we don't have them yet and
+                 * this is a QueryRequest.
+                 */
                 if (rateLimiterMap != null && readLimiter == null) {
                     readLimiter = getQueryRateLimiter(kvRequest, true);
                 }
@@ -829,9 +836,18 @@ public class Client {
         }
 
         if (read) {
-            return rateLimiterMap.getReadLimiter(tableName);
+            RateLimiter rl = rateLimiterMap.getReadLimiter(tableName);
+            if (rl != null) {
+                request.setReadRateLimiter(rl);
+            }
+            return rl;
         }
-        return rateLimiterMap.getWriteLimiter(tableName);
+
+        RateLimiter rl = rateLimiterMap.getWriteLimiter(tableName);
+        if (rl != null) {
+            request.setWriteRateLimiter(rl);
+        }
+        return rl;
     }
 
     /**

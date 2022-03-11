@@ -277,13 +277,16 @@ public class RateLimiterTest extends ProxyTestBase {
      */
     private void doRateLimitedQueries(int numSeconds,
         int readLimit, int maxKB,
-        boolean singlePartition, double usePercent,
+        boolean singlePartition, boolean doSort, double usePercent,
         boolean verbose, boolean useExternalLimiters) {
 
         long startTime = System.currentTimeMillis();
         long endTime = startTime + (numSeconds * 1000);
 
         int readUnitsUsed = 0;
+        int requestDelayedMs = 0;
+        int responseDelayedMs = 0;
+        int totalRecords = 0;
 
         RateLimiter rlim = null;
         RateLimiter wlim = null;
@@ -300,16 +303,21 @@ public class RateLimiterTest extends ProxyTestBase {
         }
 
         PrepareRequest prepReq = new PrepareRequest();
+        String statement;
         if (singlePartition) {
             /* Query based on single partition scanning */
             int id = (int)(Math.random() * 500.0);
-            prepReq.setStatement("select * from testusersRateLimit " +
-                "where id = " + id);
+            statement = "select * from testusersRateLimit " +
+                "where id = " + id;
         } else {
             /* Query based on all partitions scanning */
-            prepReq.setStatement("select * from testusersRateLimit " +
-                "where name = \"jane\"");
+            statement = "select * from testusersRateLimit " +
+                "where name = \"jane\"";
         }
+        if (doSort) {
+            statement = statement + " order by name";
+        }
+        prepReq.setStatement(statement);
         PrepareResult prepRes = handle.prepare(prepReq);
         assertTrue("Prepare statement failed",
             prepRes.getPreparedStatement() != null);
@@ -319,8 +327,10 @@ public class RateLimiterTest extends ProxyTestBase {
             maxKB = (int)((readLimit * usePercent)/100.0);
         }
 
-        if (verbose) System.out.println("Running queries: RUs=" +
-            readLimit + " percent=" + usePercent + " maxKB=" + maxKB);
+        if (verbose) System.out.println("Running queries: statement=" +
+            statement + "; RUs=" +
+            readLimit + " percent=" + usePercent + " maxKB=" + maxKB +
+            " singlePartition=" + singlePartition);
 
         do {
             /*
@@ -337,23 +347,50 @@ public class RateLimiterTest extends ProxyTestBase {
             try {
                 do {
                     QueryResult res = handle.query(queryReq);
-                    res.getResults().size();
+                    totalRecords += res.getResults().size();
                     readUnitsUsed += res.getReadUnits();
+                    requestDelayedMs += queryReq.getRateLimitDelayedMs();
+                    responseDelayedMs += res.getRateLimitDelayedMs();
                 } while (!queryReq.isDone());
             } catch (ReadThrottlingException rte) {
                 fail("Expected no throttling exceptions, got one");
             } catch (RequestTimeoutException te) {
                 /* this may happen for very small limit tests */
             }
+            /*
+             * verify that rate limiters were used
+             */
+            if (useExternalLimiters == false) {
+                RateLimiter rl = queryReq.getReadRateLimiter();
+                if (rl == null) {
+                    fail("query did not use rate limiter");
+                }
+            }
         } while (endTime > System.currentTimeMillis());
 
-        numSeconds = (int)((System.currentTimeMillis() - startTime) / 1000);
+        int numMs = (int)(System.currentTimeMillis() - startTime);
 
         usePercent = usePercent / 100.0;
 
-        int RUs = readUnitsUsed / numSeconds;
+        int RUs = (readUnitsUsed * 1000) / numMs;
 
-        if (verbose) System.out.println("Resulting query RUs=" + RUs);
+        if (verbose) {
+            System.out.println("Total read units=" + readUnitsUsed +
+                               " in " + numMs + "ms");
+            System.out.println("Total records=" + totalRecords);
+            System.out.println("Resulting query RUs=" + RUs);
+            System.out.println("Rate limiting delayed execution by " +
+                               requestDelayedMs + "ms");
+        }
+        if (requestDelayedMs <= 0 && responseDelayedMs <= 0) {
+            fail("Query did not delay at all due to rate limiting");
+        }
+        /* the delayed time should be the same in request and response */
+        if (requestDelayedMs != responseDelayedMs) {
+            fail("Mismatch in rate limit delay reported by request versus " +
+                 "response: request=" + requestDelayedMs + " response=" +
+                 responseDelayedMs);
+        }
 
         int expectedRUs = (int)(readLimit * usePercent);
 
@@ -366,8 +403,8 @@ public class RateLimiterTest extends ProxyTestBase {
 
         if (RUs < (int)(expectedRUs * 0.6) ||
             RUs > (int)(expectedRUs * 1.5)) {
-            fail("Queries: Expected around " + expectedRUs +
-                " RUs, got " + RUs);
+            fail("Query: \"" + prepReq.getStatement() +
+                 "\"\nExpected around " + expectedRUs + " RUs, got " + RUs);
         }
     }
 
@@ -437,14 +474,20 @@ public class RateLimiterTest extends ProxyTestBase {
         doRateLimitedOps(maxSeconds, readLimit, 0,
             maxRows, true, usePercent, verbose, useExternalLimiters);
 
-        /* Query based on single partition scanning */
+        /* Query based on single partition scanning, no sort */
         doRateLimitedQueries(maxSeconds, readLimit,
-            20, true, usePercent, verbose, useExternalLimiters);
-        /* Query based on all partitions scanning */
+            20, true, false, usePercent, verbose, useExternalLimiters);
+        /* Query based on single partition scanning, with sort */
         doRateLimitedQueries(maxSeconds, readLimit,
-            20, false, usePercent, verbose, useExternalLimiters);
+            20, true, true, usePercent, verbose, useExternalLimiters);
+        /* Query based on all partitions scanning - no sort */
+        doRateLimitedQueries(maxSeconds, readLimit,
+            20, false, false, usePercent, verbose, useExternalLimiters);
+        /* Query based on all partitions scanning - with sort */
+        doRateLimitedQueries(maxSeconds, readLimit,
+            20, false, true, usePercent, verbose, useExternalLimiters);
         /* Query based on all partitions scanning, no limit per req */
         doRateLimitedQueries(maxSeconds, readLimit,
-            0, false, usePercent, verbose, useExternalLimiters);
+            0, false, true, usePercent, verbose, useExternalLimiters);
     }
 }

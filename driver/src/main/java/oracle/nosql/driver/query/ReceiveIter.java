@@ -413,11 +413,7 @@ public class ReceiveIter extends PlanIter {
          * throws an error. This is because even in the error case the
          * execute() call may have set/updated these values.
          */
-        origRequest.setRetryStats(reqCopy.getRetryStats());
-        origRequest.setRateLimitDelayedMs(reqCopy.getRateLimitDelayedMs());
-        origRequest.setReadRateLimiter(reqCopy.getReadRateLimiter());
-        origRequest.setWriteRateLimiter(reqCopy.getWriteRateLimiter());
-        origRequest.setStartTimeMs(reqCopy.getStartTimeMs());
+        reqCopy.copyTo(origRequest);
         /* if the execute() call threw an error, throw it here */
         if (e != null) {
             throw e;
@@ -459,6 +455,8 @@ public class ReceiveIter extends PlanIter {
         rcb.tallyReadKB(result.getReadKB());
         rcb.tallyReadUnits(result.getReadUnits());
         rcb.tallyWriteKB(result.getWriteKB());
+        rcb.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
+        rcb.tallyRetryStats(result.getRetryStats());
 
         if (rcb.getTraceLevel() >= 1) {
             rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
@@ -779,6 +777,8 @@ public class ReceiveIter extends PlanIter {
             theRCB.tallyReadKB(result.getReadKB());
             theRCB.tallyReadUnits(result.getReadUnits());
             theRCB.tallyWriteKB(result.getWriteKB());
+            theRCB.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
+            theRCB.tallyRetryStats(result.getRetryStats());
 
             assert(result.reachedLimit() || !theMoreRemoteResults);
 

@@ -48,23 +48,23 @@ public abstract class Request {
     /**
      * @hidden
      */
-    protected RetryStats retryStats;
+    private RetryStats retryStats;
 
     /**
      * @hidden
      */
-    protected long startTimeMs;
+    private long startTimeMs;
 
     /**
      * @hidden
      */
-    protected RateLimiter readRateLimiter;
+    private RateLimiter readRateLimiter;
 
     /**
      * @hidden
      */
-    protected RateLimiter writeRateLimiter;
-    protected int rateLimitDelayedMs;
+    private RateLimiter writeRateLimiter;
+    private int rateLimitDelayedMs;
 
     protected Request() {}
 
@@ -423,4 +423,20 @@ public abstract class Request {
      * @return the type name of the request
      */
     public abstract String getTypeName();
+
+    /**
+     * @hidden
+     * Copy internal fields to another Request object.
+     */
+    public void copyTo(Request other) {
+        other.setTimeoutInternal(this.timeoutMs);
+        other.setCheckRequestSize(this.checkRequestSize);
+        other.setCompartmentInternal(this.compartment);
+        other.setTableNameInternal(this.tableName);
+        other.setStartTimeMs(this.startTimeMs);
+        other.setRetryStats(this.retryStats);
+        other.setReadRateLimiter(this.readRateLimiter);
+        other.setWriteRateLimiter(this.writeRateLimiter);
+        other.setRateLimitDelayedMs(this.rateLimitDelayedMs);
+    }
 }
