@@ -83,7 +83,11 @@ public class RateLimiterTest extends ProxyTestBase {
         Client client = ((NoSQLHandleImpl)handle).getClient();
         client.enableRateLimiting(false, 100.0);
 
-        /* then do the actual testing */
+        /*
+         * With these settings, we should get many internal throttling
+         * errors. This is on porpuse, tov erify that retry stats are
+         * properly returned in both QueryRequest and QueryResult objects.
+         */
         runLimitedOpsOnTable(readLimit, writeLimit, testSeconds,
             maxRows, 100.0, verbose, false, true);
     }
@@ -419,6 +423,7 @@ public class RateLimiterTest extends ProxyTestBase {
             System.out.println("Resulting query RUs=" + RUs);
             System.out.println("Rate limiting delayed execution by " +
                                requestDelayedMs + "ms");
+            System.out.println("Request retries: " + requestRetryStats);
         }
         if (skipAllLimiting == false &&
             requestDelayedMs <= 0 && responseDelayedMs <= 0) {
@@ -435,6 +440,10 @@ public class RateLimiterTest extends ProxyTestBase {
             fail("Mismatch in retry stats reported by request versus " +
                  "response: request=" + requestRetryStats + " response=" +
                  responseRetryStats);
+        }
+        /* if no limiting, retries should be nonzero */
+        if (skipAllLimiting == true && requestRetryStats.getRetries() == 0) {
+            fail("Expected to get internal retries, but got none");
         }
 
         int expectedRUs = (int)(readLimit * usePercent);
