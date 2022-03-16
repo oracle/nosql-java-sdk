@@ -234,9 +234,9 @@ public class NoSQLHandleConfig implements Cloneable {
     private StatsControl.StatsHandler statsHandler = null;
 
     /**
-     * Hidden flag to turn off automatic auth refresh in cloud service
+     * Hidden flag to control automatic auth refresh in cloud service
      */
-    private boolean noAuthRefresh;
+    private boolean authRefresh;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -1472,16 +1472,18 @@ public class NoSQLHandleConfig implements Cloneable {
      * @hidden
      *
      * Cloud service only.
-     * Turns off internal, automatic refresh of auth information based on
+     * Turns on, or off internal, automatic refresh of auth information based on
      * tracked requests. This is present in case the refresh really isn't
-     * desired or the mechanism fails for some reason.
+     * desired or the mechanism fails for some reason. This mechanism is off
+     * by default.
      *
+     * @param value true to enable refresh
      * @return this
      *
      * @since 5.3.2
      */
-    public NoSQLHandleConfig setNoAuthRefresh() {
-        this.noAuthRefresh = true;
+    public NoSQLHandleConfig setAuthRefresh(boolean value) {
+        this.authRefresh = value;
         return this;
     }
 
@@ -1489,14 +1491,14 @@ public class NoSQLHandleConfig implements Cloneable {
      * @hidden
      *
      * Cloud service only.
-     * Returns the state of the noAuthRefresh flag
+     * Returns the state of the authRefresh flag
      *
-     * @return true if auth refresh is turned off
+     * @return true if auth refresh is enabled
      *
      * @since 5.3.2
      */
-    public boolean getNoAuthRefresh() {
-        return noAuthRefresh;
+    public boolean getAuthRefresh() {
+        return authRefresh;
     }
 
     @Override

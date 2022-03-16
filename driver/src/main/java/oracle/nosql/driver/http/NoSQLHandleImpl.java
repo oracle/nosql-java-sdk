@@ -155,7 +155,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 sigProvider.setLogger(logger);
             }
             sigProvider.prepare(config);
-            if (!config.getNoAuthRefresh()) {
+            if (config.getAuthRefresh()) {
                 sigProvider.setOnSignatureRefresh(new SigRefresh());
                 client.createAuthRefreshList();
             }
