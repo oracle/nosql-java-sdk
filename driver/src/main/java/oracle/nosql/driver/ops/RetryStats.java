@@ -36,7 +36,7 @@ public class RetryStats {
      * Internal use only.
      * Create a new retry stats object.
      */
-    RetryStats() {
+    public RetryStats() {
         this.retries = 0;
         this.delayMs = 0;
         this.exceptionMap = new HashMap<Class<? extends Throwable>, Integer>();
@@ -115,6 +115,50 @@ public class RetryStats {
         delayMs = 0;
         retries = 0;
         exceptionMap.clear();
+    }
+
+    public Map<Class<? extends Throwable>, Integer> getExceptionMap() {
+        return exceptionMap;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Adds stats to the current object.
+     */
+    public void addStats(RetryStats rs) {
+        if (rs == null) {
+            return;
+        }
+        delayMs += rs.getDelayMs();
+        retries += rs.getRetries();
+        Map<Class<? extends Throwable>, Integer> emap = rs.getExceptionMap();
+        if (emap == null || emap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Class<? extends Throwable>, Integer> entry:
+             emap.entrySet()) {
+            int i = entry.getValue().intValue();
+            Integer val = exceptionMap.get(entry.getKey());
+            if (val != null) {
+                i += val.intValue();
+            }
+            exceptionMap.put(entry.getKey(), i);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RetryStats)) {
+            return false;
+        }
+        RetryStats rs = (RetryStats)o;
+        if (retries != rs.retries ||
+            delayMs != rs.delayMs ||
+            exceptionMap.equals(rs.exceptionMap) == false) {
+            return false;
+        }
+        return true;
     }
 
     @Override

@@ -114,7 +114,8 @@ public class QueryRequest extends Request {
     public QueryRequest copyInternal() {
 
         QueryRequest internalReq = new QueryRequest();
-        internalReq.timeoutMs = timeoutMs;
+        super.copyTo(internalReq);
+
         internalReq.traceLevel = traceLevel;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
@@ -125,7 +126,6 @@ public class QueryRequest extends Request {
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
-        internalReq.tableName = tableName;
         return internalReq;
     }
 

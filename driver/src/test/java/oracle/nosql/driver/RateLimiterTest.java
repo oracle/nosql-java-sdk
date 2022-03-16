@@ -65,6 +65,33 @@ public class RateLimiterTest extends ProxyTestBase {
         testLimiters(true, 500, 200, 200, 10, 20.0);
     }
 
+    @Test
+    public void retryStatsTest() throws Exception {
+        testRetryStats(500, 2000, 2000, 10);
+    }
+
+    private void testRetryStats(int maxRows,
+                                int readLimit,
+                                int writeLimit,
+                                int testSeconds) {
+
+        assumeTrue(onprem == false);
+
+        final boolean verbose = Boolean.getBoolean("test.verbose");
+
+        /* clear any previous rate limiters */
+        Client client = ((NoSQLHandleImpl)handle).getClient();
+        client.enableRateLimiting(false, 100.0);
+
+        /*
+         * With these settings, we should get many internal throttling
+         * errors. This is on porpuse, tov erify that retry stats are
+         * properly returned in both QueryRequest and QueryResult objects.
+         */
+        runLimitedOpsOnTable(readLimit, writeLimit, testSeconds,
+            maxRows, 100.0, verbose, false, true);
+    }
+
     private void testLimiters(boolean useExternalLimiters,
                               int maxRows,
                               int readLimit,
@@ -90,7 +117,7 @@ public class RateLimiterTest extends ProxyTestBase {
 
         /* then do the actual testing */
         runLimitedOpsOnTable(readLimit, writeLimit, testSeconds,
-            maxRows, usePercent, verbose, useExternalLimiters);
+            maxRows, usePercent, verbose, useExternalLimiters, false);
     }
 
     @Test
@@ -146,7 +173,7 @@ public class RateLimiterTest extends ProxyTestBase {
     private void doRateLimitedOps(int numSeconds,
         int readLimit, int writeLimit, int maxRows,
         boolean checkUnits, double usePercent, boolean verbose,
-        boolean useExternalLimiters) {
+        boolean useExternalLimiters, boolean skipAllLimiting) {
 
         if (readLimit == 0 && writeLimit == 0) {
             return;
@@ -179,15 +206,17 @@ public class RateLimiterTest extends ProxyTestBase {
             readLimit + " WUs=" + writeLimit +
             " percent=" + usePercent);
 
-        if (useExternalLimiters == false) {
-            /* reset internal limiters so they don't have unused units */
-            ((NoSQLHandleImpl)handle).getClient()
-                .resetRateLimiters("testusersRateLimit");
-        } else {
-            rlim = new SimpleRateLimiter(
-                (readLimit * usePercent) / 100.0, 1);
-            wlim = new SimpleRateLimiter(
-                (writeLimit * usePercent) / 100.0, 1);
+        if (skipAllLimiting == false) {
+            if (useExternalLimiters == false) {
+                /* reset internal limiters so they don't have unused units */
+                ((NoSQLHandleImpl)handle).getClient()
+                    .resetRateLimiters("testusersRateLimit");
+            } else {
+                rlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+                wlim = new SimpleRateLimiter(
+                    (writeLimit * usePercent) / 100.0, 1);
+            }
         }
 
         boolean doPut;
@@ -232,9 +261,13 @@ public class RateLimiterTest extends ProxyTestBase {
                 }
             /* we should not get throttling exceptions */
             } catch (WriteThrottlingException wte) {
-                fail("Expected no write throttling exceptions, got one");
+                if (skipAllLimiting == false) {
+                    fail("Expected no write throttling exceptions, got one");
+                }
             } catch (ReadThrottlingException rte) {
-                fail("Expected no read throttling exceptions, got one");
+                if (skipAllLimiting == false) {
+                    fail("Expected no read throttling exceptions, got one");
+                }
             }
         } while (System.currentTimeMillis() < endTime);
 
@@ -250,7 +283,7 @@ public class RateLimiterTest extends ProxyTestBase {
         if (verbose) System.out.println("Internal throttle exceptions = " +
             throttleExceptions);
 
-        if (checkUnits == false) {
+        if (checkUnits == false || skipAllLimiting == true) {
             return;
         }
 
@@ -277,39 +310,52 @@ public class RateLimiterTest extends ProxyTestBase {
      */
     private void doRateLimitedQueries(int numSeconds,
         int readLimit, int maxKB,
-        boolean singlePartition, double usePercent,
-        boolean verbose, boolean useExternalLimiters) {
+        boolean singlePartition, boolean doSort, double usePercent,
+        boolean verbose, boolean useExternalLimiters,
+        boolean skipAllLimiting) {
 
         long startTime = System.currentTimeMillis();
         long endTime = startTime + (numSeconds * 1000);
 
         int readUnitsUsed = 0;
+        int requestDelayedMs = 0;
+        int responseDelayedMs = 0;
+        RetryStats requestRetryStats = new RetryStats();
+        RetryStats responseRetryStats = new RetryStats();
+        int totalRecords = 0;
 
         RateLimiter rlim = null;
         RateLimiter wlim = null;
 
-        if (useExternalLimiters == false) {
-            /* reset internal limiters so they don't have unused units */
-            ((NoSQLHandleImpl)handle).getClient()
-                .resetRateLimiters("testusersRateLimit");
-        } else {
-            rlim = new SimpleRateLimiter(
-                (readLimit * usePercent) / 100.0, 1);
-            wlim = new SimpleRateLimiter(
-                (readLimit * usePercent) / 100.0, 1);
+        if (skipAllLimiting == false ) {
+            if (useExternalLimiters == false) {
+                /* reset internal limiters so they don't have unused units */
+                ((NoSQLHandleImpl)handle).getClient()
+                    .resetRateLimiters("testusersRateLimit");
+            } else {
+                rlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+                wlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+            }
         }
 
         PrepareRequest prepReq = new PrepareRequest();
+        String statement;
         if (singlePartition) {
             /* Query based on single partition scanning */
             int id = (int)(Math.random() * 500.0);
-            prepReq.setStatement("select * from testusersRateLimit " +
-                "where id = " + id);
+            statement = "select * from testusersRateLimit " +
+                "where id = " + id;
         } else {
             /* Query based on all partitions scanning */
-            prepReq.setStatement("select * from testusersRateLimit " +
-                "where name = \"jane\"");
+            statement = "select * from testusersRateLimit " +
+                "where name = \"jane\"";
         }
+        if (doSort) {
+            statement = statement + " order by name";
+        }
+        prepReq.setStatement(statement);
         PrepareResult prepRes = handle.prepare(prepReq);
         assertTrue("Prepare statement failed",
             prepRes.getPreparedStatement() != null);
@@ -319,8 +365,10 @@ public class RateLimiterTest extends ProxyTestBase {
             maxKB = (int)((readLimit * usePercent)/100.0);
         }
 
-        if (verbose) System.out.println("Running queries: RUs=" +
-            readLimit + " percent=" + usePercent + " maxKB=" + maxKB);
+        if (verbose) System.out.println("Running queries: statement=" +
+            statement + "; RUs=" +
+            readLimit + " percent=" + usePercent + " maxKB=" + maxKB +
+            " singlePartition=" + singlePartition);
 
         do {
             /*
@@ -337,23 +385,66 @@ public class RateLimiterTest extends ProxyTestBase {
             try {
                 do {
                     QueryResult res = handle.query(queryReq);
-                    res.getResults().size();
+                    totalRecords += res.getResults().size();
                     readUnitsUsed += res.getReadUnits();
+                    requestDelayedMs += queryReq.getRateLimitDelayedMs();
+                    responseDelayedMs += res.getRateLimitDelayedMs();
+                    requestRetryStats.addStats(queryReq.getRetryStats());
+                    responseRetryStats.addStats(res.getRetryStats());
                 } while (!queryReq.isDone());
             } catch (ReadThrottlingException rte) {
-                fail("Expected no throttling exceptions, got one");
+                if (skipAllLimiting == false) {
+                    fail("Expected no throttling exceptions, got one");
+                }
             } catch (RequestTimeoutException te) {
                 /* this may happen for very small limit tests */
             }
+            /*
+             * verify that rate limiters were used
+             */
+            if (skipAllLimiting == false && useExternalLimiters == false) {
+                RateLimiter rl = queryReq.getReadRateLimiter();
+                if (rl == null) {
+                    fail("query did not use rate limiter");
+                }
+            }
         } while (endTime > System.currentTimeMillis());
 
-        numSeconds = (int)((System.currentTimeMillis() - startTime) / 1000);
+        int numMs = (int)(System.currentTimeMillis() - startTime);
 
         usePercent = usePercent / 100.0;
 
-        int RUs = readUnitsUsed / numSeconds;
+        int RUs = (readUnitsUsed * 1000) / numMs;
 
-        if (verbose) System.out.println("Resulting query RUs=" + RUs);
+        if (verbose) {
+            System.out.println("Total read units=" + readUnitsUsed +
+                               " in " + numMs + "ms");
+            System.out.println("Total records=" + totalRecords);
+            System.out.println("Resulting query RUs=" + RUs);
+            System.out.println("Rate limiting delayed execution by " +
+                               requestDelayedMs + "ms");
+            System.out.println("Request retries: " + requestRetryStats);
+        }
+        if (skipAllLimiting == false &&
+            requestDelayedMs <= 0 && responseDelayedMs <= 0) {
+            fail("Query did not delay at all due to rate limiting");
+        }
+        /* the delayed time should be the same in request and response */
+        if (requestDelayedMs != responseDelayedMs) {
+            fail("Mismatch in rate limit delay reported by request versus " +
+                 "response: request=" + requestDelayedMs + " response=" +
+                 responseDelayedMs);
+        }
+        /* retry stats should be the same as well */
+        if (requestRetryStats.equals(responseRetryStats) == false) {
+            fail("Mismatch in retry stats reported by request versus " +
+                 "response: request=" + requestRetryStats + " response=" +
+                 responseRetryStats);
+        }
+        /* if no limiting, retries should be nonzero */
+        if (skipAllLimiting == true && requestRetryStats.getRetries() == 0) {
+            fail("Expected to get internal retries, but got none");
+        }
 
         int expectedRUs = (int)(readLimit * usePercent);
 
@@ -366,8 +457,8 @@ public class RateLimiterTest extends ProxyTestBase {
 
         if (RUs < (int)(expectedRUs * 0.6) ||
             RUs > (int)(expectedRUs * 1.5)) {
-            fail("Queries: Expected around " + expectedRUs +
-                " RUs, got " + RUs);
+            fail("Query: \"" + prepReq.getStatement() +
+                 "\"\nExpected around " + expectedRUs + " RUs, got " + RUs);
         }
     }
 
@@ -406,7 +497,8 @@ public class RateLimiterTest extends ProxyTestBase {
             false /* don't check resulting rate */,
             100.0 /* usePercent */,
             verbose,
-            false /* use internal limiting */);
+            false /* use internal limiting */,
+            true /* skip all limiting */);
     }
 
     /**
@@ -415,7 +507,8 @@ public class RateLimiterTest extends ProxyTestBase {
      */
     private void runLimitedOpsOnTable(
         int readLimit, int writeLimit, int maxSeconds, int maxRows,
-        double usePercent, boolean verbose, boolean useExternalLimiters) {
+        double usePercent, boolean verbose, boolean useExternalLimiters,
+        boolean skipAllLimiting) {
 
         /* TODO: test large versus small records */
 
@@ -433,18 +526,31 @@ public class RateLimiterTest extends ProxyTestBase {
          * if it's correct (example: we'd get 37RUs and 15WUs)
          */
         doRateLimitedOps(maxSeconds, 0, writeLimit,
-            maxRows, true, usePercent, verbose, useExternalLimiters);
+            maxRows, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
         doRateLimitedOps(maxSeconds, readLimit, 0,
-            maxRows, true, usePercent, verbose, useExternalLimiters);
+            maxRows, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
 
-        /* Query based on single partition scanning */
+        /* Query based on single partition scanning, no sort */
         doRateLimitedQueries(maxSeconds, readLimit,
-            20, true, usePercent, verbose, useExternalLimiters);
-        /* Query based on all partitions scanning */
+            20, true, false, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on single partition scanning, with sort */
         doRateLimitedQueries(maxSeconds, readLimit,
-            20, false, usePercent, verbose, useExternalLimiters);
+            20, true, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on all partitions scanning - no sort */
+        doRateLimitedQueries(maxSeconds, readLimit,
+            20, false, false, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on all partitions scanning - with sort */
+        doRateLimitedQueries(maxSeconds, readLimit,
+            20, false, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
         /* Query based on all partitions scanning, no limit per req */
         doRateLimitedQueries(maxSeconds, readLimit,
-            0, false, usePercent, verbose, useExternalLimiters);
+            0, false, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
     }
 }
