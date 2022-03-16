@@ -24,6 +24,7 @@ import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
+import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
@@ -187,6 +188,14 @@ public class Client {
     /* used as key and value for auth requests -- guaranteed illegal */
     private MapValue badValue;
 
+    /*
+     * for session persistence, if used. This has the
+     * full "session=xxxxx" key/value pair.
+     */
+    private volatile String sessionCookie;
+    /* note this must end with '=' */
+    private final String SESSION_COOKIE_FIELD = "session=";
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -340,6 +349,10 @@ public class Client {
          */
         kvRequest.validate();
 
+        /* clear any retry stats that may exist on this request object */
+        kvRequest.setRetryStats(null);
+        kvRequest.setRateLimitDelayedMs(0);
+
         if (kvRequest.isQueryRequest()) {
             QueryRequest qreq = (QueryRequest)kvRequest;
 
@@ -391,9 +404,6 @@ public class Client {
         int timeoutMs = kvRequest.getTimeoutInternal();
 
         Throwable exception = null;
-
-        /* clear any retry stats that may exist on this request object */
-        kvRequest.setRetryStats(null);
 
         /*
          * If the request doesn't set an explicit compartment, use
@@ -570,6 +580,9 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
+                if (sessionCookie != null) {
+                    headers.add(COOKIE, sessionCookie);
+                }
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
@@ -593,6 +606,7 @@ public class Client {
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
+                                       responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
@@ -614,6 +628,12 @@ public class Client {
                     updateRateLimiters(((TableResult)res).getTableName(), tl);
                 }
 
+                /*
+                 * We may not have rate limiters yet because queries may
+                 * not have a tablename until after the first request.
+                 * So try to get rate limiters if we don't have them yet and
+                 * this is a QueryRequest.
+                 */
                 if (rateLimiterMap != null && readLimiter == null) {
                     readLimiter = getQueryRateLimiter(kvRequest, true);
                 }
@@ -845,9 +865,18 @@ public class Client {
         }
 
         if (read) {
-            return rateLimiterMap.getReadLimiter(tableName);
+            RateLimiter rl = rateLimiterMap.getReadLimiter(tableName);
+            if (rl != null) {
+                request.setReadRateLimiter(rl);
+            }
+            return rl;
         }
-        return rateLimiterMap.getWriteLimiter(tableName);
+
+        RateLimiter rl = rateLimiterMap.getWriteLimiter(tableName);
+        if (rl != null) {
+            request.setWriteRateLimiter(rl);
+        }
+        return rl;
     }
 
     /**
@@ -984,6 +1013,7 @@ public class Client {
      * @return the programmatic response object
      */
     final Result processResponse(HttpResponseStatus status,
+                                 HttpHeaders headers,
                                  ByteBuf content,
                                  Request kvRequest) {
 
@@ -994,6 +1024,8 @@ public class Client {
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
         }
+
+        setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
             return processOKResponse(bis, kvRequest);
@@ -1064,6 +1096,38 @@ public class Client {
         }
         throw new NoSQLException("Error response = " + status +
                                  ", reason = " + status.reasonPhrase());
+    }
+
+    /* set session cookie, if set in response headers */
+    private void setSessionCookie(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        /*
+         * NOTE: this code assumes there will always be at most
+         * one Set-Cookie header in the response. If the load balancer
+         * settings change, or the proxy changes to add Set-Cookie
+         * headers, this code may need to be changed to look for
+         * multiple Set-Cookie headers.
+         */
+        String v = headers.get("Set-Cookie");
+        /* note SESSION_COOKIE_FIELD has appended '=' */
+        if (v == null || v.startsWith(SESSION_COOKIE_FIELD) == false) {
+            return;
+        }
+        int semi = v.indexOf(";");
+        if (semi < 0) {
+            setSessionCookieValue(v);
+        } else {
+            setSessionCookieValue(v.substring(0, semi));
+        }
+        if (isLoggable(logger, Level.FINE)) {
+            logTrace(logger, "Set session cookie to \"" + sessionCookie + "\"");
+        }
+    }
+
+    private synchronized void setSessionCookieValue(String pVal) {
+        sessionCookie = pVal;
     }
 
     /**
