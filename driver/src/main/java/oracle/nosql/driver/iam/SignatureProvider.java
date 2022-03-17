@@ -123,12 +123,14 @@ public class SignatureProvider
 
     /* Cache key name */
     private static final String CACHE_KEY = "signature";
+    /* Refresh key name */
+    private static final String REFRESH_CACHE_KEY = "refresh_signature";
 
     /* Maximum lifetime of signature 240 seconds */
     protected static final int MAX_ENTRY_LIFE_TIME = 240;
 
-    /* Default refresh time before signature expiry, 10 seconds*/
-    protected static final int DEFAULT_REFRESH_AHEAD = 10000;
+    /* Default refresh time before signature expiry, 20 seconds*/
+    protected static final int DEFAULT_REFRESH_AHEAD = 20000;
 
     /* User profile and key providers */
     private final AuthenticationProfileProvider provider;
@@ -150,6 +152,21 @@ public class SignatureProvider
     private String serviceHost;
     private Region region;
     private Logger logger;
+
+    /**
+     * @hidden
+     * A callback interface called when the signature is refreshed. This
+     * allows the application to perform an operation or 2 that can be used
+     * to refresh the server-side authorization information out of its main
+     * request path, reducing average latency
+     */
+    @FunctionalInterface
+    public interface OnSignatureRefresh {
+        /* refreshMs is the max amount of time this operation can/should take */
+        public void refresh(long refreshMs);
+    }
+
+    private OnSignatureRefresh onSigRefresh;
 
     /**
      * Creates a SignatureProvider using a default configuration file and
@@ -374,11 +391,11 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri) {
+        createWithInstancePrincipal(String iamAuthUrl) {
 
         return new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .build());
     }
 
@@ -679,7 +696,7 @@ public class SignatureProvider
                "Unable to find service host, use setServiceHost " +
                "to load from NoSQLHandleConfig");
         }
-        SignatureDetails sigDetails = getSignatureDetails();
+        SignatureDetails sigDetails = getSignatureDetails(request);
         if (sigDetails != null) {
             return sigDetails.getSignatureHeader();
         }
@@ -691,7 +708,7 @@ public class SignatureProvider
                                    Request request,
                                    HttpHeaders headers) {
 
-        SignatureDetails sigDetails = getSignatureDetails();
+        SignatureDetails sigDetails = getSignatureDetails(request);
         if (sigDetails == null) {
             return;
         }
@@ -778,7 +795,7 @@ public class SignatureProvider
         }
 
         /* creates and caches a signature as warm-up */
-        getSignatureDetailsInternal();
+        getSignatureDetailsInternal(false);
         return this;
     }
 
@@ -840,18 +857,28 @@ public class SignatureProvider
         }
     }
 
-    private SignatureDetails getSignatureDetails() {
-        SignatureDetails sigDetails = signatureCache.get(CACHE_KEY);
+    private SignatureDetails getSignatureDetails(Request request) {
+        String key = request.getIsRefresh() ? REFRESH_CACHE_KEY : CACHE_KEY;
+        SignatureDetails sigDetails = signatureCache.get(key);
         if (sigDetails != null) {
             return sigDetails;
         }
 
+        if (request.getIsRefresh()) {
+            /* try normal key before failing */
+            sigDetails = signatureCache.get(CACHE_KEY);
+            if (sigDetails != null) {
+                return sigDetails;
+            }
+        }
+
         logMessage(Level.WARNING, "No signature in cache");
-        return getSignatureDetailsInternal();
+        return getSignatureDetailsInternal(false);
     }
 
     /* visible for testing */
-    synchronized SignatureDetails getSignatureDetailsInternal() {
+    synchronized SignatureDetails getSignatureDetailsInternal(boolean isRefresh)
+    {
         String date = createFormatter().format(new Date());
         String keyId = provider.getKeyId();
         if (provider instanceof InstancePrincipalsProvider) {
@@ -875,9 +902,31 @@ public class SignatureProvider
                                          signature,
                                          SINGATURE_VERSION);
         SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
-        signatureCache.put(CACHE_KEY, sigDetails);
-        scheduleRefresh();
+        if (!isRefresh) {
+            /*
+             * if this is not a refresh, use the normal key and schedule a
+             * refresh
+             */
+            signatureCache.put(CACHE_KEY, sigDetails);
+            scheduleRefresh();
+        } else {
+            /*
+             * If this is a refresh put the object in a temporary key.
+             * The caller (the refresh task) will:
+             * 1. perform callbacks if needed and when done,
+             * 2. move the object to the normal key and schedule a refresh
+             */
+            signatureCache.put(REFRESH_CACHE_KEY, sigDetails);
+        }
         return sigDetails;
+    }
+
+    private synchronized void setRefreshKey() {
+        SignatureDetails sigDetails =
+            signatureCache.remove(REFRESH_CACHE_KEY);
+        if (sigDetails != null) {
+            signatureCache.put(CACHE_KEY, sigDetails);
+        }
     }
 
     String signingContent(String date) {
@@ -924,8 +973,32 @@ public class SignatureProvider
         }
         return sb.toString();
     }
+
     private class RefreshTask extends TimerTask {
         private static final int DELAY_MS = 500;
+
+        private void handleRefreshCallback(long refreshMs) {
+            SignatureDetails sigDetails = signatureCache.get(REFRESH_CACHE_KEY);
+            if (sigDetails == null) {
+                logMessage(Level.FINE,
+                           "Refresh didn't find refresh cache key");
+                return;
+            }
+
+            if (onSigRefresh != null) {
+                /* don't let problems in the callback affect this path */
+                try {
+                    onSigRefresh.refresh(refreshMs);
+                } catch (Throwable t) {
+                    logMessage(Level.FINE,
+                               "Exception from OnSignatureRefresh: " + t);
+                }
+            }
+
+            /* move temporary object to the normal key */
+            setRefreshKey();
+            scheduleRefresh();
+        }
 
         @Override
         public void run() {
@@ -933,7 +1006,8 @@ public class SignatureProvider
             Exception lastException;
             do {
                 try {
-                    getSignatureDetailsInternal();
+                    getSignatureDetailsInternal(true);
+                    handleRefreshCallback(refreshAheadMs);
                     return;
                 } catch (SecurityInfoNotReadyException se) {
                     /*
@@ -963,6 +1037,29 @@ public class SignatureProvider
             refresher.cancel();
             refresher = null;
         }
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * <p>
+     * Sets a signature refresh callback to be called when the signature
+     * is refreshed
+     * @param onSigRefresh the callback
+     */
+    public void setOnSignatureRefresh(OnSignatureRefresh onSigRefresh) {
+        this.onSigRefresh = onSigRefresh;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * <p>
+     * Returns the signature refresh callback, or null if not set
+     * @return the callback or null
+     */
+    public OnSignatureRefresh getOnSignatureRefresh() {
+        return onSigRefresh;
     }
 
     static class SignatureDetails {

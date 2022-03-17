@@ -480,10 +480,13 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
             headers.set(AUTHORIZATION, authHeader);
-            client = new HttpClient(
-                loginHost, loginPort, 0, 0, 0,
-                (isSecure && !disableSSLHook) ? sslContext : null,
-                 sslHandshakeTimeoutMs, serviceName, logger);
+            client = HttpClient.createMinimalClient
+                (loginHost,
+                 loginPort,
+                 (isSecure && !disableSSLHook) ? sslContext : null,
+                 sslHandshakeTimeoutMs,
+                 serviceName,
+                 logger);
             return HttpRequestUtil.doGetRequest(
                 client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)

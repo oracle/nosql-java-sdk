@@ -21,7 +21,6 @@ public class InternalsTest extends ProxyTestBase {
 
     @Override
     protected void perTestHandleConfig(NoSQLHandleConfig config) {
-        config.setConnectionPoolSize(10);
         config.setNumThreads(8);
     }
 

@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.TreeSet;
 
+import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
@@ -389,6 +390,36 @@ public class ReceiveIter extends PlanIter {
         }
     }
 
+    /**
+     * Execute a copy of a request.
+     * After execution, copy specific fields from the request copy back
+     * to the original request. This is needed because client.execute() may
+     * set or update specific fields in the request, such as startTime,
+     * retry stats, rate limiters, etc.
+     */
+    private QueryResult execute(RuntimeControlBlock rcb,
+                                QueryRequest origRequest,
+                                QueryRequest reqCopy) {
+        NoSQLException e = null;
+        QueryResult result = null;
+        try {
+            result = (QueryResult)rcb.getClient().execute(reqCopy);
+        } catch (NoSQLException qe) {
+            e = qe;
+        }
+        /*
+         * Copy values back to original request, even when the execute()
+         * throws an error. This is because even in the error case the
+         * execute() call may have set/updated these values.
+         */
+        reqCopy.copyTo(origRequest);
+        /* if the execute() call threw an error, throw it here */
+        if (e != null) {
+            throw e;
+        }
+        return result;
+    }
+
     /*
      * Make sure we receive (and cache) at least one result per partition
      * (except from partitions that do not contain any results at all).
@@ -404,15 +435,16 @@ public class ReceiveIter extends PlanIter {
          * the partition whose id is specified in theContinuationKey and
          * from any other partition that is co-located with that partition.
          */
-        QueryRequest req = rcb.getRequest().copyInternal();
-        req.setContKey(state.theContinuationKey);
+        QueryRequest origRequest = rcb.getRequest();
+        QueryRequest reqCopy = origRequest.copyInternal();
+        reqCopy.setContKey(state.theContinuationKey);
 
         if (rcb.getTraceLevel() >= 1) {
             rcb.trace("ReceiveIter : executing remote request for " +
                       "sorting phase 1");
         }
 
-        QueryResult result = (QueryResult)rcb.getClient().execute(req);
+        QueryResult result = execute(rcb, origRequest, reqCopy);
 
         int numPids = result.getNumPids();
         List<MapValue> results = result.getResultsInternal();
@@ -422,6 +454,8 @@ public class ReceiveIter extends PlanIter {
         rcb.tallyReadKB(result.getReadKB());
         rcb.tallyReadUnits(result.getReadUnits());
         rcb.tallyWriteKB(result.getWriteKB());
+        rcb.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
+        rcb.tallyRetryStats(result.getRetryStats());
 
         if (rcb.getTraceLevel() >= 1) {
             rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
@@ -705,31 +739,32 @@ public class ReceiveIter extends PlanIter {
 
         void fetch() {
 
-            QueryRequest req = theRCB.getRequest().copyInternal();
-            req.setContKey(theContinuationKey);
-            req.setShardId(theIsForShard ? theShardOrPartId : -1);
+            QueryRequest origRequest = theRCB.getRequest();
+            QueryRequest reqCopy = origRequest.copyInternal();
+            reqCopy.setContKey(theContinuationKey);
+            reqCopy.setShardId(theIsForShard ? theShardOrPartId : -1);
 
             if (doesSort() && !theIsForShard) {
                 theState.theMemoryConsumption -= theResultsSize;
                 theRCB.decMemoryConsumption(theResultsSize);
                 long numResults =
-                    ((req.getMaxMemoryConsumption() - theState.theDupElimMemory) /
+                    ((reqCopy.getMaxMemoryConsumption() - theState.theDupElimMemory) /
                      ((theState.theSortedScanners.size() + 1) *
                       (theState.theTotalResultsSize /
                        theState.theTotalNumResults)));
                 if (numResults > 2048) {
                     numResults = 2048;
                 }
-                req.setLimit((int)numResults);
+                reqCopy.setLimit((int)numResults);
             }
 
             if (theRCB.getTraceLevel() >= 1) {
                 theRCB.trace("RemoteScanner : executing remote request. spid = " +
                              theShardOrPartId);
-                assert(req.hasDriver());
+                assert(reqCopy.hasDriver());
             }
 
-            QueryResult result = (QueryResult)theRCB.getClient().execute(req);
+            QueryResult result = execute(theRCB, origRequest, reqCopy);
 
             theResults = result.getResultsInternal();
             theContinuationKey = result.getContinuationKey();
@@ -739,6 +774,8 @@ public class ReceiveIter extends PlanIter {
             theRCB.tallyReadKB(result.getReadKB());
             theRCB.tallyReadUnits(result.getReadUnits());
             theRCB.tallyWriteKB(result.getWriteKB());
+            theRCB.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
+            theRCB.tallyRetryStats(result.getRetryStats());
 
             assert(result.reachedLimit() || !theMoreRemoteResults);
 

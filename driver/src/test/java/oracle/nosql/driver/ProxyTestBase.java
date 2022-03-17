@@ -33,6 +33,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.HashSet;
 
+import io.netty.util.ResourceLeakDetector;
+
+import oracle.nosql.driver.http.Client;
+import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.ListTablesRequest;
@@ -76,6 +80,8 @@ public class ProxyTestBase {
     protected static int DEFAULT_DDL_TIMEOUT = 15000;
     protected static int DEFAULT_DML_TIMEOUT = 5000;
     protected static String TEST_TABLE_NAME = "drivertest";
+    protected static int INACTIVITY_PERIOD_SECS = 2;
+    protected static String NETTY_LEAK_PROP="test.detectleaks";
 
     protected static String PROXY_VERSION_PROP = "test.proxy.version";
     protected static String KVCLIENT_VERSION_PROP = "test.kv.client.version";
@@ -106,6 +112,8 @@ public class ProxyTestBase {
     protected static boolean arrayAsRecordSupported;
     /* trace tests by printing start for each case */
     protected static boolean trace;
+    /* optionally wait for the connection pool to drain */
+    protected static boolean waitForPool = false;
 
     /*
      * track existing tables and don't drop them
@@ -143,6 +151,9 @@ public class ProxyTestBase {
         verbose = Boolean.getBoolean(VERBOSE);
         local = Boolean.getBoolean(LOCAL);
         trace = Boolean.getBoolean(TRACE);
+        if (Boolean.getBoolean(NETTY_LEAK_PROP)) {
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+        }
 
         proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
         if (proxyVersion <= 0) {
@@ -275,6 +286,23 @@ public class ProxyTestBase {
 
         if (handle != null) {
             dropAllTables(handle, true);
+            if (waitForPool) {
+                /*
+                 * wait for connection pool to drain. In general this isn't
+                 * needed but can be used to sanity check the ConnectionPool
+                 * code that removes idle connections. By default they
+                 * are configured to be removed after 2 seconds
+                 */
+                Client client = ((NoSQLHandleImpl)handle).getClient();
+                while (client.getTotalChannelCount() > 0) {
+                    /*
+                    System.out.println("Pool: free, total: " +
+                                       client.getFreeChannelCount() + ", " +
+                                       client.getTotalChannelCount());
+                    */
+                    try { Thread.sleep(1000); } catch (Exception e) {}
+                }
+            }
             handle.close();
         }
     }
@@ -398,11 +426,10 @@ public class ProxyTestBase {
          * 5 retries, default retry algorithm
          */
         config.configureDefaultRetryHandler(5, 0);
-
-        config.setConnectionPoolSize(3);
-        config.setNumThreads(3);
         config.setRequestTimeout(30000);
 
+        /* remove idle connections after this many seconds */
+        config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
         configAuth(config);
 
         /* allow test cases to add/modify handle config */

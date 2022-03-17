@@ -66,6 +66,11 @@ public abstract class Request {
     private RateLimiter writeRateLimiter;
     private int rateLimitDelayedMs;
 
+    /**
+     * @hidden
+     */
+    private boolean isRefresh;
+
     protected Request() {}
 
     /**
@@ -76,7 +81,11 @@ public abstract class Request {
         return timeoutMs;
     }
 
-    protected void setTimeoutInternal(int timeoutMs) {
+    /**
+     * @hidden
+     * this is public to allow access from Client during refresh
+     */
+    public void setTimeoutInternal(int timeoutMs) {
         if (timeoutMs <= 0) {
             throw new IllegalArgumentException("timeout must be > 0");
         }
@@ -418,9 +427,43 @@ public abstract class Request {
     }
 
     /**
+     * @hidden
+     * internal use only
+     * @param value true or false
+     */
+    public void setIsRefresh(boolean value) {
+        isRefresh = value;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * @return is refresh
+     */
+    public boolean getIsRefresh() {
+        return isRefresh;
+    }
+
+    /**
      * Returns the type name of the request. This is used for stats.
      *
      * @return the type name of the request
      */
     public abstract String getTypeName();
+
+    /**
+     * @hidden
+     * Copy internal fields to another Request object.
+     */
+    public void copyTo(Request other) {
+        other.setTimeoutInternal(this.timeoutMs);
+        other.setCheckRequestSize(this.checkRequestSize);
+        other.setCompartmentInternal(this.compartment);
+        other.setTableNameInternal(this.tableName);
+        other.setStartTimeMs(this.startTimeMs);
+        other.setRetryStats(this.retryStats);
+        other.setReadRateLimiter(this.readRateLimiter);
+        other.setWriteRateLimiter(this.writeRateLimiter);
+        other.setRateLimitDelayedMs(this.rateLimitDelayedMs);
+    }
 }
