@@ -153,6 +153,18 @@ public class ResponseHandler implements Closeable {
         return cause;
     }
 
+    /**
+     * Internal close that does not release the channel. This is used
+     * by keepalive HEAD requests
+     */
+    void releaseResponse() {
+        if (state != null) {
+            if (state.getResponse() != null) {
+                ReferenceCountUtil.release(state.getResponse());
+            }
+        }
+    }
+
     @Override
     public void close() {
         if (channel != null) {
@@ -162,11 +174,7 @@ public class ResponseHandler implements Closeable {
         /*
          * Release the response
          */
-        if (state != null) {
-            if (state.getResponse() != null) {
-                ReferenceCountUtil.release(state.getResponse());
-            }
-        }
+        releaseResponse();
     }
 
     /*

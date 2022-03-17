@@ -31,9 +31,11 @@ import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,15 +59,19 @@ import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
+import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -78,6 +84,7 @@ import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -173,6 +180,14 @@ public class Client {
      */
     private StatsControlImpl statsControl;
 
+    /**
+     * list of Request instances to refresh when auth changes. This will only
+     * exist in a cloud configuration
+     */
+    private ConcurrentLinkedQueue<Request> authRefreshRequests;
+    /* used as key and value for auth requests -- guaranteed illegal */
+    private MapValue badValue;
+
     /*
      * for session persistence, if used. This has the
      * full "session=xxxxx" key/value pair.
@@ -216,17 +231,18 @@ public class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(url.getHost(),
-                                    url.getPort(),
-                                    httpConfig.getNumThreads(),
-                                    httpConfig.getConnectionPoolSize(),
-                                    httpConfig.getPoolMaxPending(),
-                                    httpConfig.getMaxContentLength(),
-                                    httpConfig.getMaxChunkSize(),
-                                    sslCtx,
-                                    config.getSSLHandshakeTimeout(),
-                                    "NoSQL Driver",
-                                    logger);
+        httpClient = new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            config.getSSLHandshakeTimeout(),
+            "NoSQL Driver",
+            logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -278,6 +294,14 @@ public class Client {
 
     public int getAcquiredChannelCount() {
         return httpClient.getAcquiredChannelCount();
+    }
+
+    public int getTotalChannelCount() {
+        return httpClient.getTotalChannelCount();
+    }
+
+    public int getFreeChannelCount() {
+        return httpClient.getFreeChannelCount();
     }
 
     /**
@@ -562,8 +586,8 @@ public class Client {
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE)) {
-                    logTrace(logger, "Request: " + requestClass);
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Request: " + requestClass + ", requestId=" + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -575,9 +599,9 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE)) {
-                    logTrace(logger, "Response: " + requestClass + ", status " +
-                             responseHandler.getStatus());
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + requestClass + ", status=" +
+                             responseHandler.getStatus() + ", requestId=" + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
@@ -632,6 +656,8 @@ public class Client {
 
                 statsControl.observe(kvRequest, Math.toIntExact(networkLatency),
                     contentLength, resSize);
+
+                checkAuthRefreshList(kvRequest);
 
                 return res;
 
@@ -727,8 +753,11 @@ public class Client {
             } catch (RuntimeException e) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
-                logFine(logger, "Client execute runtime exception: " +
-                        e.getMessage());
+                if (!kvRequest.getIsRefresh()) {
+                    /* don't log expected failures from refresh */
+                    logFine(logger, "Client execute runtime exception: " +
+                            e.getMessage());
+                }
                 throw e;
             } catch (IOException ioe) {
                 /* Maybe make this logFine */
@@ -1327,6 +1356,143 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * tell the Client to track auth refresh requests. This will be called
+     * in a cloud service configuration
+     */
+    void createAuthRefreshList() {
+        authRefreshRequests = new ConcurrentLinkedQueue<Request>();
+        badValue = new MapValue().put("@bad", 0);
+    }
+
+    /**
+     * Run refresh requests
+     */
+    void doRefresh(long refreshMs) {
+        final long minMsPerRequest = 20L; // this is somewhat arbitrary
+        int numRequests = authRefreshRequests.size();
+        if (numRequests == 0) {
+            return;
+        }
+
+        /*
+         * Divide the total time allowed (refreshMs) by the number of requests
+         * (x 3) to determine a reasonable timeout for each request. A timed out
+         * request still does the re-auth assuming it made it to the server, but
+         * can result in creating/consuming additional communication channels
+         */
+        int msPerRequest = (int) (refreshMs/(numRequests * 3));
+        if (msPerRequest < minMsPerRequest) {
+            logFine(logger,
+                    "Not enough time per request to perform auth refresh. " +
+                    "numRequests=" + numRequests + " totalMs=" + refreshMs +
+                    " msPerRequest=" + msPerRequest);
+            return;
+        }
+
+        logFine(logger,
+                "Performing auth refresh. numRequests=" + numRequests +
+                " refreshMs=" + refreshMs + "ms per request=" + msPerRequest);
+
+        /*
+         * Because there are 3 proxies and scheduling is round-robin
+         * do this 3 times to attempt to catch all of them. Unfortunately
+         * this heuristic will not work much of the time because the
+         * round-robin scheduling isn't per-connection or IP address.
+         * If there is a sessionCookie, session persistence is in play
+         * and only one proxy needs to be refreshed.
+         */
+        final int numCallsPerRequest = sessionCookie != null ? 1 : 3;
+
+        /* use iterator so that remove works more simply */
+        Iterator<Request> iter = authRefreshRequests.iterator();
+        while (iter.hasNext()) {
+            Request rq = iter.next();
+            /* set timeout calculated above */
+            rq.setTimeoutInternal(msPerRequest);
+            for (int i = 0; i < numCallsPerRequest; i++) {
+                try {
+                    execute(rq);
+                } catch (TableNotFoundException tnf) {
+                    /* table is gone -- remove from list */
+                    logFine(logger, "Auth refresh table not found, removing: " +
+                            rq.getClass().getSimpleName() + " for " +
+                            rq.getTableName());
+                    iter.remove();
+                    break;
+                } catch (Throwable th) {
+                    /* ignore */
+                }
+            }
+        }
+    }
+
+    /**
+     * Look for the compartment,table combination in the list. If
+     * present, do nothing. If not, add that combination to the list.
+     * This is not particular efficient but it is not expected that a given
+     * handle will be accessing a large number of tables.
+     *
+     * The operation type is not checked -- all 3 types of requests are created
+     * no matter the access. This simplifies the logic and if a given type is
+     * not given to this Principal it doesn't hurt.
+     */
+    private void checkAuthRefreshList(Request request) {
+        if (authRefreshRequests != null) {
+            /*
+             * don't add refresh requests and those without table names can't be
+             * added. They may be a query or admin op. Also eliminate ops that
+             * don't read or write, which includes GetTableRequest
+             */
+            if (request.getIsRefresh() || request.getTableName() == null ||
+                !(request.doesReads() || request.doesWrites())) {
+                return;
+            }
+            for (Request rq : authRefreshRequests) {
+                if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
+                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
+                    return;
+                }
+            }
+            /* request compartment, table, type isn't present - add it */
+            addRequestToRefreshList(request);
+        }
+    }
+
+    private boolean stringsEqualOrNull(String s1, String s2) {
+        if (s1 == null) {
+            return s2 == null;
+        }
+        return s1.equalsIgnoreCase(s2);
+    }
+
+    /**
+     * Add get, put, delete to cover all auth types
+     * This is synchronized to avoid 2 requests adding the same table
+     */
+    private synchronized void addRequestToRefreshList(Request request) {
+        logFine(logger, "Adding table to request list: " +
+                request.getCompartment() + ":" + request.getTableName());
+        PutRequest pr =
+            new PutRequest().setTableName(request.getTableName());
+        pr.setCompartmentInternal(request.getCompartment());
+        pr.setValue(badValue);
+        pr.setIsRefresh(true);
+        authRefreshRequests.add(pr);
+        GetRequest gr =
+            new GetRequest().setTableName(request.getTableName());
+        gr.setCompartmentInternal(request.getCompartment());
+        gr.setKey(badValue);
+        gr.setIsRefresh(true);
+        authRefreshRequests.add(gr);
+        DeleteRequest dr =
+            new DeleteRequest().setTableName(request.getTableName());
+        dr.setCompartmentInternal(request.getCompartment());
+        dr.setKey(badValue);
+        dr.setIsRefresh(true);
+        authRefreshRequests.add(dr);
     }
 
     /**

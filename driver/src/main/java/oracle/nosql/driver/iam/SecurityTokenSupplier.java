@@ -119,8 +119,8 @@ class SecurityTokenSupplier {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return new HttpClient(endpoint.getHost(), endpoint.getPort(),
-                                  0, 0, 0, null, 0, "FederationClient", logger);
+            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
+                                                  null, 0, "FederationClient", logger);
         }
 
         if (sslCtx == null) {
@@ -132,7 +132,7 @@ class SecurityTokenSupplier {
             }
         }
 
-        return new HttpClient(endpoint.getHost(), 443, 0, 0, 0,
+        return HttpClient.createMinimalClient(endpoint.getHost(), 443,
                               sslCtx, sslHandshakeTimeout,
                               "FederationClient", logger);
     }

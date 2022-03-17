@@ -18,9 +18,6 @@ import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
-import oracle.nosql.driver.ops.SystemRequest;
-import oracle.nosql.driver.ops.SystemResult;
-import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetIndexesRequest;
@@ -38,6 +35,9 @@ import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
@@ -75,8 +75,9 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * will reuse the context in NoSQLHandleConfig
          */
         configSslContext(config);
-        configAuthProvider(logger, config);
         client = new Client(logger, config);
+        /* configAuthProvider may use client */
+        configAuthProvider(logger, config);
     }
 
     /**
@@ -154,6 +155,10 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 sigProvider.setLogger(logger);
             }
             sigProvider.prepare(config);
+            if (config.getAuthRefresh()) {
+                sigProvider.setOnSignatureRefresh(new SigRefresh());
+                client.createAuthRefreshList();
+            }
         }
     }
 
@@ -400,5 +405,24 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     public short getSerialVersion() {
         return client.getSerialVersion();
+    }
+
+    /**
+     * Cloud service only.
+     * The refresh method of this class is called when a Signature is refreshed
+     * in SignatureProvider. This happens every 4 minutes or so. This mechanism
+     * allows the authentication and authorization information cached by the
+     * server to be refreshed out of band with the normal request path.
+     */
+    private class SigRefresh implements SignatureProvider.OnSignatureRefresh {
+
+        /*
+         * Attempt to refresh the server's authentication and authorization
+         * information for a new signature.
+         */
+        @Override
+        public void refresh(long refreshMs) {
+            client.doRefresh(refreshMs);
+        }
     }
 }

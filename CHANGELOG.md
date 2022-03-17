@@ -5,9 +5,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [Unpublished]
 
 ### Added
+- new methods in NoSQLHandleConfig to control keeping a minimum number of connections alive in the connection pool
+ - get/setConnectionPoolMinSize
 - Added new methods in NoSQLHandleConfig to control the SSL handshake timeout,
 default 3000 milliseconds.
   - get/setSslHandshakeTimeout
+
+### Deprecated
+- several methods in NoSQLHandleConfig are deprecated as they have no effect on the new connection pool implementation. The methods remain, temporarily, but they do not control the pool
+ - get/setConnectionPoolSize
+ - get/setPoolMaxPending
+
+### Changed
+- there is a new connection pool implementation to simplify management of connections by reducing the need for configuration. The new pool will create new connections on demand, with no maximum.  It will also remove them to the configured minimum (default 0) after a period of inactivity
+- the new connection pool will send periodic keep-alive style HTTP requests to maintain activity level. These requests are only sent if a minimum size is configured using NoSQLHandleConfig.setConnectionPoolMinSize. This mechanism is mostly useful in the cloud service because the server side will close idle connections. Creating new connections requires a new SSL handshake and can add latency to requests after idle time.
 
 ### Fixed
 - Cloud only: Fixed an issue that a request may have unexpected latency when
