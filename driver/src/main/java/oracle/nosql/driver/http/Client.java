@@ -1401,9 +1401,10 @@ public class Client {
          * do this 3 times to attempt to catch all of them. Unfortunately
          * this heuristic will not work much of the time because the
          * round-robin scheduling isn't per-connection or IP address.
-         * TODO: is there a better way?
+         * If there is a sessionCookie, session persistence is in play
+         * and only one proxy needs to be refreshed.
          */
-        final int numCallsPerRequest = 3;
+        final int numCallsPerRequest = sessionCookie != null ? 1 : 3;
 
         /* use iterator so that remove works more simply */
         Iterator<Request> iter = authRefreshRequests.iterator();
