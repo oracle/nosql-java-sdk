@@ -140,7 +140,7 @@
         <serverType>none</serverType>
         <included.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java, ConnectionPoolTest.java
+          ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java
         </included.tests>
