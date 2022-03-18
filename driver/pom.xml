@@ -125,7 +125,7 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
         <maven.buildNumber.doCheck>false</maven.buildNumber.doCheck>
       </properties>
@@ -140,7 +140,7 @@
         <serverType>none</serverType>
         <included.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, ConnectionPoolTest.java
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java
         </included.tests>
