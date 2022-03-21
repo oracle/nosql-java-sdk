@@ -24,15 +24,18 @@ import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
+import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,15 +59,19 @@ import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
+import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -77,6 +84,7 @@ import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -162,7 +170,7 @@ public class Client {
      */
     private ExecutorService threadPool;
 
-    private short serialVersion = DEFAULT_SERIAL_VERSION;
+    private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
@@ -171,6 +179,22 @@ public class Client {
      * config for statistics
      */
     private StatsControlImpl statsControl;
+
+    /**
+     * list of Request instances to refresh when auth changes. This will only
+     * exist in a cloud configuration
+     */
+    private ConcurrentLinkedQueue<Request> authRefreshRequests;
+    /* used as key and value for auth requests -- guaranteed illegal */
+    private MapValue badValue;
+
+    /*
+     * for session persistence, if used. This has the
+     * full "session=xxxxx" key/value pair.
+     */
+    private volatile String sessionCookie;
+    /* note this must end with '=' */
+    private final String SESSION_COOKIE_FIELD = "session=";
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -207,16 +231,18 @@ public class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(url.getHost(),
-                                    url.getPort(),
-                                    httpConfig.getNumThreads(),
-                                    httpConfig.getConnectionPoolSize(),
-                                    httpConfig.getPoolMaxPending(),
-                                    httpConfig.getMaxContentLength(),
-                                    httpConfig.getMaxChunkSize(),
-                                    sslCtx,
-                                    "NoSQL Driver",
-                                    logger);
+        httpClient = new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            config.getSSLHandshakeTimeout(),
+            "NoSQL Driver",
+            logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -270,6 +296,14 @@ public class Client {
         return httpClient.getAcquiredChannelCount();
     }
 
+    public int getTotalChannelCount() {
+        return httpClient.getTotalChannelCount();
+    }
+
+    public int getFreeChannelCount() {
+        return httpClient.getFreeChannelCount();
+    }
+
     /**
      * Get the next client-scoped request id. It needs to be combined with the
      * client id to obtain a globally unique scope.
@@ -314,6 +348,10 @@ public class Client {
          * IllegalArgumentException.
          */
         kvRequest.validate();
+
+        /* clear any retry stats that may exist on this request object */
+        kvRequest.setRetryStats(null);
+        kvRequest.setRateLimitDelayedMs(0);
 
         if (kvRequest.isQueryRequest()) {
             QueryRequest qreq = (QueryRequest)kvRequest;
@@ -366,9 +404,6 @@ public class Client {
         int timeoutMs = kvRequest.getTimeoutInternal();
 
         Throwable exception = null;
-
-        /* clear any retry stats that may exist on this request object */
-        kvRequest.setRetryStats(null);
 
         /*
          * If the request doesn't set an explicit compartment, use
@@ -488,7 +523,7 @@ public class Client {
             }
 
             ResponseHandler responseHandler = null;
-
+            short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
             long networkLatency;
             try {
@@ -501,8 +536,8 @@ public class Client {
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
-                    new ResponseHandler(httpClient, logger, channel, requestId);
-
+                    new ResponseHandler(httpClient, logger, channel,
+                                        requestId, kvRequest.shouldRetry());
                 buffer = channel.alloc().directBuffer();
                 buffer.retain();
 
@@ -513,7 +548,7 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                writeContent(buffer, kvRequest);
+                serialVersionUsed = writeContent(buffer, kvRequest);
 
                 /*
                  * If on-premise the authProvider will always be a
@@ -545,11 +580,14 @@ public class Client {
                 headers.add(HttpHeaderNames.HOST, host)
                     .add(REQUEST_ID_HEADER, requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
+                if (sessionCookie != null) {
+                    headers.add(COOKIE, sessionCookie);
+                }
 
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE)) {
-                    logTrace(logger, "Request: " + requestClass);
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Request: " + requestClass + ", requestId=" + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -561,19 +599,20 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE)) {
-                    logTrace(logger, "Response: " + requestClass + ", status " +
-                             responseHandler.getStatus());
+                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + requestClass + ", status=" +
+                             responseHandler.getStatus() + ", requestId=" + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
                 Result res = processResponse(responseHandler.getStatus(),
+                                       responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
-                if (serialVersion < 3) {
+                if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
                     /* tries to access modificationTime */
                     if (res instanceof GetResult) {
@@ -589,6 +628,12 @@ public class Client {
                     updateRateLimiters(((TableResult)res).getTableName(), tl);
                 }
 
+                /*
+                 * We may not have rate limiters yet because queries may
+                 * not have a tablename until after the first request.
+                 * So try to get rate limiters if we don't have them yet and
+                 * this is a QueryRequest.
+                 */
                 if (rateLimiterMap != null && readLimiter == null) {
                     readLimiter = getQueryRateLimiter(kvRequest, true);
                 }
@@ -611,6 +656,8 @@ public class Client {
 
                 statsControl.observe(kvRequest, Math.toIntExact(networkLatency),
                     contentLength, resSize);
+
+                checkAuthRefreshList(kvRequest);
 
                 return res;
 
@@ -689,7 +736,7 @@ public class Client {
                 continue;
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
-                if (decrementSerialVersion() == true) {
+                if (decrementSerialVersion(serialVersionUsed) == true) {
                     exception = upe;
                     logInfo(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
@@ -706,8 +753,11 @@ public class Client {
             } catch (RuntimeException e) {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
-                logFine(logger, "Client execute runtime exception: " +
-                        e.getMessage());
+                if (!kvRequest.getIsRefresh()) {
+                    /* don't log expected failures from refresh */
+                    logFine(logger, "Client execute runtime exception: " +
+                            e.getMessage());
+                }
                 throw e;
             } catch (IOException ioe) {
                 /* Maybe make this logFine */
@@ -815,9 +865,18 @@ public class Client {
         }
 
         if (read) {
-            return rateLimiterMap.getReadLimiter(tableName);
+            RateLimiter rl = rateLimiterMap.getReadLimiter(tableName);
+            if (rl != null) {
+                request.setReadRateLimiter(rl);
+            }
+            return rl;
         }
-        return rateLimiterMap.getWriteLimiter(tableName);
+
+        RateLimiter rl = rateLimiterMap.getWriteLimiter(tableName);
+        if (rl != null) {
+            request.setWriteRateLimiter(rl);
+        }
+        return rl;
     }
 
     /**
@@ -932,15 +991,17 @@ public class Client {
      *
      * @throws IOException
      */
-    void writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        bos.writeShort(serialVersion);
+        final short versionUsed = serialVersion;
+        bos.writeShort(versionUsed);
         kvRequest.createSerializer(factory).
             serialize(kvRequest,
-                      serialVersion,
+                      versionUsed,
                       bos);
+        return versionUsed;
     }
 
     /**
@@ -952,6 +1013,7 @@ public class Client {
      * @return the programmatic response object
      */
     final Result processResponse(HttpResponseStatus status,
+                                 HttpHeaders headers,
                                  ByteBuf content,
                                  Request kvRequest) {
 
@@ -962,6 +1024,8 @@ public class Client {
             throw new IllegalStateException("Unexpected http response status:" +
                                             status);
         }
+
+        setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
             return processOKResponse(bis, kvRequest);
@@ -1032,6 +1096,38 @@ public class Client {
         }
         throw new NoSQLException("Error response = " + status +
                                  ", reason = " + status.reasonPhrase());
+    }
+
+    /* set session cookie, if set in response headers */
+    private void setSessionCookie(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        /*
+         * NOTE: this code assumes there will always be at most
+         * one Set-Cookie header in the response. If the load balancer
+         * settings change, or the proxy changes to add Set-Cookie
+         * headers, this code may need to be changed to look for
+         * multiple Set-Cookie headers.
+         */
+        String v = headers.get("Set-Cookie");
+        /* note SESSION_COOKIE_FIELD has appended '=' */
+        if (v == null || v.startsWith(SESSION_COOKIE_FIELD) == false) {
+            return;
+        }
+        int semi = v.indexOf(";");
+        if (semi < 0) {
+            setSessionCookieValue(v);
+        } else {
+            setSessionCookieValue(v.substring(0, semi));
+        }
+        if (isLoggable(logger, Level.FINE)) {
+            logTrace(logger, "Set session cookie to \"" + sessionCookie + "\"");
+        }
+    }
+
+    private synchronized void setSessionCookieValue(String pVal) {
+        sessionCookie = pVal;
     }
 
     /**
@@ -1243,7 +1339,10 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    public boolean decrementSerialVersion() {
+    private synchronized boolean decrementSerialVersion(short versionUsed) {
+        if (serialVersion != versionUsed) {
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;
@@ -1257,6 +1356,143 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * tell the Client to track auth refresh requests. This will be called
+     * in a cloud service configuration
+     */
+    void createAuthRefreshList() {
+        authRefreshRequests = new ConcurrentLinkedQueue<Request>();
+        badValue = new MapValue().put("@bad", 0);
+    }
+
+    /**
+     * Run refresh requests
+     */
+    void doRefresh(long refreshMs) {
+        final long minMsPerRequest = 20L; // this is somewhat arbitrary
+        int numRequests = authRefreshRequests.size();
+        if (numRequests == 0) {
+            return;
+        }
+
+        /*
+         * Divide the total time allowed (refreshMs) by the number of requests
+         * (x 3) to determine a reasonable timeout for each request. A timed out
+         * request still does the re-auth assuming it made it to the server, but
+         * can result in creating/consuming additional communication channels
+         */
+        int msPerRequest = (int) (refreshMs/(numRequests * 3));
+        if (msPerRequest < minMsPerRequest) {
+            logFine(logger,
+                    "Not enough time per request to perform auth refresh. " +
+                    "numRequests=" + numRequests + " totalMs=" + refreshMs +
+                    " msPerRequest=" + msPerRequest);
+            return;
+        }
+
+        logFine(logger,
+                "Performing auth refresh. numRequests=" + numRequests +
+                " refreshMs=" + refreshMs + "ms per request=" + msPerRequest);
+
+        /*
+         * Because there are 3 proxies and scheduling is round-robin
+         * do this 3 times to attempt to catch all of them. Unfortunately
+         * this heuristic will not work much of the time because the
+         * round-robin scheduling isn't per-connection or IP address.
+         * If there is a sessionCookie, session persistence is in play
+         * and only one proxy needs to be refreshed.
+         */
+        final int numCallsPerRequest = sessionCookie != null ? 1 : 3;
+
+        /* use iterator so that remove works more simply */
+        Iterator<Request> iter = authRefreshRequests.iterator();
+        while (iter.hasNext()) {
+            Request rq = iter.next();
+            /* set timeout calculated above */
+            rq.setTimeoutInternal(msPerRequest);
+            for (int i = 0; i < numCallsPerRequest; i++) {
+                try {
+                    execute(rq);
+                } catch (TableNotFoundException tnf) {
+                    /* table is gone -- remove from list */
+                    logFine(logger, "Auth refresh table not found, removing: " +
+                            rq.getClass().getSimpleName() + " for " +
+                            rq.getTableName());
+                    iter.remove();
+                    break;
+                } catch (Throwable th) {
+                    /* ignore */
+                }
+            }
+        }
+    }
+
+    /**
+     * Look for the compartment,table combination in the list. If
+     * present, do nothing. If not, add that combination to the list.
+     * This is not particular efficient but it is not expected that a given
+     * handle will be accessing a large number of tables.
+     *
+     * The operation type is not checked -- all 3 types of requests are created
+     * no matter the access. This simplifies the logic and if a given type is
+     * not given to this Principal it doesn't hurt.
+     */
+    private void checkAuthRefreshList(Request request) {
+        if (authRefreshRequests != null) {
+            /*
+             * don't add refresh requests and those without table names can't be
+             * added. They may be a query or admin op. Also eliminate ops that
+             * don't read or write, which includes GetTableRequest
+             */
+            if (request.getIsRefresh() || request.getTableName() == null ||
+                !(request.doesReads() || request.doesWrites())) {
+                return;
+            }
+            for (Request rq : authRefreshRequests) {
+                if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
+                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
+                    return;
+                }
+            }
+            /* request compartment, table, type isn't present - add it */
+            addRequestToRefreshList(request);
+        }
+    }
+
+    private boolean stringsEqualOrNull(String s1, String s2) {
+        if (s1 == null) {
+            return s2 == null;
+        }
+        return s1.equalsIgnoreCase(s2);
+    }
+
+    /**
+     * Add get, put, delete to cover all auth types
+     * This is synchronized to avoid 2 requests adding the same table
+     */
+    private synchronized void addRequestToRefreshList(Request request) {
+        logFine(logger, "Adding table to request list: " +
+                request.getCompartment() + ":" + request.getTableName());
+        PutRequest pr =
+            new PutRequest().setTableName(request.getTableName());
+        pr.setCompartmentInternal(request.getCompartment());
+        pr.setValue(badValue);
+        pr.setIsRefresh(true);
+        authRefreshRequests.add(pr);
+        GetRequest gr =
+            new GetRequest().setTableName(request.getTableName());
+        gr.setCompartmentInternal(request.getCompartment());
+        gr.setKey(badValue);
+        gr.setIsRefresh(true);
+        authRefreshRequests.add(gr);
+        DeleteRequest dr =
+            new DeleteRequest().setTableName(request.getTableName());
+        dr.setCompartmentInternal(request.getCompartment());
+        dr.setKey(badValue);
+        dr.setIsRefresh(true);
+        authRefreshRequests.add(dr);
     }
 
     /**

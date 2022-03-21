@@ -12,6 +12,7 @@ import java.math.MathContext;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.ops.QueryRequest;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.values.FieldValue;
 
 /**
@@ -61,6 +62,12 @@ public class RuntimeControlBlock {
     private int theReadKB;
     private int theReadUnits;
     private int theWriteKB;
+
+    /*
+     * Stats for retries and rate limiting during query batch execution
+     */
+    private int theRateLimitDelayedMs;
+    private RetryStats theRetryStats;
 
     /*
      * The number of memory bytes consumed by the query at the client for
@@ -179,6 +186,20 @@ public class RuntimeControlBlock {
         theRegisters[regId] = value;
     }
 
+    public void tallyRateLimitDelayedMs(int ms) {
+        theRateLimitDelayedMs += ms;
+    }
+
+    public void tallyRetryStats(RetryStats rs) {
+        if (rs == null) {
+            return;
+        }
+        if (theRetryStats == null) {
+            theRetryStats = new RetryStats();
+        }
+        theRetryStats.addStats(rs);
+    }
+
     public void tallyReadKB(int nkb) {
         theReadKB += nkb;
     }
@@ -203,10 +224,20 @@ public class RuntimeControlBlock {
         theReadKB = 0;
         theReadUnits = 0;
         theWriteKB = 0;
+        theRateLimitDelayedMs = 0;
+        theRetryStats = null;
     }
 
     public int getWriteKB() {
         return theWriteKB;
+    }
+
+    public RetryStats getRetryStats() {
+        return theRetryStats;
+    }
+
+    public int getRateLimitDelayedMs() {
+        return theRateLimitDelayedMs;
     }
 
     public void setReachedLimit(boolean value) {

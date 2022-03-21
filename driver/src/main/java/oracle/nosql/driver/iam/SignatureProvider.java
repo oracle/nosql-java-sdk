@@ -32,6 +32,7 @@ import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.LruCache;
@@ -122,12 +123,14 @@ public class SignatureProvider
 
     /* Cache key name */
     private static final String CACHE_KEY = "signature";
+    /* Refresh key name */
+    private static final String REFRESH_CACHE_KEY = "refresh_signature";
 
     /* Maximum lifetime of signature 240 seconds */
     protected static final int MAX_ENTRY_LIFE_TIME = 240;
 
-    /* Default refresh time before signature expiry, 10 seconds*/
-    protected static final int DEFAULT_REFRESH_AHEAD = 10000;
+    /* Default refresh time before signature expiry, 20 seconds*/
+    protected static final int DEFAULT_REFRESH_AHEAD = 20000;
 
     /* User profile and key providers */
     private final AuthenticationProfileProvider provider;
@@ -149,6 +152,21 @@ public class SignatureProvider
     private String serviceHost;
     private Region region;
     private Logger logger;
+
+    /**
+     * @hidden
+     * A callback interface called when the signature is refreshed. This
+     * allows the application to perform an operation or 2 that can be used
+     * to refresh the server-side authorization information out of its main
+     * request path, reducing average latency
+     */
+    @FunctionalInterface
+    public interface OnSignatureRefresh {
+        /* refreshMs is the max amount of time this operation can/should take */
+        public void refresh(long refreshMs);
+    }
+
+    private OnSignatureRefresh onSigRefresh;
 
     /**
      * Creates a SignatureProvider using a default configuration file and
@@ -366,18 +384,18 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      *
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri) {
+        createWithInstancePrincipal(String iamAuthUrl) {
 
         return new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .build());
     }
 
@@ -395,22 +413,22 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param logger the logger used by the SignatureProvider.
      *
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipal(String iamAuthUri,
+        createWithInstancePrincipal(String iamAuthUrl,
                                     Region region,
                                     Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -465,9 +483,9 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param delegationToken the string of delegation token that allows an
      * instance to assume the privileges of a specific user and act
@@ -477,14 +495,14 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipalForDelegation(String iamAuthUri,
+        createWithInstancePrincipalForDelegation(String iamAuthUrl,
                                                  Region region,
                                                  String delegationToken,
                                                  Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -548,9 +566,9 @@ public class SignatureProvider
      * <p>
      * See <a href="https://docs.cloud.oracle.com/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm">Calling Services from Instances</a>.
      *
-     * @param iamAuthUri The URI is usually detected automatically, specify
-     * the URI if you need to overwrite the default, or encounter the
-     * <code>Invalid IAM URI</code> error.
+     * @param iamAuthUrl The URL is usually detected automatically, specify
+     * the URL if you need to overwrite the default, or the region of instance
+     * doesn't exists in registered regions listed in {@link Region}.
      * @param region the region to use, it may be null
      * @param delegationTokenFile the file of delegation token that allows
      * an instance to assume the privileges of a specific user and act
@@ -561,14 +579,14 @@ public class SignatureProvider
      * @return SignatureProvider
      */
     public static SignatureProvider
-        createWithInstancePrincipalForDelegation(String iamAuthUri,
+        createWithInstancePrincipalForDelegation(String iamAuthUrl,
                                                  Region region,
                                                  File delegationTokenFile,
                                                  Logger logger) {
 
         SignatureProvider provider = new SignatureProvider(
             InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(iamAuthUri)
+            .setFederationEndpoint(iamAuthUrl)
             .setLogger(logger)
             .setRegion(region)
             .build());
@@ -667,7 +685,7 @@ public class SignatureProvider
         }
         if (this.provider instanceof SecurityTokenBasedProvider) {
             ((SecurityTokenBasedProvider) provider)
-                .setTokenExpirationRefreshWindow(durationMS);
+                .setMinTokenLifetime(durationMS);
         }
     }
 
@@ -678,7 +696,7 @@ public class SignatureProvider
                "Unable to find service host, use setServiceHost " +
                "to load from NoSQLHandleConfig");
         }
-        SignatureDetails sigDetails = getSignatureDetails();
+        SignatureDetails sigDetails = getSignatureDetails(request);
         if (sigDetails != null) {
             return sigDetails.getSignatureHeader();
         }
@@ -690,7 +708,7 @@ public class SignatureProvider
                                    Request request,
                                    HttpHeaders headers) {
 
-        SignatureDetails sigDetails = getSignatureDetails();
+        SignatureDetails sigDetails = getSignatureDetails(request);
         if (sigDetails == null) {
             return;
         }
@@ -740,6 +758,9 @@ public class SignatureProvider
             refresher.cancel();
             refresher = null;
         }
+        if (provider instanceof InstancePrincipalsProvider) {
+            ((InstancePrincipalsProvider)this.provider).close();
+        }
     }
 
     @Override
@@ -765,8 +786,16 @@ public class SignatureProvider
         }
         this.serviceHost = serviceURL.getHost();
 
+        /*
+         * pass SSL related configuration to its SecurityTokenSupplier
+         * to create the HTTP client
+         */
+        if (provider instanceof InstancePrincipalsProvider) {
+            ((InstancePrincipalsProvider)this.provider).prepare(config);
+        }
+
         /* creates and caches a signature as warm-up */
-        getSignatureDetailsInternal();
+        getSignatureDetailsInternal(false);
         return this;
     }
 
@@ -828,31 +857,30 @@ public class SignatureProvider
         }
     }
 
-    private SignatureDetails getSignatureDetails() {
-        SignatureDetails sigDetails = signatureCache.get(CACHE_KEY);
+    private SignatureDetails getSignatureDetails(Request request) {
+        String key = request.getIsRefresh() ? REFRESH_CACHE_KEY : CACHE_KEY;
+        SignatureDetails sigDetails = signatureCache.get(key);
         if (sigDetails != null) {
-            if (provider instanceof UserAuthenticationProfileProvider) {
-                return sigDetails;
-            }
+            return sigDetails;
+        }
 
-            /*
-             * Check key id is still valid and same as latest one.
-             * For instance and resource principal, getKeyId check
-             * validity of security token and refresh if it's expired.
-             */
-            if (provider.isKeyValid(sigDetails.getKeyId())) {
+        if (request.getIsRefresh()) {
+            /* try normal key before failing */
+            sigDetails = signatureCache.get(CACHE_KEY);
+            if (sigDetails != null) {
                 return sigDetails;
             }
         }
 
-        return getSignatureDetailsInternal();
+        logMessage(Level.WARNING, "No signature in cache");
+        return getSignatureDetailsInternal(false);
     }
 
     /* visible for testing */
-    synchronized SignatureDetails getSignatureDetailsInternal() {
+    synchronized SignatureDetails getSignatureDetailsInternal(boolean isRefresh)
+    {
         String date = createFormatter().format(new Date());
         String keyId = provider.getKeyId();
-
         if (provider instanceof InstancePrincipalsProvider) {
             privateKeyProvider.reload(provider.getPrivateKey(),
                                       provider.getPassphraseCharacters());
@@ -873,12 +901,32 @@ public class SignatureProvider
                                          RSA,
                                          signature,
                                          SINGATURE_VERSION);
-
-        SignatureDetails sigDetails =
-            new SignatureDetails(keyId, sigHeader, date);
-        signatureCache.put(CACHE_KEY, sigDetails);
-        scheduleRefresh();
+        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
+        if (!isRefresh) {
+            /*
+             * if this is not a refresh, use the normal key and schedule a
+             * refresh
+             */
+            signatureCache.put(CACHE_KEY, sigDetails);
+            scheduleRefresh();
+        } else {
+            /*
+             * If this is a refresh put the object in a temporary key.
+             * The caller (the refresh task) will:
+             * 1. perform callbacks if needed and when done,
+             * 2. move the object to the normal key and schedule a refresh
+             */
+            signatureCache.put(REFRESH_CACHE_KEY, sigDetails);
+        }
         return sigDetails;
+    }
+
+    private synchronized void setRefreshKey() {
+        SignatureDetails sigDetails =
+            signatureCache.remove(REFRESH_CACHE_KEY);
+        if (sigDetails != null) {
+            signatureCache.put(CACHE_KEY, sigDetails);
+        }
     }
 
     String signingContent(String date) {
@@ -925,25 +973,93 @@ public class SignatureProvider
         }
         return sb.toString();
     }
+
     private class RefreshTask extends TimerTask {
+        private static final int DELAY_MS = 500;
+
+        private void handleRefreshCallback(long refreshMs) {
+            SignatureDetails sigDetails = signatureCache.get(REFRESH_CACHE_KEY);
+            if (sigDetails == null) {
+                logMessage(Level.FINE,
+                           "Refresh didn't find refresh cache key");
+                return;
+            }
+
+            if (onSigRefresh != null) {
+                /* don't let problems in the callback affect this path */
+                try {
+                    onSigRefresh.refresh(refreshMs);
+                } catch (Throwable t) {
+                    logMessage(Level.FINE,
+                               "Exception from OnSignatureRefresh: " + t);
+                }
+            }
+
+            /* move temporary object to the normal key */
+            setRefreshKey();
+            scheduleRefresh();
+        }
 
         @Override
         public void run() {
-            try {
-                getSignatureDetailsInternal();
-            } catch (Exception e) {
-                /*
-                 * Ignore the failure of refresh. The driver would try to
-                 * generate signature in the next request if signature is not
-                 * available, the failure would be reported at that moment.
-                 */
-                logMessage(Level.WARNING,
-                           "Unable to refresh cached request signature, " +
-                           e.getMessage());
-                refresher.cancel();
-                refresher = null;
-            }
+            long startTime = System.currentTimeMillis();
+            Exception lastException;
+            do {
+                try {
+                    getSignatureDetailsInternal(true);
+                    handleRefreshCallback(refreshAheadMs);
+                    return;
+                } catch (SecurityInfoNotReadyException se) {
+                    /*
+                     * This exception is thrown only if instance principal
+                     * is configured to use, indicates the last attempt of
+                     * security token acquisition is failed.
+                     */
+                    lastException = se;
+                    try {
+                        Thread.sleep(DELAY_MS);
+                    } catch (InterruptedException ie) {}
+                    continue;
+                } catch (Exception e) {
+                    lastException = e;
+                    break;
+                }
+            } while ((System.currentTimeMillis() - startTime) < refreshAheadMs);
+
+            /*
+             * Ignore the failure of refresh. The driver would try to
+             * generate signature in the next request if signature is not
+             * available, the failure would be reported at that moment.
+             */
+            logMessage(Level.WARNING,
+                       "Unable to refresh cached request signature, " +
+                       lastException.getMessage());
+            refresher.cancel();
+            refresher = null;
         }
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * <p>
+     * Sets a signature refresh callback to be called when the signature
+     * is refreshed
+     * @param onSigRefresh the callback
+     */
+    public void setOnSignatureRefresh(OnSignatureRefresh onSigRefresh) {
+        this.onSigRefresh = onSigRefresh;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * <p>
+     * Returns the signature refresh callback, or null if not set
+     * @return the callback or null
+     */
+    public OnSignatureRefresh getOnSignatureRefresh() {
+        return onSigRefresh;
     }
 
     static class SignatureDetails {
@@ -958,19 +1074,10 @@ public class SignatureProvider
          */
         private String date;
 
-        /* Id of key used to sign the request */
-        private String keyId;
-
-        SignatureDetails(String keyId,
-                         String signatureHeader,
+        SignatureDetails(String signatureHeader,
                          String date) {
-            this.keyId = keyId;
             this.signatureHeader = signatureHeader;
             this.date = date;
-        }
-
-        String getKeyId() {
-            return keyId;
         }
 
         String getDate() {
@@ -979,13 +1086,6 @@ public class SignatureProvider
 
         String getSignatureHeader() {
             return signatureHeader;
-        }
-
-        boolean isValid(String header) {
-            if (header == null) {
-                return false;
-            }
-            return header.equals(signatureHeader);
         }
    }
 

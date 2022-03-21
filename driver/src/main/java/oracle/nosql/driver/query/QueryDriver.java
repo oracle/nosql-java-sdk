@@ -215,6 +215,8 @@ public class QueryDriver {
         result.setReadKB(theRCB.getReadKB());
         result.setReadUnits(theRCB.getReadUnits());
         result.setWriteKB(theRCB.getWriteKB());
+        result.setRateLimitDelayedMs(theRCB.getRateLimitDelayedMs());
+        result.setRetryStats(theRCB.getRetryStats());
 
         theResults = null;
         theRCB.resetKBConsumption();
