@@ -36,7 +36,7 @@ public class RetryStats {
      * Internal use only.
      * Create a new retry stats object.
      */
-    RetryStats() {
+    public RetryStats() {
         this.retries = 0;
         this.delayMs = 0;
         this.exceptionMap = new HashMap<Class<? extends Throwable>, Integer>();
@@ -71,30 +71,6 @@ public class RetryStats {
     /**
      * @hidden
      * Internal use only.
-     * Adds an exception class to the stats object.
-     * This increments the exception count and adds to the count of
-     * this type of exception class.
-     * @param e the exception class
-     */
-    public void addExceptions(Map<Class<? extends Throwable>, Integer> e) {
-        for (Map.Entry<Class<? extends Throwable>, Integer> entry :
-            e.entrySet()) {
-            addException(entry.getKey(), entry.getValue());
-        }
-    }
-
-    /**
-     * @hidden
-     * Internal use only.
-     * Returns the map of exceptions and their count.
-     */
-    Map<Class<? extends Throwable>, Integer> getExceptionMap() {
-        return exceptionMap;
-    }
-
-    /**
-     * @hidden
-     * Internal use only.
      * Adds time to the overall delay time spent.
      * @param d number of milliseconds to add to the delay total
      */
@@ -109,15 +85,6 @@ public class RetryStats {
      */
     public void incrementRetries() {
         retries++;
-    }
-
-    /**
-     * @hidden
-     * Internal use only.
-     * Increments the number of retries with n amount.
-     */
-    public void incrementRetries(int n) {
-        retries += n;
     }
 
     /**
@@ -161,6 +128,50 @@ public class RetryStats {
         delayMs = 0;
         retries = 0;
         exceptionMap.clear();
+    }
+
+    public Map<Class<? extends Throwable>, Integer> getExceptionMap() {
+        return exceptionMap;
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Adds stats to the current object.
+     */
+    public void addStats(RetryStats rs) {
+        if (rs == null) {
+            return;
+        }
+        delayMs += rs.getDelayMs();
+        retries += rs.getRetries();
+        Map<Class<? extends Throwable>, Integer> emap = rs.getExceptionMap();
+        if (emap == null || emap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Class<? extends Throwable>, Integer> entry:
+             emap.entrySet()) {
+            int i = entry.getValue().intValue();
+            Integer val = exceptionMap.get(entry.getKey());
+            if (val != null) {
+                i += val.intValue();
+            }
+            exceptionMap.put(entry.getKey(), i);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RetryStats)) {
+            return false;
+        }
+        RetryStats rs = (RetryStats)o;
+        if (retries != rs.retries ||
+            delayMs != rs.delayMs ||
+            exceptionMap.equals(rs.exceptionMap) == false) {
+            return false;
+        }
+        return true;
     }
 
     @Override

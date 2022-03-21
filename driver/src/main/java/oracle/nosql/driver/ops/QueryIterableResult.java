@@ -318,12 +318,8 @@ public class QueryIterableResult
                     queryIterableResult.setRetryStats(
                         new RetryStats());
                 }
-                queryIterableResult.getRetryStats().addDelayMs(
-                    internalResult.getRetryStats().getDelayMs());
-                queryIterableResult.getRetryStats().incrementRetries(
-                    internalResult.getRetryStats().getRetries());
-                queryIterableResult.getRetryStats().addExceptions(
-                    internalResult.getRetryStats().getExceptionMap());
+                queryIterableResult.getRetryStats().addStats(
+                    internalResult.getRetryStats());
             }
         }
 

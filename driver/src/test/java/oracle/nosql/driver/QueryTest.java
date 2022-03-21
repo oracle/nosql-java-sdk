@@ -34,6 +34,7 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.values.ArrayValue;
@@ -1928,22 +1929,39 @@ public class QueryTest extends ProxyTestBase {
 
     /**
      * Runs query twice and checks if results from queryIterable iterator are
-     * the same as regular running results.
+     * the same as regular query() results.
      */
     private void checkQueryIterableUnordered(String query) {
         QueryRequest qreq = new QueryRequest().setStatement(query).setLimit(3);
+        int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
+            totalReadUnits = 0, totalWriteUnits = 0;
+        RetryStats totalRetryStats = null;
 
         QueryResult qres;
         Set<MapValue> expectedSet = new HashSet<>();
 
         do {
             qres = handle.query(qreq);
+            totalRateLimitDelay += qres.getRateLimitDelayedMs();
+            RetryStats qresRS = qres.getRetryStats();
+            if (qresRS != null) {
+                if (totalRetryStats == null) {
+                    totalRetryStats = new RetryStats();
+                }
+                totalRetryStats.addStats(qresRS);
+            }
+            totalReadKB += qres.getReadKB();
+            totalWriteKB += qres.getWriteKB();
+            totalReadUnits += qres.getReadUnits();
+            totalWriteUnits += qres.getWriteUnits();
+
             for( MapValue row : qres.getResults() ) {
                 expectedSet.add(row);
             }
         } while (!qreq.isDone());
 
-        QueryIterableResult qires = handle.queryIterable(qreq);
+        QueryIterableResult qires = handle.queryIterable(
+            new QueryRequest().setStatement(query).setLimit(3));
         Set<MapValue> actualSet = new HashSet<>();
 
         for (MapValue qiRow : qires) {
@@ -1969,20 +1987,46 @@ public class QueryTest extends ProxyTestBase {
         }
 
         assertEquals(expectedSet, actualSet);
+
+        assertEquals(totalRateLimitDelay, qires.getRateLimitDelayedMs());
+        assertEquals(totalReadKB, qires.getReadKB());
+        assertEquals(totalWriteKB, qires.getWriteKB());
+        assertEquals(totalReadUnits, qires.getReadUnits());
+        assertEquals(totalWriteUnits, qires.getWriteUnits());
+
+        assertEquals(totalRetryStats, qires.getRetryStats());
     }
 
     /**
      * Runs query twice and checks if results from queryIterable iterator are
-     * the same as regular running results.
+     * the same as regular query() results.
      */
     private void checkQueryIterableOrdered(String query) {
-        QueryRequest qreq = new QueryRequest().setStatement(query);
-
-        QueryIterableResult qires = handle.queryIterable(qreq);
+        QueryRequest qireq = new QueryRequest().setStatement(query);
+        QueryIterableResult qires = handle.queryIterable(qireq);
 
         Iterator<MapValue> qiIter = qires.iterator();
+
+        QueryRequest qreq = new QueryRequest().setStatement(query);
+        int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
+            totalReadUnits = 0, totalWriteUnits = 0;
+        RetryStats totalRetryStats = null;
+
         do {
             QueryResult qres = handle.query(qreq);
+            totalRateLimitDelay += qres.getRateLimitDelayedMs();
+            RetryStats qresRS = qres.getRetryStats();
+            if (qresRS != null) {
+                if (totalRetryStats == null) {
+                    totalRetryStats = new RetryStats();
+                }
+                totalRetryStats.addStats(qresRS);
+            }
+            totalReadKB += qres.getReadKB();
+            totalWriteKB += qres.getWriteKB();
+            totalReadUnits += qres.getReadUnits();
+            totalWriteUnits += qres.getWriteUnits();
+
             for( MapValue expectedRow : qres.getResults() ) {
                 assertTrue(qiIter.hasNext());
                 MapValue actualRow = qiIter.next();
@@ -2003,6 +2047,14 @@ public class QueryTest extends ProxyTestBase {
 
         assertThrows(NoSuchElementException.class, qiIter::next);
         assertFalse(qiIter.hasNext());
+
+        assertEquals(totalRateLimitDelay, qires.getRateLimitDelayedMs());
+        assertEquals(totalReadKB, qires.getReadKB());
+        assertEquals(totalWriteKB, qires.getWriteKB());
+        assertEquals(totalReadUnits, qires.getReadUnits());
+        assertEquals(totalWriteUnits, qires.getWriteUnits());
+
+        assertEquals(totalRetryStats, qires.getRetryStats());
     }
 
 

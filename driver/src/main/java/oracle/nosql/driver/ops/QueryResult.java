@@ -11,7 +11,6 @@ import java.util.List;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
-import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.values.MapValue;
 
@@ -230,23 +229,6 @@ public class QueryResult extends Result {
         QueryDriver driver = request.getDriver();
         driver.compute(this);
         isComputed = true;
-
-        /*
-         * If the original request specified rate limiting, apply the
-         * used read/write units to the limiter(s) here
-         */
-        if (request != null) {
-            RateLimiter readLimiter = request.getReadRateLimiter();
-            if (readLimiter != null) {
-                readLimiter.consumeUnitsUnconditionally(
-                    super.getReadUnitsInternal());
-            }
-            RateLimiter writeLimiter = request.getWriteRateLimiter();
-            if (writeLimiter != null) {
-                writeLimiter.consumeUnitsUnconditionally(
-                    super.getWriteUnitsInternal());
-            }
-        }
     }
 
     /**

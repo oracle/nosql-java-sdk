@@ -77,8 +77,9 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * will reuse the context in NoSQLHandleConfig
          */
         configSslContext(config);
-        configAuthProvider(logger, config);
         client = new Client(logger, config);
+        /* configAuthProvider may use client */
+        configAuthProvider(logger, config);
     }
 
     /**
@@ -146,13 +147,19 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                     endpoint = endpoint.substring(0, endpoint.length() - 1);
                 }
                 stProvider.setEndpoint(endpoint)
-                          .setSslContext(config.getSslContext());
+                          .setSslContext(config.getSslContext())
+                          .setSslHandshakeTimeout(
+                              config.getSSLHandshakeTimeout());
             }
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
-            sigProvider.prepare(config);
             if (sigProvider.getLogger() == null) {
                 sigProvider.setLogger(logger);
+            }
+            sigProvider.prepare(config);
+            if (config.getAuthRefresh()) {
+                sigProvider.setOnSignatureRefresh(new SigRefresh());
+                client.createAuthRefreshList();
             }
         }
     }
@@ -406,5 +413,24 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     public short getSerialVersion() {
         return client.getSerialVersion();
+    }
+
+    /**
+     * Cloud service only.
+     * The refresh method of this class is called when a Signature is refreshed
+     * in SignatureProvider. This happens every 4 minutes or so. This mechanism
+     * allows the authentication and authorization information cached by the
+     * server to be refreshed out of band with the normal request path.
+     */
+    private class SigRefresh implements SignatureProvider.OnSignatureRefresh {
+
+        /*
+         * Attempt to refresh the server's authentication and authorization
+         * information for a new signature.
+         */
+        @Override
+        public void refresh(long refreshMs) {
+            client.doRefresh(refreshMs);
+        }
     }
 }

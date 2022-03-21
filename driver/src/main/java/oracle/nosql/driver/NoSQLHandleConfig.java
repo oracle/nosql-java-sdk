@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
-
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -61,6 +60,26 @@ public class NoSQLHandleConfig implements Cloneable {
         VALID_SSL_PROTOCOLS.add("TLSv1.3");
     }
 
+    /**
+     * Statistics configuration, optional.
+     */
+    public static final String STATS_PROFILE_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
+    public static final String STATS_INTERVAL_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
+    public static final String STATS_PRETTY_PRINT_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    public static final String STATS_ENABLE_LOG_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
+
+    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
+    public static final int DEFAULT_STATS_INTERVAL = 600;
+    public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
+        StatsControl.Profile.NONE;
+    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    public static final boolean DEFAULT_ENABLE_LOG = true;
+
+
     /*
      * The url used to contact an HTTP proxy
      */
@@ -91,15 +110,16 @@ public class NoSQLHandleConfig implements Cloneable {
     private Consistency consistency;
 
     /**
-     * The size of the connection pool, which is a fixed-size pool, defaults
-     * to nCPUs * 2
+     * The minimum size (low water mark) to keep in the pool, and keep alive
      */
-    private int connectionPoolSize;
+    private int connectionPoolMinSize;
 
     /**
-     * The maximum number of pending acquires for the pool
+     * The number of seconds to use to cause unused connections to be closed.
+     * 0 means don't close unused connections, but they can still be closed
+     * by the server side
      */
-    private int poolMaxPending;
+    private int connectionPoolInactivityPeriod;
 
     /**
      * The number of threads to configure for handling asynchronous netty
@@ -168,6 +188,12 @@ public class NoSQLHandleConfig implements Cloneable {
     private int sslSessionTimeout = 0;
 
     /**
+     * The timeout limit of SSH handshake, or 0 if not configured by
+     * the user.
+     */
+    private int sslHandshakeTimeoutMs = 0;
+
+    /**
      * Cloud service only.
      *
      * The default compartment name or ocid, if set. This may be null
@@ -190,7 +216,7 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     private double defaultRateLimiterPercentage;
 
-    /*
+    /**
      * HTTP Proxy configuration, optional
      */
     private String proxyHost;
@@ -201,28 +227,17 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Statistics configuration, optional.
      */
-    public static final String STATS_PROFILE_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.profile";
-    public static final String STATS_INTERVAL_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.interval";
-    public static final String STATS_PRETTY_PRINT_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
-    public static final String STATS_ENABLE_LOG_PROPERTY =
-        "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
-
-    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
-    public static final int DEFAULT_STATS_INTERVAL = 600;
-    public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
-        StatsControl.Profile.NONE;
-    public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
-    public static final boolean DEFAULT_ENABLE_LOG = true;
-
     private int statsInterval = DEFAULT_STATS_INTERVAL;
     private StatsControl.Profile statsProfile = DEFAULT_STATS_PROFILE;
     private boolean statsPrettyPrint = DEFAULT_STATS_PRETTY_PRINT;
     private boolean statsEnableLog = DEFAULT_ENABLE_LOG;
 
     private StatsControl.StatsHandler statsHandler = null;
+
+    /**
+     * Hidden flag to control automatic auth refresh in cloud service
+     */
+    private boolean authRefresh;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -679,14 +694,58 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param poolSize the pool size
      *
      * @return this
+     * @deprecated The connection pool no longer supports a size setting.
+     * It will expand as needed based on concurrent demand.
      */
+    @Deprecated
     public NoSQLHandleConfig setConnectionPoolSize(int poolSize) {
-        if (poolSize < 0) {
-            throw new IllegalArgumentException(
-                "NoSQLHandleConfig.setConnectionPoolSize: poolSize must " +
-                "be a non-negative value");
-        }
-        this.connectionPoolSize = poolSize;
+        return this;
+    }
+
+    /**
+     * Sets the minimum number of connections to keep in the connection pool
+     * when the connections are inactive. This number is used to generate
+     * keep-alive messages that prevent this many connections from timing out in
+     * environments that can time out, such as the NoSQL Cloud Service.
+     * This setting can reduce the latency required to re-create secure
+     * connections after an application goes idle for a while (minutes).
+     * <p>
+     * If this value is 0 (default) the minimum is set to 2.
+     * If set to -1 then all connections are allowed to time out.
+     * If the number of connections in the pool never reaches this minimum,
+     * but the minimum is set, those connections will be kept alive. Additional
+     * connections are only created on demand. This setting can be thought of
+     * as a low-water mark.
+     *
+     * @param poolMinSize the minimum pool size
+     *
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setConnectionPoolMinSize(int poolMinSize) {
+        this.connectionPoolMinSize = poolMinSize;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * Sets an inactivity period, in seconds, used to time out idle connections
+     * in the connection pool. This setting allows unused connections to be
+     * reclaimed when the system goes idle, reducing resource use. If 0 for
+     * the default value. A negative number means inactive connections are not
+     * timed out.
+     *
+     * @param poolInactivityPeriod the period, in seconds
+     *
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setConnectionPoolInactivityPeriod(
+        int poolInactivityPeriod) {
+        this.connectionPoolInactivityPeriod = poolInactivityPeriod;
         return this;
     }
 
@@ -699,15 +758,10 @@ public class NoSQLHandleConfig implements Cloneable {
      * @param poolMaxPending the maximum number allowed
      *
      * @return this
+     * @deprecated The connection pool no longer supports pending requests.
      */
+    @Deprecated
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
-        if (poolMaxPending < 0) {
-            throw new IllegalArgumentException(
-                "NoSQLHandleConfig.setPoolMaxPending: poolMaxPending must " +
-                "be a non-negative value");
-        }
-
-        this.poolMaxPending = poolMaxPending;
         return this;
     }
 
@@ -778,20 +832,51 @@ public class NoSQLHandleConfig implements Cloneable {
      * concurrent requests. Additional requests will wait for a connection to
      * become available.
      *
-     * @return the pool size or 0 if not set
+     * @return 0
+     * @deprecated The connection pool no longer supports a size setting.
+     * It will expand as needed based on concurrent demand.
      */
+    @Deprecated
     public int getConnectionPoolSize() {
-        return connectionPoolSize;
+        return 0;
+    }
+
+    /**
+     * Returns the minimum number of connections to keep alive in the connection
+     * pool.
+     *
+     * @return the minimum pool size or 0 if not set
+     *
+     * @since 5.3.2
+     */
+    public int getConnectionPoolMinSize() {
+        return connectionPoolMinSize;
+    }
+
+    /**
+     * @hidden
+     * Returns the inactivity period, in seconds, to use to time out idle
+     * connections. This allows the connection pool to shrink after a period
+     * of inactivity, reducing resource use.
+     *
+     * @return the inactivity period, or 0 if not set
+     *
+     * @since 5.3.2
+     */
+    public int getConnectionPoolInactivityPeriod() {
+        return connectionPoolInactivityPeriod;
     }
 
     /**
      * Returns the maximum number of pending acquire operations allowed on
      * the connection pool.
      *
-     * @return the maximum pending size or 0 if not set
+     * @return 0
+     * @deprecated The connection pool no longer supports pending requests.
      */
+    @Deprecated
     public int getPoolMaxPending() {
-        return poolMaxPending;
+        return 0;
     }
 
     /**
@@ -1024,6 +1109,16 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     * Returns the configured SSL handshake timeout, in milliseconds.
+     *
+     * @return the timeout, in milliseconds, or 0 if it has not been set
+     * @since 5.3.2
+     */
+    public int getSSLHandshakeTimeout() {
+        return sslHandshakeTimeoutMs;
+    }
+
+    /**
      * Set SSL cipher suites to enable, in the order of preference. null to
      * use default cipher suites.
      *
@@ -1082,7 +1177,7 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * Set the timeout for the cached SSL session objects, in seconds. 0 to
+     * Sets the timeout for the cached SSL session objects, in seconds. 0 to
      * use the default value, no limit. When the timeout limit is exceeded for
      * a session, the SSLSession object is invalidated and future connections
      * cannot resume or rejoin the session.
@@ -1098,6 +1193,27 @@ public class NoSQLHandleConfig implements Cloneable {
                 "be a positive value or zero");
         }
         this.sslSessionTimeout = timeout;
+        return this;
+    }
+
+    /**
+     * Sets the timeout for the SSL handshake, in milliseconds. 0 to use the
+     * default value, 3000 milliseconds. In general the default works. This
+     * value can be set to help debug suspected SSL issues and force
+     * retries within the request timeout period.
+     *
+     * @param timeout the SSL handshake timeout
+     *
+     * @return this
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setSSLHandshakeTimeout(int timeout) {
+        if (timeout < 0) {
+            throw new IllegalArgumentException(
+                "NoSQLHandleConfig.setSSLHandshakeTimeout: timeout must " +
+                "be a positive value or zero");
+        }
+        this.sslHandshakeTimeoutMs = timeout;
         return this;
     }
 
@@ -1350,7 +1466,40 @@ public class NoSQLHandleConfig implements Cloneable {
      * @since 5.2.30
      */
     public StatsControl.StatsHandler getStatsHandler() {
-        return this.statsHandler;
+        return statsHandler;
+    }
+
+    /**
+     * @hidden
+     *
+     * Cloud service only.
+     * Turns on, or off internal, automatic refresh of auth information based on
+     * tracked requests. This is present in case the refresh really isn't
+     * desired or the mechanism fails for some reason. This mechanism is off
+     * by default.
+     *
+     * @param value true to enable refresh
+     * @return this
+     *
+     * @since 5.3.2
+     */
+    public NoSQLHandleConfig setAuthRefresh(boolean value) {
+        this.authRefresh = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * Cloud service only.
+     * Returns the state of the authRefresh flag
+     *
+     * @return true if auth refresh is enabled
+     *
+     * @since 5.3.2
+     */
+    public boolean getAuthRefresh() {
+        return authRefresh;
     }
 
     @Override

@@ -64,6 +64,11 @@ public class HttpConstants {
     public static final String CONTENT_LENGTH = "Content-Length";
 
     /**
+     * The name of the cookie header
+     */
+    public static final String COOKIE = "Cookie";
+
+    /**
      * The name of the date header
      */
     public static final String DATE = "date";

@@ -7,6 +7,10 @@
 
 package oracle.nosql.driver.httpclient;
 
+import static io.netty.handler.codec.http.HttpHeaderNames.HOST;
+import static io.netty.handler.codec.http.HttpMethod.HEAD;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.LogUtil.isFineEnabled;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
@@ -18,10 +22,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
-/*
- * If this code is ever made generic, the proxy information obtained
- * from this config needs to be be abstracted to a generic class.
- */
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 import io.netty.bootstrap.Bootstrap;
@@ -30,12 +30,17 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
+
+/*
+ * If this code is ever made generic, the proxy information obtained
+ * from this config needs to be be abstracted to a generic class.
+ */
 
 /**
  * Netty HTTP client. Initialization process:
@@ -75,19 +80,16 @@ import io.netty.util.concurrent.Future;
  */
 public class HttpClient {
 
-    static final int DEFAULT_MAX_PENDING = 3;
     static final int DEFAULT_MAX_CONTENT_LENGTH = 32 * 1024 * 1024; // 32MB
     static final int DEFAULT_MAX_CHUNK_SIZE = 65536;
-    /*
-     * timeout for acquiring a Netty channel in ms. If exceeded a new
-     * connection is created
-     */
-    static final int ACQUIRE_TIMEOUT = 5;
+    static final int DEFAULT_HANDSHAKE_TIMEOUT_MS = 3000;
+    static final int DEFAULT_MIN_POOL_SIZE = 2; // min pool size
 
     static final AttributeKey<RequestState> STATE_KEY =
         AttributeKey.<RequestState>valueOf("rqstate");
 
-    private final FixedChannelPool pool;
+    //private final FixedChannelPool pool;
+    private final ConnectionPool pool;
     private final HttpClientChannelPoolHandler poolHandler;
 
     private final int maxContentLength;
@@ -107,6 +109,7 @@ public class HttpClient {
      * Non-null if using SSL
      */
     private final SslContext sslCtx;
+    private final int handshakeTimeoutMs;
 
     private final Logger logger;
 
@@ -124,32 +127,31 @@ public class HttpClient {
     final NioEventLoopGroup workerGroup;
 
     /**
-     * Creates a new HttpClient class capable of sending Netty HttpRequest
-     * instances and receiving replies. This is a concurrent, asynchronous
-     * interface capable of sending and receiving on multiple HTTP channels
-     * at the same time.
+     * Creates a minimal HttpClient instance that is configured for
+     * single-use or minimal use without concurrency.
      *
      * @param host the hostname for the HTTP server
      * @param port the port for the HTTP server
-     * @param numThreads the number of async threads to use for Netty
-     * notifications. If 0, a default value is used (2).
-     * @param connectionPoolSize the max number of HTTP connections to use
-     * for concurrent requests. If 0, a default value is used (2)
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
-    public HttpClient(String host,
-                      int port,
-                      int numThreads,
-                      int connectionPoolSize,
-                      int poolMaxPending,
-                      SslContext sslCtx,
-                      String name,
-                      Logger logger) {
-        this(host, port, numThreads, connectionPoolSize, poolMaxPending,
-            DEFAULT_MAX_CONTENT_LENGTH, DEFAULT_MAX_CHUNK_SIZE,
-            sslCtx, name, logger);
+    public static HttpClient createMinimalClient(String host,
+                                                 int port,
+                                                 SslContext sslCtx,
+                                                 int handshakeTimeoutMs,
+                                                 String name,
+                                                 Logger logger) {
+        return new HttpClient(host,
+                              port,
+                              1, /* nThreads */
+                              0, /* pool min */
+                              0, /* pool inactivity period */
+                              true, /* minimal client */
+                              DEFAULT_MAX_CONTENT_LENGTH,
+                              DEFAULT_MAX_CHUNK_SIZE,
+                              sslCtx, handshakeTimeoutMs, name, logger);
     }
 
     /**
@@ -161,27 +163,56 @@ public class HttpClient {
      * @param host the hostname for the HTTP server
      * @param port the port for the HTTP server
      * @param numThreads the number of async threads to use for Netty
-     * notifications. If 0, a default value is used (2).
-     * @param connectionPoolSize the max number of HTTP connections to use
-     * for concurrent requests. If 0, a default value is used (2).
+     * notifications. If 0, a default value is used based on the number of
+     * cores
+     * @param connectionPoolMinSize the number of connections to keep in the
+     * pool and keep alive using a minimal HTTP request. If 0, none are kept
+     * alive
+     * @param inactivityPeriodSeconds the number of seconds to keep an
+     * inactive channel/connection before removing it. 0 means use the default,
+     * a negative number means there is no timeout and channels are not
+     * removed
      * @param maxContentLength maximum size in bytes of requests/responses.
      * If 0, a default value is used (32MB).
      * @param maxChunkSize maximum size in bytes of chunked response messages.
      * If 0, a default value is used (64KB).
      * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
     public HttpClient(String host,
                       int port,
                       int numThreads,
-                      int connectionPoolSize,
-                      int poolMaxPending,
+                      int connectionPoolMinSize,
+                      int inactivityPeriodSeconds,
                       int maxContentLength,
                       int maxChunkSize,
                       SslContext sslCtx,
+                      int handshakeTimeoutMs,
                       String name,
                       Logger logger) {
+
+        this(host, port, numThreads, connectionPoolMinSize,
+             inactivityPeriodSeconds, false /* not minimal */,
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
+    }
+
+    /*
+     * Hidden/private to handle the minimal pool case
+     */
+    private HttpClient(String host,
+                       int port,
+                       int numThreads,
+                       int connectionPoolMinSize,
+                       int inactivityPeriodSeconds,
+                       boolean isMinimalClient,
+                       int maxContentLength,
+                       int maxChunkSize,
+                       SslContext sslCtx,
+                       int handshakeTimeoutMs,
+                       String name,
+                       Logger logger) {
 
         this.logger = logger;
         this.sslCtx = sslCtx;
@@ -189,22 +220,27 @@ public class HttpClient {
         this.port = port;
         this.name = name;
 
-        poolMaxPending = (poolMaxPending == 0 ?
-                              DEFAULT_MAX_PENDING : poolMaxPending);
-
         this.maxContentLength = (maxContentLength == 0 ?
-                              DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
+            DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
         this.maxChunkSize = (maxChunkSize == 0 ?
-                              DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+            DEFAULT_MAX_CHUNK_SIZE : maxChunkSize);
+
+        this.handshakeTimeoutMs = (handshakeTimeoutMs == 0 ?
+            DEFAULT_HANDSHAKE_TIMEOUT_MS : handshakeTimeoutMs);
 
         int cores = Runtime.getRuntime().availableProcessors();
 
         if (numThreads == 0) {
             numThreads = cores*2;
         }
-        if (connectionPoolSize == 0) {
-            connectionPoolSize = cores*2;
+
+        /* default pool min */
+        if (connectionPoolMinSize == 0) {
+            connectionPoolMinSize = DEFAULT_MIN_POOL_SIZE;
+        } else if (connectionPoolMinSize < 0) {
+            connectionPoolMinSize = 0; // no min size
         }
+
         workerGroup = new NioEventLoopGroup(numThreads);
         Bootstrap b = new Bootstrap();
 
@@ -216,21 +252,25 @@ public class HttpClient {
 
         poolHandler =
             new HttpClientChannelPoolHandler(this);
+        pool = new ConnectionPool(b, poolHandler, logger,
+                                  isMinimalClient,
+                                  connectionPoolMinSize,
+                                  inactivityPeriodSeconds);
 
-        pool = new FixedChannelPool(
-            b,
-            poolHandler, /* pool handler */
-            poolHandler, /* health checker */
-            /*
-             * if a channel cannot be acquired in ACQUIRE_TIMEOUT ms, create
-             * a new one, even if the pool is full. Consider exposing this
-             * behavior as user-facing configuration
-             */
-            FixedChannelPool.AcquireTimeoutAction.NEW,
-            ACQUIRE_TIMEOUT,
-            connectionPoolSize,
-            poolMaxPending,
-            true); /* do health check on release */
+        /*
+         * Don't do keepalive if min size is not set. That configuration
+         * doesn't care about keep connections alive. Also don't set for
+         * minimal clients.
+         */
+        if (!isMinimalClient && connectionPoolMinSize > 0) {
+            /* this is the main request client */
+            pool.setKeepAlive(new ConnectionPool.KeepAlive() {
+                    @Override
+                    public boolean keepAlive(Channel ch) {
+                        return doKeepAlive(ch);
+                    }
+                });
+        }
 
         /* TODO: eventually add this to Config? */
         acquireRetryIntervalMs = Integer.getInteger(
@@ -256,6 +296,10 @@ public class HttpClient {
 
     Logger getLogger() {
         return logger;
+    }
+
+    int getHandshakeTimeoutMs() {
+        return handshakeTimeoutMs;
     }
 
     public int getMaxContentLength() {
@@ -301,7 +345,20 @@ public class HttpClient {
     }
 
     public int getAcquiredChannelCount() {
-        return pool.acquiredChannelCount();
+        return pool.getAcquiredChannelCount();
+    }
+
+    public int getTotalChannelCount() {
+        return pool.getTotalChannels();
+    }
+
+    public int getFreeChannelCount() {
+        return pool.getFreeChannels();
+    }
+
+    /* available for testing */
+    ConnectionPool getConnectionPool() {
+        return pool;
     }
 
     /**
@@ -340,8 +397,9 @@ public class HttpClient {
                 retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 if (retries == 0) {
-                    logInfo(logger, "Timed out after " + msDiff +
-                             "ms trying to acquire channel: retrying");
+                    logInfo(logger, "Timed out after " +
+                            (System.currentTimeMillis() - startMs) +
+                            "ms trying to acquire channel: retrying");
                 }
                 /* fall through */
             }
@@ -437,5 +495,50 @@ public class HttpClient {
                         }
                     }
                 });
+    }
+
+    /**
+     * Use HTTP HEAD method to refresh the channel
+     */
+    boolean doKeepAlive(Channel ch) {
+        final int keepAliveTimeout = 3000; /* ms */
+        ResponseHandler responseHandler =
+            new ResponseHandler(this, logger, ch);
+        try {
+            final HttpRequest request =
+                new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
+
+            /*
+             * All requests need a HOST header or the LBaaS (nginx) or
+             * other server may reject them and close the connection
+             */
+            request.headers().add(HOST, host);
+            runRequest(request, responseHandler, ch);
+            boolean isTimeout = responseHandler.await(keepAliveTimeout);
+            if (isTimeout) {
+                logFine(logger,
+                        "Timeout on keepalive HEAD request on channel " + ch);
+                return false;
+            }
+            /*
+             * LBaaS will return a non-200 status but that is expected as the
+             * path "/" does not map to the service. This is ok because all that
+             * matters is that the connection remain alive.
+             */
+            String conn = responseHandler.getHeaders().get(CONNECTION);
+            if (conn == null || !"keep-alive".equalsIgnoreCase(conn)) {
+                logFine(logger,
+                        "Keepalive HEAD request did not return keep-alive " +
+                        "in connection header, is: " + conn);
+            }
+
+            return true;
+        } catch (Throwable t) {
+            logFine(logger, "Exception sending HTTP HEAD: " + t);
+        } finally {
+            responseHandler.releaseResponse();
+        }
+        /* something went wrong, caller is responsible for disposition */
+        return false;
     }
 }

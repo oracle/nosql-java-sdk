@@ -77,13 +77,6 @@
  * default size of the Netty connection pool. It also defaults to the
  * number of available CPUs * 2. Again, unless you have high latency
  * operations (long queries) this should be sufficient for most needs. </li>
- * <li> {@link NoSQLHandleConfig#setPoolMaxPending}. This parameter is
- * used by Netty to control the number of threads waiting for a connections
- * from the pool. If your applications encounter exceptions of the nature,
- * "too many outstanding acquires" this is the cause. The solution is
- * usually to increase the size of the connection pool as this error means
- * that your application has significantly more threads attempting to send
- * requests than there are connections available.</li>
  * </ol>
  * When tuning multi-threaded applications it's important to remember that
  * it's possible to have too many threads and that more threads does not

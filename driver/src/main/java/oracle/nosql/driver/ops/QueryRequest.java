@@ -134,7 +134,8 @@ public class QueryRequest extends Request {
     public QueryRequest copyInternal() {
 
         QueryRequest internalReq = new QueryRequest();
-        internalReq.timeoutMs = timeoutMs;
+        super.copyTo(internalReq);
+
         internalReq.traceLevel = traceLevel;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
@@ -145,7 +146,6 @@ public class QueryRequest extends Request {
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
-        internalReq.tableName = tableName;
         return internalReq;
     }
 
@@ -161,7 +161,7 @@ public class QueryRequest extends Request {
         internalReq.isInternal = isInternal;
         internalReq.shardId = shardId;
         // leave continuationKey null to start from the beginning
-        //internalReq.continuationKey = continuationKey;
+        //internalReq.continuationKey = null;
         if (driver != null) {
             internalReq.driver = driver.copy(internalReq);
         }
@@ -735,5 +735,13 @@ public class QueryRequest extends Request {
             return null;
         }
         return preparedStatement.getTableName();
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
     }
 }
