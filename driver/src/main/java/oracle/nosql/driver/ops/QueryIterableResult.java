@@ -51,6 +51,7 @@ public class QueryIterableResult
 
     final QueryRequest request;
     private final NoSQLHandle handle;
+    private boolean firstIteratorCall = true;
 
     private int readKB, readUnits, writeKB, writeUnits;
 
@@ -72,7 +73,14 @@ public class QueryIterableResult
      */
     @Override
     public QueryResultIterator iterator() {
-        return new QueryResultIterator(this);
+        QueryResultIterator resultIterator;
+        if (firstIteratorCall) {
+            resultIterator = new QueryResultIterator(this, firstIteratorCall);
+            firstIteratorCall = false;
+        } else {
+            resultIterator = new QueryResultIterator(this, firstIteratorCall);
+        }
+        return resultIterator;
     }
 
     /**
@@ -131,10 +139,16 @@ public class QueryIterableResult
         Iterator<MapValue> partialResultsIterator;
         boolean closed = false;
 
-        QueryResultIterator(QueryIterableResult queryIterableResult) {
+        QueryResultIterator(QueryIterableResult queryIterableResult,
+            boolean firstIteratorCall) {
             assert queryIterableResult != null;
             this.queryIterableResult = queryIterableResult;
-            internalRequest = queryIterableResult.request.copy();
+            if (firstIteratorCall) {
+                // optimize the first iterator by avoiding the request copy
+                internalRequest = queryIterableResult.request;
+            } else {
+                internalRequest = queryIterableResult.request.copy();
+            }
         }
 
         /**
