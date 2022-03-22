@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unpublished]
+## [5.3.2] 2022-03-21
 
 ### Added
 - new methods in NoSQLHandleConfig to control keeping a minimum number of connections alive in the connection pool
@@ -12,7 +12,7 @@ default 3000 milliseconds.
   - get/setSslHandshakeTimeout
 
 ### Deprecated
-- several methods in NoSQLHandleConfig are deprecated as they have no effect on the new connection pool implementation. The methods remain, temporarily, but they do not control the pool
+- several methods in NoSQLHandleConfig are deprecated as they have no effect on the new connection pool implementation. The methods remain, temporarily, but they do not control the pool and have no effect
  - get/setConnectionPoolSize
  - get/setPoolMaxPending
 
