@@ -14,6 +14,7 @@ package oracle.nosql.driver.ops.serde.nson;
 import static oracle.nosql.driver.ops.serde.BinaryProtocol.mapException;
 import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.*;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
+import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
 import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NO_SYNC;
@@ -24,6 +25,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
+import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 
 import java.io.IOException;
@@ -41,6 +43,7 @@ import oracle.nosql.driver.FieldRange;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.FieldFinder;
 import oracle.nosql.driver.values.TimestampValue;
@@ -274,9 +277,15 @@ public class NsonSerializerFactory implements SerializerFactory {
 
     @Override
     public String getSerdeVersionString() {
+        /* TODO: do we need this yet? */
         return "v4";
     }
 
+    @Override
+    public void writeSerialVersion(short serialVersion, ByteOutputStream bos)
+        throws IOException {
+        bos.writeShort(serialVersion);
+    }
 
     /* serializers */
 
@@ -427,7 +436,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             GetResult result = new GetResult();
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -500,7 +509,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             DeleteResult result = new DeleteResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -587,7 +596,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             MultiDeleteResult result = new MultiDeleteResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -667,7 +676,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             PutResult result = new PutResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -741,7 +750,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      */
     public static class QueryRequestSerializer extends NsonSerializerBase {
         @SuppressWarnings("deprecation")
-		@Override
+        @Override
         public void serialize(Request request,
                               short serialVersion,
                               ByteOutputStream out)
@@ -847,7 +856,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             int[] shardIds = null;
             byte[] contKey = null;
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1189,7 +1198,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
             WriteMultipleResult  result = new WriteMultipleResult();
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1407,7 +1416,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
             ListTablesResult  result = new ListTablesResult();
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1493,7 +1502,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             GetIndexesResult  result = new GetIndexesResult();
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1620,7 +1629,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             TableUsageResult result = new TableUsageResult();
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2128,7 +2137,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             SystemResult result = new SystemResult();
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2172,7 +2181,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             in.setOffset(0);
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            FieldFinder.MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2265,6 +2274,36 @@ public class NsonSerializerFactory implements SerializerFactory {
 
         protected static long timeToLong(String timestamp) {
             return new TimestampValue(timestamp).getLong();
+        }
+
+        /*
+         * If the client is connected to a pre-V4 server, and the client tries
+         * to deserialize using V4, the MapWalker constructor will throw an
+         * IllegalArgumentException, because the following codes will be
+         * returned from previous servers:
+         *   V3: UNSUPPORTED_PROTOCOL (24)
+         *   V2: BAD_PROTOCOL_MESSAGE (17)
+         * Neither of these maps to any valid Nson field.
+         * Convert the error to an UnsupportedProtocolException so the client's
+         * serial version negotiation logic will detect it and decrement
+         * the serial version accordingly.
+         */
+        protected static FieldFinder.MapWalker getMapWalker(ByteInputStream in)
+            throws IOException {
+            int offset = in.getOffset();
+            try {
+                return new FieldFinder.MapWalker(in);
+            } catch (IllegalArgumentException e) {
+                /* verify it was one of the two above error codes */
+                in.setOffset(offset);
+                int code = in.readByte();
+                if (code == UNSUPPORTED_PROTOCOL ||
+                    code == BAD_PROTOCOL_MESSAGE) {
+                    throw new UnsupportedProtocolException(e.getMessage());
+                }
+                /* otherwise, throw original exception */
+                throw e;
+            }
         }
     }
 }

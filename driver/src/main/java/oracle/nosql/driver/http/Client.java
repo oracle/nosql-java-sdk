@@ -14,6 +14,7 @@ import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
+import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
@@ -179,11 +180,6 @@ public class Client {
      */
     private StatsControlImpl statsControl;
 
-    /* temporary */
-    private boolean useV4;
-    private boolean queryUseV4;
-    private boolean prepareUseV4;
-
     /**
      * list of Request instances to refresh when auth changes. This will only
      * exist in a cloud configuration
@@ -274,11 +270,6 @@ public class Client {
         oneTimeMessages = new HashSet<String>();
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
-
-        /* temporary */
-        useV4 = Boolean.getBoolean("test.usev4");
-        queryUseV4 = Boolean.getBoolean("test.queryv4");
-        prepareUseV4 = Boolean.getBoolean("test.preparev4");
     }
 
     /**
@@ -608,8 +599,10 @@ public class Client {
                 }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Request: " + requestClass + ", requestId=" + requestId);
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Request: " + requestClass +
+                                     ", requestId=" + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -621,9 +614,12 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Response: " + requestClass + ", status=" +
-                             responseHandler.getStatus() + ", requestId=" + requestId );
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + requestClass +
+                                     ", status=" +
+                                     responseHandler.getStatus() +
+                                     ", requestId=" + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
@@ -1366,6 +1362,10 @@ public class Client {
         if (serialVersion != versionUsed) {
             return true;
         }
+        if (serialVersion == V4) {
+            serialVersion = V3;
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;
@@ -1379,6 +1379,14 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setSerialVersion(short version) {
+        serialVersion = version;
     }
 
     /**
@@ -1475,7 +1483,8 @@ public class Client {
             }
             for (Request rq : authRefreshRequests) {
                 if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
-                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
+                    stringsEqualOrNull(rq.getCompartment(),
+                                       request.getCompartment())) {
                     return;
                 }
             }
@@ -1530,32 +1539,10 @@ public class Client {
     }
 
     private SerializerFactory chooseFactory(Request rq) {
-        if (rq instanceof oracle.nosql.driver.ops.QueryRequest) {
-            return (queryUseV4)?v4factory:v3factory;
-        }
-        if (rq instanceof oracle.nosql.driver.ops.PrepareRequest) {
-            return (prepareUseV4)?v4factory:v3factory;
-        }
-        if (useV4 == false) {
-            return v3factory;
-        }
-        if (rq instanceof oracle.nosql.driver.ops.DeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.GetIndexesRequest ||
-            rq instanceof oracle.nosql.driver.ops.GetRequest ||
-            rq instanceof oracle.nosql.driver.ops.GetTableRequest ||
-            rq instanceof oracle.nosql.driver.ops.ListTablesRequest ||
-            rq instanceof oracle.nosql.driver.ops.MultiDeleteRequest ||
-            rq instanceof oracle.nosql.driver.ops.PutRequest ||
-            rq instanceof oracle.nosql.driver.ops.PrepareRequest ||
-            rq instanceof oracle.nosql.driver.ops.QueryRequest ||
-            rq instanceof oracle.nosql.driver.ops.SystemRequest ||
-            rq instanceof oracle.nosql.driver.ops.SystemStatusRequest ||
-            rq instanceof oracle.nosql.driver.ops.TableRequest ||
-            rq instanceof oracle.nosql.driver.ops.TableUsageRequest ||
-            rq instanceof oracle.nosql.driver.ops.WriteMultipleRequest) {
+        if (serialVersion == 4) {
             return v4factory;
         } else {
-            return v3factory;
+            return v3factory; /* works for v2 also */
         }
     }
 
