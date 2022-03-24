@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+## Changed
+- Support for new, flexible wire protocol (V4).
+
 ## [5.3.2] 2022-03-21
 
 ### Added
