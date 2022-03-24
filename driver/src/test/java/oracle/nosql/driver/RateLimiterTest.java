@@ -67,7 +67,7 @@ public class RateLimiterTest extends ProxyTestBase {
 
     @Test
     public void retryStatsTest() throws Exception {
-        testRetryStats(500, 2000, 2000, 10);
+        testRetryStats(500, 500, 500, 10);
     }
 
     private void testRetryStats(int maxRows,
@@ -444,6 +444,10 @@ public class RateLimiterTest extends ProxyTestBase {
         /* if no limiting, retries should be nonzero */
         if (skipAllLimiting == true && requestRetryStats.getRetries() == 0) {
             fail("Expected to get internal retries, but got none");
+        }
+
+        if (skipAllLimiting == true) {
+            return;
         }
 
         int expectedRUs = (int)(readLimit * usePercent);
