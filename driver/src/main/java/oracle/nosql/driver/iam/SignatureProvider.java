@@ -35,7 +35,6 @@ import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.Request;
-import oracle.nosql.driver.util.LruCache;
 
 import io.netty.handler.codec.http.HttpHeaders;
 
@@ -121,11 +120,6 @@ public class SignatureProvider
         "(request-target) host date opc-obo-token";
     private static final String OBO_TOKEN_HEADER = "opc-obo-token";
 
-    /* Cache key name */
-    private static final String CACHE_KEY = "signature";
-    /* Refresh key name */
-    private static final String REFRESH_CACHE_KEY = "refresh_signature";
-
     /* Maximum lifetime of signature 240 seconds */
     protected static final int MAX_ENTRY_LIFE_TIME = 240;
 
@@ -139,16 +133,21 @@ public class SignatureProvider
     /* Delegation token specified for signing */
     private String delegationToken;
 
-    private final LruCache<String, SignatureDetails> signatureCache;
+    /* the currently cached signature */
+    private SignatureDetails currentSigDetails;
+
+    /* new signature, in process of warmup */
+    private SignatureDetails refreshSigDetails;
 
     /* Refresh timer */
     private volatile Timer refresher;
 
-    /* Refresh time before signature expired from cache */
+    /* Refresh time before signature expires */
     private long refreshAheadMs = DEFAULT_REFRESH_AHEAD;
 
     /* Refresh interval, if zero, no refresh will be scheduled */
     private long refreshIntervalMs = 0;
+
     private String serviceHost;
     private Region region;
     private Logger logger;
@@ -675,8 +674,6 @@ public class SignatureProvider
                 "Signature cannot be cached longer than " +
                 MAX_ENTRY_LIFE_TIME + " seconds");
         }
-        this.signatureCache =
-            new LruCache<String, SignatureDetails>(2, durationSeconds * 1000);
 
         this.refreshAheadMs = refreshAhead;
         long durationMS = durationSeconds * 1000;
@@ -739,6 +736,12 @@ public class SignatureProvider
         }
     }
 
+    @Override
+    public synchronized void flushCache() {
+        currentSigDetails = null;
+        refreshSigDetails = null;
+    }
+
     /**
      * Get tenant OCID if using user principal.
      * @return tenant OCID of user
@@ -753,7 +756,6 @@ public class SignatureProvider
 
     @Override
     public void close() {
-        signatureCache.stop(false);
         if (refresher != null) {
             refresher.cancel();
             refresher = null;
@@ -858,18 +860,13 @@ public class SignatureProvider
     }
 
     private SignatureDetails getSignatureDetails(Request request) {
-        String key = request.getIsRefresh() ? REFRESH_CACHE_KEY : CACHE_KEY;
-        SignatureDetails sigDetails = signatureCache.get(key);
-        if (sigDetails != null) {
-            return sigDetails;
+        if (request.getIsRefresh() && refreshSigDetails != null) {
+            return refreshSigDetails;
         }
+        /* if refresh requested but null, allow use of current */
 
-        if (request.getIsRefresh()) {
-            /* try normal key before failing */
-            sigDetails = signatureCache.get(CACHE_KEY);
-            if (sigDetails != null) {
-                return sigDetails;
-            }
+        if (currentSigDetails != null) {
+            return currentSigDetails;
         }
 
         logMessage(Level.WARNING, "No signature in cache");
@@ -879,7 +876,12 @@ public class SignatureProvider
     /* visible for testing */
     synchronized SignatureDetails getSignatureDetailsInternal(boolean isRefresh)
     {
-        String date = createFormatter().format(new Date());
+        /*
+         * add one minute to the current time, so that any caching is
+         * effective over a more valid time period.
+         */
+        long nowPlus = System.currentTimeMillis() + 60_000L;
+        String date = createFormatter().format(new Date(nowPlus));
         String keyId = provider.getKeyId();
         if (provider instanceof InstancePrincipalsProvider) {
             privateKeyProvider.reload(provider.getPrivateKey(),
@@ -907,7 +909,7 @@ public class SignatureProvider
              * if this is not a refresh, use the normal key and schedule a
              * refresh
              */
-            signatureCache.put(CACHE_KEY, sigDetails);
+            currentSigDetails = sigDetails;
             scheduleRefresh();
         } else {
             /*
@@ -916,16 +918,15 @@ public class SignatureProvider
              * 1. perform callbacks if needed and when done,
              * 2. move the object to the normal key and schedule a refresh
              */
-            signatureCache.put(REFRESH_CACHE_KEY, sigDetails);
+            refreshSigDetails = sigDetails;
         }
         return sigDetails;
     }
 
     private synchronized void setRefreshKey() {
-        SignatureDetails sigDetails =
-            signatureCache.remove(REFRESH_CACHE_KEY);
-        if (sigDetails != null) {
-            signatureCache.put(CACHE_KEY, sigDetails);
+        if (refreshSigDetails != null) {
+            currentSigDetails = refreshSigDetails;
+            refreshSigDetails = null;
         }
     }
 
@@ -978,10 +979,9 @@ public class SignatureProvider
         private static final int DELAY_MS = 500;
 
         private void handleRefreshCallback(long refreshMs) {
-            SignatureDetails sigDetails = signatureCache.get(REFRESH_CACHE_KEY);
-            if (sigDetails == null) {
+            if (refreshSigDetails == null) {
                 logMessage(Level.FINE,
-                           "Refresh didn't find refresh cache key");
+                           "Refresh didn't find cached refresh key");
                 return;
             }
 

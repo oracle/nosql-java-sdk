@@ -71,4 +71,10 @@ public interface AuthorizationProvider {
             headers.set(AUTHORIZATION, authString);
         }
     }
+
+    /**
+     * Invalidate any cached authorization strings.
+     */
+    public default void flushCache() {
+    }
 }
