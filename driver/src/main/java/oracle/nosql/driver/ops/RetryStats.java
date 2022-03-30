@@ -125,8 +125,7 @@ public class RetryStats {
      * @hidden
      * Internal use only.
      * Adds stats to the current object.
-     * @param rs the stats object to get values from to
-     * add to the current object.
+     * @param rs the stats to add
      */
     public void addStats(RetryStats rs) {
         if (rs == null) {
