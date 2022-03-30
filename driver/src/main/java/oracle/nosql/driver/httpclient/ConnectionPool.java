@@ -462,7 +462,14 @@ class ConnectionPool {
                 }
                 logFine(logger,
                         "Sending keepalive on channel " + ch + ", stats: " + cs);
-                keepAlive.keepAlive(ch);
+                boolean didKeepalive = keepAlive.keepAlive(ch);
+                if (!didKeepalive) {
+                    logFine(logger,
+                            "Keepalive failed on channel " + ch +
+                            ", removing from pool");
+                    removeChannel(ch);
+                    continue;
+                }
                 cs.acquired(); /* update lastAcquired time */
                 numSent++;
                 queue.addFirst(ch);
