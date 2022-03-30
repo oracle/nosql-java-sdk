@@ -49,6 +49,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.DefaultRetryHandler;
+import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.RateLimiter;
@@ -678,6 +679,26 @@ public class Client {
                         rae);
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
+            } catch (InvalidAuthorizationException iae) {
+                /* allow a single retry on clock skew errors */
+                if (iae.getMessage().contains("clock skew") == false ||
+                    kvRequest.getNumRetries() > 0) {
+                    /* same as NoSQLException below */
+                    kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                    statsControl.observeError(kvRequest);
+                    logFine(logger, "Client execute NoSQLException: " +
+                            iae.getMessage());
+                    throw iae;
+                }
+                /* flush auth cache and do one retry */
+                authProvider.flushCache();
+                kvRequest.addRetryException(iae.getClass());
+                kvRequest.incrementRetries();
+                exception = iae;
+                logFine(logger,
+                        "Client retrying on InvalidAuthorizationException: " +
+                        iae.getMessage());
+                continue;
             } catch (SecurityInfoNotReadyException sinre) {
                 kvRequest.addRetryException(sinre.getClass());
                 exception = sinre;

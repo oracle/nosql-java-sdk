@@ -84,7 +84,7 @@ public abstract class Request {
     /**
      * @hidden
      * this is public to allow access from Client during refresh
-     * @param timeoutMs timeout in milliseconds
+     * @param timeoutMs the request timeout, in milliseconds
      */
     public void setTimeoutInternal(int timeoutMs) {
         if (timeoutMs <= 0) {
@@ -455,7 +455,7 @@ public abstract class Request {
     /**
      * @hidden
      * Copy internal fields to another Request object.
-     * @param other the request to copy
+     * @param other the Request object to copy to.
      */
     public void copyTo(Request other) {
         other.setTimeoutInternal(this.timeoutMs);
