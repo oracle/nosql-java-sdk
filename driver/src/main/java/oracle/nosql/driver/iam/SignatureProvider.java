@@ -860,16 +860,20 @@ public class SignatureProvider
     }
 
     private SignatureDetails getSignatureDetails(Request request) {
-        if (request.getIsRefresh() && refreshSigDetails != null) {
-            return refreshSigDetails;
-        }
-        /* if refresh requested but null, allow use of current */
-
-        if (currentSigDetails != null) {
-            return currentSigDetails;
+        SignatureDetails sigDetails =
+            (request.getIsRefresh() ? refreshSigDetails : currentSigDetails);
+        if (sigDetails != null) {
+            return sigDetails;
         }
 
-        logMessage(Level.WARNING, "No signature in cache");
+        if (request.getIsRefresh()) {
+            /* try current details before failing */
+            sigDetails = currentSigDetails;
+            if (sigDetails != null) {
+                return sigDetails;
+            }
+        }
+
         return getSignatureDetailsInternal(false);
     }
 
