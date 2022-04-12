@@ -1907,6 +1907,25 @@ public class QueryTest extends ProxyTestBase {
     }
 
     @Test
+    public void testUsabilityQueryIterable() {
+        /* Load rows to table */
+        loadRowsToScanTable(3, 2, 1);
+
+        QueryRequest qreq = new QueryRequest()
+            .setStatement("select * from testTable")
+            .setLimit(3);
+
+        int count = 0;
+        try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+            for( MapValue row : qir) {
+                count++;
+                assertNotNull(row);
+            }
+        }
+        assertEquals(6, count);
+    }
+
+    @Test
     public void testQueryIterable() {
         final int numMajor = 10;
         final int numPerMajor = 1;
@@ -2055,6 +2074,8 @@ public class QueryTest extends ProxyTestBase {
         assertEquals(totalWriteUnits, qires.getWriteUnits());
 
         assertEquals(totalRetryStats, qires.getRetryStats());
+
+        qires.close();
     }
 
 
@@ -2071,45 +2092,43 @@ public class QueryTest extends ProxyTestBase {
             .setLimit(4)
             .setStatement("select * from testTable");
 
-        QueryIterableResult qires = handle.queryIterable(qr);
-        QueryIterableResult.QueryResultIterator qrit = qires.iterator();
         int count = 0;
+        QueryIterableResult qires = handle.queryIterable(qr);
+        Iterator<MapValue> qrit = qires.iterator();
         while (qrit.hasNext()) {
             MapValue row = qrit.next();
             assertNotNull(row);
-            count ++;
+            count++;
         }
 
-        assertEquals(numMajor*numPerMajor, count);
+        assertEquals(numMajor * numPerMajor, count);
         assertFalse(qrit.hasNext());
         assertFalse(qrit.hasNext());
 
         assertThrows(NoSuchElementException.class, qrit::next);
         assertFalse(qrit.hasNext());
 
+
         /* New iterator from the same iterable, close in the middle. */
         qrit = qires.iterator();
-        for (int i = 0; i < numMajor*numPerMajor/2; i++) {
+        for (int i = 0; i < numMajor * numPerMajor / 2; i++) {
             MapValue row = qrit.next();
             assertNotNull(row);
         }
 
-        qrit.close();
-        assertThrows(NoSuchElementException.class, qrit::next);
+        assertTrue(qrit.hasNext());
+        assertTrue(qrit.hasNext());
+        assertNotNull(qrit.next());
 
         /* Get new iterable from the same QueryRequest */
         count = 0;
-        for( MapValue row : handle.queryIterable(qr)) {
+        for (MapValue row : handle.queryIterable(qr)) {
             assertNotNull(row);
-            count ++;
+            count++;
         }
-        assertEquals(numMajor*numPerMajor, count);
-        assertFalse(qrit.hasNext());
-        assertFalse(qrit.hasNext());
+        assertEquals(numMajor * numPerMajor, count);
 
-
-        assertThrows(NoSuchElementException.class, qrit::next);
-        assertFalse(qrit.hasNext());
+        qires.close();
     }
 
     private void execInsertAndCheckInfo(PreparedStatement pstmt,

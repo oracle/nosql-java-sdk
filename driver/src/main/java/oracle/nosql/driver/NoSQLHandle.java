@@ -323,12 +323,25 @@ public interface NoSQLHandle {
      * are not supported by this interfaces. Those operations must be performed using
      * {@link #tableRequest} or {@link #systemRequest} as appropriate.
      * <p>
-     * The results are returned through an iterator, the SDK uses the
-     * read/write rate limits set in the NoSQLHandleConfig or they can be
-     * overwritten using the
-     * {@link QueryIterableResult.QueryResultIterator#setReadRateLimiter(RateLimiter)}
-     * and
-     * {@link QueryIterableResult.QueryResultIterator#setWriteRateLimiter(RateLimiter)}.
+     * The results are returned through an iterator, if connected to the
+     * cloud, the SDK uses the read/write rate limits set in the
+     * NoSQLHandleConfig or they can be overwritten using the
+     * {@link Request#setReadRateLimiter(RateLimiter)} and
+     * {@link Request#setWriteRateLimiter(RateLimiter)}.
+     * <p>
+     * Note: Since iterators might use resources until they reach the end, it
+     * is necessary to close the QueryIterableResult or use the
+     * try-with-resources statement:
+     * <p><pre>
+     *    QueryRequest qreq = new QueryRequest()
+     *        .setStatement("select * from MyTable");
+     *
+     *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+     *        for( MapValue row : qir) {
+     *            // do something with row
+     *        }
+     *    }
+     * </pre>
      *
      * @param request the input parameters for the operation
      *

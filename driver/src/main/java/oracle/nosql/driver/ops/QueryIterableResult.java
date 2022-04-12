@@ -7,15 +7,15 @@
 
 package oracle.nosql.driver.ops;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
-import oracle.nosql.driver.NoSQLHandleConfig;
-import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -47,9 +47,11 @@ import oracle.nosql.driver.values.MapValue;
  */
 public class QueryIterableResult
     extends Result
-    implements Iterable<MapValue> {
+    implements Iterable<MapValue>, AutoCloseable {
 
-    final QueryRequest request;
+    private final QueryRequest request;
+    private Set<QueryRequest> unclosedRequests;
+
     private final NoSQLHandle handle;
     private boolean firstIteratorCall = true;
 
@@ -63,31 +65,57 @@ public class QueryIterableResult
     public QueryIterableResult(QueryRequest request, NoSQLHandle handle) {
         assert request != null : "request should not be null";
         assert handle != null : "handle should not be null";
+        if (request.getContKey() != null) {
+            throw new IllegalArgumentException("A new QueryRequest is " +
+                "required for a QueryIterableResult.");
+        }
         this.request = request;
         this.handle = handle;
     }
 
     /**
-     * Returns an iterator over all results of a query.
+     * Returns an iterator over all results of a query. Each call is treated
+     * as a separate query. The first server call is done at the time of the
+     * first hasNext()/next() call.
+     * Note: Objects returned by this method can only be used safely by one
+     * thread at a time unless synchronized externally.
+     *
      * @return the iterator
      */
     @Override
-    public QueryResultIterator iterator() {
+    public Iterator<MapValue> iterator() {
         QueryResultIterator resultIterator;
+        if (unclosedRequests == null) {
+            unclosedRequests = new HashSet<>();
+        }
         if (firstIteratorCall) {
-            resultIterator = new QueryResultIterator(this, firstIteratorCall);
+            unclosedRequests.add(request);
+            resultIterator = new QueryResultIterator(this, request);
             firstIteratorCall = false;
         } else {
-            resultIterator = new QueryResultIterator(this, firstIteratorCall);
+            QueryRequest requestCopy = request.copy();
+            unclosedRequests.add(requestCopy);
+            resultIterator = new QueryResultIterator(this, requestCopy);
         }
         return resultIterator;
     }
 
+    /*
+     * @hidden Used internally to remove tracking of unclosed iterators
+     * resources.
+     */
+    private void removeTracking(QueryRequest request) {
+        if (unclosedRequests != null) {
+            unclosedRequests.remove(request);
+        }
+    }
+
     /**
-     * Returns the read throughput consumed by this operation, in KBytes.
-     * This is the actual amount of data read by the operation. The number
-     * of read units consumed is returned by {@link #getReadUnits} which may
-     * be a larger number if the operation used {@link Consistency#ABSOLUTE}
+     * Returns the read throughput consumed by all iterators of this operation,
+     * in  KBytes. This is the actual amount of data read by this operation.
+     * The number of read units consumed is returned by {@link #getReadUnits}
+     * which may be a larger number if the operation used
+     * {@link Consistency#ABSOLUTE}
      *
      * @return the read KBytes consumed
      */
@@ -96,7 +124,8 @@ public class QueryIterableResult
     }
 
     /**
-     * Returns the write throughput consumed by this operation, in KBytes.
+     * Returns the write throughput consumed by all iterators of this operation,
+     * in KBytes.
      *
      * @return the write KBytes consumed
      */
@@ -105,7 +134,8 @@ public class QueryIterableResult
     }
 
     /**
-     * Returns the read throughput consumed by this operation, in read units.
+     * Returns the read throughput consumed by all iterators of this operation,
+     * in read units.
      * This number may be larger than that returned by {@link #getReadKB} if
      * the operation used {@link Consistency#ABSOLUTE}
      *
@@ -116,8 +146,8 @@ public class QueryIterableResult
     }
 
     /**
-     * Returns the write throughput consumed by this operation, in write
-     * units.
+     * Returns the write throughput consumed by all iterators of this operation,
+     * in write units.
      *
      * @return the write units consumed
      */
@@ -125,13 +155,18 @@ public class QueryIterableResult
         return writeUnits;
     }
 
+    @Override
+    public void close() {
+        if (unclosedRequests != null) {
+            unclosedRequests.forEach(req -> req.close());
+        } else {
+            this.request.close();
+        }
+    }
 
     /**
      * Implements an iterator over all results of a query.
      * Internally the driver gets a batch of rows, at a time, from the server.
-     *
-     * During iteration, user can adjust, at any time, the timeout, rate limiters
-     * and max number of items in one batch.
      */
     public static class QueryResultIterator implements Iterator<MapValue> {
         final QueryIterableResult queryIterableResult;
@@ -140,130 +175,11 @@ public class QueryIterableResult
         boolean closed = false;
 
         QueryResultIterator(QueryIterableResult queryIterableResult,
-            boolean firstIteratorCall) {
+            QueryRequest queryRequest) {
             assert queryIterableResult != null;
+            assert queryRequest != null;
             this.queryIterableResult = queryIterableResult;
-            if (firstIteratorCall) {
-                // optimize the first iterator by avoiding the request copy
-                internalRequest = queryIterableResult.request;
-            } else {
-                internalRequest = queryIterableResult.request.copy();
-            }
-        }
-
-        /**
-         * Returns the read rate limiter instance used for batch requests.
-         * Cloud service only.
-         * <p>
-         * This will be the value supplied via {@link #setReadRateLimiter}, or if
-         * that was not called, it may be an instance of an internal rate
-         * limiter that was configured internally during request processing.
-         * <p>
-         * This is supplied for stats and tracing/debugging only. The returned
-         * limiter should be treated as read-only.
-         *
-         * @return the rate limiter instance used for read operations, or null
-         *         if no limiter was used.
-         */
-        public RateLimiter getReadRateLimiter() {
-            return internalRequest.getReadRateLimiter();
-        }
-
-        /**
-         * Sets a read rate limiter to use for batch requests.
-         * Cloud service only.
-         * <p>
-         * This will override any internal rate limiter that may have
-         * otherwise been used during request processing, and it will be
-         * used regardless of any rate limiter config.
-         *
-         * @param rateLimiter the rate limiter instance to use for read
-         *                    operations
-         */
-        public void setReadRateLimiter(RateLimiter rateLimiter) {
-            internalRequest.setReadRateLimiter(rateLimiter);
-        }
-
-        /**
-         * Returns the write rate limiter instance used for batch requests.
-         * Cloud service only.
-         * <p>
-         * This will be the value supplied via {@link #setWriteRateLimiter}, or
-         * if that was not called, it may be an instance of an internal rate
-         * limiter that was configured internally during request processing.
-         * <p>
-         * This is supplied for stats and tracing/debugging only. The returned
-         * limiter should be treated as read-only.
-         *
-         * @return the rate limiter instance used for write operations, or null
-         *         if no limiter was used.
-         */
-        public RateLimiter getWriteRateLimiter() {
-            return internalRequest.getWriteRateLimiter();
-        }
-
-        /**
-         * Sets a write rate limiter to use for batch requests.
-         * Cloud service only.
-         * <p>
-         * This will override any internal rate limiter that may have
-         * otherwise been used during request processing, and it will be
-         * used regardless of any rate limiter config.
-         *
-         * @param rateLimiter the rate limiter instance to use for write
-         *                    operations
-         */
-        public void setWriteRateLimiter(RateLimiter rateLimiter) {
-            internalRequest.setWriteRateLimiter(rateLimiter);
-        }
-
-        /**
-         * Sets the batch request timeout value, in milliseconds. This overrides
-         * any default value set in {@link NoSQLHandleConfig}. The value must be
-         * positive.
-         *
-         * @param timeoutMs the timeout value, in milliseconds
-         *
-         * @throws IllegalArgumentException if the timeout value is less than
-         * or equal to 0
-         */
-        public void setTimeout(int timeoutMs) {
-            internalRequest.setTimeout(timeoutMs);
-        }
-
-        /**
-         * Returns the batch request timeout in milliseconds. A value
-         * of 0 indicates that the timeout has not been set.
-         *
-         * @return the value
-         */
-        public int getTimeout() {
-            return internalRequest.getTimeout();
-        }
-
-        /**
-         * Returns the limit on number of items fetched by the next
-         * batch operation. If not set by the application this value will be 0
-         * which means no limit set.
-         *
-         * @return the limit, or 0 if not set
-         */
-        public int getLimit() {
-            return internalRequest.getLimit();
-        }
-
-        /**
-         * Sets the limit on number of items fetched by the next
-         * batch operation. This allows an operation to return less than the
-         * default amount of data.
-         *
-         * @param limit the limit in terms of number of items fetched at one
-         *              time
-         *
-         * @throws IllegalArgumentException if the limit value is less than 0.
-         */
-        public void setLimit(int limit) {
-            internalRequest.setLimit(limit);
+            this.internalRequest = queryRequest;
         }
 
         private void compute(boolean skipClose) {
@@ -292,7 +208,7 @@ public class QueryIterableResult
             if (internalRequest.isDone()) {
                 internalRequest.close();
                 if (!skipClose && !partialResultsIterator.hasNext()) {
-                    closed = true;
+                    close();
                 }
             }
         }
@@ -374,6 +290,7 @@ public class QueryIterableResult
         public void close() {
             closed = true;
             internalRequest.close();
+            queryIterableResult.removeTracking(internalRequest);
         }
     }
 }
