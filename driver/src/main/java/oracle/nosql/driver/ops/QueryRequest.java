@@ -158,14 +158,9 @@ public class QueryRequest extends Request {
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
         internalReq.statement = statement;
-        internalReq.isInternal = isInternal;
-        internalReq.shardId = shardId;
-        // leave continuationKey null to start from the beginning
-        //internalReq.continuationKey = null;
-        if (driver != null) {
-            internalReq.driver = driver.copy(internalReq);
-        }
-
+        internalReq.isInternal = false;
+        internalReq.shardId = -1;
+        internalReq.driver = null;
         return internalReq;
     }
 

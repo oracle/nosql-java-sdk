@@ -50,7 +50,7 @@ public class QueryIterableResult
     implements Iterable<MapValue>, AutoCloseable {
 
     private final QueryRequest request;
-    private Set<QueryRequest> unclosedRequests;
+    private Set<QueryResultIterator> unclosedIters;
 
     private final NoSQLHandle handle;
     private boolean firstIteratorCall = true;
@@ -85,18 +85,17 @@ public class QueryIterableResult
     @Override
     public Iterator<MapValue> iterator() {
         QueryResultIterator resultIterator;
-        if (unclosedRequests == null) {
-            unclosedRequests = new HashSet<>();
+        if (unclosedIters == null) {
+            unclosedIters = new HashSet<>();
         }
         if (firstIteratorCall) {
-            unclosedRequests.add(request);
-            resultIterator = new QueryResultIterator(this, request);
+            resultIterator = new QueryResultIterator(request);
             firstIteratorCall = false;
         } else {
             QueryRequest requestCopy = request.copy();
-            unclosedRequests.add(requestCopy);
-            resultIterator = new QueryResultIterator(this, requestCopy);
+            resultIterator = new QueryResultIterator(requestCopy);
         }
+        unclosedIters.add(resultIterator);
         return resultIterator;
     }
 
@@ -104,9 +103,9 @@ public class QueryIterableResult
      * @hidden Used internally to remove tracking of unclosed iterators
      * resources.
      */
-    private void removeTracking(QueryRequest request) {
-        if (unclosedRequests != null) {
-            unclosedRequests.remove(request);
+    private void removeTracking(QueryResultIterator iter) {
+        if (unclosedIters != null) {
+            unclosedIters.remove(iter);
         }
     }
 
@@ -157,10 +156,8 @@ public class QueryIterableResult
 
     @Override
     public void close() {
-        if (unclosedRequests != null) {
-            unclosedRequests.forEach(req -> req.close());
-        } else {
-            this.request.close();
+        if (unclosedIters != null) {
+            unclosedIters.forEach(iter -> iter.close());
         }
     }
 
@@ -168,28 +165,21 @@ public class QueryIterableResult
      * Implements an iterator over all results of a query.
      * Internally the driver gets a batch of rows, at a time, from the server.
      */
-    public static class QueryResultIterator implements Iterator<MapValue> {
-        final QueryIterableResult queryIterableResult;
+    private class QueryResultIterator implements Iterator<MapValue> {
         final QueryRequest internalRequest;
         Iterator<MapValue> partialResultsIterator;
         boolean closed = false;
 
-        QueryResultIterator(QueryIterableResult queryIterableResult,
-            QueryRequest queryRequest) {
-            assert queryIterableResult != null;
-            assert queryRequest != null;
-            this.queryIterableResult = queryIterableResult;
+        QueryResultIterator(QueryRequest queryRequest) {
             this.internalRequest = queryRequest;
         }
 
-        private void compute(boolean skipClose) {
+        private void compute() {
             QueryResult internalResult;
             if (partialResultsIterator == null) {
                 internalResult =
-                    queryIterableResult.handle.query(internalRequest);
+                    handle.query(internalRequest);
                 List<MapValue> partialResults = internalResult.getResults();
-                assert partialResults != null : "partialResults should not be" +
-                    " null";
                 partialResultsIterator = partialResults.iterator();
                 setStats(internalResult);
             }
@@ -198,43 +188,39 @@ public class QueryIterableResult
                 !internalRequest.isDone()) {
 
                 // get the batch of results
-                internalResult =
-                    queryIterableResult.handle.query(internalRequest);
+                internalResult = handle.query(internalRequest);
 
                 partialResultsIterator = internalResult.getResults().iterator();
                 setStats(internalResult);
             }
 
-            if (internalRequest.isDone()) {
-                internalRequest.close();
-                if (!skipClose && !partialResultsIterator.hasNext()) {
-                    close();
-                }
+            if (internalRequest.isDone() && !partialResultsIterator.hasNext()) {
+                close();
             }
         }
 
         private void setStats(QueryResult internalResult) {
-            queryIterableResult.readKB += internalResult.getReadKB();
-            queryIterableResult.readUnits += internalResult.getReadUnits();
-            queryIterableResult.writeKB += internalResult.getWriteKB();
-            queryIterableResult.writeUnits += internalResult.getWriteUnits();
-            queryIterableResult.setRateLimitDelayedMs(
-                queryIterableResult.getRateLimitDelayedMs() +
+            readKB += internalResult.getReadKB();
+            readUnits += internalResult.getReadUnits();
+            writeKB += internalResult.getWriteKB();
+            writeUnits += internalResult.getWriteUnits();
+            setRateLimitDelayedMs(
+                getRateLimitDelayedMs() +
                     internalResult.getRateLimitDelayedMs());
-            queryIterableResult.setReadKB(queryIterableResult.getReadKB() +
+            setReadKB(getReadKB() +
                 internalResult.getReadKB());
-            queryIterableResult.setReadUnits(
-                queryIterableResult.getReadUnits() +
+            setReadUnits(
+                getReadUnits() +
                     internalResult.getReadUnits());
-            queryIterableResult.setWriteKB(queryIterableResult.getWriteKB()
+            setWriteKB(getWriteKB()
                 + internalResult.getWriteKB());
 
-            if( internalResult.getRetryStats() != null) {
-                if (queryIterableResult.getRetryStats() == null) {
-                    queryIterableResult.setRetryStats(
+            if(internalResult.getRetryStats() != null) {
+                if (getRetryStats() == null) {
+                    setRetryStats(
                         new RetryStats());
                 }
-                queryIterableResult.getRetryStats().addStats(
+                getRetryStats().addStats(
                     internalResult.getRetryStats());
             }
         }
@@ -255,7 +241,7 @@ public class QueryIterableResult
             if (closed) {
                 return false;
             }
-            compute(true);
+            compute();
             return partialResultsIterator.hasNext();
         }
 
@@ -277,7 +263,7 @@ public class QueryIterableResult
             if (closed) {
                 throw new NoSuchElementException("Iterator already closed.");
             }
-            compute(false);
+            compute();
             return partialResultsIterator.next();
         }
 
@@ -290,7 +276,7 @@ public class QueryIterableResult
         public void close() {
             closed = true;
             internalRequest.close();
-            queryIterableResult.removeTracking(internalRequest);
+            removeTracking(this);
         }
     }
 }

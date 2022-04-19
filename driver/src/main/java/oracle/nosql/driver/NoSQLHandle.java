@@ -319,6 +319,11 @@ public interface NoSQLHandle {
      * Queries that include a full shard key will execute much more efficiently
      * than more distributed queries that must go to multiple shards.
      * <p>
+     * Remote calls, including preparation of a query statement, will not
+     * occur until the iteration starts. This means that errors such as an
+     * invalid statement or network issue will be thrown from the iterator
+     * and not this method.
+     * <p>
      * Table- and system-style queries such as "CREATE TABLE ..." or "DROP TABLE .."
      * are not supported by this interfaces. Those operations must be performed using
      * {@link #tableRequest} or {@link #systemRequest} as appropriate.

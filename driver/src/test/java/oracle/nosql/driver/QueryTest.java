@@ -2108,27 +2108,32 @@ public class QueryTest extends ProxyTestBase {
         assertThrows(NoSuchElementException.class, qrit::next);
         assertFalse(qrit.hasNext());
 
-
-        /* New iterator from the same iterable, close in the middle. */
+        /* New iterator from the same iterable, don't complete iteration */
         qrit = qires.iterator();
+        assertNotNull(qrit);
         for (int i = 0; i < numMajor * numPerMajor / 2; i++) {
             MapValue row = qrit.next();
             assertNotNull(row);
         }
 
+        /* verify that the iterator is still active */
         assertTrue(qrit.hasNext());
-        assertTrue(qrit.hasNext());
-        assertNotNull(qrit.next());
 
-        /* Get new iterable from the same QueryRequest */
-        count = 0;
-        for (MapValue row : handle.queryIterable(qr)) {
-            assertNotNull(row);
-            count++;
-        }
-        assertEquals(numMajor * numPerMajor, count);
-
+        /* close the iterable, which closes unclosed iterators */
         qires.close();
+
+        /* qrit was never fully iterated, make sure this fails */
+        try {
+            qrit.next();
+            fail("should have thrown");
+        } catch (NoSuchElementException nsee) {}
+
+
+        /* Calling queryIterable on a closed query request starts fresh. */
+        QueryIterableResult qieres2 = handle.queryIterable(qr);
+        assertNotNull(qieres2);
+
+        qieres2.close();
     }
 
     private void execInsertAndCheckInfo(PreparedStatement pstmt,
