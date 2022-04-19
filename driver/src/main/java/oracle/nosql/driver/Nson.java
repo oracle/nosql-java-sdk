@@ -253,8 +253,8 @@ public class Nson {
     /**
      * Returns a char array as a UTF8 byte array. This is used for
      * system queries that may contain a password.
-     * @param out the output stream
      * @param chars the characters to write
+     * @return the array
      * @throws IOException if there is a problem with the stream
      */
     static public byte[] getCharArrayAsUTF8(char [] chars)
