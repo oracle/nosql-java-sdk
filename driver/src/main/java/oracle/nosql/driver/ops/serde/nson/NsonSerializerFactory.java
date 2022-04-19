@@ -701,6 +701,9 @@ public class NsonSerializerFactory implements SerializerFactory {
         /**
          * An internal method shared wit WriteMultiple to serialize the
          * shared parts of the request
+         * @param rq the request
+         * @param ns the serializer
+         * @throws IOException
          */
         public void serializeInternal(PutRequest rq,
                                       NsonSerializer ns)
@@ -828,7 +831,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
 
-        /**
+        /*
          * Deserialize either a QueryResult or a PrepareResult.
          * Either qreq/qres are given, or preq/pres are given.
          */

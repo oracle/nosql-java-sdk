@@ -120,7 +120,7 @@ public class TableResult extends Result {
     /**
      * Returns the table name of the target table. If on-premise and the table
      * is in a namespace the namespace is included as a prefix using the format
-     * <it>namespace:tableName</it>
+     * <em>namespace:tableName</em>
      *
      * @return the table name
      */
