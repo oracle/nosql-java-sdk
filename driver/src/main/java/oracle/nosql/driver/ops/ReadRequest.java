@@ -12,15 +12,8 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
- * @hidden
- *
  * Represents a base class for read operations such as
  * {@link NoSQLHandle#get}.
- * <p>
- * This class encapsulates the common parameters of table name and
- * {@link Consistency}. By default read operations use
- * {@link Consistency#EVENTUAL}. Use of {@link Consistency#ABSOLUTE} should
- * be used only when required as it incurs additional cost.
  */
 public abstract class ReadRequest extends Request {
 
@@ -28,10 +21,16 @@ public abstract class ReadRequest extends Request {
 
     protected ReadRequest() {}
 
+    /**
+     * @hidden
+     */
     public Consistency getConsistencyInternal() {
         return consistency;
     }
 
+    /**
+     * @hidden
+     */
     protected void setConsistencyInternal(Consistency consistency) {
         this.consistency = consistency;
     }

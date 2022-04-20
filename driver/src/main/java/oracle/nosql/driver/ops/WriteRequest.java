@@ -11,15 +11,8 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
- * @hidden
- *
  * Represents a base class for the single row modifying operations
  * {@link NoSQLHandle#put} and {@link NoSQLHandle#delete}.
- * <p>
- * This class encapsulates the common parameters of table name and
- * the return row boolean, which allows applications to get information
- * about the existing value of the target row on failure. By default
- * no previous information is returned.
  */
 public abstract class WriteRequest extends DurableRequest {
 

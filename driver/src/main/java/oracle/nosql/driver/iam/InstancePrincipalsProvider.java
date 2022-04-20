@@ -66,6 +66,9 @@ public class InstancePrincipalsProvider
         this.region = region;
     }
 
+    /**
+     * @hidden
+     */
     public void prepare(NoSQLHandleConfig config) {
         tokenSupplier.prepare(config);
     }
