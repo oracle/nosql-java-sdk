@@ -12,8 +12,6 @@ import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.http.Client;
 
 /**
- * @hidden
- *
  * A base class for results of single row modifying operations such as put
  * and delete.
  */

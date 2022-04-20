@@ -10,8 +10,6 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.Durability;
 
 /**
- * @hidden
- *
  * Represents a base class for operations that support a
  * {@link Durability} setting.
  */
