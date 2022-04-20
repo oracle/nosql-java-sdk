@@ -113,11 +113,17 @@ public class GetIndexesRequest extends Request {
         }
     }
 
+    /**
+     * @hidden
+     */
     @Override
     public Serializer createSerializer(SerializerFactory factory) {
         return factory.createGetIndexesSerializer();
     }
 
+    /**
+     * @hidden
+     */
     @Override
     public Serializer createDeserializer(SerializerFactory factory) {
         return factory.createGetIndexesDeserializer();
