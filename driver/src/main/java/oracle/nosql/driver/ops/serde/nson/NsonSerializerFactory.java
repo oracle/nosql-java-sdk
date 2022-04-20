@@ -699,7 +699,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         /**
-         * An internal method shared wit WriteMultiple to serialize the
+         * An internal method shared with WriteMultiple to serialize the
          * shared parts of the request
          * @param rq the request
          * @param ns the serializer
