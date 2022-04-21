@@ -71,6 +71,7 @@ public class StatsTest extends ProxyTestBase {
             }
         });
         assertNotNull(config.getStatsHandler());
+
         /* suppress logging noise unless explicitly set to true */
         boolean enableLog = Boolean.getBoolean(
             NoSQLHandleConfig.STATS_ENABLE_LOG_PROPERTY);

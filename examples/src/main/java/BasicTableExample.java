@@ -5,8 +5,6 @@
  *  https://oss.oracle.com/licenses/upl/
  */
 
-import java.util.List;
-
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.NoSQLHandleFactory;
@@ -16,6 +14,8 @@ import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
+import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.values.MapValue;
@@ -45,7 +45,7 @@ import oracle.nosql.driver.values.MapValue;
  */
 public class BasicTableExample {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
         /* Validate arguments and get an authorization provider */
         Common setup = new Common("BasicTableExample");
@@ -56,11 +56,11 @@ public class BasicTableExample {
         config.setAuthorizationProvider(setup.getAuthProvider());
 
         /*
-         * Open the handle
+         * Open the handle in a try-with-resources statement to ensure
+         * proper closing of resources.
          */
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
-
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
 
             /*
              * Create a simple table with an integer key and a single
@@ -139,11 +139,14 @@ public class BasicTableExample {
                 " \"audience_segment\": { " +
                 " \"sports_lover\":\"2020-05-10\", " +
                 " \"foodie\":\"2020-06-01\"}})";
-            List<MapValue> results = Common.runQuery(handle,
-                                                     insertQuery);
-            System.out.println("Inserted row via query, result:");
-            for (MapValue qval : results) {
-                System.out.println("\t" + qval.toString());
+            QueryRequest queryRequest = new QueryRequest()
+                .setStatement(insertQuery);
+            try (QueryIterableResult results =
+                handle.queryIterable(queryRequest)) {
+                System.out.println("Inserted row via query, result:");
+                for (MapValue qval : results) {
+                    System.out.println("\t" + qval.toString());
+                }
             }
 
             /*
@@ -179,16 +182,15 @@ public class BasicTableExample {
             String query = "SELECT * from " + tableName +
                 " WHERE cookie_id = 456";
 
-            results = Common.runQuery(handle,
-                                      query);
-
-            System.out.println("Number of query results for " +
-                               query +
-                               ": " + results.size());
-            for (MapValue qval : results) {
-                System.out.println("\t" + qval.toString());
+            queryRequest = new QueryRequest()
+                .setStatement(insertQuery);
+            try (QueryIterableResult results =
+                     handle.queryIterable(queryRequest)) {
+                System.out.println("Query results for " + query + ": ");
+                for (MapValue qval : results) {
+                    System.out.println("\t" + qval.toString());
+                }
             }
-
             /*
              * DELETE a row
              */
@@ -212,9 +214,6 @@ public class BasicTableExample {
 
         } catch (Exception e) {
             System.err.println("Problem seen: " + e);
-        } finally {
-            /* Shutdown handle so the process can exit. */
-            handle.close();
         }
     }
 }

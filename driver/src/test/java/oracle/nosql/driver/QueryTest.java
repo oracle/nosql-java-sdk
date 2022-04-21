@@ -8,15 +8,21 @@
 package oracle.nosql.driver;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -25,8 +31,10 @@ import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.values.ArrayValue;
@@ -115,6 +123,15 @@ public class QueryTest extends ProxyTestBase {
                        new TableLimits(45000, 15000, 50));
 
         tableOperation(handle, createIdxNameDDL, null);
+    }
+
+    @Override
+    public void afterTest() throws Exception {
+        handle.queryIterable(new QueryRequest().setStatement("DELETE FROM " +
+            "testTable"));
+        tableOperation(handle, "DROP TABLE testTable", null);
+        super.afterTest();
+
     }
 
     @Test
@@ -1869,7 +1886,7 @@ public class QueryTest extends ProxyTestBase {
         try {
             handle.query(req);
             fail("Expected IAE");
-        } catch(IllegalArgumentException ex) {
+        } catch (IllegalArgumentException ex) {
         }
 
         /*
@@ -1887,6 +1904,236 @@ public class QueryTest extends ProxyTestBase {
             fail("Expected IAE");
         } catch(IllegalArgumentException ex) {
         }
+    }
+
+    @Test
+    public void testUsabilityQueryIterable() {
+        /* Load rows to table */
+        loadRowsToScanTable(3, 2, 1);
+
+        QueryRequest qreq = new QueryRequest()
+            .setStatement("select * from testTable")
+            .setLimit(3);
+
+        int count = 0;
+        try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+            for( MapValue row : qir) {
+                count++;
+                assertNotNull(row);
+            }
+        }
+        assertEquals(6, count);
+    }
+
+    @Test
+    public void testQueryIterable() {
+        final int numMajor = 10;
+        final int numPerMajor = 1;
+
+        /* Load rows to table */
+        loadRowsToScanTable(numMajor, numPerMajor, 1);
+
+        /* check simple queries */
+        checkQueryIterableUnordered("select * from testTable");
+
+        /* check non-simple queries, ie. group by, order by */
+        checkQueryIterableUnordered("select sid, count(*) from testTable " +
+            "group by sid");
+
+        checkQueryIterableOrdered("select * from testTable order by sid, " +
+            "id");
+        checkQueryIterableOrdered("select sid, count(*) from testTable group" +
+            " by sid order by sid");
+    }
+
+    /**
+     * Runs query twice and checks if results from queryIterable iterator are
+     * the same as regular query() results.
+     */
+    private void checkQueryIterableUnordered(String query) {
+        QueryRequest qreq = new QueryRequest().setStatement(query).setLimit(3);
+        int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
+            totalReadUnits = 0, totalWriteUnits = 0;
+        RetryStats totalRetryStats = null;
+
+        QueryResult qres;
+        Set<MapValue> expectedSet = new HashSet<>();
+
+        do {
+            qres = handle.query(qreq);
+            totalRateLimitDelay += qres.getRateLimitDelayedMs();
+            RetryStats qresRS = qres.getRetryStats();
+            if (qresRS != null) {
+                if (totalRetryStats == null) {
+                    totalRetryStats = new RetryStats();
+                }
+                totalRetryStats.addStats(qresRS);
+            }
+            totalReadKB += qres.getReadKB();
+            totalWriteKB += qres.getWriteKB();
+            totalReadUnits += qres.getReadUnits();
+            totalWriteUnits += qres.getWriteUnits();
+
+            for( MapValue row : qres.getResults() ) {
+                expectedSet.add(row);
+            }
+        } while (!qreq.isDone());
+
+        QueryIterableResult qires = handle.queryIterable(
+            new QueryRequest().setStatement(query).setLimit(3));
+        Set<MapValue> actualSet = new HashSet<>();
+
+        for (MapValue qiRow : qires) {
+            actualSet.add(qiRow);
+        }
+
+        try {
+            assertEquals(expectedSet.size(), actualSet.size());
+        } catch (Throwable ex) {
+            for (MapValue r : actualSet) {
+                if (!expectedSet.contains(r)) {
+                    System.out.println("Fail: actual row not " +
+                        "expected: " + r);
+                }
+            }
+            for (MapValue r : expectedSet) {
+                if (!actualSet.contains(r)) {
+                    System.out.println("Fail: expected row not found: " + r);
+                }
+            }
+            fail("rows not matching: expected size: " +
+                expectedSet.size() + "   actual size: " + actualSet.size());
+        }
+
+        assertEquals(expectedSet, actualSet);
+
+        assertEquals(totalRateLimitDelay, qires.getRateLimitDelayedMs());
+        assertEquals(totalReadKB, qires.getReadKB());
+        assertEquals(totalWriteKB, qires.getWriteKB());
+        assertEquals(totalReadUnits, qires.getReadUnits());
+        assertEquals(totalWriteUnits, qires.getWriteUnits());
+
+        assertEquals(totalRetryStats, qires.getRetryStats());
+    }
+
+    /**
+     * Runs query twice and checks if results from queryIterable iterator are
+     * the same as regular query() results.
+     */
+    private void checkQueryIterableOrdered(String query) {
+        QueryRequest qireq = new QueryRequest().setStatement(query);
+        QueryIterableResult qires = handle.queryIterable(qireq);
+
+        Iterator<MapValue> qiIter = qires.iterator();
+
+        QueryRequest qreq = new QueryRequest().setStatement(query);
+        int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
+            totalReadUnits = 0, totalWriteUnits = 0;
+        RetryStats totalRetryStats = null;
+
+        do {
+            QueryResult qres = handle.query(qreq);
+            totalRateLimitDelay += qres.getRateLimitDelayedMs();
+            RetryStats qresRS = qres.getRetryStats();
+            if (qresRS != null) {
+                if (totalRetryStats == null) {
+                    totalRetryStats = new RetryStats();
+                }
+                totalRetryStats.addStats(qresRS);
+            }
+            totalReadKB += qres.getReadKB();
+            totalWriteKB += qres.getWriteKB();
+            totalReadUnits += qres.getReadUnits();
+            totalWriteUnits += qres.getWriteUnits();
+
+            for( MapValue expectedRow : qres.getResults() ) {
+                assertTrue(qiIter.hasNext());
+                MapValue actualRow = qiIter.next();
+
+                assertEquals(expectedRow.entrySet().size(),
+                    actualRow.entrySet().size());
+                for(Entry<String, FieldValue> exp : expectedRow.entrySet()) {
+                    assertEquals(expectedRow.get(exp.getKey()).getType(),
+                        actualRow.get(exp.getKey()).getType());
+                    assertEquals(expectedRow.get(exp.getKey()),
+                        actualRow.get(exp.getKey()));
+                }
+            }
+        } while (!qreq.isDone());
+
+        assertFalse(qiIter.hasNext());
+        assertFalse(qiIter.hasNext());
+
+        assertThrows(NoSuchElementException.class, qiIter::next);
+        assertFalse(qiIter.hasNext());
+
+        assertEquals(totalRateLimitDelay, qires.getRateLimitDelayedMs());
+        assertEquals(totalReadKB, qires.getReadKB());
+        assertEquals(totalWriteKB, qires.getWriteKB());
+        assertEquals(totalReadUnits, qires.getReadUnits());
+        assertEquals(totalWriteUnits, qires.getWriteUnits());
+
+        assertEquals(totalRetryStats, qires.getRetryStats());
+
+        qires.close();
+    }
+
+
+    @Test
+    public void testQueryIterableReuse() {
+        final int numMajor = 10;
+        final int numPerMajor = 2;
+
+        /* Load rows to table */
+        loadRowsToScanTable(numMajor, numPerMajor, 1);
+
+        /* Get all results and try to use the iterator again */
+        QueryRequest qr = new QueryRequest()
+            .setLimit(4)
+            .setStatement("select * from testTable");
+
+        int count = 0;
+        QueryIterableResult qires = handle.queryIterable(qr);
+        Iterator<MapValue> qrit = qires.iterator();
+        while (qrit.hasNext()) {
+            MapValue row = qrit.next();
+            assertNotNull(row);
+            count++;
+        }
+
+        assertEquals(numMajor * numPerMajor, count);
+        assertFalse(qrit.hasNext());
+        assertFalse(qrit.hasNext());
+
+        assertThrows(NoSuchElementException.class, qrit::next);
+        assertFalse(qrit.hasNext());
+
+        /* New iterator from the same iterable, don't complete iteration */
+        qrit = qires.iterator();
+        assertNotNull(qrit);
+        for (int i = 0; i < numMajor * numPerMajor / 2; i++) {
+            MapValue row = qrit.next();
+            assertNotNull(row);
+        }
+
+        /* verify that the iterator is still active */
+        assertTrue(qrit.hasNext());
+
+        /* close the iterable, which closes unclosed iterators */
+        qires.close();
+
+        /* qrit was never fully iterated, make sure this fails */
+        try {
+            qrit.next();
+            fail("should have thrown");
+        } catch (NoSuchElementException nsee) {}
+
+
+        /* Calling queryIterable on a closed query request starts fresh. */
+        QueryIterableResult qieres2 = handle.queryIterable(qr);
+        assertNotNull(qieres2);
+
+        qieres2.close();
     }
 
     private void execInsertAndCheckInfo(PreparedStatement pstmt,

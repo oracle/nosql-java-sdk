@@ -52,9 +52,8 @@ public class IndexExample {
         /*
          * Open the handle
          */
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
-
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
             /*
              * Create a simple table with an integer key and a userInfo json
              * field
@@ -171,9 +170,6 @@ public class IndexExample {
                                   1000); /* poll once per second */
         } catch (Exception e) {
             System.err.println("Problem seen: " + e);
-        } finally {
-            /* Shutdown handle so process can exit */
-            handle.close();
         }
     }
 }

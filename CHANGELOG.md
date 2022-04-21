@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Added
+- added new method in NoSQLHandle queryIterable to return the results of a
+query in an iterable/iterator format. The returned QueryIterableResult should
+be used in a try-with-resources statement to ensure proper closing of
+resources.
+- updated NoSQLHandle interface to extend AutoClosable
+
 ## [5.3.2] 2022-03-21
 
 ### Added

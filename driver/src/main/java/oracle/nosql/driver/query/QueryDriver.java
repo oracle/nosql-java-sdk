@@ -15,8 +15,6 @@ import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
-import oracle.nosql.driver.query.PlanIter;
-import oracle.nosql.driver.query.RuntimeControlBlock;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 

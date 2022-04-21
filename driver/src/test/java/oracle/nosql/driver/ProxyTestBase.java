@@ -28,12 +28,10 @@ import static org.junit.Assume.assumeTrue;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.HashSet;
-
-import io.netty.util.ResourceLeakDetector;
 
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
@@ -64,6 +62,8 @@ import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
+
+import io.netty.util.ResourceLeakDetector;
 
 public class ProxyTestBase {
     protected static String VERBOSE = "test.verbose";
@@ -316,8 +316,8 @@ public class ProxyTestBase {
         ArrayList<TableResult> droppedTables = new ArrayList<TableResult>();
         for (String tableName: lres.getTables()) {
             /* on-prem config may find system tables, which can't be dropped */
-            if (tableName.startsWith("SYS$") ||
-                existingTables.contains(tableName)) {
+            if (tableName.startsWith("SYS$") || (existingTables != null &&
+                existingTables.contains(tableName))) {
                 continue;
             }
             boolean doWait = wait;
@@ -656,7 +656,7 @@ public class ProxyTestBase {
 
     private static int getMinimumKVVersion() {
         /*
-         * Use the minumum of the kv client and server versions to
+         * Use the minimum of the kv client and server versions to
          * determine what features should be valid to test.
          */
         if (kvServerVersion <= 0) {

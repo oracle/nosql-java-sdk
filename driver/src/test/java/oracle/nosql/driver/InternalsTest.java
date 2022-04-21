@@ -12,10 +12,10 @@ import static org.junit.Assert.fail;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import oracle.nosql.driver.ops.ListTablesRequest;
+
 import org.junit.Before;
 import org.junit.Test;
-
-import oracle.nosql.driver.ops.ListTablesRequest;
 
 public class InternalsTest extends ProxyTestBase {
 
@@ -32,6 +32,7 @@ public class InternalsTest extends ProxyTestBase {
      * is run. The default runs a ListTables request.
      */
     public void beforeTest() throws Exception {
+        super.beforeTest();
         handle = getHandle(endpoint);
         /* do NOT list tables here */
     }
