@@ -195,6 +195,7 @@ import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
@@ -432,18 +433,16 @@ public class Quickstart {
             QueryRequest queryRequest = new QueryRequest()
                 .setStatement("select * from " + tableName);
 
-            /*
-             * Because a query can return partial results execution must occur
-             * in a loop, accumulating or processing results
+            /* 
+             * To ensure the query resources are closed properly, use 
+             * try-with-resources statement.
              */
-            ArrayList<MapValue> results = new ArrayList<MapValue>();
-            do {
-                QueryResult queryResult = handle.query(queryRequest);
-                results.addAll(queryResult.getResults());
-            } while (!queryRequest.isDone());
-            System.out.println("Query results:");
-            for (MapValue res : results) {
-                System.out.println("\t" + res);
+            try (QueryIterableResult results = 
+                    handle.queryIterable(queryRequest)) {
+                System.out.println("Query results:");
+                for (MapValue res : results) {
+                    System.out.println("\t" + res);
+                }
             }
 
             /*
@@ -468,7 +467,8 @@ public class Quickstart {
 
 Several example programs are provided in the examples directory to
 illustrate the API. They can be found in the release download from GitHub or
-directly in [GitHub NoSQL Examples](https://github.com/oracle/nosql-java-sdk/tree/master/examples). These examples can be run against the Oracle NoSQL
+directly in [GitHub NoSQL Examples](https://github.com/oracle/nosql-java-sdk/tree/main/examples). These examples can be run 
+against the Oracle NoSQL
 Database, the NoSQL Database Cloud Service or an instance of the Oracle
 NoSQL Cloud Simulator. The code that differentiates among the configurations
 is in the file Common.java and can be examined to understand the differences.
