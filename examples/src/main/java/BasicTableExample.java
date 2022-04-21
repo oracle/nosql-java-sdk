@@ -56,11 +56,11 @@ public class BasicTableExample {
         config.setAuthorizationProvider(setup.getAuthProvider());
 
         /*
-         * Open the handle
+         * Open the handle in a try-with-resources statement to ensure
+         * proper closing of resources.
          */
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
-
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
 
             /*
              * Create a simple table with an integer key and a single
@@ -214,9 +214,6 @@ public class BasicTableExample {
 
         } catch (Exception e) {
             System.err.println("Problem seen: " + e);
-        } finally {
-            /* Shutdown handle so the process can exit. */
-            handle.close();
         }
     }
 }

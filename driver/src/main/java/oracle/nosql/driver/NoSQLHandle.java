@@ -117,7 +117,7 @@ import oracle.nosql.driver.ops.WriteMultipleResult;
  * threads.
  * </p>
  */
-public interface NoSQLHandle {
+public interface NoSQLHandle extends AutoCloseable {
 
     /**
      * Deletes a row from a table. The row is identified using a primary key
@@ -423,9 +423,9 @@ public interface NoSQLHandle {
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
      */
-    public TableResult doTableRequest(TableRequest request,
-                                      int timeoutMs,
-                                      int pollIntervalMs);
+    TableResult doTableRequest(TableRequest request,
+                               int timeoutMs,
+                               int pollIntervalMs);
 
     /**
      * On-premise only.
@@ -616,9 +616,9 @@ public interface NoSQLHandle {
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
      */
-    public SystemResult doSystemRequest(String statement,
-                                        int timeoutMs,
-                                        int pollIntervalMs);
+    SystemResult doSystemRequest(String statement,
+                                 int timeoutMs,
+                                 int pollIntervalMs);
 
     /**
      * Returns an object that allows control over how statistics are collected.
@@ -627,7 +627,7 @@ public interface NoSQLHandle {
      *
      * @since 5.2.30
      */
-    public StatsControl getStatsControl();
+    StatsControl getStatsControl();
 
     /**
      * Closes the handle, releasing its memory and network resources. Once

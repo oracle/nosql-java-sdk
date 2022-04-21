@@ -56,12 +56,11 @@ public class RateLimitingExample {
          */
 
         /*
-         * Open the handle
+         * Open the handle in a try-with-resources statement to ensure
+         * proper closing of resources.
          */
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
-
-
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
             /*
              * Create a simple table with an integer key and a single
              * string field. Set the table limits to 50 RUs/WUs per
@@ -122,9 +121,6 @@ public class RateLimitingExample {
                                   1000); /* poll once per second */
         } catch (Exception e) {
             System.err.println("Problem seen: " + e);
-        } finally {
-            /* Shutdown handle so the process can exit. */
-            handle.close();
         }
     }
 
