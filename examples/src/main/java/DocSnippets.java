@@ -21,6 +21,7 @@ import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.TableLimits;
@@ -346,6 +347,19 @@ public class DocSnippets {
         handle.doTableRequest(tableRequest,
                               60000, /* wait up to 60 sec */
                               1000); /* poll once per second */
+
+        /* ------ Snippet end -------*/
+
+        /* Snippet start "Query iterable/iterator" */
+
+        QueryRequest qreq = new QueryRequest()
+            .setStatement("select * from MyTable");
+
+        try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+             for( MapValue row : qir) {
+                 // do something with row
+             }
+        }
 
         /* ------ Snippet end -------*/
     }

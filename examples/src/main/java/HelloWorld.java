@@ -37,17 +37,15 @@ public class HelloWorld {
 
         /* Create a NoSQL handle to access the cloud service */
         NoSQLHandleConfig config = new NoSQLHandleConfig(region, ap);
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
 
-        /* Create a table and run operations. Be sure to close the handle */
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
+            /* Create a table and run operations. Be sure to close the handle */
             if (isDrop(args)) {
                 dropTable(handle); // -drop was specified
             } else {
                 helloWorld(handle);
             }
-        } finally {
-            handle.close();
         }
     }
 

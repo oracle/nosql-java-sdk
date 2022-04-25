@@ -7,9 +7,6 @@
 
 package oracle.nosql.driver;
 
-import oracle.nosql.driver.ops.SystemRequest;
-import oracle.nosql.driver.ops.SystemResult;
-import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetIndexesRequest;
@@ -26,10 +23,14 @@ import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutRequest.Option;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
@@ -116,7 +117,7 @@ import oracle.nosql.driver.ops.WriteMultipleResult;
  * threads.
  * </p>
  */
-public interface NoSQLHandle {
+public interface NoSQLHandle extends AutoCloseable {
 
     /**
      * Deletes a row from a table. The row is identified using a primary key
@@ -312,6 +313,54 @@ public interface NoSQLHandle {
     QueryResult query(QueryRequest request);
 
     /**
+     * Queries a table based on the query statement specified in the
+     * {@link QueryRequest} while returning an iterable result.
+     *
+     * Queries that include a full shard key will execute much more efficiently
+     * than more distributed queries that must go to multiple shards.
+     * <p>
+     * Remote calls, including preparation of a query statement, will not
+     * occur until the iteration starts. This means that errors such as an
+     * invalid statement or network issue will be thrown from the iterator
+     * and not this method.
+     * <p>
+     * Table- and system-style queries such as "CREATE TABLE ..." or "DROP TABLE .."
+     * are not supported by this interfaces. Those operations must be performed using
+     * {@link #tableRequest} or {@link #systemRequest} as appropriate.
+     * <p>
+     * The results are returned through an iterator, if connected to the
+     * cloud, the SDK uses the read/write rate limits set in the
+     * NoSQLHandleConfig or they can be overwritten using the
+     * {@link Request#setReadRateLimiter(RateLimiter)} and
+     * {@link Request#setWriteRateLimiter(RateLimiter)}.
+     * <p>
+     * Note: Since iterators might use resources until they reach the end, it
+     * is necessary to close the QueryIterableResult or use the
+     * try-with-resources statement:
+     * <p><pre>
+     *    QueryRequest qreq = new QueryRequest()
+     *        .setStatement("select * from MyTable");
+     *
+     *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+     *        for( MapValue row : qir) {
+     *            // do something with row
+     *        }
+     *    }
+     * </pre>
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the iterable result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     */
+    QueryIterableResult queryIterable(QueryRequest request);
+
+    /**
      * Prepares a query for execution and reuse. See {@link #query} for general
      * information and restrictions. It is recommended that prepared queries
      * are used when the same query will run multiple times as execution is
@@ -374,9 +423,9 @@ public interface NoSQLHandle {
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
      */
-    public TableResult doTableRequest(TableRequest request,
-                                      int timeoutMs,
-                                      int pollIntervalMs);
+    TableResult doTableRequest(TableRequest request,
+                               int timeoutMs,
+                               int pollIntervalMs);
 
     /**
      * On-premise only.
@@ -567,9 +616,9 @@ public interface NoSQLHandle {
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
      */
-    public SystemResult doSystemRequest(String statement,
-                                        int timeoutMs,
-                                        int pollIntervalMs);
+    SystemResult doSystemRequest(String statement,
+                                 int timeoutMs,
+                                 int pollIntervalMs);
 
     /**
      * Returns an object that allows control over how statistics are collected.
@@ -578,7 +627,7 @@ public interface NoSQLHandle {
      *
      * @since 5.2.30
      */
-    public StatsControl getStatsControl();
+    StatsControl getStatsControl();
 
     /**
      * Closes the handle, releasing its memory and network resources. Once

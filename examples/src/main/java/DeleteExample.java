@@ -53,11 +53,11 @@ public class DeleteExample {
         config.setAuthorizationProvider(setup.getAuthProvider());
 
         /*
-         * Open the handle
+         * Open the handle in a try-with-resources statement to ensure
+         * proper closing of resources.
          */
-        NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config);
-
-        try {
+        try (NoSQLHandle handle = NoSQLHandleFactory.createNoSQLHandle(config))
+        {
             /*
              * Create a simple table
              */
@@ -193,9 +193,6 @@ public class DeleteExample {
                                   1000); /* poll once per second */
         } catch (Exception e) {
             System.err.println("Exception seen: " + e);
-        } finally {
-            /* Shutdown handle so process can exit */
-            handle.close();
         }
     }
 }

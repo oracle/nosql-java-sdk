@@ -51,7 +51,20 @@ public class RetryStats {
      * @param e the exception class
      */
     public void addException(Class<? extends Throwable> e) {
-        int i = getNumExceptions(e) + 1;
+        addException(e, 1);
+    }
+
+    /**
+     * @hidden
+     * Internal use only.
+     * Adds an exception class to the stats object.
+     * This increments the exception count and adds to the count of
+     * this type of exception class.
+     * @param e the exception class
+     * @param n the number of such exceptions
+     */
+    public void addException(Class<? extends Throwable> e, int n) {
+        int i = getNumExceptions(e) + n;
         exceptionMap.put(e, i);
     }
 
