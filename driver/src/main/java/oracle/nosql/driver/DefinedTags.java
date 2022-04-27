@@ -14,15 +14,12 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
 /**
- * defined tags are always in a namespace
- * each namespace may contain a map of tags where the key is a string and
- * the value is a string, number or boolean.
- * {
- *  "namespace_name" : { "key":"value", ....}
- *  ...
- * }
- *
  * Cloud service only.
+ *
+ * DefinedTags is a class to encapsulate defined tags which are returned
+ * from calls to {@link NoSQLHandle#getTable}. They can also be set during
+ * table creation operations as well as alter table operations.
+ * @since 5.4
  */
 public class DefinedTags {
     private final MapValue tags;
@@ -38,7 +35,7 @@ public class DefinedTags {
 
     /**
      * Creates a new instance of DefinedTags from JSON string input.
-     * @paran jsonString a JSON string
+     * @param jsonString a JSON string
      */
     public DefinedTags(String jsonString) {
         tags = (MapValue) FieldValue.createFromJson(jsonString, null);
@@ -87,14 +84,6 @@ public class DefinedTags {
             return ((MapValue)tags.get(namespace)).contains(key);
         }
         return false;
-    }
-
-    /**
-     * @hidden
-     * Used for return
-     */
-    public DefinedTags(MapValue tags) {
-        this.tags = tags;
     }
 
     /**

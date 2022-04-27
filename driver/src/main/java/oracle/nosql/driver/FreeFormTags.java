@@ -14,13 +14,11 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
 /**
+ * Cloud service only.
+ *
  * FreeFormTags is a class to encapsulate free-form tags which are returned
  * from calls to {@link NoSQLHandle#getTable}. They can also be set during
  * table creation operations as well as alter table operations.
- * See {@link https://docs.oracle.com/en-us/iaas/Content/Tagging/home.htm} for
- * information about tags and how to manage them.
- * See {@link https://docs.oracle.com/en-us/iaas/Content/Tagging/Concepts/understandingfreeformtags.htm}
- * for documentation of Free-form tags
  * @since 5.4
  */
 public class FreeFormTags implements Iterable<Map.Entry<String, FieldValue>> {
@@ -37,7 +35,7 @@ public class FreeFormTags implements Iterable<Map.Entry<String, FieldValue>> {
 
     /**
      * Creates a new instance of FreeFormTags from JSON string input.
-     * @paran jsonString a JSON string
+     * @param jsonString a JSON string
      */
     public FreeFormTags(String jsonString) {
         tags = (MapValue) FieldValue.createFromJson(jsonString, null);
@@ -45,7 +43,7 @@ public class FreeFormTags implements Iterable<Map.Entry<String, FieldValue>> {
 
     /**
      * Creates a new instance of FreeFormTags from a Map
-     * @paran map the map
+     * @param map the map
      */
     public FreeFormTags(Map<String, String> map) {
         tags = new MapValue();
