@@ -83,7 +83,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * @see NoSQLHandle#query(QueryRequest)
  * @see NoSQLHandle#prepare(PrepareRequest)
  */
-public class QueryRequest extends Request {
+public class QueryRequest extends Request implements AutoCloseable {
 
     private int traceLevel;
 
@@ -620,6 +620,7 @@ public class QueryRequest extends Request {
      * query at the driver. An application should use this method if it wishes
      * to terminate query execution before retrieving all of the query results.
      */
+    @Override
     public void close() {
         setContinuationKey(null);
     }

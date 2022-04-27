@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.DefinedTags;
+import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -28,6 +30,11 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  * an existing table. This case is handled by specifying a table name and
  * limits without a query statement. If all three are specified it is an error.
  * <p>
+ * This request is also used to modify tags associated with an existing table.
+ * This use is mutually exclusive with respect to changing a table schema or
+ * its limits. To modify tags specify only tags and the table name without
+ * a statement.
+ * <p>
  * Execution of operations specified by this request is implicitly asynchronous.
  * These are potentially long-running operations.
  * {@link NoSQLHandle#tableRequest} returns a {@link TableResult} instance that
@@ -38,7 +45,9 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 public class TableRequest extends Request {
     private String statement;
     private TableLimits limits;
-    /* required for limits-only change; not used otherwise */
+    private FreeFormTags freeFormTags;
+    private DefinedTags definedTags;
+    private String matchETag;
 
     /**
      * Cloud service only.
@@ -84,6 +93,42 @@ public class TableRequest extends Request {
     }
 
     /**
+     * Cloud service only.
+     *
+     * Returns the {@link DefinedTags}, or null if not set
+     *
+     * @return the tags
+     * @since 5.4
+     */
+    public DefinedTags getDefinedTags() {
+        return definedTags;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns the {@link FreeFormTags}, or null if not set
+     *
+     * @return the tags
+     * @since 5.4
+     */
+    public FreeFormTags getFreeFormTags() {
+        return freeFormTags;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns the matchEtag, or null if not set
+     *
+     * @return the ETag
+     * @since 5.4
+     */
+    public String getMatchETag() {
+        return matchETag;
+    }
+
+    /**
      * Sets the query statement to use for the operation. This parameter is
      * required unless the operation is intended to change the limits of an
      * existing table.
@@ -111,7 +156,6 @@ public class TableRequest extends Request {
         return this;
     }
 
-
     /**
      * Cloud service only.
      * <p>
@@ -127,6 +171,67 @@ public class TableRequest extends Request {
      */
    public TableRequest setTableLimits(TableLimits tableLimits) {
         this.limits = tableLimits;
+        return this;
+    }
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Sets the {@link DefinedTags} to use for the operation. DefinedTags
+     * are used in only 2 cases -- table creation statements and tag
+     * modification operations.
+     * It is not used for other DDL operations.
+     * <p>
+     * If tags are set for an on-premise service they are silently ignored.
+     *
+     * @param definedTags the tags
+     *
+     * @return this
+     * @since 5.4
+     */
+    public TableRequest setDefinedTags(DefinedTags definedTags) {
+        this.definedTags = definedTags;
+        return this;
+    }
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Sets the {@link FreeFormTags} to use for the operation. FreeFormTags
+     * are used in only 2 cases -- table creation statements and tag
+     * modification operations.
+     * It is not used for other DDL operations.
+     * <p>
+     * If tags are set for an on-premise service they are silently ignored.
+     *
+     * @param freeFormTags the tags
+     *
+     * @return this
+     * @since 5.4
+     */
+    public TableRequest setFreeFormTags(FreeFormTags freeFormTags) {
+        this.freeFormTags = freeFormTags;
+        return this;
+    }
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Sets an ETag in the request that must be matched for the operation
+     * to proceed. The ETag must be non-null and have been returned in a
+     * previous {@link TableResult}. This is a form of optimistic concurrency
+     * control allowing an application to ensure no unexpected modifications
+     * have been made to the table.
+     * <p>
+     * If set for an on-premise service the ETag is silently ignored.
+     *
+     * @param etag the ETag
+     *
+     * @return this
+     * @since 5.4
+     */
+    public TableRequest setMatchEtag(String etag) {
+        this.matchETag = etag;
         return this;
     }
 

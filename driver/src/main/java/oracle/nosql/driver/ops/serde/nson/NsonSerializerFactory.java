@@ -38,14 +38,17 @@ import java.util.Map;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import oracle.nosql.driver.Consistency;
+import oracle.nosql.driver.DefinedTags;
 import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.FieldRange;
+import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.FieldFinder;
+import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
@@ -327,6 +330,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             startMap(ns, PAYLOAD);
             writeMapField(ns, STATEMENT, rq.getStatement());
             writeLimits(ns, rq.getTableLimits());
+            writeTags(ns, rq);
+            writeMapField(ns, ETAG, rq.getMatchETag());
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -854,6 +859,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             String queryPlan = null;
             String tableName = null;
             String namespace = null;
+            String querySchema = null;
             byte operation = 0;
             int proxyTopoSeqNum = 0;
             int[] shardIds = null;
@@ -891,6 +897,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     namespace = Nson.readNsonString(in);
                 } else if (name.equals(QUERY_PLAN_STRING)) {
                     queryPlan = Nson.readNsonString(in);
+                } else if (name.equals(QUERY_RESULT_SCHEMA)) {
+                    querySchema = Nson.readNsonString(in);
                 } else if (name.equals(QUERY_OPERATION)) {
                     operation = (byte)Nson.readNsonInt(in);
                 } else {
@@ -924,16 +932,17 @@ public class NsonSerializerFactory implements SerializerFactory {
                 statement = preq.getStatement();
             }
             prep = new PreparedStatement(statement,
-                                 queryPlan,
-                                 ti,
-                                 proxyPreparedQuery,
-                                 (dpi!=null)?dpi.driverQueryPlan:null,
-                                 (dpi!=null)?dpi.numIterators:0,
-                                 (dpi!=null)?dpi.numRegisters:0,
-                                 (dpi!=null)?dpi.externalVars:null,
-                                 namespace,
-                                 tableName,
-                                 operation);
+                                         queryPlan,
+                                         querySchema,
+                                         ti,
+                                         proxyPreparedQuery,
+                                         (dpi!=null)?dpi.driverQueryPlan:null,
+                                         (dpi!=null)?dpi.numIterators:0,
+                                         (dpi!=null)?dpi.numRegisters:0,
+                                         (dpi!=null)?dpi.externalVars:null,
+                                         namespace,
+                                         tableName,
+                                         operation);
             if (pres != null) {
                 pres.setPreparedStatement(prep);
             } else if (qreq != null) {
@@ -1076,6 +1085,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, STATEMENT, rq.getStatement());
             if (rq.getQueryPlan()) {
                 writeMapField(ns, GET_QUERY_PLAN, true);
+            }
+            if (rq.getQuerySchema()) {
+                writeMapField(ns, GET_QUERY_SCHEMA, true);
             }
 
             endMap(ns, PAYLOAD);
@@ -1544,6 +1556,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
             String indexName = null;
             String[] fields = null;
+            String[] types = null;
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1560,8 +1573,26 @@ public class NsonSerializerFactory implements SerializerFactory {
                     in.readInt();
                     int numElements = in.readInt();
                     fields = new String[numElements];
+                    types = new String[numElements];
+                    /* it's an array of map with PATH, TYPE elements */
                     for (int i = 0; i < numElements; i++) {
-                        fields[i] = Nson.readNsonString(in);
+                        FieldFinder.MapWalker infoWalker =
+                            new FieldFinder.MapWalker(in);
+                        while (infoWalker.hasNext()) {
+                            infoWalker.next();
+                            String fname = infoWalker.getCurrentName();
+                            if (fname.equals(PATH)) {
+                                fields[i] = Nson.readNsonString(in);
+                            } else if(fname.equals(TYPE)) {
+                                types[i] = Nson.readNsonString(in);
+                            } else {
+                                skipUnknownField(infoWalker, fname);
+                            }
+                        }
+                        if (fields[i] == null) {
+                            throw new IllegalStateException(
+                                "Bad GetIndexes result, missing path");
+                        }
                     }
                 } else {
                     skipUnknownField(walker, name);
@@ -1571,7 +1602,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 throw new IllegalStateException(
                     "Bad GetIndexes result, missing name or fields");
             }
-            return new IndexInfo(indexName, fields);
+            return new IndexInfo(indexName, fields, types);
         }
     }
 
@@ -1897,6 +1928,18 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
         }
 
+        protected static void writeTags(NsonSerializer ns, TableRequest rq)
+            throws IOException {
+            DefinedTags dtags = rq.getDefinedTags();
+            FreeFormTags ftags = rq.getFreeFormTags();
+            if ( dtags != null) {
+                writeMapField(ns, DEFINED_TAGS, dtags.toString());
+            }
+            if ( ftags != null) {
+                writeMapField(ns, FREE_FORM_TAGS, ftags.toString());
+            }
+        }
+
         protected static int getConsistency(Consistency consistency) {
             if (consistency == Consistency.ABSOLUTE) {
                 return ABSOLUTE;
@@ -2203,8 +2246,18 @@ public class NsonSerializerFactory implements SerializerFactory {
                                         Nson.readNsonString(in)));
                 } else if (name.equals(TABLE_SCHEMA)) {
                     result.setSchema(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_DDL)) {
+                    result.setDdl(Nson.readNsonString(in));
                 } else if (name.equals(OPERATION_ID)) {
                     result.setOperationId(Nson.readNsonString(in));
+                } else if (name.equals(FREE_FORM_TAGS)) {
+                    result.setFreeFormTags(
+                        new FreeFormTags(Nson.readNsonString(in)));
+                } else if (name.equals(DEFINED_TAGS)) {
+                    result.setDefinedTags(
+                        new DefinedTags(Nson.readNsonString(in)));
+                } else if (name.equals(ETAG)) {
+                    result.setMatchETag(Nson.readNsonString(in));
                 } else if (name.equals(LIMITS)) {
                     FieldFinder.MapWalker lw = new FieldFinder.MapWalker(in);
                     int ru = 0;
@@ -2308,5 +2361,17 @@ public class NsonSerializerFactory implements SerializerFactory {
                 throw e;
             }
         }
+    }
+
+    /**
+     * Return a string from the current position of the stream, but leave
+     * the offset intact. This is primarily for debugging. It is not declared
+     * as private to avoid warnings when not used.
+     */
+    static String printNson(ByteInputStream in, boolean pretty) {
+        int offset = in.getOffset();
+        final String ret = JsonUtils.fromNson(in, pretty);
+        in.setOffset(offset);
+        return ret;
     }
 }

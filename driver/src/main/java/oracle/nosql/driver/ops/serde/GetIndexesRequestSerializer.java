@@ -65,6 +65,6 @@ class GetIndexesRequestSerializer extends BinaryProtocol
         for (int n = 0; n < nFields; n++) {
             fieldNames[n] = readString(in);
         }
-        return new IndexInfo(indexName, fieldNames);
+        return new IndexInfo(indexName, fieldNames, null);
     }
 }
