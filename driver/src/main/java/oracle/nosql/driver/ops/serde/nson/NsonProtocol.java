@@ -42,6 +42,8 @@ public class NsonProtocol {
     public static String KEY = "key";
     public static String VALUE = "value";
     public static String NAME = "name";
+    public static String PATH = "path";
+    public static String TYPE = "type";
     public static String IS_JSON = "is_json";
     public static String QUERY = "query";
     public static String PREPARE = "prepare";
@@ -56,6 +58,7 @@ public class NsonProtocol {
     public static String INCLUSIVE = "inclusive";
     public static String COMPARTMENT_OCID = "compartment_ocid";
     public static String TABLE_OCID = "table_ocid";
+    public static String TABLE_DDL = "table_ddl";
     public static String NAMESPACE = "namespace";
     public static String OPERATION_ID = "operation_id";
     public static String OPERATIONS = "operations";
@@ -72,11 +75,15 @@ public class NsonProtocol {
     public static String CONTINUATION_KEY = "cont_key";
     public static String BIND_VARIABLES = "bind_vars";
     public static String GET_QUERY_PLAN = "get_qplan";
+    public static String GET_QUERY_SCHEMA = "get_qschema";
     public static String LIST_START_INDEX = "start_index";
     public static String LIST_MAX_TO_READ = "limit_max_to_read";
     public static String LAST_INDEX = "last_index";
     public static String TABLES = "tables";
     public static String TABLE_USAGE = "usage";
+    public static String FREE_FORM_TAGS = "ff_tags";
+    public static String DEFINED_TAGS = "defined_tags";
+    public static String ETAG = "etag";
     public static String TABLE_USAGE_PERIOD = "period";
     public static String READ_THROTTLE_COUNT = "read_throttle";
     public static String WRITE_THROTTLE_COUNT = "write_throttle";
@@ -128,6 +135,7 @@ public class NsonProtocol {
     /* query response fields */
     public static String QUERY_RESULTS = "query_results";
     public static String QUERY_PLAN_STRING = "query_planstr";
+    public static String QUERY_RESULT_SCHEMA = "query_schema";
     public static String SORT_PHASE1_RESULTS = "sp1_results";
     public static String NUM_RESULTS = "num_results";
     public static String DRIVER_QUERY_PLAN = "dq_plan";

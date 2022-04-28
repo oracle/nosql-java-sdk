@@ -337,7 +337,7 @@ public interface NoSQLHandle extends AutoCloseable {
      * Note: Since iterators might use resources until they reach the end, it
      * is necessary to close the QueryIterableResult or use the
      * try-with-resources statement:
-     * <p><pre>
+     * <pre>
      *    QueryRequest qreq = new QueryRequest()
      *        .setStatement("select * from MyTable");
      *

@@ -531,7 +531,7 @@ public class BinaryProtocol extends Nson {
         return dur;
     }
 
-    static TableResult.State getTableState(int state) {
+    public static TableResult.State getTableState(int state) {
         switch (state) {
         case ACTIVE:
             return TableResult.State.ACTIVE;
