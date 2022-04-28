@@ -12,6 +12,7 @@
 package oracle.nosql.driver.ops.serde.nson;
 
 import static oracle.nosql.driver.ops.serde.BinaryProtocol.mapException;
+import static oracle.nosql.driver.ops.serde.BinaryProtocol.getTableState;
 import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.*;
 import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
 import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
@@ -2242,8 +2243,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(TABLE_NAME)) {
                     result.setTableName(Nson.readNsonString(in));
                 } else if (name.equals(TABLE_STATE)) {
-                    result.setState(TableResult.State.valueOf(
-                                        Nson.readNsonString(in)));
+                    result.setState(getTableState(Nson.readNsonInt(in)));
                 } else if (name.equals(TABLE_SCHEMA)) {
                     result.setSchema(Nson.readNsonString(in));
                 } else if (name.equals(TABLE_DDL)) {
