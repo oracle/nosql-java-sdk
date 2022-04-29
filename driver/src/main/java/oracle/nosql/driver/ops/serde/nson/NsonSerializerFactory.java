@@ -1652,6 +1652,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, START, rq.getStartTimeString());
             writeMapField(ns, END, rq.getEndTimeString());
             writeMapField(ns, LIST_MAX_TO_READ, rq.getLimit());
+            writeMapField(ns, LIST_START_INDEX, rq.getStartIndex());
 
             endMap(ns, PAYLOAD);
 
@@ -1672,6 +1673,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     handleErrorCode(walker);
                 } else if (name.equals(TABLE_NAME)) {
                     result.setTableName(Nson.readNsonString(in));
+                } else if (name.equals(MAX_SHARD_USAGE_PERCENT)) {
+                    result.setMaxShardUsagePercentage(Nson.readNsonInt(in));
                 } else if (name.equals(TABLE_USAGE)) {
                     /* array usage records */
                     int t = in.readByte();
@@ -1687,6 +1690,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                         usageRecords[i] = readUsageRecord(in);
                     }
                     result.setUsageRecords(usageRecords);
+                } else if (name.equals(LAST_INDEX)) {
+                    result.setLastIndexReturned(Nson.readNsonInt(in));
                 } else {
                     skipUnknownField(walker, name);
                 }

@@ -68,6 +68,7 @@ public class GetIndexesResult extends Result {
          * @hidden
          * @param indexName the index
          * @param fieldNames the fields
+         * @param fieldTypes the types
          */
         public IndexInfo(String indexName,
                          String[] fieldNames,

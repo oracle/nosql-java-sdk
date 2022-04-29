@@ -85,6 +85,7 @@ public class NsonProtocol {
     public static String DEFINED_TAGS = "defined_tags";
     public static String ETAG = "etag";
     public static String TABLE_USAGE_PERIOD = "period";
+    public static String MAX_SHARD_USAGE_PERCENT = "max_shard_usage_percent";
     public static String READ_THROTTLE_COUNT = "read_throttle";
     public static String WRITE_THROTTLE_COUNT = "write_throttle";
     public static String STORAGE_THROTTLE_COUNT = "storage_throttle";
