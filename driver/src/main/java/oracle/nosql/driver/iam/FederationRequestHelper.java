@@ -96,21 +96,22 @@ class FederationRequestHelper {
 
         try {
             StringWriter sw = new StringWriter();
-            JsonGenerator gen = createGenerator(sw);
-            gen.writeStartObject();
-            gen.writeStringField("publicKey", publicKey);
-            gen.writeStringField("certificate", certificate);
-            gen.writeStringField("purpose", purpose);
-            gen.writeStringField("fingerprintAlgorithm", DEFAULT_FINGERPRINT);
+            try (JsonGenerator gen = createGenerator(sw)) {
+                gen.writeStartObject();
+                gen.writeStringField("publicKey", publicKey);
+                gen.writeStringField("certificate", certificate);
+                gen.writeStringField("purpose", purpose);
+                gen.writeStringField("fingerprintAlgorithm",
+                    DEFAULT_FINGERPRINT);
 
-            gen.writeFieldName("intermediateCertificates");
-            gen.writeStartArray();
-            for (String interCert : interCerts) {
-                gen.writeString(interCert);
+                gen.writeFieldName("intermediateCertificates");
+                gen.writeStartArray();
+                for (String interCert : interCerts) {
+                    gen.writeString(interCert);
+                }
+                gen.writeEndArray();
+                gen.writeEndObject();
             }
-            gen.writeEndArray();
-            gen.writeEndObject();
-            gen.close();
 
             return sw.toString();
         } catch (IOException ioe) {

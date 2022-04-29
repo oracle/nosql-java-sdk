@@ -28,6 +28,8 @@ import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.Date;
 
+import com.sun.net.httpserver.HttpExchange;
+
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -40,8 +42,6 @@ import org.bouncycastle.openssl.jcajce.JcaPKCS8Generator;
 import org.bouncycastle.openssl.jcajce.JcePEMEncryptorBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-
-import com.sun.net.httpserver.HttpExchange;
 
 /**
  * A common base for driver tests. It is empty at this point but may
@@ -106,9 +106,9 @@ public class DriverTestBase {
         exchange.getResponseHeaders().set("Content-Type",
                                           "application/json");
         exchange.sendResponseHeaders(status, msg.length());
-        OutputStream os = exchange.getResponseBody();
-        os.write(msg.getBytes());
-        os.close();
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(msg.getBytes());
+        }
     }
 
     protected static String securityToken(String payload, PublicKey publicKey) {
@@ -164,17 +164,17 @@ public class DriverTestBase {
         }
 
         File keyFile = new File(getTestDir(), name);
-        FileWriter privateWrite = new FileWriter(keyFile);
-        JcaPEMWriter privatePemWriter = new JcaPEMWriter(privateWrite);
-        if (pemEncryptor != null) {
-            privatePemWriter.writeObject(keypair.getPrivate(), pemEncryptor);
-        } else {
-            privatePemWriter.writeObject(keypair.getPrivate());
+        try (FileWriter privateWrite = new FileWriter(keyFile);
+            JcaPEMWriter privatePemWriter = new JcaPEMWriter(privateWrite); ) {
+
+            if (pemEncryptor != null) {
+                privatePemWriter
+                    .writeObject(keypair.getPrivate(), pemEncryptor);
+            }
+            else {
+                privatePemWriter.writeObject(keypair.getPrivate());
+            }
         }
-
-        privatePemWriter.close();
-        privateWrite.close();
-
         return keyFile.getAbsolutePath();
     }
 

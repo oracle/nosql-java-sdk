@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 query in an iterable/iterator format. The returned QueryIterableResult should
 be used in a try-with-resources statement to ensure proper closing of
 resources.
-- updated NoSQLHandle interface to extend AutoClosable
+- updated NoSQLHandle and QueryRequest interfaces to extend AutoClosable
 
 ## [5.3.2] 2022-03-21
 

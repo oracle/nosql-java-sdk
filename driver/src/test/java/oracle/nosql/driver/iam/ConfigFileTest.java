@@ -50,26 +50,26 @@ public class ConfigFileTest extends DriverTestBase {
         throws Exception {
 
         File config = new File(getTestDir(), "parse_profile");
-        PrintWriter writer = new PrintWriter(config);
-        writer.println("[DEFAULT]");
-        writer.println("key=value");
-        writer.println(" ");
-        writer.println("key2= value2");
-        writer.println("   # ignore line");
-        writer.println(" key3 =value3");
-        writer.println("   # ignore line");
-        writer.println("key4 = value4     ");
-        writer.println("key5 ==val=ue=");
-        writer.println("[key6=value6");
-        writer.println(" ");
-        writer.println("[ PROFILE1 ]");
-        writer.println("key=new value");
-        writer.println(" ");
-        writer.println("[PROFILE2 ]");
-        writer.println("key = value=foobar");
-        writer.println("key2=nota#comment");
-        writer.println("  ");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(config)) {
+            writer.println("[DEFAULT]");
+            writer.println("key=value");
+            writer.println(" ");
+            writer.println("key2= value2");
+            writer.println("   # ignore line");
+            writer.println(" key3 =value3");
+            writer.println("   # ignore line");
+            writer.println("key4 = value4     ");
+            writer.println("key5 ==val=ue=");
+            writer.println("[key6=value6");
+            writer.println(" ");
+            writer.println("[ PROFILE1 ]");
+            writer.println("key=new value");
+            writer.println(" ");
+            writer.println("[PROFILE2 ]");
+            writer.println("key = value=foobar");
+            writer.println("key2=nota#comment");
+            writer.println("  ");
+        }
 
         /* parse default profile */
         OCIConfigFile cFile = OCIConfigFileReader.parse(config.getPath());
@@ -112,13 +112,13 @@ public class ConfigFileTest extends DriverTestBase {
 
         /* no default profile */
         File nodefault = new File(getTestDir(), "no_default_profile");
-        PrintWriter writer = new PrintWriter(nodefault);
-        writer.println("[USER]");
-        writer.println("tenancy=default_tenancy");
-        writer.println("user=default_user");
-        writer.println("fingerprint=default_fingerprint");
-        writer.println("key_file=default_key_file");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(nodefault)) {
+            writer.println("[USER]");
+            writer.println("tenancy=default_tenancy");
+            writer.println("user=default_user");
+            writer.println("fingerprint=default_fingerprint");
+            writer.println("key_file=default_key_file");
+        }
 
         OCIConfigFile cFile = OCIConfigFileReader.parse(nodefault.getPath(),
                                                         "USER");
@@ -128,9 +128,9 @@ public class ConfigFileTest extends DriverTestBase {
 
         /* no leading profile */
         File noleading = new File(getTestDir(), "no_leading_profile");
-        writer = new PrintWriter(noleading);
-        writer.println("foo=bar");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(noleading)) {
+            writer.println("foo=bar");
+        }
 
         try {
             OCIConfigFileReader.parse(noleading.getPath());
@@ -141,10 +141,10 @@ public class ConfigFileTest extends DriverTestBase {
 
         /* line with no value */
         File novalue = new File(getTestDir(), "no_value_profile");
-        writer = new PrintWriter(novalue);
-        writer.println("[DEFAULT]");
-        writer.println("foo");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(novalue)) {
+            writer.println("[DEFAULT]");
+            writer.println("foo");
+        }
 
         try {
             OCIConfigFileReader.parse(novalue.getPath());
@@ -155,10 +155,10 @@ public class ConfigFileTest extends DriverTestBase {
 
         /* line with empty key */
         File nokey = new File(getTestDir(), "no_key_profile");
-        writer = new PrintWriter(nokey);
-        writer.println("[DEFAULT]");
-        writer.println(" =bar");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(nokey)) {
+            writer.println("[DEFAULT]");
+            writer.println(" =bar");
+        }
 
         try {
             OCIConfigFileReader.parse(nokey.getPath());
@@ -169,9 +169,9 @@ public class ConfigFileTest extends DriverTestBase {
 
         /* empty profile name */
         File noprofileName = new File(getTestDir(), "no_profile_name");
-        writer = new PrintWriter(noprofileName);
-        writer.println("[        ]");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(noprofileName)) {
+            writer.println("[        ]");
+        }
 
         try {
             OCIConfigFileReader.parse(noprofileName.getPath());
@@ -203,14 +203,14 @@ public class ConfigFileTest extends DriverTestBase {
         File key = new File(generatePrivateKeyFile("api-key.pem", null));
 
         File config = new File(getTestDir(), "region_profile");
-        PrintWriter writer = new PrintWriter(config);
-        writer.println("[DEFAULT]");
-        writer.println("tenancy=default_tenancy");
-        writer.println("user=default_user");
-        writer.println("fingerprint=default_fingerprint");
-        writer.println("key_file=" + key.getAbsolutePath());
-        writer.println("region=ap-melbourne-1");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(config)) {
+            writer.println("[DEFAULT]");
+            writer.println("tenancy=default_tenancy");
+            writer.println("user=default_user");
+            writer.println("fingerprint=default_fingerprint");
+            writer.println("key_file=" + key.getAbsolutePath());
+            writer.println("region=ap-melbourne-1");
+        }
 
         SignatureProvider provider =
             new SignatureProvider(config.getAbsolutePath(), "DEFAULT");
@@ -221,13 +221,13 @@ public class ConfigFileTest extends DriverTestBase {
                      Region.AP_MELBOURNE_1.endpoint() + ":443/");
 
         config = new File(getTestDir(), "noregion_profile");
-        writer = new PrintWriter(config);
-        writer.println("[DEFAULT]");
-        writer.println("tenancy=default_tenancy");
-        writer.println("user=default_user");
-        writer.println("fingerprint=default_fingerprint");
-        writer.println("key_file=" + key.getAbsolutePath());
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(config)) {
+            writer.println("[DEFAULT]");
+            writer.println("tenancy=default_tenancy");
+            writer.println("user=default_user");
+            writer.println("fingerprint=default_fingerprint");
+            writer.println("key_file=" + key.getAbsolutePath());
+        }
 
         provider = new SignatureProvider(config.getAbsolutePath(), "DEFAULT");
         hconfig = new NoSQLHandleConfig(Region.ME_JEDDAH_1, provider);
@@ -235,14 +235,14 @@ public class ConfigFileTest extends DriverTestBase {
                      Region.ME_JEDDAH_1.endpoint() + ":443/");
 
         config = new File(getTestDir(), "mismatchregion_profile");
-        writer = new PrintWriter(config);
-        writer.println("[DEFAULT]");
-        writer.println("tenancy=default_tenancy");
-        writer.println("user=default_user");
-        writer.println("fingerprint=default_fingerprint");
-        writer.println("key_file=" + key.getAbsolutePath());
-        writer.println("region=ap-melbourne-1");
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(config)) {
+            writer.println("[DEFAULT]");
+            writer.println("tenancy=default_tenancy");
+            writer.println("user=default_user");
+            writer.println("fingerprint=default_fingerprint");
+            writer.println("key_file=" + key.getAbsolutePath());
+            writer.println("region=ap-melbourne-1");
+        }
 
         provider = new SignatureProvider(config.getAbsolutePath(), "DEFAULT");
         try {

@@ -34,13 +34,15 @@ import oracle.nosql.driver.values.MapValue;
  * <pre>
  * NoSQLHandle handle = ...;
  *
- * QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ * try (QueryRequest qreq = new QueryRequest()
+ *   .setStatement("select * from * foo")) {
  *
- * do {
- *   QueryResult qres = handle.query(qreq);
- *   List&lt;MapValue&gt; results = qres.getResults();
- *   // do something with the results
- * } while (!qreq.isDone())
+ *   do {
+ *     QueryResult qres = handle.query(qreq);
+ *     List&lt;MapValue&gt; results = qres.getResults();
+ *     // do something with the results
+ *   } while (!qreq.isDone());
+ * }
  * </pre>
  *
  * @see NoSQLHandle#query

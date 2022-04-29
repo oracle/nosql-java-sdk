@@ -40,8 +40,10 @@ import oracle.nosql.driver.query.TopologyInfo;
  *
  *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
  *
- *    for (MapValue row : handle.queryIterable(qreq) ) {
- *        // do something with row
+ *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+ *        for( MapValue row : qir) {
+ *            // do something with row
+ *        }
  *    }
  * </pre>
  * <p>
@@ -67,7 +69,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * may be empty. This is because during each execution the query is allowed to
  * read or write a maximum number of bytes. If this maximum is reached, execution
  * stops. This can happen before any result was generated (for example, if none
- * of the rows read satified the query conditions).
+ * of the rows read satisfied the query conditions).
  * <p>
  * If an application wishes to terminate query execution before retrieving all
  * of the query results, it should call {@link #close} in order to release any
@@ -83,7 +85,8 @@ import oracle.nosql.driver.query.TopologyInfo;
  * @see NoSQLHandle#query(QueryRequest)
  * @see NoSQLHandle#prepare(PrepareRequest)
  */
-public class QueryRequest extends Request {
+public class QueryRequest
+    extends Request implements AutoCloseable {
 
     private int traceLevel;
 
