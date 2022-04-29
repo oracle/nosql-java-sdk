@@ -781,7 +781,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             startMap(ns, PAYLOAD);
 
             writeMapField(ns, CONSISTENCY, getConsistency(rq.getConsistency()));
-            // FUTURE: Durability
+            if (rq.getDurability() != null) {
+                writeMapField(ns, DURABILITY,
+                              getDurability(rq.getDurability()));
+            }
 
             /* these are only written if nonzero */
             writeMapFieldNZ(ns, MAX_READ_KB, rq.getMaxReadKB());
