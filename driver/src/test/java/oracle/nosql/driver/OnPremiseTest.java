@@ -17,9 +17,6 @@ import static org.junit.Assert.fail;
 import java.util.HashSet;
 import java.util.List;
 
-import org.junit.After;
-import org.junit.Test;
-
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -42,6 +39,9 @@ import oracle.nosql.driver.ops.WriteMultipleResult;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
+
+import org.junit.After;
+import org.junit.Test;
 
 /**
  * Test features that are supported on-premise only at this time:
@@ -322,10 +322,10 @@ public class OnPremiseTest extends ProxyTestBase {
          * QUERY the table. The table name is inferred from the
          * query statement.
          */
-        try {
+        try (
             QueryRequest queryRequest = new QueryRequest().
                 setStatement("SELECT * from " + tableName +
-                             " WHERE childName= \"cName2\"");
+                             " WHERE childName= \"cName2\"")) {
             QueryResult qres = handle.query(queryRequest);
             List<MapValue> results = qres.getResults();
             assertEquals(results.size(), 1);
@@ -365,14 +365,15 @@ public class OnPremiseTest extends ProxyTestBase {
         tres.waitForCompletion(handle, 60000, 1000);
         assertEquals(tres.getTableState(), TableResult.State.ACTIVE);
 
-        QueryRequest queryRequest = new QueryRequest().
+        try (QueryRequest queryRequest = new QueryRequest().
             setStatement("SELECT * from " + tableName +
-                         " WHERE childName= \"cName2\"");
-        QueryResult qres = handle.query(queryRequest);
-        List<MapValue> results = qres.getResults();
-        assertEquals(results.size(), 2);
-        assertEquals("cName2",
-                     results.get(0).get("childName").asString().getValue());
+                         " WHERE childName= \"cName2\"")) {
+            QueryResult qres = handle.query(queryRequest);
+            List<MapValue> results = qres.getResults();
+            assertEquals(results.size(), 2);
+            assertEquals("cName2",
+                results.get(0).get("childName").asString().getValue());
+        }
 
         /*
          * DELETE the first row
@@ -399,11 +400,12 @@ public class OnPremiseTest extends ProxyTestBase {
         /*
          * There should be no record in the table now
          */
-        queryRequest = new QueryRequest().
-            setStatement("SELECT * from " + tableName);
-        qres = handle.query(queryRequest);
-        results = qres.getResults();
-        assertEquals(results.size(), 0);
+        try (QueryRequest queryRequest = new QueryRequest().
+            setStatement("SELECT * from " + tableName)) {
+            QueryResult qres = handle.query(queryRequest);
+            List<MapValue> results = qres.getResults();
+            assertEquals(results.size(), 0);
+        }
     }
 
     /*

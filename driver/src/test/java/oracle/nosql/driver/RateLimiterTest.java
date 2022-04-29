@@ -12,14 +12,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
-import java.lang.Math;
 import java.util.concurrent.TimeUnit;
 
-import oracle.nosql.driver.RateLimiter;
-import oracle.nosql.driver.ReadThrottlingException;
-import oracle.nosql.driver.RequestTimeoutException;
-import oracle.nosql.driver.TableNotFoundException;
-import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.GetRequest;
@@ -376,36 +370,40 @@ public class RateLimiterTest extends ProxyTestBase {
              * is called on a table with 500 rows and 50RUs
              * (uses 1000RUs = 20 seconds)
              */
-            QueryRequest queryReq = new QueryRequest()
+            try (QueryRequest queryReq = new QueryRequest()
                 .setPreparedStatement(prepRes)
                 .setTimeout(20000)
-                .setMaxReadKB(maxKB);
-            queryReq.setReadRateLimiter(rlim);
-            queryReq.setWriteRateLimiter(wlim);
-            try {
-                do {
-                    QueryResult res = handle.query(queryReq);
-                    totalRecords += res.getResults().size();
-                    readUnitsUsed += res.getReadUnits();
-                    requestDelayedMs += queryReq.getRateLimitDelayedMs();
-                    responseDelayedMs += res.getRateLimitDelayedMs();
-                    requestRetryStats.addStats(queryReq.getRetryStats());
-                    responseRetryStats.addStats(res.getRetryStats());
-                } while (!queryReq.isDone());
-            } catch (ReadThrottlingException rte) {
-                if (skipAllLimiting == false) {
-                    fail("Expected no throttling exceptions, got one");
+                .setMaxReadKB(maxKB)) {
+                queryReq.setReadRateLimiter(rlim);
+                queryReq.setWriteRateLimiter(wlim);
+                try {
+                    do {
+                        QueryResult res = handle.query(queryReq);
+                        totalRecords += res.getResults().size();
+                        readUnitsUsed += res.getReadUnits();
+                        requestDelayedMs += queryReq.getRateLimitDelayedMs();
+                        responseDelayedMs += res.getRateLimitDelayedMs();
+                        requestRetryStats.addStats(queryReq.getRetryStats());
+                        responseRetryStats.addStats(res.getRetryStats());
+                    }
+                    while (!queryReq.isDone());
                 }
-            } catch (RequestTimeoutException te) {
-                /* this may happen for very small limit tests */
-            }
-            /*
-             * verify that rate limiters were used
-             */
-            if (skipAllLimiting == false && useExternalLimiters == false) {
-                RateLimiter rl = queryReq.getReadRateLimiter();
-                if (rl == null) {
-                    fail("query did not use rate limiter");
+                catch (ReadThrottlingException rte) {
+                    if (skipAllLimiting == false) {
+                        fail("Expected no throttling exceptions, got one");
+                    }
+                }
+                catch (RequestTimeoutException te) {
+                    /* this may happen for very small limit tests */
+                }
+                /*
+                 * verify that rate limiters were used
+                 */
+                if (skipAllLimiting == false && useExternalLimiters == false) {
+                    RateLimiter rl = queryReq.getReadRateLimiter();
+                    if (rl == null) {
+                        fail("query did not use rate limiter");
+                    }
                 }
             }
         } while (endTime > System.currentTimeMillis());

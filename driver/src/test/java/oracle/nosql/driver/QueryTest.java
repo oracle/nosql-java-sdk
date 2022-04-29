@@ -164,22 +164,25 @@ public class QueryTest extends ProxyTestBase {
         /*
          * Perform an update query
          */
-        QueryRequest queryRequest = new QueryRequest().setStatement(updateQuery);
-        QueryResult queryRes = handle.query(queryRequest);
+        try (QueryRequest queryRequest =
+            new QueryRequest().setStatement(updateQuery)) {
+            handle.query(queryRequest);
+        }
 
         /*
          * Use a simple get query to validate the update
          */
-        queryRequest = new QueryRequest().setStatement(getQuery);
-        queryRes = handle.query(queryRequest);
-        assertEquals(1, queryRes.getResults().size());
-        assertEquals("joe",
-            queryRes.getResults().get(0).get("name").getString());
+        try (QueryRequest queryRequest = new QueryRequest()
+            .setStatement(getQuery)) {
+            QueryResult queryRes = handle.query(queryRequest);
+            assertEquals(1, queryRes.getResults().size());
+            assertEquals("joe",
+                queryRes.getResults().get(0).get("name").getString());
 
-        /* full scan to count rows */
-        executeQuery(fullQuery, null, numRows, 0, false /* usePrepStmt */);
-        executeQuery(fullQuery, null, numRows, 0, true /* usePrepStmt */);
-
+            /* full scan to count rows */
+            executeQuery(fullQuery, null, numRows, 0, false /* usePrepStmt */);
+            executeQuery(fullQuery, null, numRows, 0, true /* usePrepStmt */);
+        }
         /*
          * Query with external variables
          */
@@ -1053,9 +1056,11 @@ public class QueryTest extends ProxyTestBase {
             .setVariable("$sid", new IntegerValue(0))
             .setVariable("$id", new IntegerValue(1));
 
-        QueryRequest req = new QueryRequest().setPreparedStatement(prepRet);
-        QueryResult res = handle.query(req);
-        assertNotNull(res.getResults());
+        try(QueryRequest req =
+                new QueryRequest().setPreparedStatement(prepRet)) {
+            QueryResult res = handle.query(req);
+            assertNotNull(res.getResults());
+        }
     }
 
     @Test
@@ -1102,9 +1107,8 @@ public class QueryTest extends ProxyTestBase {
                 .setVariable("$sid", new IntegerValue(0))
                 .setVariable("$id", new IntegerValue(1));
 
-            try {
-                QueryRequest req = new QueryRequest()
-                                       .setPreparedStatement(prepRet);
+            try (QueryRequest req = new QueryRequest()
+                                       .setPreparedStatement(prepRet)) {
                 total++;
                 verbose("Running query #" + total + "...");
                 QueryResult res = handle.query(req);
@@ -1562,20 +1566,22 @@ public class QueryTest extends ProxyTestBase {
         PrepareResult prepRet = handle.prepare(prepReq);
         assertNotNull(prepRet.getPreparedStatement());
 
-        QueryRequest qreq = new QueryRequest().setPreparedStatement(prepRet);
-        QueryResult qres = handle.query(qreq);
-        assertEquals(10, qres.getResults().size());
+        try(QueryRequest qreq =
+                new QueryRequest().setPreparedStatement(prepRet)) {
+            QueryResult qres = handle.query(qreq);
+            assertEquals(10, qres.getResults().size());
 
-        /*
-         * evolve and try the query again. It will fail because the
-         *
-         */
-        tableOperation(handle, "alter table testTable(drop age)", null);
-        try {
-            qres = handle.query(qreq);
-            fail("Query should have failed");
-        } catch (IllegalArgumentException iae) {
-            /* success */
+            /*
+             * evolve and try the query again. It will fail because the ???
+             *
+             */
+            tableOperation(handle, "alter table testTable(drop age)", null);
+            try {
+                qres = handle.query(qreq);
+                fail("Query should have failed");
+            } catch (IllegalArgumentException iae) {
+                /* success */
+            }
         }
     }
 
@@ -1657,31 +1663,32 @@ public class QueryTest extends ProxyTestBase {
         /* Load rows to table */
         loadRowsToScanTable(10, 10, 1);
 
-        QueryRequest queryReq = new QueryRequest().
-            setStatement("select * from testTable where id = 1 and sid = 1");
+        try (QueryRequest queryReq = new QueryRequest().
+            setStatement("select * from testTable where id = 1 and sid = 1")) {
 
-        QueryResult queryRes = handle.query(queryReq);
+            QueryResult queryRes = handle.query(queryReq);
 
-        /*
-         * For each result, assert that the fields are all there and in the
-         * expected order.
-         */
-        for (MapValue v : queryRes.getResults()) {
-            assertEquals(declOrder.length, v.size());
-            int i = 0;
-            for (Map.Entry<String, FieldValue> entry : v.entrySet()) {
-                assertEquals(declOrder[i++], entry.getKey());
-            }
+            /*
+             * For each result, assert that the fields are all there and in the
+             * expected order.
+             */
+            for (MapValue v : queryRes.getResults()) {
+                assertEquals(declOrder.length, v.size());
+                int i = 0;
+                for (Map.Entry<String, FieldValue> entry : v.entrySet()) {
+                    assertEquals(declOrder[i++], entry.getKey());
+                }
 
-            /* perform a get and validate that it also is in decl order */
-            GetRequest getReq = new GetRequest()
-                .setTableName(tableName)
-                .setKey(v);
-            GetResult getRes = handle.get(getReq);
-            i = 0;
-            for (Map.Entry<String, FieldValue> entry :
-                     getRes.getValue().entrySet()) {
-                assertEquals(declOrder[i++], entry.getKey());
+                /* perform a get and validate that it also is in decl order */
+                GetRequest getReq = new GetRequest()
+                    .setTableName(tableName)
+                    .setKey(v);
+                GetResult getRes = handle.get(getReq);
+                i = 0;
+                for (Map.Entry<String, FieldValue> entry :
+                         getRes.getValue().entrySet()) {
+                    assertEquals(declOrder[i++], entry.getKey());
+                }
             }
         }
     }
@@ -1715,14 +1722,16 @@ public class QueryTest extends ProxyTestBase {
         /*
          * Ensure that this query completes
          */
-        QueryRequest queryReq = new QueryRequest().
-            setStatement("select * from " + name);
-        int numRes = 0;
-        do {
-            QueryResult queryRes = handle.query(queryReq);
-            numRes += queryRes.getResults().size();
-        } while (!queryReq.isDone());
-        assertEquals(numRows, numRes);
+        try (QueryRequest queryReq = new QueryRequest().
+            setStatement("select * from " + name)) {
+            int numRes = 0;
+            do {
+                QueryResult queryRes = handle.query(queryReq);
+                numRes += queryRes.getResults().size();
+            }
+            while (!queryReq.isDone());
+            assertEquals(numRows, numRes);
+        }
     }
 
     /*
@@ -1789,8 +1798,8 @@ public class QueryTest extends ProxyTestBase {
         /* validate that select fails */
         final String squery = "select * from " + tableName +
             " t where t.data.data = " + genString(15000);
-        QueryRequest req = new QueryRequest().setStatement(squery);
-        try {
+
+        try (QueryRequest req = new QueryRequest().setStatement(squery)) {
             handle.query(req);
             fail("Query should have failed");
         } catch (IllegalArgumentException iae) {
@@ -1882,8 +1891,8 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", arrVal);
 
-        QueryRequest req = new QueryRequest().setPreparedStatement(pstmt);
-        try {
+        try (QueryRequest req = new QueryRequest().setPreparedStatement(pstmt))
+        {
             handle.query(req);
             fail("Expected IAE");
         } catch (IllegalArgumentException ex) {
@@ -1898,8 +1907,8 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", arrVal);
 
-        req = new QueryRequest().setPreparedStatement(pstmt);
-        try {
+        try (QueryRequest req = new QueryRequest().setPreparedStatement(pstmt))
+        {
             handle.query(req);
             fail("Expected IAE");
         } catch(IllegalArgumentException ex) {
@@ -1951,33 +1960,38 @@ public class QueryTest extends ProxyTestBase {
      * the same as regular query() results.
      */
     private void checkQueryIterableUnordered(String query) {
-        QueryRequest qreq = new QueryRequest().setStatement(query).setLimit(3);
+        Set<MapValue> expectedSet = new HashSet<>();
         int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
             totalReadUnits = 0, totalWriteUnits = 0;
         RetryStats totalRetryStats = null;
 
-        QueryResult qres;
-        Set<MapValue> expectedSet = new HashSet<>();
+        try (QueryRequest qreq =
+            new QueryRequest().setStatement(query).setLimit(3)) {
 
-        do {
-            qres = handle.query(qreq);
-            totalRateLimitDelay += qres.getRateLimitDelayedMs();
-            RetryStats qresRS = qres.getRetryStats();
-            if (qresRS != null) {
-                if (totalRetryStats == null) {
-                    totalRetryStats = new RetryStats();
+
+            QueryResult qres;
+
+            do {
+                qres = handle.query(qreq);
+                totalRateLimitDelay += qres.getRateLimitDelayedMs();
+                RetryStats qresRS = qres.getRetryStats();
+                if (qresRS != null) {
+                    if (totalRetryStats == null) {
+                        totalRetryStats = new RetryStats();
+                    }
+                    totalRetryStats.addStats(qresRS);
                 }
-                totalRetryStats.addStats(qresRS);
-            }
-            totalReadKB += qres.getReadKB();
-            totalWriteKB += qres.getWriteKB();
-            totalReadUnits += qres.getReadUnits();
-            totalWriteUnits += qres.getWriteUnits();
+                totalReadKB += qres.getReadKB();
+                totalWriteKB += qres.getWriteKB();
+                totalReadUnits += qres.getReadUnits();
+                totalWriteUnits += qres.getWriteUnits();
 
-            for( MapValue row : qres.getResults() ) {
-                expectedSet.add(row);
+                for (MapValue row : qres.getResults()) {
+                    expectedSet.add(row);
+                }
             }
-        } while (!qreq.isDone());
+            while (!qreq.isDone());
+        }
 
         QueryIterableResult qires = handle.queryIterable(
             new QueryRequest().setStatement(query).setLimit(3));
@@ -2022,60 +2036,63 @@ public class QueryTest extends ProxyTestBase {
      */
     private void checkQueryIterableOrdered(String query) {
         QueryRequest qireq = new QueryRequest().setStatement(query);
-        QueryIterableResult qires = handle.queryIterable(qireq);
+        try (QueryIterableResult qires = handle.queryIterable(qireq);
+             QueryRequest qreq = new QueryRequest().setStatement(query)) {
 
-        Iterator<MapValue> qiIter = qires.iterator();
+            Iterator<MapValue> qiIter = qires.iterator();
 
-        QueryRequest qreq = new QueryRequest().setStatement(query);
-        int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
-            totalReadUnits = 0, totalWriteUnits = 0;
-        RetryStats totalRetryStats = null;
+            int totalRateLimitDelay = 0, totalReadKB = 0, totalWriteKB = 0,
+                totalReadUnits = 0, totalWriteUnits = 0;
+            RetryStats totalRetryStats = null;
 
-        do {
-            QueryResult qres = handle.query(qreq);
-            totalRateLimitDelay += qres.getRateLimitDelayedMs();
-            RetryStats qresRS = qres.getRetryStats();
-            if (qresRS != null) {
-                if (totalRetryStats == null) {
-                    totalRetryStats = new RetryStats();
+            do {
+                QueryResult qres = handle.query(qreq);
+                totalRateLimitDelay += qres.getRateLimitDelayedMs();
+                RetryStats qresRS = qres.getRetryStats();
+                if (qresRS != null) {
+                    if (totalRetryStats == null) {
+                        totalRetryStats = new RetryStats();
+                    }
+                    totalRetryStats.addStats(qresRS);
                 }
-                totalRetryStats.addStats(qresRS);
-            }
-            totalReadKB += qres.getReadKB();
-            totalWriteKB += qres.getWriteKB();
-            totalReadUnits += qres.getReadUnits();
-            totalWriteUnits += qres.getWriteUnits();
+                totalReadKB += qres.getReadKB();
+                totalWriteKB += qres.getWriteKB();
+                totalReadUnits += qres.getReadUnits();
+                totalWriteUnits += qres.getWriteUnits();
 
-            for( MapValue expectedRow : qres.getResults() ) {
-                assertTrue(qiIter.hasNext());
-                MapValue actualRow = qiIter.next();
+                for (MapValue expectedRow : qres.getResults()) {
+                    assertTrue(qiIter.hasNext());
+                    MapValue actualRow = qiIter.next();
 
-                assertEquals(expectedRow.entrySet().size(),
-                    actualRow.entrySet().size());
-                for(Entry<String, FieldValue> exp : expectedRow.entrySet()) {
-                    assertEquals(expectedRow.get(exp.getKey()).getType(),
-                        actualRow.get(exp.getKey()).getType());
-                    assertEquals(expectedRow.get(exp.getKey()),
-                        actualRow.get(exp.getKey()));
+                    assertEquals(expectedRow.entrySet().size(),
+                        actualRow.entrySet().size());
+                    for (Entry<String, FieldValue> exp : expectedRow
+                        .entrySet()) {
+                        assertEquals(
+                            expectedRow.get(exp.getKey()).getType(),
+                            actualRow.get(exp.getKey()).getType());
+                        assertEquals(expectedRow.get(exp.getKey()),
+                            actualRow.get(exp.getKey()));
+                    }
                 }
             }
-        } while (!qreq.isDone());
+            while (!qreq.isDone());
 
-        assertFalse(qiIter.hasNext());
-        assertFalse(qiIter.hasNext());
+            assertFalse(qiIter.hasNext());
+            assertFalse(qiIter.hasNext());
 
-        assertThrows(NoSuchElementException.class, qiIter::next);
-        assertFalse(qiIter.hasNext());
+            assertThrows(NoSuchElementException.class, qiIter::next);
+            assertFalse(qiIter.hasNext());
 
-        assertEquals(totalRateLimitDelay, qires.getRateLimitDelayedMs());
-        assertEquals(totalReadKB, qires.getReadKB());
-        assertEquals(totalWriteKB, qires.getWriteKB());
-        assertEquals(totalReadUnits, qires.getReadUnits());
-        assertEquals(totalWriteUnits, qires.getWriteUnits());
+            assertEquals(totalRateLimitDelay,
+                qires.getRateLimitDelayedMs());
+            assertEquals(totalReadKB, qires.getReadKB());
+            assertEquals(totalWriteKB, qires.getWriteKB());
+            assertEquals(totalReadUnits, qires.getReadUnits());
+            assertEquals(totalWriteUnits, qires.getWriteUnits());
 
-        assertEquals(totalRetryStats, qires.getRetryStats());
-
-        qires.close();
+            assertEquals(totalRetryStats, qires.getRetryStats());
+        }
     }
 
 
@@ -2145,19 +2162,19 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", info);
 
-        QueryRequest req;
-        QueryResult ret;
-
-        req = new QueryRequest().setPreparedStatement(pstmt);
-        ret = handle.query(req);
-        assertEquals(1, ret.getResults().get(0).asMap()
-                           .get("NumRowsInserted").getInt());
+        try (QueryRequest req =
+                 new QueryRequest().setPreparedStatement(pstmt)) {
+            QueryResult ret = handle.query(req);
+            assertEquals(1, ret.getResults().get(0).asMap()
+                .get("NumRowsInserted").getInt());
+        }
 
         String stmt = "select info from " + tableName + " where id = " + id;
-        req = new QueryRequest().setStatement(stmt);
-        ret = handle.query(req);
-        assertEquals(1, ret.getResults().size());
-        assertEquals(expInfo, ret.getResults().get(0).get("info"));
+        try (QueryRequest req = new QueryRequest().setStatement(stmt)) {
+            QueryResult ret = handle.query(req);
+            assertEquals(1, ret.getResults().size());
+            assertEquals(expInfo, ret.getResults().get(0).get("info"));
+        }
     }
 
     private String createLargeJson(int size) {
@@ -2190,66 +2207,68 @@ public class QueryTest extends ProxyTestBase {
                               int recordKB,
                               Consistency consistency) {
 
-        final QueryRequest queryReq = new QueryRequest()
+        try (final QueryRequest queryReq = new QueryRequest()
             .setStatement(statement)
             .setLimit(numLimit)
             .setConsistency(consistency)
-            .setMaxReadKB(sizeLimit);
+            .setMaxReadKB(sizeLimit)) {
 
-        if (consistency != null) {
-            queryReq.setConsistency(consistency);
-        }
-
-        int numRows = 0;
-        int readKB = 0;
-        int writeKB = 0;
-        int readUnits = 0;
-        int numBatches = 0;
-
-        do {
-            QueryResult queryRes = handle.query(queryReq);
-
-            List<MapValue> results = queryRes.getResults();
-
-            int cnt = results.size();
-            if (numLimit > 0) {
-                assertTrue("Unexpected number of rows returned, expect <= " +
-                           numLimit + ", but get " + cnt + " rows",
-                           cnt <= numLimit);
+            if (consistency != null) {
+                queryReq.setConsistency(consistency);
             }
 
-            int rkb = queryRes.getReadKB();
-            int runits = queryRes.getReadUnits();
-            int wkb = queryRes.getWriteKB();
+            int numRows = 0;
+            int readKB = 0;
+            int writeKB = 0;
+            int readUnits = 0;
+            int numBatches = 0;
 
-            if (showResults) {
-                for (int i = 0; i < results.size(); ++i) {
-                    System.out.println("Result " + (numRows + i) + " :");
-                    System.out.println(results.get(i));
+            do {
+                QueryResult queryRes = handle.query(queryReq);
+
+                List<MapValue> results = queryRes.getResults();
+
+                int cnt = results.size();
+                if (numLimit > 0) {
+                    assertTrue(
+                        "Unexpected number of rows returned, expect <= " +
+                            numLimit + ", but get " + cnt + " rows",
+                        cnt <= numLimit);
                 }
 
-                System.out.println("Batch " + numBatches +
-                                   " ReadKB=" + rkb +
-                                   " ReadUnits=" + runits +
-                                   " WriteKB=" + wkb);
+                int rkb = queryRes.getReadKB();
+                int runits = queryRes.getReadUnits();
+                int wkb = queryRes.getWriteKB();
+
+                if (showResults) {
+                    for (int i = 0; i < results.size(); ++i) {
+                        System.out.println("Result " + (numRows + i) + " :");
+                        System.out.println(results.get(i));
+                    }
+
+                    System.out.println("Batch " + numBatches +
+                        " ReadKB=" + rkb +
+                        " ReadUnits=" + runits +
+                        " WriteKB=" + wkb);
+                }
+
+                numRows += cnt;
+                readKB += rkb;
+                readUnits += runits;
+                writeKB += wkb;
+
+                numBatches++;
+            } while (!queryReq.isDone());
+
+            if (showResults) {
+                System.out.println("Total ReadKB = " + readKB +
+                    " Total ReadUnits = " + readUnits +
+                    " Total WriteKB = " + writeKB);
             }
 
-            numRows += cnt;
-            readKB += rkb;
-            readUnits += runits;
-            writeKB += wkb;
-            numBatches++;
-        } while (!queryReq.isDone());
-
-        if (showResults) {
-            System.out.println("Total ReadKB = " + readKB +
-                               " Total ReadUnits = " + readUnits +
-                               " Total WriteKB = " + writeKB);
+            assertEquals("Wrong number of rows returned, expect " + expNumRows +
+                ", but get " + numRows, expNumRows, numRows);
         }
-
-        assertEquals("Wrong number of rows returned, expect " + expNumRows +
-                     ", but get " + numRows, expNumRows, numRows);
-
     }
 
     private void executeQuery(String query,
@@ -2258,48 +2277,53 @@ public class QueryTest extends ProxyTestBase {
                               int maxReadKB,
                               boolean usePrepStmt) {
 
-        final QueryRequest queryReq;
+        try (final QueryRequest queryReq = new QueryRequest()) {
 
-        if (bindValues == null || !usePrepStmt) {
-            queryReq = new QueryRequest().
-                setStatement(query).
-                setMaxReadKB(maxReadKB);
-        } else {
-            PrepareRequest prepReq = new PrepareRequest().setStatement(query);
-            PrepareResult prepRes = handle.prepare(prepReq);
-            PreparedStatement prepStmt = prepRes.getPreparedStatement();
-            if (bindValues != null) {
-                for (Entry<String, FieldValue> entry : bindValues.entrySet()) {
-                    prepStmt.setVariable(entry.getKey(), entry.getValue());
+            if (bindValues == null || !usePrepStmt) {
+                queryReq
+                    .setStatement(query)
+                    .setMaxReadKB(maxReadKB);
+            }
+            else {
+                PrepareRequest prepReq =
+                    new PrepareRequest().setStatement(query);
+                PrepareResult prepRes = handle.prepare(prepReq);
+                PreparedStatement prepStmt = prepRes.getPreparedStatement();
+                if (bindValues != null) {
+                    for (Entry<String, FieldValue> entry : bindValues
+                        .entrySet()) {
+                        prepStmt.setVariable(entry.getKey(), entry.getValue());
+                    }
                 }
+
+                queryReq
+                    .setPreparedStatement(prepStmt)
+                    .setMaxReadKB(maxReadKB);
             }
 
-            queryReq = new QueryRequest().
-                setPreparedStatement(prepStmt).
-                setMaxReadKB(maxReadKB);
+            QueryResult queryRes;
+            int numRows = 0;
+
+            do {
+                queryRes = handle.query(queryReq);
+                numRows += queryRes.getResults().size();
+
+                if (showResults) {
+                    List<MapValue> results = queryRes.getResults();
+                    for (int i = 0; i < results.size(); ++i) {
+                        System.out.println("Result " + i + " :");
+                        System.out.println(results.get(i));
+                    }
+                    System.out.println("ReadKB = " + queryRes.getReadKB() +
+                        " ReadUnits = " + queryRes.getReadUnits());
+                }
+
+            }
+            while (!queryReq.isDone());
+
+            assertTrue("Wrong number of rows returned, expect " + expNumRows +
+                ", but get " + numRows, numRows == expNumRows);
         }
-
-        QueryResult queryRes;
-        int numRows = 0;
-
-        do {
-            queryRes = handle.query(queryReq);
-            numRows += queryRes.getResults().size();
-
-            if (showResults) {
-                List<MapValue> results = queryRes.getResults();
-                for (int i = 0; i < results.size(); ++i) {
-                    System.out.println("Result " + i + " :");
-                    System.out.println(results.get(i));
-                }
-                System.out.println("ReadKB = " + queryRes.getReadKB() +
-                                   " ReadUnits = " + queryRes.getReadUnits());
-            }
-
-        } while (!queryReq.isDone());
-
-        assertTrue("Wrong number of rows returned, expect " + expNumRows +
-                   ", but get " + numRows, numRows == expNumRows);
     }
 
     private void loadRowsToScanTable(int numMajor, int numPerMajor, int nKB) {

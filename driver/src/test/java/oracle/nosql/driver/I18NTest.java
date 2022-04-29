@@ -29,7 +29,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.UUID;
 
-import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -69,13 +68,14 @@ public class I18NTest extends ProxyTestBase {
     public void createJsonTest(){
         try {
             for (String element : jsonFileNames) {
-                InputStream is =
-                    getClass().getClassLoader().getResourceAsStream(element);
-                MapValue mv =
-                    FieldValue.createFromJson(is, new JsonOptions()).asMap();
-                expstr = readexpfile("fr",1);
-                assertEquals(expstr, mv.getString("name"));
-                is.close();
+                try (InputStream is =
+                    getClass().getClassLoader().getResourceAsStream(element)) {
+                    MapValue mv =
+                        FieldValue.createFromJson(is, new JsonOptions())
+                            .asMap();
+                    expstr = readexpfile("fr", 1);
+                    assertEquals(expstr, mv.getString("name"));
+                }
             }
         } catch (Exception e) {
             fail("Exception: " + e);
@@ -271,39 +271,42 @@ public class I18NTest extends ProxyTestBase {
             //" r.restaurantJSON.name < \"" + idxname + "\"";
 
             //Create the Query Request
-            QueryRequest queryRequest = new QueryRequest().
-                setStatement(predQuery);
+            try (QueryRequest queryRequest = new QueryRequest().
+                setStatement(predQuery)) {
 
-            //Execute the query and get the response
-            QueryResult queryRes = handle.query(queryRequest);
-            if (queryRes.getResults().size() >0) {
-                String name;
-                String address;
-                String phonenumber;
-                String mobile_reserve_url;
+                //Execute the query and get the response
+                QueryResult queryRes = handle.query(queryRequest);
+                if (queryRes.getResults().size() > 0) {
+                    String name;
+                    String address;
+                    String phonenumber;
+                    String mobile_reserve_url;
 
-                for (MapValue record : queryRes.getResults()) {
-                    MapValue jsonValue = record.get("restaurantJSON").asMap();
+                    for (MapValue record : queryRes.getResults()) {
+                        MapValue jsonValue =
+                            record.get("restaurantJSON").asMap();
 
-                    name = jsonValue.getString("name");
-                    address = jsonValue.getString("address");
-                    phonenumber = jsonValue.getString("phone");
-                    mobile_reserve_url =
-                        jsonValue.getString("mobile_reserve_url");
+                        name = jsonValue.getString("name");
+                        address = jsonValue.getString("address");
+                        phonenumber = jsonValue.getString("phone");
+                        mobile_reserve_url =
+                            jsonValue.getString("mobile_reserve_url");
 
-                    // write the result data to an outputfile
-                    String oputrespath = basePath + outputres;
-                    OutputStreamWriter pw = null;
-                    FileOutputStream fs =
-                        new FileOutputStream(oputrespath,true);
-                    pw = new OutputStreamWriter(fs,"UTF8");
-                    pw.write(name + "\t");
-                    pw.write(address + "\t");
-                    pw.write(phonenumber + "\t");
-                    pw.write(mobile_reserve_url + "\n");
-                    pw.close();
-                    /* delete output file */
-                    new File(oputrespath).delete();
+                        // write the result data to an outputfile
+                        String oputrespath = basePath + outputres;
+
+                        FileOutputStream fs =
+                            new FileOutputStream(oputrespath, true);
+                        try (OutputStreamWriter pw =
+                                 new OutputStreamWriter(fs, "UTF8")) {
+                            pw.write(name + "\t");
+                            pw.write(address + "\t");
+                            pw.write(phonenumber + "\t");
+                            pw.write(mobile_reserve_url + "\n");
+                        }
+                        /* delete output file */
+                        new File(oputrespath).delete();
+                    }
                 }
             }
         } catch (FileNotFoundException fnfe) {

@@ -249,23 +249,25 @@ public class DocSnippets {
          * QUERY a table named "users", using the primary key field "name". The
          * table name is inferred from the query statement.
          */
-        QueryRequest queryRequest = new QueryRequest().
-            setStatement("SELECT * FROM users WHERE name = \"Taylor\"");
+        try (QueryRequest queryRequest = new QueryRequest().
+            setStatement("SELECT * FROM users WHERE name = \"Taylor\"")) {
 
-        /*
-         * Queries can return partial results. It is necessary to loop,
-         * reissuing the request until it is "done"
-         */
+            /*
+             * Queries can return partial results. It is necessary to loop,
+             * reissuing the request until it is "done"
+             */
 
-        do {
-            QueryResult queryResult = handle.query(queryRequest);
+            do {
+                QueryResult queryResult = handle.query(queryRequest);
 
-            /* process current set of results */
-            List<MapValue> results = queryResult.getResults();
-            for (MapValue qval : results) {
-                // handle result
+                /* process current set of results */
+                List<MapValue> results = queryResult.getResults();
+                for (MapValue qval : results) {
+                    // handle result
+                }
             }
-        } while (!queryRequest.isDone());
+            while (!queryRequest.isDone());
+        }
 
         /* ------ Snippet end -------*/
 
@@ -287,13 +289,16 @@ public class DocSnippets {
         /* set the bind variable and set the statement in the QueryRequest */
         prepRes.getPreparedStatement()
             .setVariable("$name", new StringValue("Taylor"));
-        queryRequest = new QueryRequest().setPreparedStatement(prepRes);
+        try (QueryRequest queryRequest = new QueryRequest()
+            .setPreparedStatement(prepRes)) {
 
-        /* perform the query in a loop until done */
-        do {
-            QueryResult queryResult = handle.query(queryRequest);
-            /* handle result */
-        } while (!queryRequest.isDone());
+            /* perform the query in a loop until done */
+            do {
+                QueryResult queryResult = handle.query(queryRequest);
+                /* handle result */
+            }
+            while (!queryRequest.isDone());
+        }
 
         /* ------ Snippet end -------*/
 
