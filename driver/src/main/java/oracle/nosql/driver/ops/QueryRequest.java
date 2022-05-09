@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 import oracle.nosql.driver.Consistency;
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -40,8 +41,10 @@ import oracle.nosql.driver.query.TopologyInfo;
  *
  *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
  *
- *    for (MapValue row : handle.queryIterable(qreq) ) {
- *        // do something with row
+ *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+ *        for( MapValue row : qir) {
+ *            // do something with row
+ *        }
  *    }
  * </pre>
  * <p>
@@ -67,7 +70,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * may be empty. This is because during each execution the query is allowed to
  * read or write a maximum number of bytes. If this maximum is reached, execution
  * stops. This can happen before any result was generated (for example, if none
- * of the rows read satified the query conditions).
+ * of the rows read satisfied the query conditions).
  * <p>
  * If an application wishes to terminate query execution before retrieving all
  * of the query results, it should call {@link #close} in order to release any
@@ -83,7 +86,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * @see NoSQLHandle#query(QueryRequest)
  * @see NoSQLHandle#prepare(PrepareRequest)
  */
-public class QueryRequest extends Request implements AutoCloseable {
+public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private int traceLevel;
 
@@ -634,6 +637,24 @@ public class QueryRequest extends Request implements AutoCloseable {
      */
     public QueryRequest setConsistency(Consistency consistency) {
         this.consistency = consistency;
+        return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * On-premise only. This setting only applies if the query modifies
+     * a row using an INSERT, UPSERT, or DELETE statement. If the query is
+     * read-only it is ignored.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the server.
+     *
+     * @return this
+     *
+     * @since 5.3.0
+     */
+    public QueryRequest setDurability(Durability durability) {
+        setDurabilityInternal(durability);
         return this;
     }
 

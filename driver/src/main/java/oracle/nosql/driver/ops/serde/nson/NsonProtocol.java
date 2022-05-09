@@ -18,6 +18,7 @@ public class NsonProtocol {
     /*
      * request fields
      */
+<<<<<<< HEAD
     public static String HEADER = "h";
     public static String PAYLOAD = "p";
     public static String VERSION = "v";
@@ -62,6 +63,7 @@ public class NsonProtocol {
     public static String NAMESPACE = "ns";
     public static String OPERATION_ID = "od";
     public static String OPERATIONS = "os";
+    public static String MAX_SHARD_USAGE_PERCENT = "ms";
     public static String NUM_OPERATIONS = "no";
     public static String IDENTITY_CACHE_SIZE = "ic";
     public static String TOPO_SEQ_NUM = "ts";

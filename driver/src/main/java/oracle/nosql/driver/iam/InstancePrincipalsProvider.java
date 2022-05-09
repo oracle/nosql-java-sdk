@@ -68,6 +68,7 @@ public class InstancePrincipalsProvider
 
     /**
      * @hidden
+     * @param config the config
      */
     public void prepare(NoSQLHandleConfig config) {
         tokenSupplier.prepare(config);

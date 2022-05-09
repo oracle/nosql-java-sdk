@@ -581,13 +581,18 @@ public class ProxyTestBase {
     }
 
     protected static List<MapValue> doQuery(NoSQLHandle qHandle, String query) {
-        List<MapValue> results = new ArrayList<MapValue>();
-        QueryRequest queryRequest = new QueryRequest().setStatement(query);
-        do {
-            QueryResult qres = qHandle.query(queryRequest);
-            results.addAll(qres.getResults());
-        } while (!queryRequest.isDone());
-        return results;
+        try( QueryRequest queryRequest =
+                 new QueryRequest().setStatement(query)) {
+            List<MapValue> results = new ArrayList<MapValue>();
+
+            do {
+                QueryResult qres = qHandle.query(queryRequest);
+                results.addAll(qres.getResults());
+            }
+            while (!queryRequest.isDone());
+
+            return results;
+        }
     }
 
     protected static List<MapValue> doPreparedQuery(
@@ -599,13 +604,15 @@ public class ProxyTestBase {
         PrepareResult prepRet = qHandle.prepare(prepReq);
         assertNotNull(prepRet.getPreparedStatement());
 
-        QueryRequest queryRequest =
-            new QueryRequest().setPreparedStatement(prepRet);
-        do {
-            QueryResult qres = qHandle.query(queryRequest);
-            results.addAll(qres.getResults());
-        } while (!queryRequest.isDone());
-        return results;
+        try( QueryRequest queryRequest =
+            new QueryRequest().setPreparedStatement(prepRet)) {
+            do {
+                QueryResult qres = qHandle.query(queryRequest);
+                results.addAll(qres.getResults());
+            }
+            while (!queryRequest.isDone());
+            return results;
+        }
     }
 
     protected static TableResult getTable(String tableName,

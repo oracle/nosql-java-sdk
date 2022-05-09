@@ -306,10 +306,10 @@ class Common {
          */
         PrepareRequest pReq = new PrepareRequest().setStatement(query);
         PrepareResult pRes = handle.prepare(pReq);
-        QueryRequest qr = new QueryRequest()
-            .setPreparedStatement(pRes.getPreparedStatement());
 
-        try {
+        try (QueryRequest qr = new QueryRequest()
+            .setPreparedStatement(pRes.getPreparedStatement())) {
+
             do {
                 QueryResult res = handle.query(qr);
                 int num = res.getResults().size();

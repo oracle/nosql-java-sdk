@@ -197,7 +197,7 @@ public class MultiDeleteRequest extends DurableRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * on-prem only.
+     * On-premise only.
      *
      * @param durability the durability value. Set to null for
      * the default durability setting on the kvstore server.
