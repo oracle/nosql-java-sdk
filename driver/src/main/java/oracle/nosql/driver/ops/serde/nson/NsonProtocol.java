@@ -18,7 +18,6 @@ public class NsonProtocol {
     /*
      * request fields
      */
-<<<<<<< HEAD
     public static String HEADER = "h";
     public static String PAYLOAD = "p";
     public static String VERSION = "v";
