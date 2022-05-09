@@ -1052,8 +1052,12 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             startArray(ns, BIND_VARIABLES);
             for (Map.Entry<String, FieldValue> entry : vars.entrySet()) {
-                Nson.writeString(bos, entry.getKey());
+                ns.startMap(0);
+                writeMapField(ns, NAME, entry.getKey());
+                ns.startMapField(VALUE);
                 Nson.writeFieldValue(bos, entry.getValue());
+                ns.endMapField(VALUE);
+                ns.endMap(0);
                 ns.incrSize(1);
             }
             endArray(ns, BIND_VARIABLES);
@@ -1181,14 +1185,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                  */
                 if (wr instanceof PutRequest) {
                     PutRequest prq = (PutRequest) wr;
-                    writeMapField(ns, OP, getOpCode(prq).ordinal());
+                    writeMapField(ns, OP_CODE, getOpCode(prq).ordinal());
                     ((PutRequestSerializer)putSerializer).
                         serializeInternal(prq, ns);
                 } else {
                     DeleteRequest drq = (DeleteRequest) wr;
                     OpCode opCode = drq.getMatchVersion() != null ?
                         OpCode.DELETE_IF_VERSION : OpCode.DELETE;
-                    writeMapField(ns, OP, opCode.ordinal());
+                    writeMapField(ns, OP_CODE, opCode.ordinal());
                     ((DeleteRequestSerializer)delSerializer).
                         serializeInternal(drq, ns);
                 }
@@ -1756,7 +1760,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getTableName() != null) {
                 writeMapField(ns, TABLE_NAME, rq.getTableName());
             }
-            writeMapField(ns, OP, op);
+            writeMapField(ns, OP_CODE, op);
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
         }
 
