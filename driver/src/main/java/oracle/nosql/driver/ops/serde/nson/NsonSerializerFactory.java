@@ -1680,8 +1680,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                     handleErrorCode(walker);
                 } else if (name.equals(TABLE_NAME)) {
                     result.setTableName(Nson.readNsonString(in));
-                } else if (name.equals(MAX_SHARD_USAGE_PERCENT)) {
-                    result.setMaxShardUsagePercentage(Nson.readNsonInt(in));
                 } else if (name.equals(TABLE_USAGE)) {
                     /* array usage records */
                     int t = in.readByte();
@@ -1735,6 +1733,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     usage.writeThrottleCount = Nson.readNsonInt(in);
                 } else if (name.equals(STORAGE_THROTTLE_COUNT)) {
                     usage.storageThrottleCount = Nson.readNsonInt(in);
+                } else if (name.equals(MAX_SHARD_USAGE_PERCENT)) {
+                    usage.maxShardUsagePercent = Nson.readNsonInt(in);
                 } else {
                     skipUnknownField(walker, name);
                 }
