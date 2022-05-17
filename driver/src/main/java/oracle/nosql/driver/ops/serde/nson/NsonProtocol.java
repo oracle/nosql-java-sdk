@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops.serde.nson;
 
+import java.util.HashMap;
+
 /**
  * NSON-based binary protocol
  */
@@ -151,4 +153,140 @@ public class NsonProtocol {
     public static String SORT_PHASE1_RESULTS = "p1";
     public static String TABLE_ACCESS_INFO = "ai";
     public static String TOPOLOGY_INFO = "tp";
+
+    private static String[][] mapVals = new String[][] {
+        {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
+        {BIND_VARIABLES,"BIND_VARIABLES"},
+        {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
+        {CONSISTENCY,"CONSISTENCY"},
+        {CONTINUATION_KEY,"CONTINUATION_KEY"},
+        {DATA,"DATA"},
+        {DEFINED_TAGS,"DEFINED_TAGS"},
+        {DURABILITY,"DURABILITY"},
+        {END,"END"},
+        {ETAG,"ETAG"},
+        {EXACT_MATCH,"EXACT_MATCH"},
+        {FIELDS,"FIELDS"},
+        {FREE_FORM_TAGS,"FREE_FORM_TAGS"},
+        {GET_QUERY_PLAN,"GET_QUERY_PLAN"},
+        {GET_QUERY_SCHEMA,"GET_QUERY_SCHEMA"},
+        {HEADER,"HEADER"},
+        {IDEMPOTENT,"IDEMPOTENT"},
+        {IDENTITY_CACHE_SIZE,"IDENTITY_CACHE_SIZE"},
+        {INCLUSIVE,"INCLUSIVE"},
+        {INDEX,"INDEX"},
+        {INDEXES,"INDEXES"},
+        {IS_JSON,"IS_JSON"},
+        {IS_PREPARED,"IS_PREPARED"},
+        {IS_SIMPLE_QUERY,"IS_SIMPLE_QUERY"},
+        {KEY,"KEY"},
+        {KV_VERSION,"KV_VERSION"},
+        {LAST_INDEX,"LAST_INDEX"},
+        {LIST_MAX_TO_READ,"LIST_MAX_TO_READ"},
+        {LIST_START_INDEX,"LIST_START_INDEX"},
+        {MATCH_VERSION,"MATCH_VERSION"},
+        {MAX_READ_KB,"MAX_READ_KB"},
+        {MAX_SHARD_USAGE_PERCENT,"MAX_SHARD_USAGE_PERCENT"},
+        {MAX_WRITE_KB,"MAX_WRITE_KB"},
+        {NAME,"NAME"},
+        {NAMESPACE,"NAMESPACE"},
+        {NUMBER_LIMIT,"NUMBER_LIMIT"},
+        {NUM_OPERATIONS,"NUM_OPERATIONS"},
+        {OPERATIONS,"OPERATIONS"},
+        {OPERATION_ID,"OPERATION_ID"},
+        {OP_CODE,"OP_CODE"},
+        {PATH,"PATH"},
+        {PAYLOAD,"PAYLOAD"},
+        {PREPARE,"PREPARE"},
+        {PREPARED_QUERY,"PREPARED_QUERY"},
+        {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
+        {QUERY,"QUERY"},
+        {QUERY_VERSION,"QUERY_VERSION"},
+        {RANGE,"RANGE"},
+        {RANGE_PATH,"RANGE_PATH"},
+        {READ_THROTTLE_COUNT,"READ_THROTTLE_COUNT"},
+        {RETURN_ROW,"RETURN_ROW"},
+        {SHARD_ID,"SHARD_ID"},
+        {START,"START"},
+        {STATEMENT,"STATEMENT"},
+        {STORAGE_THROTTLE_COUNT,"STORAGE_THROTTLE_COUNT"},
+        {TABLES,"TABLES"},
+        {TABLE_DDL,"TABLE_DDL"},
+        {TABLE_NAME,"TABLE_NAME"},
+        {TABLE_OCID,"TABLE_OCID"},
+        {TABLE_USAGE,"TABLE_USAGE"},
+        {TABLE_USAGE_PERIOD,"TABLE_USAGE_PERIOD"},
+        {TIMEOUT,"TIMEOUT"},
+        {TOPO_SEQ_NUM,"TOPO_SEQ_NUM"},
+        {TRACE_LEVEL,"TRACE_LEVEL"},
+        {TTL,"TTL"},
+        {TYPE,"TYPE"},
+        {UPDATE_TTL,"UPDATE_TTL"},
+        {VALUE,"VALUE"},
+        {VERSION,"VERSION"},
+        {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
+        {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
+        {ERROR_CODE,"ERROR_CODE"},
+        {EXCEPTION,"EXCEPTION"},
+        {NUM_DELETIONS,"NUM_DELETIONS"},
+        {RETRY_HINT,"RETRY_HINT"},
+        {SUCCESS,"SUCCESS"},
+        {WM_FAILURE,"WM_FAILURE"},
+        {WM_FAIL_INDEX,"WM_FAIL_INDEX"},
+        {WM_FAIL_RESULT,"WM_FAIL_RESULT"},
+        {WM_SUCCESS,"WM_SUCCESS"},
+        {TABLE_SCHEMA,"TABLE_SCHEMA"},
+        {TABLE_STATE,"TABLE_STATE"},
+        {SYSOP_RESULT,"SYSOP_RESULT"},
+        {SYSOP_STATE,"SYSOP_STATE"},
+        {CONSUMED,"CONSUMED"},
+        {LIMITS,"LIMITS"},
+        {LIMITS_MODE,"LIMITS_MODE"},
+        {READ_KB,"READ_KB"},
+        {READ_UNITS,"READ_UNITS"},
+        {STORAGE_GB,"STORAGE_GB"},
+        {WRITE_KB,"WRITE_KB"},
+        {WRITE_UNITS,"WRITE_UNITS"},
+        {EXPIRATION,"EXPIRATION"},
+        {MODIFIED,"MODIFIED"},
+        {ROW,"ROW"},
+        {ROW_VERSION,"ROW_VERSION"},
+        {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
+        {EXISTING_VALUE,"EXISTING_VALUE"},
+        {EXISTING_VERSION,"EXISTING_VERSION"},
+        {GENERATED,"GENERATED"},
+        {RETURN_INFO,"RETURN_INFO"},
+        {DRIVER_QUERY_PLAN,"DRIVER_QUERY_PLAN"},
+        {MATH_CONTEXT_CODE,"MATH_CONTEXT_CODE"},
+        {MATH_CONTEXT_ROUNDING_MODE,"MATH_CONTEXT_ROUNDING_MODE"},
+        {MATH_CONTEXT_PRECISION,"MATH_CONTEXT_PRECISION"},
+        {NOT_TARGET_TABLES,"NOT_TARGET_TABLES"},
+        {NUM_RESULTS,"NUM_RESULTS"},
+        {PROXY_TOPO_SEQNUM,"PROXY_TOPO_SEQNUM"},
+        {QUERY_OPERATION,"QUERY_OPERATION"},
+        {QUERY_PLAN_STRING,"QUERY_PLAN_STRING"},
+        {QUERY_RESULTS,"QUERY_RESULTS"},
+        {QUERY_RESULT_SCHEMA,"QUERY_RESULT_SCHEMA"},
+        {REACHED_LIMIT,"REACHED_LIMIT"},
+        {SHARD_IDS,"SHARD_IDS"},
+        {SORT_PHASE1_RESULTS,"SORT_PHASE1_RESULTS"},
+        {TABLE_ACCESS_INFO,"TABLE_ACCESS_INFO"},
+        {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
+    };
+
+    private static HashMap<String, String> fieldMap = null;
+
+    public static String readable(String field) {
+        if (fieldMap == null) {
+            fieldMap = new HashMap<String, String>();
+            for (int x=0; x<mapVals.length; x++) {
+                fieldMap.put(mapVals[x][0], mapVals[x][1]);
+            }
+        }
+        String val = fieldMap.get(field);
+        if (val == null) {
+            return field;
+        }
+        return val;
+    }
 }

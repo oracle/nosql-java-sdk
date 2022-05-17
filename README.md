@@ -140,6 +140,10 @@ You may run the Cloud Simulator on localhost.
 Authorization for the Cloud Simulator is a simple no-op class implemented directly
 in the Quickstart example.
 
+## Logging
+
+something about logging at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
+
 ## Quickstart
 
 The following is a quick start tutorial to run a simple program in all supported
