@@ -123,14 +123,18 @@ class Utils {
 
         IAM_URI.put("ams", OC1_EP_BASE.format(new Object[] {"eu-amsterdam-1"}));
         IAM_URI.put("fra", OC1_EP_BASE.format(new Object[] {"eu-frankfurt-1"}));
+        IAM_URI.put("mad", OC1_EP_BASE.format(new Object[] {"eu-madrid-1"}));
         IAM_URI.put("mrs", OC1_EP_BASE.format(new Object[] {"eu-marseille-1"}));
         IAM_URI.put("lin", OC1_EP_BASE.format(new Object[] {"eu-milan-1"}));
+        IAM_URI.put("cdg", OC1_EP_BASE.format(new Object[] {"eu-paris-1"}));
         IAM_URI.put("arn", OC1_EP_BASE.format(new Object[] {"eu-stockholm-1"}));
         IAM_URI.put("zrh", OC1_EP_BASE.format(new Object[] {"eu-zurich-1"}));
 
         IAM_URI.put("auh", OC1_EP_BASE.format(new Object[] {"me-abudhabi-1"}));
         IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
         IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
+
+        IAM_URI.put("qro", OC1_EP_BASE.format(new Object[] {"mx-queretaro-1"}));
 
         IAM_URI.put("mtz", OC1_EP_BASE.format(new Object[] {"il-jerusalem-1"}));
 

@@ -17,6 +17,9 @@ resources.
 - added pagination information to TableUsageResult and TableUsageRequest
 - added shard percent usage information to TableUsageResult
 
+### Changed
+- Cloud only: Updated OCI regions: CDG, MAD, QRO
+
 ## [5.3.2] 2022-03-21
 
 ### Added
