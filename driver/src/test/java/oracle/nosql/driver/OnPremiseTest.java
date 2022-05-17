@@ -323,9 +323,9 @@ public class OnPremiseTest extends ProxyTestBase {
          * query statement.
          */
         try (
-            QueryRequest queryRequest = new QueryRequest().
-                setStatement("SELECT * from " + tableName +
-                             " WHERE childName= \"cName2\"")) {
+            QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setStatement("SELECT * from " + tableName +
+                                      " WHERE childName= \"cName2\"");
             QueryResult qres = handle.query(queryRequest);
             List<MapValue> results = qres.getResults();
             assertEquals(results.size(), 1);
@@ -365,9 +365,9 @@ public class OnPremiseTest extends ProxyTestBase {
         tres.waitForCompletion(handle, 60000, 1000);
         assertEquals(tres.getTableState(), TableResult.State.ACTIVE);
 
-        try (QueryRequest queryRequest = new QueryRequest().
-            setStatement("SELECT * from " + tableName +
-                         " WHERE childName= \"cName2\"")) {
+        try (QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setStatement("SELECT * from " + tableName +
+                                      " WHERE childName= \"cName2\"");
             QueryResult qres = handle.query(queryRequest);
             List<MapValue> results = qres.getResults();
             assertEquals(results.size(), 2);
@@ -400,8 +400,8 @@ public class OnPremiseTest extends ProxyTestBase {
         /*
          * There should be no record in the table now
          */
-        try (QueryRequest queryRequest = new QueryRequest().
-            setStatement("SELECT * from " + tableName)) {
+        try (QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setStatement("SELECT * from " + tableName);
             QueryResult qres = handle.query(queryRequest);
             List<MapValue> results = qres.getResults();
             assertEquals(results.size(), 0);

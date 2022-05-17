@@ -1218,8 +1218,8 @@ public class BasicTest extends ProxyTestBase {
         PreparedStatement prepStmt = prepRet.getPreparedStatement();
 
         prepStmt.setVariable("$name", JsonNullValue.getInstance());
-        try (QueryRequest queryReq = new QueryRequest()
-            .setPreparedStatement(prepStmt)) {
+        try (QueryRequest queryReq = new QueryRequest()) {
+            queryReq.setPreparedStatement(prepStmt);
             QueryResult queryRet = handle.query(queryReq);
             assertEquals(1, queryRet.getResults().size());
             assertEquals(rowJsonNull, queryRet.getResults().get(0));
@@ -1264,7 +1264,8 @@ public class BasicTest extends ProxyTestBase {
         /* test via query insert */
         String insertQ =
             "insert into tMatch(id, name, age) values(5, 'fred', 6)";
-        try (QueryRequest qReq = new QueryRequest().setStatement(insertQ)) {
+        try (QueryRequest qReq = new QueryRequest()) {
+            qReq.setStatement(insertQ);
             QueryResult qRes = handle.query(qReq);
             for (MapValue res : qRes.getResults()) {
                 assertEquals(1, res.get("NumRowsInserted").getInt());
@@ -1277,8 +1278,8 @@ public class BasicTest extends ProxyTestBase {
         PrepareRequest prepReq = new PrepareRequest().setStatement(insertQ);
         PrepareResult prepRet = handle.prepare(prepReq);
         PreparedStatement prepStmt = prepRet.getPreparedStatement();
-        try (QueryRequest qReq = new QueryRequest()
-            .setPreparedStatement(prepStmt)) {
+        try (QueryRequest qReq = new QueryRequest()) {
+            qReq.setPreparedStatement(prepStmt);
             QueryResult qRes = handle.query(qReq);
             for (MapValue res : qRes.getResults()) {
                 assertEquals(1, res.get("NumRowsInserted").getInt());
@@ -1354,7 +1355,8 @@ public class BasicTest extends ProxyTestBase {
 
         /* try an insert query */
         String insertQ = "insert into tIdentity(id, name) values(5, 'fred')";
-        try (QueryRequest qReq = new QueryRequest().setStatement(insertQ)) {
+        try (QueryRequest qReq = new QueryRequest()) {
+            qReq.setStatement(insertQ);
             QueryResult qRes = handle.query(qReq);
             for (MapValue res : qRes.getResults()) {
                 assertEquals(1, res.get("NumRowsInserted").getInt());
@@ -1366,8 +1368,8 @@ public class BasicTest extends ProxyTestBase {
         PrepareRequest prepReq = new PrepareRequest().setStatement(insertQ);
         PrepareResult prepRet = handle.prepare(prepReq);
         PreparedStatement prepStmt = prepRet.getPreparedStatement();
-        try (QueryRequest qReq = new QueryRequest()
-            .setPreparedStatement(prepStmt)) {
+        try (QueryRequest qReq = new QueryRequest()) {
+            qReq.setPreparedStatement(prepStmt);
             QueryResult qRes = handle.query(qReq);
             for (MapValue res : qRes.getResults()) {
                 assertEquals(1, res.get("NumRowsInserted").getInt());
