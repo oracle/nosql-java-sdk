@@ -249,8 +249,9 @@ public class DocSnippets {
          * QUERY a table named "users", using the primary key field "name". The
          * table name is inferred from the query statement.
          */
-        try (QueryRequest queryRequest = new QueryRequest().
-            setStatement("SELECT * FROM users WHERE name = \"Taylor\"")) {
+        try (QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest
+                .setStatement("SELECT * FROM users WHERE name = \"Taylor\"");
 
             /*
              * Queries can return partial results. It is necessary to loop,
@@ -289,8 +290,8 @@ public class DocSnippets {
         /* set the bind variable and set the statement in the QueryRequest */
         prepRes.getPreparedStatement()
             .setVariable("$name", new StringValue("Taylor"));
-        try (QueryRequest queryRequest = new QueryRequest()
-            .setPreparedStatement(prepRes)) {
+        try (QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setPreparedStatement(prepRes);
 
             /* perform the query in a loop until done */
             do {
@@ -357,8 +358,8 @@ public class DocSnippets {
 
         /* Snippet start "Query iterable/iterator" */
 
-        QueryRequest qreq = new QueryRequest()
-            .setStatement("select * from MyTable");
+        QueryRequest qreq = new QueryRequest();
+        qreq.setStatement("select * from MyTable");
 
         try (QueryIterableResult qir = handle.queryIterable(qreq)) {
              for( MapValue row : qir) {

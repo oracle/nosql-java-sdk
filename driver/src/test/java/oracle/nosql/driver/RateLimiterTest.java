@@ -370,10 +370,10 @@ public class RateLimiterTest extends ProxyTestBase {
              * is called on a table with 500 rows and 50RUs
              * (uses 1000RUs = 20 seconds)
              */
-            try (QueryRequest queryReq = new QueryRequest()
-                .setPreparedStatement(prepRes)
-                .setTimeout(20000)
-                .setMaxReadKB(maxKB)) {
+            try (QueryRequest queryReq = new QueryRequest()) {
+                queryReq.setPreparedStatement(prepRes)
+                    .setTimeout(20000)
+                    .setMaxReadKB(maxKB);
                 queryReq.setReadRateLimiter(rlim);
                 queryReq.setWriteRateLimiter(wlim);
                 try {

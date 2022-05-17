@@ -271,8 +271,8 @@ public class I18NTest extends ProxyTestBase {
             //" r.restaurantJSON.name < \"" + idxname + "\"";
 
             //Create the Query Request
-            try (QueryRequest queryRequest = new QueryRequest().
-                setStatement(predQuery)) {
+            try (QueryRequest queryRequest = new QueryRequest()) {
+                queryRequest.setStatement(predQuery);
 
                 //Execute the query and get the response
                 QueryResult queryRes = handle.query(queryRequest);
