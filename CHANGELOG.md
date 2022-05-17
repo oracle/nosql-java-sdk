@@ -11,6 +11,9 @@ be used in a try-with-resources statement to ensure proper closing of
 resources.
 - updated NoSQLHandle and QueryRequest interfaces to extend AutoClosable
 
+### Changed
+- Cloud only: Updated OCI regions: CDG, MAD, QRO
+
 ## [5.3.2] 2022-03-21
 
 ### Added
