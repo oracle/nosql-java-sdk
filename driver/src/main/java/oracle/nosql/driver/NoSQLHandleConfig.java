@@ -237,6 +237,10 @@ public class NoSQLHandleConfig implements Cloneable {
      * Hidden flag to control automatic auth refresh in cloud service
      */
     private boolean authRefresh;
+    /**
+     * Additional extension to user agent http header.
+     */
+    private String extensionUserAgent;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -1578,5 +1582,26 @@ public class NoSQLHandleConfig implements Cloneable {
                 "off".equals(elProp.toLowerCase()))) {
             statsEnableLog = Boolean.FALSE;
         }
+    }
+
+    /**
+     * Returns the set extension to the user agent http header or null if
+     * unset.
+     */
+    public String getExtensionUserAgent() {
+        return extensionUserAgent;
+    }
+
+    /**
+     * Sets an extension to the user agent http header. Extension must be
+     * up to 64 chars long.
+     */
+    public void setExtensionUserAgent(String extensionUserAgent) {
+        if (extensionUserAgent != null && extensionUserAgent.length() > 64) {
+            throw new IllegalArgumentException("User agent extension too " +
+                "long, must be up to 64 chars long: " +
+                extensionUserAgent.length());
+        }
+        this.extensionUserAgent = extensionUserAgent;
     }
 }
