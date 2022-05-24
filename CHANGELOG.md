@@ -10,6 +10,8 @@ query in an iterable/iterator format. The returned QueryIterableResult should
 be used in a try-with-resources statement to ensure proper closing of
 resources.
 - updated NoSQLHandle and QueryRequest interfaces to extend AutoClosable
+- added support for setting an extension to the User Agent http header by 
+setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
 ## [5.3.2] 2022-03-21
 
