@@ -288,6 +288,12 @@ public class ConfigFileTest extends DriverTestBase {
     }
 
 
+    /*
+     * To execute this specific test, given a regions.json file:
+     *
+     * mvn -Ptest-local -DargLine="-Dtest.regionsfile=<path>/regions.json" \
+     *     -Dtest=oracle.nosql.driver.iam.ConfigFileTest test
+     */
     @Test
     public void testAllRegionCodes() {
         /* only execute if we're supplied a path to regions.json file */

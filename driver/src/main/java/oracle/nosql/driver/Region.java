@@ -72,14 +72,18 @@ public class Region {
 
     public static final Region EU_AMSTERDAM_1 = new Region("eu-amsterdam-1");
     public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
+    public static final Region EU_MADRID_1 = new Region("eu-madrid-1");
     public static final Region EU_MARSEILLE_1 = new Region("eu-marseille-1");
     public static final Region EU_MILAN_1 = new Region("eu-milan-1");
+    public static final Region EU_PARIS_1 = new Region("eu-paris-1");
     public static final Region EU_STOCKHOLM_1 = new Region("eu-stockholm-1");
     public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
 
     public static final Region ME_ABUDHABI_1 = new Region("me-abudhabi-1");
     public static final Region ME_DUBAI_1 = new Region("me-dubai-1");
     public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
+
+    public static final Region MX_QUERETARO_1 = new Region("mx-queretaro-1");
 
     public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
 
@@ -139,14 +143,18 @@ public class Region {
 
         OC1_REGIONS.put(EU_AMSTERDAM_1.getRegionId(), EU_AMSTERDAM_1);
         OC1_REGIONS.put(EU_FRANKFURT_1.getRegionId(), EU_FRANKFURT_1);
+        OC1_REGIONS.put(EU_MADRID_1.getRegionId(), EU_MADRID_1);
         OC1_REGIONS.put(EU_MARSEILLE_1.getRegionId(), EU_MARSEILLE_1);
         OC1_REGIONS.put(EU_MILAN_1.getRegionId(), EU_MILAN_1);
+        OC1_REGIONS.put(EU_PARIS_1.getRegionId(), EU_PARIS_1);
         OC1_REGIONS.put(EU_STOCKHOLM_1.getRegionId(), EU_STOCKHOLM_1);
         OC1_REGIONS.put(EU_ZURICH_1.getRegionId(), EU_ZURICH_1);
 
         OC1_REGIONS.put(ME_ABUDHABI_1.getRegionId(), ME_ABUDHABI_1);
         OC1_REGIONS.put(ME_DUBAI_1.getRegionId(), ME_DUBAI_1);
         OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
+
+        OC1_REGIONS.put(MX_QUERETARO_1.getRegionId(), MX_QUERETARO_1);
 
         OC1_REGIONS.put(IL_JERUSALEM_1.getRegionId(), IL_JERUSALEM_1);
 

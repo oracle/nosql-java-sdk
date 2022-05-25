@@ -13,6 +13,9 @@ resources.
 - added support for setting an extension to the User Agent http header by 
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
+### Changed
+- Cloud only: Updated OCI regions: CDG, MAD, QRO
+
 ## [5.3.2] 2022-03-21
 
 ### Added

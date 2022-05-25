@@ -581,8 +581,8 @@ public class ProxyTestBase {
     }
 
     protected static List<MapValue> doQuery(NoSQLHandle qHandle, String query) {
-        try( QueryRequest queryRequest =
-                 new QueryRequest().setStatement(query)) {
+        try( QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setStatement(query);
             List<MapValue> results = new ArrayList<MapValue>();
 
             do {
@@ -604,8 +604,8 @@ public class ProxyTestBase {
         PrepareResult prepRet = qHandle.prepare(prepReq);
         assertNotNull(prepRet.getPreparedStatement());
 
-        try( QueryRequest queryRequest =
-            new QueryRequest().setPreparedStatement(prepRet)) {
+        try( QueryRequest queryRequest = new QueryRequest()) {
+            queryRequest.setPreparedStatement(prepRet);
             do {
                 QueryResult qres = qHandle.query(queryRequest);
                 results.addAll(qres.getResults());
