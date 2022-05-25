@@ -1587,6 +1587,10 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Returns the set extension to the user agent http header or null if
      * unset.
+     *
+     * @return the extension to the user agent http header
+     *
+     * @since 5.3.3
      */
     public String getExtensionUserAgent() {
         return extensionUserAgent;
@@ -1595,6 +1599,8 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Sets an extension to the user agent http header. Extension must be
      * up to 64 chars long.
+     *
+     * @param extensionUserAgent the new extension
      */
     public void setExtensionUserAgent(String extensionUserAgent) {
         if (extensionUserAgent != null && extensionUserAgent.length() > 64) {
