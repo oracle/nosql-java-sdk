@@ -23,6 +23,7 @@ public abstract class ReadRequest extends Request {
 
     /**
      * @hidden
+     * @return the Consistency
      */
     public Consistency getConsistencyInternal() {
         return consistency;
