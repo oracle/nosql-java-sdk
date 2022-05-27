@@ -1597,15 +1597,17 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * Sets an extension to the user agent http header. Extension must be
-     * up to 64 chars long.
+     * Sets an extension to the user agent http header. Extension can be
+     * up to 64 bytes in length.
      *
      * @param extensionUserAgent the new extension
+     *
+     * @since 5.3.3
      */
     public void setExtensionUserAgent(String extensionUserAgent) {
         if (extensionUserAgent != null && extensionUserAgent.length() > 64) {
-            throw new IllegalArgumentException("User agent extension too " +
-                "long, must be up to 64 chars long: " +
+            throw new IllegalArgumentException("Extension to the user agent " +
+                "http header too long, it can be up to 64 bytes. Length: " +
                 extensionUserAgent.length());
         }
         this.extensionUserAgent = extensionUserAgent;
