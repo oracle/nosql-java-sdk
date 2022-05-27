@@ -37,7 +37,10 @@ public class Version {
     }
 
     /**
-     * @hidden
+     * Creates a Version instance from a byte[] which may have been acquired
+     * from a query using the row_version() function which returns a FieldValue
+     * of type BINARY.
+     *
      * @param version the version to use
      * @return a new Version intance
      */
