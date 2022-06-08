@@ -16,11 +16,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
-import static oracle.nosql.driver.util.LogUtil.isLoggable;
-import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
-import static oracle.nosql.driver.util.LogUtil.logTrace;
-import static oracle.nosql.driver.util.LogUtil.logWarning;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -29,11 +24,16 @@ import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
+import static oracle.nosql.driver.util.LogUtil.isLoggable;
+import static oracle.nosql.driver.util.LogUtil.logFine;
+import static oracle.nosql.driver.util.LogUtil.logInfo;
+import static oracle.nosql.driver.util.LogUtil.logTrace;
+import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Iterator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -62,8 +62,8 @@ import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.TableNotFoundException;
-import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -87,13 +87,13 @@ import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
-import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
+import oracle.nosql.driver.values.MapValue;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -197,6 +197,9 @@ public class Client {
     /* note this must end with '=' */
     private final String SESSION_COOKIE_FIELD = "session=";
 
+    /* for keeping track of SDKs usage */
+    private String userAgent;
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -271,6 +274,16 @@ public class Client {
         oneTimeMessages = new HashSet<String>();
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
+
+        String extensionUserAgent = httpConfig.getExtensionUserAgent();
+        if (extensionUserAgent != null) {
+            userAgent = new StringBuilder(HttpConstants.userAgent)
+                .append(" ")
+                .append(extensionUserAgent)
+                .toString();
+        } else {
+            this.userAgent = HttpConstants.userAgent;
+        }
     }
 
     /**
@@ -1316,8 +1329,8 @@ public class Client {
             .set(USER_AGENT, getUserAgent());
     }
 
-    private static String getUserAgent() {
-        return HttpConstants.userAgent;
+    private String getUserAgent() {
+        return userAgent;
     }
 
     public static void trace(String msg, int level) {

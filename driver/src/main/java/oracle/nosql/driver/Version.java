@@ -40,7 +40,7 @@ public class Version {
     /**
      * @hidden
      * @param version the version to use
-     * @return a new Version intance
+     * @return a new Version instance
      */
     public static Version createVersion(byte[] version) {
         if (version == null) {
