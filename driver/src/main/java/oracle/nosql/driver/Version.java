@@ -42,7 +42,7 @@ public class Version {
      * of type BINARY.
      *
      * @param version the version to use
-     * @return a new Version intance
+     * @return a new Version instance
      */
     public static Version createVersion(byte[] version) {
         if (version == null) {

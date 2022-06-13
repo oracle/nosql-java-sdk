@@ -13,6 +13,8 @@ resources.
 - added Version.createVersion(byte[]) to allow creation of a Version object from a
 query that returns row_version() as a BinaryValue. The Version can be used for
 conditional put and delete operations
+- added support for setting an extension to the User Agent http header by 
+setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
 ### Changed
 - Cloud only: Updated OCI regions: CDG, MAD, QRO
