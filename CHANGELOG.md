@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [5.3.3] 2022-06-22
 
 ### Added
 - added new method in NoSQLHandle queryIterable to return the results of a
@@ -17,7 +17,7 @@ conditional put and delete operations
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
 ### Changed
-- Cloud only: Updated OCI regions: CDG, MAD, QRO
+- Cloud only: Added OCI regions: CDG (Paris), MAD (Madrid), QRO (Queretaro)
 
 ## [5.3.2] 2022-03-21
 
