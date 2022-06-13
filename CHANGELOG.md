@@ -10,6 +10,9 @@ query in an iterable/iterator format. The returned QueryIterableResult should
 be used in a try-with-resources statement to ensure proper closing of
 resources.
 - updated NoSQLHandle and QueryRequest interfaces to extend AutoClosable
+- added Version.createVersion(byte[]) to allow creation of a Version object from a
+query that returns row_version() as a BinaryValue. The Version can be used for
+conditional put and delete operations
 - added support for setting an extension to the User Agent http header by 
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 

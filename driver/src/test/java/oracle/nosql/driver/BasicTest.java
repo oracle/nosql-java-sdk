@@ -797,6 +797,27 @@ public class BasicTest extends ProxyTestBase {
                        (serialVersion > 2), /* modtime should be recent */
                        recordKB);
 
+        /* save this for comparison below */
+        Version version = getRes.getVersion();
+
+        /*
+         * get the row version of the same row using a query and assert
+         * that the versions are the same. A test could be created to use this
+         * in a condition put/delete operation but that functionality is already
+         * tested. This just ensures that the versions acquired from get()
+         * and from row_version are identical
+         */
+        try (QueryRequest queryReq = new QueryRequest()) {
+            final String versionQuery = "select row_version($t) as version " +
+                "from " + tableName + " $t where id = 10";
+            queryReq.setStatement(versionQuery);
+            QueryResult queryRet = handle.query(queryReq);
+            MapValue result = queryRet.getResults().get(0);
+            Version qVersion = Version.createVersion(
+                result.get("version").asBinary().getValue());
+            assertArrayEquals(version.getBytes(), qVersion.getBytes());
+        }
+
         /* Get a row with ABSOLUTE consistency */
         getReq.setConsistency(Consistency.ABSOLUTE);
         getRes = handle.get(getReq);
