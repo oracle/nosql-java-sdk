@@ -2,7 +2,10 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [5.3.3] 2022-06-22
+## [5.3.4] 2022-06-16
+
+NOTE: there was briefly a 5.3.3 release available on GitHub. This release is functionally
+identical. It just adds license files to the jar artifacts
 
 ### Added
 - added new method in NoSQLHandle queryIterable to return the results of a
@@ -13,7 +16,7 @@ resources.
 - added Version.createVersion(byte[]) to allow creation of a Version object from a
 query that returns row_version() as a BinaryValue. The Version can be used for
 conditional put and delete operations
-- added support for setting an extension to the User Agent http header by 
+- added support for setting an extension to the User Agent http header by
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
 ### Changed
