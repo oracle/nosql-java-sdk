@@ -46,9 +46,9 @@
     <copyright>Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.74.Final</netty.version>
-    <jackson.version>2.12.4</jackson.version>
-    <bouncy.version>1.68</bouncy.version>
+    <netty.version>4.1.77.Final</netty.version>
+    <jackson.version>2.12.5</jackson.version>
+    <bouncy.version>1.70</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -416,10 +416,68 @@
         <executions>
           <execution>
             <id>make-assembly</id>
-            <phase>package</phase>
+            <phase>install</phase>
             <goals>
               <goal>single</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- add license files to jar files -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>add license files to runtime jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>jar</executable>
+              <workingDirectory>${basedir}/target</workingDirectory>
+              <arguments>
+                <argument>uf</argument>
+                <argument>nosqldriver.jar</argument>
+                <argument>../../LICENSE.txt</argument>
+                <argument>../../THIRD_PARTY_LICENSES.txt</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add license file to javadoc jar</id>
+            <phase>install</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>jar</executable>
+              <workingDirectory>${basedir}/target</workingDirectory>
+              <arguments>
+                <argument>uf</argument>
+                <argument>nosqldriver-javadoc.jar</argument>
+                <argument>../../LICENSE.txt</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add license file to source jar</id>
+            <phase>install</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>jar</executable>
+              <workingDirectory>${basedir}/target</workingDirectory>
+              <arguments>
+                <argument>uf</argument>
+                <argument>nosqldriver-sources.jar</argument>
+                <argument>../../LICENSE.txt</argument>
+              </arguments>
+            </configuration>
           </execution>
         </executions>
       </plugin>

@@ -104,13 +104,13 @@ public class BasicTableExample {
              */
             MapValue value = new MapValue()
                 .put("cookie_id", 123) // fill in cookie_id field
-                .put("audience_data",  // fill in audience_data field
+                .putFromJson("audience_data",  // fill in audience_data field
                      "{\"ipaddr\" : \"10.0.00.xxx\"," +
                      " \"audience_segment\": { " +
                      "     \"sports_lover\" : \"2018-11-30\"," +
                      "     \"book_reader\" :  \"2018-12-01\"" +
                      "   }" +
-                     " }");
+                     " }", null);
 
             PutRequest putRequest = new PutRequest()
                 .setValue(value)
@@ -150,6 +150,18 @@ public class BasicTableExample {
             }
 
             /*
+             * GET the row put via query
+             */
+            key = new MapValue().put("cookie_id", 106);
+
+            getRequest = new GetRequest()
+                .setKey(key)
+                .setTableName(tableName);
+            getRes = handle.get(getRequest);
+            System.out.println("Got row inserted by query: " +
+                               getRes.getValue());
+
+            /*
              * PUT another row using JSON to enter the entire value
              */
 
@@ -173,7 +185,8 @@ public class BasicTableExample {
                 .setKey(key)
                 .setTableName(tableName);
             getRes = handle.get(getRequest);
-            System.out.println("Got second row: " + getRes.getValue());
+            System.out.println("Got row inserted as JSON: " +
+                               getRes.getValue());
 
             /*
              * QUERY the table. The table name is inferred from the
@@ -183,7 +196,7 @@ public class BasicTableExample {
                 " WHERE cookie_id = 456";
 
             queryRequest = new QueryRequest();
-            queryRequest.setStatement(insertQuery);
+            queryRequest.setStatement(query);
             try (QueryIterableResult results =
                      handle.queryIterable(queryRequest)) {
                 System.out.println("Query results for " + query + ": ");

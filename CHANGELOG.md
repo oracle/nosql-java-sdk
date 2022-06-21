@@ -2,7 +2,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [Unpublished]
+
+### Added
+- added set/getDurability to QueryRequest for queries that modify data
+- added pagination information to TableUsageResult and TableUsageRequest
+- added shard percent usage information to TableUsageResult
+
+## [5.3.4] 2022-06-16
+
+NOTE: there was briefly a 5.3.3 release available on GitHub. This release is functionally
+identical. It just adds license files to the jar artifacts
 
 ## Changed
 - Support for new, flexible wire protocol (V4).
@@ -13,12 +23,14 @@ query in an iterable/iterator format. The returned QueryIterableResult should
 be used in a try-with-resources statement to ensure proper closing of
 resources.
 - updated NoSQLHandle and QueryRequest interfaces to extend AutoClosable
-- added set/getDurability to QueryRequest for queries that modify data
-- added pagination information to TableUsageResult and TableUsageRequest
-- added shard percent usage information to TableUsageResult
+- added Version.createVersion(byte[]) to allow creation of a Version object from a
+query that returns row_version() as a BinaryValue. The Version can be used for
+conditional put and delete operations
+- added support for setting an extension to the User Agent http header by
+setting the ExtensionUserAgent property on NoSQLHandlerConfig.
 
 ### Changed
-- Cloud only: Updated OCI regions: CDG, MAD, QRO
+- Cloud only: Added OCI regions: CDG (Paris), MAD (Madrid), QRO (Queretaro)
 
 ## [5.3.2] 2022-03-21
 
