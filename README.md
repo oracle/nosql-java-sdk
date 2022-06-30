@@ -122,7 +122,7 @@ See the Quickstart example below for code details for using a Resource Principal
 The on-premise configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/20.3/admin/proxy-and-driver.html)
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.1/admin/proxy-and-driver.html)
 for proxy configuration information.
 
 On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
@@ -445,14 +445,14 @@ public class Quickstart {
              * To ensure the query resources are closed properly, use
              * try-with-resources statement.
              */
-            try (QueryIterableResult results = 
+            try (QueryIterableResult results =
                     handle.queryIterable(queryRequest)) {
                 System.out.println("Query results:");
                 for (MapValue res : results) {
                     System.out.println("\t" + res);
                 }
             }
-            
+
             /*
              * Perform a query using partial results
              */
@@ -492,7 +492,7 @@ public class Quickstart {
 
 Several example programs are provided in the examples directory to
 illustrate the API. They can be found in the release download from GitHub or
-directly in [GitHub NoSQL Examples](https://github.com/oracle/nosql-java-sdk/tree/main/examples). These examples can be run 
+directly in [GitHub NoSQL Examples](https://github.com/oracle/nosql-java-sdk/tree/main/examples). These examples can be run
 against the Oracle NoSQL
 Database, the NoSQL Database Cloud Service or an instance of the Oracle
 NoSQL Cloud Simulator. The code that differentiates among the configurations
