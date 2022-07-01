@@ -126,6 +126,12 @@ public class QueryRequest
      */
     private int shardId = -1;
 
+    /*
+     * This will be true if a query's prepared statement has already been
+     * re-prepared during this query request cycle.
+     */
+    private boolean rePrepared;
+
     public QueryRequest() {
     }
 
@@ -740,5 +746,19 @@ public class QueryRequest
     @Override
     public boolean shouldRetry() {
         return false;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean getRePrepared() {
+        return rePrepared;
+    }
+
+    /**
+     * @hidden
+     */
+    public void setRePrepared(boolean rePrepared) {
+        this.rePrepared = rePrepared;
     }
 }

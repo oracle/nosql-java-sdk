@@ -72,6 +72,10 @@ import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PreparedStatement;
+import oracle.nosql.driver.ops.PrepareRequest;
+import oracle.nosql.driver.ops.PrepareResult;
+
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
@@ -785,6 +789,12 @@ public class Client {
                         nse.getMessage());
                 throw nse; /* pass through */
             } catch (RuntimeException e) {
+                if (refreshPreparedQuery(kvRequest, e)) {
+                    kvRequest.addRetryException(e.getClass());
+                    kvRequest.incrementRetries();
+                    exception = e;
+                    continue;
+                }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
                 if (!kvRequest.getIsRefresh()) {
@@ -868,6 +878,53 @@ public class Client {
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
+    }
+
+    /*
+     * Attempt to re-prepare a query, if the exception indicates that the
+     * prepared query can't be deserialized properly.
+     */
+    private boolean refreshPreparedQuery(Request request, Exception e) {
+        if (!(e instanceof IllegalArgumentException)) {
+            return false;
+        }
+        if (!(request instanceof QueryRequest)) {
+            return false;
+        }
+        if (e.getMessage().contains(
+            "Deserializing PreparedStatement failed") == false) {
+            return false;
+        }
+        QueryRequest qReq = (QueryRequest)request;
+        if (qReq.getRePrepared()) {
+            /* already attempted re-prepare */
+            return false;
+        }
+        PreparedStatement ps = qReq.getPreparedStatement();
+        if (ps == null) {
+            return false;
+        }
+        /* get the original SQL query string from the prepared statement */
+        String SQLText = ps.getSQLText();
+        if (SQLText == null || SQLText.isEmpty()) {
+            return false;
+        }
+        logger.fine("Re-preparing query");
+        PrepareRequest pReq = new PrepareRequest().setStatement(SQLText);
+        try {
+            PrepareResult pRes = (PrepareResult)execute(pReq);
+            if (pRes == null) {
+                return false;
+            }
+            qReq.setPreparedStatement(pRes);
+        } catch (Exception pe) {
+            logger.fine("Re-prepare of query returned new exception: " +
+                pe.getMessage());
+            /* return false so we throw original error */
+            return false;
+        }
+        qReq.setRePrepared(true);
+        return true;
     }
 
     /**
