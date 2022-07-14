@@ -14,11 +14,14 @@ import java.util.HashMap;
  */
 
 public class NsonProtocol {
-    /* make these easy to read - they will be shorter in practice */
     public static int V4_VERSION = 4;
 
     /*
      * request fields
+     *
+     * These are purposely terse to keep message size down. There is a debug
+     * mechanism for printing messages in a more verbose, human-readable
+     * format
      */
     public static String ABORT_ON_FAIL = "a";
     public static String BIND_VARIABLES = "bv";

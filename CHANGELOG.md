@@ -5,17 +5,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [Unpublished]
 
 ### Added
+- Support for new, flexible wire protocol (V4) has been added. The previous protocol
+is still supported for communication with servers that do not yet support V4. The
+version negotation is internal and automatic; however, use of V4 features will fail
+at runtime when attempted with an older server.
 - added set/getDurability to QueryRequest for queries that modify data
 - added pagination information to TableUsageResult and TableUsageRequest
 - added shard percent usage information to TableUsageResult
+
+## Changed
+- Consistency is now a class and no longer a simple enumeration. Applications must
+be recompiled but source compatibility is maintained for all but the more complex
+use of an enumeration
 
 ## [5.3.4] 2022-06-16
 
 NOTE: there was briefly a 5.3.3 release available on GitHub. This release is functionally
 identical. It just adds license files to the jar artifacts
-
-## Changed
-- Support for new, flexible wire protocol (V4).
 
 ### Added
 - added new method in NoSQLHandle queryIterable to return the results of a
@@ -28,8 +34,6 @@ query that returns row_version() as a BinaryValue. The Version can be used for
 conditional put and delete operations
 - added support for setting an extension to the User Agent http header by
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
-
-### Changed
 - Cloud only: Added OCI regions: CDG (Paris), MAD (Madrid), QRO (Queretaro)
 
 ## [5.3.2] 2022-03-21

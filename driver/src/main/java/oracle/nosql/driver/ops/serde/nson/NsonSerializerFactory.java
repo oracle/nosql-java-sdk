@@ -72,7 +72,6 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
-import oracle.nosql.driver.ops.ReadRequest;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
@@ -428,7 +427,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            writeReadRequest(ns, rq);
+            writeConsistency(ns, rq.getConsistencyInternal());
             /* writeKey uses the output stream directly */
             writeKey(ns, rq);
             endMap(ns, PAYLOAD);
@@ -780,7 +779,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
 
-            writeMapField(ns, CONSISTENCY, getConsistency(rq.getConsistency()));
+            writeConsistency(ns, rq.getConsistency());
             if (rq.getDurability() != null) {
                 writeMapField(ns, DURABILITY,
                               getDurability(rq.getDurability()));
@@ -1773,15 +1772,18 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         /**
-         * Writes common fields for read requests -- table name and
+         * Writes consistency
+         * "consistency": {
+         *   "type": number
+         * }
          * consistency (int)
          */
-        protected static void writeReadRequest(NsonSerializer ns,
-                                               ReadRequest rq)
+        protected static void writeConsistency(NsonSerializer ns,
+                                               Consistency consistency)
             throws IOException {
-
-            writeMapField(ns, CONSISTENCY,
-                          getConsistency(rq.getConsistencyInternal()));
+            startMap(ns, CONSISTENCY);
+            writeMapField(ns, TYPE, getConsistencyType(consistency));
+            endMap(ns, CONSISTENCY);
         }
 
         /**
@@ -1953,11 +1955,14 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
         }
 
-        protected static int getConsistency(Consistency consistency) {
-            if (consistency == Consistency.ABSOLUTE) {
+        protected static int getConsistencyType(Consistency consistency) {
+            if (consistency == null || consistency.isEventual()) {
+                return EVENTUAL;
+            } else if (consistency.isAbsolute()) {
                 return ABSOLUTE;
             }
-            return EVENTUAL;
+            throw new IllegalArgumentException("Unknown Consistency " +
+                                               consistency);
         }
 
         public static int getDurability(Durability durability) {
