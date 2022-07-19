@@ -17,6 +17,7 @@ at runtime when attempted with an older server.
 - Consistency is now a class and no longer a simple enumeration. Applications must
 be recompiled but source compatibility is maintained for all but the more complex
 use of an enumeration
+- Made one private serializer class public to allow for improved internal testing.
 
 ## [5.3.4] 2022-06-16
 
