@@ -27,7 +27,8 @@ import oracle.nosql.driver.util.ByteOutputStream;
 /**
  * Prepare a query
  */
-class PrepareRequestSerializer extends BinaryProtocol implements Serializer {
+public class PrepareRequestSerializer extends BinaryProtocol
+                                      implements Serializer {
 
     @Override
     public void serialize(Request request,
