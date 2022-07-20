@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [5.3.5] 2022-07-20
 
 ### Changed
 - Made one private serializer class public to allow for improved internal testing.
