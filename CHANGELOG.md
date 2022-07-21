@@ -19,6 +19,11 @@ be recompiled but source compatibility is maintained for all but the more comple
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
 
+## [5.3.5] 2022-07-20
+
+### Added
+- Made one private serializer class public to allow for improved internal testing.
+
 ## [5.3.4] 2022-06-16
 
 NOTE: there was briefly a 5.3.3 release available on GitHub. This release is functionally
