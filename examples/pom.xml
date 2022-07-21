@@ -4,7 +4,6 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <version>5.4.3</version>
->>>>>>> origin/main
   <artifactId>nosql-java-sdk-examples</artifactId>
   <name>Oracle NoSQL Database Java Examples</name>
   <description>Java examples for Oracle NoSQL Database</description>
