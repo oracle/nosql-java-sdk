@@ -142,7 +142,8 @@ in the Quickstart example.
 
 ## Logging
 
-something about logging at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
+Addional logging can be enabled using a java properties file. For full details, see
+"Logging in the SDK" at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
 
 ## Quickstart
 
