@@ -46,8 +46,35 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
         /* OpCode */
         writeOpCode(out, OpCode.WRITE_MULTIPLE);
         serializeRequest(umRq, out);
-        /* TableName */
-        writeString(out, umRq.getTableName());
+
+        /*
+         * TableName
+         * If all ops use the same table name, write that
+         * single table name to the output stream.
+         * If any of them are different, write all table
+         * names, comma-separated.
+         */
+        String singleTableName = umRq.getTableName();
+        boolean allSameTable = true;
+        for (OperationRequest op : umRq.getOperations()) {
+            if (!singleTableName.equalsIgnoreCase(
+                    op.getRequest().getTableName())) {
+                allSameTable = false;
+                break;
+            }
+        }
+        if (allSameTable) {
+            writeString(out, singleTableName);
+        } else {
+            StringBuilder sb = new StringBuilder();
+            for (OperationRequest op : umRq.getOperations()) {
+                if (sb.length() > 0) {
+                    sb.append(",");
+                }
+                sb.append(op.getRequest().getTableName());
+            }
+            writeString(out, sb.toString());
+        }
 
         /* The number of operations */
         writeInt(out, num);

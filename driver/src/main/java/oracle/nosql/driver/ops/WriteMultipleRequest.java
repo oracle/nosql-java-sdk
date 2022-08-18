@@ -224,15 +224,28 @@ public class WriteMultipleRequest extends DurableRequest {
         if (tableName == null) {
             tableName = wrReq.getTableName();
         } else {
-            if (!wrReq.getTableName().equalsIgnoreCase(tableName)) {
-                throw new IllegalArgumentException("The tableName used for " +
-                    "the operation is different from that of others: " +
-                    tableName);
+            if (!getTopTableName(wrReq.getTableName())
+                    .equalsIgnoreCase(getTopTableName(tableName))) {
+                throw new IllegalArgumentException(
+                    "All sub requests should operate on the same table or " +
+                    "descendant tables belonging to the same top level " +
+                    "table. The table '" + wrReq.getTableName() +
+                    "' is different from the table of other requests: " +
+                     tableName);
             }
         }
 
         request.validate();
         operations.add(new OperationRequest(wrReq, abortIfUnsuccessful));
+    }
+
+    /* Returns the top level table name */
+    private String getTopTableName(String tname) {
+        int pos = tname.indexOf(".");
+        if (pos == -1) {
+            return tname;
+        }
+        return tname.substring(0, pos);
     }
 
     /**

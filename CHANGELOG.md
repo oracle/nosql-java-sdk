@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Added support for parent/child tables usage in WriteMultiple requests.
+
 ## [5.3.5] 2022-07-20
 
 ### Changed
