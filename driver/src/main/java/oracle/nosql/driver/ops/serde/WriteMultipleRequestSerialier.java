@@ -54,17 +54,8 @@ class WriteMultipleRequestSerializer extends BinaryProtocol
          * If any of them are different, write all table
          * names, comma-separated.
          */
-        String singleTableName = umRq.getTableName();
-        boolean allSameTable = true;
-        for (OperationRequest op : umRq.getOperations()) {
-            if (!singleTableName.equalsIgnoreCase(
-                    op.getRequest().getTableName())) {
-                allSameTable = false;
-                break;
-            }
-        }
-        if (allSameTable) {
-            writeString(out, singleTableName);
+        if (umRq.isSingleTable()) {
+            writeString(out, umRq.getTableName());
         } else {
             StringBuilder sb = new StringBuilder();
             for (OperationRequest op : umRq.getOperations()) {

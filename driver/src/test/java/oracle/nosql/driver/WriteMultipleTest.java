@@ -268,13 +268,13 @@ public class WriteMultipleTest extends ProxyTestBase {
 
         try {
             umResult = handle.writeMultiple(umRequest);
-        } catch (TableNotFoundException tnfe) {
+        } catch (OperationNotSupportedException onse) {
             /*
              * This is expected in:
-             * 21.2 <= 51
-             * 22.1 <= 22
-             * 22.2 <= 13
-             * 22.3 <= 2
+             * 21.2 <= .51
+             * 22.1 <= .22
+             * 22.2 <= .13
+             * 22.3 <= .2
              */
            if (kvServerVersion <= 21_002_051 ||
                (kvServerVersion >= 22_001_000 && kvServerVersion <= 22_001_022) ||
@@ -282,7 +282,7 @@ public class WriteMultipleTest extends ProxyTestBase {
                (kvServerVersion >= 22_003_000 && kvServerVersion <= 22_003_002)) {
                return;
            }
-           throw tnfe;
+           throw onse;
         }
         verifyResult(umResult, umRequest, shouldSucceed, rowPresent, recordKB);
     }
