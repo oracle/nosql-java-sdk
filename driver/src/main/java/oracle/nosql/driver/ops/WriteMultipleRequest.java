@@ -251,13 +251,15 @@ public class WriteMultipleRequest extends DurableRequest {
     /**
      * @hidden
      * Internal use only
+     * @return true if the opearations all work on
+     * a single table
      */
     public boolean isSingleTable() {
         if (operations.size() < 2) {
             return true;
         }
         String singleTableName = getTableName();
-        for (OperationRequest op : getOperations()) {
+        for (OperationRequest op : operations) {
             if (!singleTableName.equalsIgnoreCase(
                     op.getRequest().getTableName())) {
                 return false;
