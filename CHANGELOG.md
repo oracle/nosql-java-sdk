@@ -19,6 +19,11 @@ be recompiled but source compatibility is maintained for all but the more comple
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
 
+## [5.3.6] 2022-08-23
+
+### Added
+- Added support for parent/child tables usage in WriteMultiple requests.
+
 ## [5.3.5] 2022-07-20
 
 ### Added

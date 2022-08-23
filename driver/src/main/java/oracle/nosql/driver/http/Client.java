@@ -12,6 +12,7 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
+import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
 import static oracle.nosql.driver.util.BinaryProtocol.V4;
@@ -53,6 +54,7 @@ import oracle.nosql.driver.DefaultRetryHandler;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
@@ -81,6 +83,7 @@ import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
@@ -1115,6 +1118,14 @@ public class Client {
              * exception.
              */
             String err = readString(in);
+
+            /* special case for TNF errors on WriteMultiple with many tables */
+            if (code == TABLE_NOT_FOUND &&
+                (kvRequest instanceof WriteMultipleRequest)) {
+                throw handleWriteMultipleTableNotFound(code, err,
+                                     (WriteMultipleRequest)kvRequest);
+            }
+
             throw handleResponseErrorCode(code, err);
         } catch (IOException e) {
             e.printStackTrace();
@@ -1320,6 +1331,31 @@ public class Client {
     private RuntimeException handleResponseErrorCode(int code, String msg) {
         RuntimeException exc = BinaryProtocol.mapException(code, msg);
         throw exc;
+    }
+
+    /*
+     * special case for TNF errors on WriteMultiple with many tables.
+     * Earlier server versions do not support this and will return a
+     * Table Not Found error with the table names in a single string,
+     * separated by commas, with no brackets, like:
+     *    table1,table2,table3
+     *
+     * Later versions may legitimately return Table Not Found,
+     * but table names will be inside a bracketed list, like:
+     *    [table1, table2, table3]
+     */
+    private RuntimeException handleWriteMultipleTableNotFound(int code,
+                                 String msg,
+                                 WriteMultipleRequest wrRequest) {
+        if (code != TABLE_NOT_FOUND ||
+            wrRequest.isSingleTable() ||
+            msg.indexOf(",") < 0 ||
+            msg.indexOf("[") >= 0) {
+            return handleResponseErrorCode(code, msg);
+        }
+        throw new OperationNotSupportedException("WriteMultiple requests " +
+                      "using multiple tables are not supported by the " +
+                      "version of the connected server.");
     }
 
     private void addCommonHeaders(HttpHeaders headers) {
