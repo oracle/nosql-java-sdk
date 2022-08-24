@@ -1153,7 +1153,30 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // header
             startMap(ns, HEADER);
-            writeHeader(ns, OpCode.WRITE_MULTIPLE.ordinal(), rq);
+            writeMapField(ns, VERSION, V4_VERSION);
+            /*
+             * TableName
+             * If all ops use the same table name, write that
+             * single table name to the output stream.
+             * If any of them are different, write all table
+             * names, comma-separated.
+             */
+            if (rq.isSingleTable()) {
+                writeMapField(ns, TABLE_NAME, rq.getTableName());
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (OperationRequest op : rq.getOperations()) {
+                    if (sb.length() > 0) {
+                        sb.append(",");
+                    }
+                    sb.append(op.getRequest().getTableName());
+                }
+                // TODO: maybe this should be TABLE_NAMES field?
+                //       maybe a full NSON array of strings?
+                writeMapField(ns, TABLE_NAME, sb.toString());
+            }
+            writeMapField(ns, OP_CODE, OpCode.WRITE_MULTIPLE.ordinal());
+            writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
             endMap(ns, HEADER);
 
             /*
