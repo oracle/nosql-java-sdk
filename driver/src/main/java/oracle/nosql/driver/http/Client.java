@@ -1098,6 +1098,7 @@ public class Client {
         try {
             SerializerFactory factory = chooseFactory(kvRequest);
             int code = factory.readErrorCode(in);
+            /* note: this will always be zero in V4 */
             if (code == 0) {
                 Result res =
                     kvRequest.createDeserializer(factory).

@@ -274,7 +274,6 @@ public class WriteMultipleTest extends ProxyTestBase {
              * 21.2 <= .51
              * 22.1 <= .22
              * 22.2 <= .13
-             * 22.3 <= .2
              */
            if (kvServerVersion <= 21_002_051 ||
                (kvServerVersion >= 22_001_000 && kvServerVersion <= 22_001_022) ||
@@ -283,7 +282,14 @@ public class WriteMultipleTest extends ProxyTestBase {
                return;
            }
            throw onse;
+        } catch (TableNotFoundException tnfe) {
+           /* expected in 22.3.2 only */
+           if (kvServerVersion == 22_003_002) {
+               return;
+           }
+           throw tnfe;
         }
+
         verifyResult(umResult, umRequest, shouldSucceed, rowPresent, recordKB);
     }
 
