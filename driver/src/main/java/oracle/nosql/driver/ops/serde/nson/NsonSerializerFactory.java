@@ -1119,12 +1119,14 @@ public class NsonSerializerFactory implements SerializerFactory {
     /**
      * WriteMultiple request:
      *  Payload:
-     *   table name
+     *   table name: if all requests use same table
      *   durability
      *   operations array:
      *    for each delete/write:
+     *      tablename, if using many tables
+     *      opcode
      *      abortIfUnsuccessful boolean
-     *      the delete or write payload, without tablename or durability
+     *      the delete or write payload, without durability
      *
      * WriteMultiple result:
      *  consumed capacity
@@ -1159,21 +1161,13 @@ public class NsonSerializerFactory implements SerializerFactory {
              * If all ops use the same table name, write that
              * single table name to the output stream.
              * If any of them are different, write all table
-             * names, comma-separated.
+             * names to the individual ops.
+             * Possible optimization: if most use one table,
+             * write that in the header and only write minority
+             * table names in specific ops.
              */
             if (rq.isSingleTable()) {
                 writeMapField(ns, TABLE_NAME, rq.getTableName());
-            } else {
-                StringBuilder sb = new StringBuilder();
-                for (OperationRequest op : rq.getOperations()) {
-                    if (sb.length() > 0) {
-                        sb.append(",");
-                    }
-                    sb.append(op.getRequest().getTableName());
-                }
-                // TODO: maybe this should be TABLE_NAMES field?
-                //       maybe a full NSON array of strings?
-                writeMapField(ns, TABLE_NAME, sb.toString());
             }
             writeMapField(ns, OP_CODE, OpCode.WRITE_MULTIPLE.ordinal());
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
@@ -1182,7 +1176,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             /*
              * payload
              *
-             * IMPORTANT: table name and durability MUST be ordered
+             * IMPORTANT: durability MUST be ordered
              * ahead of the operations or the server can't easily
              * deserialize efficiently
              */
@@ -1210,11 +1204,17 @@ public class NsonSerializerFactory implements SerializerFactory {
                  */
                 if (wr instanceof PutRequest) {
                     PutRequest prq = (PutRequest) wr;
+                    if (!rq.isSingleTable()) {
+                        writeMapField(ns, TABLE_NAME, prq.getTableName());
+                    }
                     writeMapField(ns, OP_CODE, getOpCode(prq).ordinal());
                     ((PutRequestSerializer)putSerializer).
                         serializeInternal(prq, ns);
                 } else {
                     DeleteRequest drq = (DeleteRequest) wr;
+                    if (!rq.isSingleTable()) {
+                        writeMapField(ns, TABLE_NAME, drq.getTableName());
+                    }
                     OpCode opCode = drq.getMatchVersion() != null ?
                         OpCode.DELETE_IF_VERSION : OpCode.DELETE;
                     writeMapField(ns, OP_CODE, opCode.ordinal());
@@ -1613,7 +1613,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                             String fname = infoWalker.getCurrentName();
                             if (fname.equals(PATH)) {
                                 fields[i] = Nson.readNsonString(in);
-                            } else if(fname.equals(TYPE)) {
+                            } else if (fname.equals(TYPE)) {
                                 types[i] = Nson.readNsonString(in);
                             } else {
                                 skipUnknownField(infoWalker, fname);
