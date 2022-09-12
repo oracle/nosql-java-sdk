@@ -1347,11 +1347,19 @@ public class BasicTest extends ProxyTestBase {
         WriteMultipleResult wmRes = handle.writeMultiple(wmReq);
         assertEquals(10, wmRes.getResults().size());
         int i = 0;
+        int lastIdVal = -1;
         for (OperationResult result : wmRes.getResults()) {
             if (i++ == 9) {
                 assertNull(result.getGeneratedValue());
             } else {
                 assertNotNull(result.getGeneratedValue());
+                if (lastIdVal < 0) {
+                    lastIdVal = result.getGeneratedValue().getInt();
+                } else {
+                    assertEquals(lastIdVal + 1,
+                                 result.getGeneratedValue().getInt());
+                    lastIdVal = result.getGeneratedValue().getInt();
+                }
             }
         }
 
