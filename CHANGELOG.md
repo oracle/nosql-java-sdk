@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
+
 ## [5.3.6] 2022-08-23
 
 ### Added

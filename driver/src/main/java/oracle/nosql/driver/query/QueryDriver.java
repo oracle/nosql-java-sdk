@@ -8,8 +8,10 @@
 package oracle.nosql.driver.query;
 
 import java.util.ArrayList;
+import java.util.concurrent.TimeoutException;
 
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.ops.PreparedStatement;
@@ -178,7 +180,7 @@ public class QueryDriver {
              * If it's not a retryable exception, save it so that we throw it
              * again if the app resubmits the QueryRequest.
              */
-            if (!(e instanceof RetryableException)) {
+            if (!isRetryableException(e)) {
                 theError = new NoSQLException(
                     "QueryRequest cannot be continued after throwing a " +
                     "non-retryable exception in a previous execution. " +
@@ -206,6 +208,23 @@ public class QueryDriver {
         setQueryResult(result);
 
         theRequest.setContKey(theContinuationKey);
+    }
+
+    private boolean isRetryableException(Throwable e) {
+        if (e instanceof RetryableException) {
+            return true;
+        }
+        /*
+         * if we got a timeout, and the query does not do writes, allow
+         * retrying
+         */
+       if (((e instanceof TimeoutException) ||
+           (e instanceof RequestTimeoutException)) &&
+           theRequest != null && theRequest.getPreparedStatement() != null &&
+           theRequest.getPreparedStatement().doesWrites() == false) {
+           return true;
+       }
+       return false;
     }
 
     private void setQueryResult(QueryResult result) {
