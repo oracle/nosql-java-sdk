@@ -18,6 +18,7 @@ at runtime when attempted with an older server.
 be recompiled but source compatibility is maintained for all but the more complex
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
+- Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
 
 ## [5.3.6] 2022-08-23
 
