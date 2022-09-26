@@ -92,6 +92,7 @@ public class Region {
     public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
+    public static final Region US_CHICAGO_1 = new Region("us-chicago-1");
 
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
     public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
@@ -175,6 +176,7 @@ public class Region {
         OC1_REGIONS.put(US_ASHBURN_1.getRegionId(), US_ASHBURN_1);
         OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
         OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
+        OC1_REGIONS.put(US_CHICAGO_1.getRegionId(), US_CHICAGO_1);
 
         OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
         OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
@@ -216,7 +218,7 @@ public class Region {
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclegovcloud.uk");
     private final static MessageFormat OC5_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclerealm5.com");
+        "https://nosql.{0}.oci.oraclecloud5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(
