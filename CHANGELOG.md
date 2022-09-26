@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
+- Cloud only: Updated OCI regions
 
 ## [5.3.6] 2022-08-23
 
