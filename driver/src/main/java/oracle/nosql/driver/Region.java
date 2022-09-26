@@ -50,9 +50,11 @@ public class Region {
     private static final Map<String, Region> OC1_REGIONS = new HashMap<>();
     private static final Map<String, Region> GOV_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC4_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC5_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC8_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC9_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC10_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC14_REGIONS = new HashMap<>();
 
     /* OC1 */
     public static final Region AF_JOHANNESBURG_1 = new Region("af-johannesburg-1");
@@ -111,6 +113,9 @@ public class Region {
     public static final Region UK_GOV_LONDON_1 = new Region("uk-gov-london-1");
     public static final Region UK_GOV_CARDIFF_1 = new Region("uk-gov-cardiff-1");
 
+    /* OC5 */
+    public static final Region US_TACOMA_1 = new Region("us-tacoma-1");
+
     /* OC8 */
     public static final Region AP_CHIYODA_1 = new Region("ap-chiyoda-1");
     public static final Region AP_IBARAKI_1 = new Region("ap-ibaraki-1");
@@ -120,6 +125,9 @@ public class Region {
 
     /* OC10 */
     public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
+
+    /* OC14 */
+    public static final Region AP_DCC_MILAN_1 = new Region("eu-dcc-milan-1");
 
     static {
         /* OC1 */
@@ -184,6 +192,9 @@ public class Region {
         OC4_REGIONS.put(UK_GOV_LONDON_1.getRegionId(), UK_GOV_LONDON_1);
         OC4_REGIONS.put(UK_GOV_CARDIFF_1.getRegionId(), UK_GOV_CARDIFF_1);
 
+        /* OC5 */
+        OC5_REGIONS.put(US_TACOMA_1.getRegionId(), US_TACOMA_1);
+
         /* OC8 */
         OC8_REGIONS.put(AP_CHIYODA_1.getRegionId(), AP_CHIYODA_1);
         OC8_REGIONS.put(AP_IBARAKI_1.getRegionId(), AP_IBARAKI_1);
@@ -193,6 +204,9 @@ public class Region {
 
         /* OC10 */
         OC10_REGIONS.put(AP_DCC_CANBERRA_1.getRegionId(), AP_DCC_CANBERRA_1);
+
+        /* OC14 */
+        OC14_REGIONS.put(AP_DCC_MILAN_1.getRegionId(), AP_DCC_MILAN_1);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -201,12 +215,16 @@ public class Region {
         "https://nosql.{0}.oci.oraclegovcloud.com");
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclegovcloud.uk");
+    private final static MessageFormat OC5_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclerealm5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud9.com");
     private final static MessageFormat OC10_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud10.com");
+    private final static MessageFormat OC14_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud14.com");
 
     private String regionId;
 
@@ -228,6 +246,9 @@ public class Region {
         if (isOC4Region(regionId)) {
             return OC4_EP_BASE.format(new Object[] { regionId });
         }
+        if (isOC5Region(regionId)) {
+            return OC5_EP_BASE.format(new Object[] { regionId });
+        }
         if (isOC8Region(regionId)) {
             return OC8_EP_BASE.format(new Object[] { regionId });
         }
@@ -236,6 +257,9 @@ public class Region {
         }
         if (isOC10Region(regionId)) {
             return OC10_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC14Region(regionId)) {
+            return OC14_EP_BASE.format(new Object[] { regionId });
         }
         throw new IllegalArgumentException(
             "Unable to find endpoint for unknwon region" + regionId);
@@ -259,6 +283,9 @@ public class Region {
             region = OC4_REGIONS.get(regionId);
         }
         if (region == null) {
+            region = OC5_REGIONS.get(regionId);
+        }
+        if (region == null) {
             region = GOV_REGIONS.get(regionId);
         }
         if (region == null) {
@@ -269,6 +296,9 @@ public class Region {
         }
         if (region == null) {
             region = OC10_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC14_REGIONS.get(regionId);
         }
 
         return region;
@@ -319,6 +349,16 @@ public class Region {
      * @param regionId the region id
      * @return the value
      */
+    public static boolean isOC5Region(String regionId) {
+        return (OC5_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
     public static boolean isOC8Region(String regionId) {
         return (OC8_REGIONS.get(regionId) != null);
     }
@@ -341,6 +381,16 @@ public class Region {
      */
     public static boolean isOC10Region(String regionId) {
         return (OC10_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC14Region(String regionId) {
+        return (OC14_REGIONS.get(regionId) != null);
     }
 
     /**
@@ -375,6 +425,15 @@ public class Region {
      * Internal use only
      * @return the regions
      */
+    public static Collection<Region> getOC5Regions() {
+        return OC5_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
     public static Collection<Region> getOC8Regions() {
         return OC8_REGIONS.values();
     }
@@ -395,6 +454,15 @@ public class Region {
      */
     public static Collection<Region> getOC10Regions() {
         return OC10_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
+    public static Collection<Region> getOC14Regions() {
+        return OC14_REGIONS.values();
     }
 
     /**

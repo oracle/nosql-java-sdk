@@ -19,6 +19,7 @@ be recompiled but source compatibility is maintained for all but the more comple
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
 - Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
+- Cloud only: Updated OCI regions
 
 ## [5.3.6] 2022-08-23
 

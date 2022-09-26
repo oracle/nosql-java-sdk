@@ -97,12 +97,16 @@ class Utils {
         "https://auth.{0}.oraclegovcloud.com");
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclegovcloud.uk");
+    private final static MessageFormat OC5_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclerealm5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud9.com");
     private final static MessageFormat OC10_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud10.com");
+    private final static MessageFormat OC14_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud14.com");
 
     static {
         /* OC1 */
@@ -162,6 +166,9 @@ class Utils {
         IAM_URI.put("ltn", OC4_EP_BASE.format(new Object[] {"uk-gov-london-1"}));
         IAM_URI.put("brs", OC4_EP_BASE.format(new Object[] {"uk-gov-cardiff-1"}));
 
+        /* OC5 */
+        IAM_URI.put("tiw", OC5_EP_BASE.format(new Object[] {"us-tacoma-1"}));
+
         /* OC8 */
         IAM_URI.put("nja", OC8_EP_BASE.format(new Object[] {"ap-chiyoda-1"}));
         IAM_URI.put("ukb", OC8_EP_BASE.format(new Object[] {"ap-ibaraki-1"}));
@@ -171,6 +178,9 @@ class Utils {
 
         /* OC10 */
         IAM_URI.put("wga", OC10_EP_BASE.format(new Object[] {"ap-dcc-canberra-1"}));
+
+        /* OC14 */
+        IAM_URI.put("bgy", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -185,6 +195,9 @@ class Utils {
             if (Region.isOC4Region(regionIdOrCode)) {
                 return OC4_EP_BASE.format(new Object[] {regionIdOrCode});
             }
+            if (Region.isOC5Region(regionIdOrCode)) {
+                return OC5_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
             if (Region.isOC8Region(regionIdOrCode)) {
                 return OC8_EP_BASE.format(new Object[] {regionIdOrCode});
             }
@@ -193,6 +206,9 @@ class Utils {
             }
             if (Region.isOC10Region(regionIdOrCode)) {
                 return OC10_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC14Region(regionIdOrCode)) {
+                return OC14_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 
