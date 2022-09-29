@@ -66,6 +66,7 @@ public class ConnectionPoolTest {
             0, // threads
             poolMinSize,
             poolInactivityPeriod,
+            false,
             0, // contentLen
             0, // chunkSize
             null, // sslCtx
@@ -165,6 +166,7 @@ public class ConnectionPoolTest {
             0, // threads
             poolMinSize,
             -1, // poolInactivityPeriod
+            false,
             0, // contentLen
             0, // chunkSize
             buildSslContext(),

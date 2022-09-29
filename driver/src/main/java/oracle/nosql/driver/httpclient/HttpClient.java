@@ -96,6 +96,7 @@ public class HttpClient {
     private final String host;
     private final int port;
     private final String name;
+    private final boolean http2;
 
     /*
      * Amount of time to wait for acquiring a channel before timing
@@ -130,6 +131,7 @@ public class HttpClient {
      *
      * @param host the hostname for the HTTP server
      * @param port the port for the HTTP server
+     * @param useHttp2 if set to true, use http2 connections.
      * @param sslCtx if non-null, SSL context to use for connections.
      * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
@@ -137,6 +139,7 @@ public class HttpClient {
      */
     public static HttpClient createMinimalClient(String host,
                                                  int port,
+                                                 boolean useHttp2,
                                                  SslContext sslCtx,
                                                  int handshakeTimeoutMs,
                                                  String name,
@@ -147,6 +150,7 @@ public class HttpClient {
                               0, /* pool min */
                               0, /* pool inactivity period */
                               true, /* minimal client */
+                              useHttp2,
                               DEFAULT_MAX_CONTENT_LENGTH,
                               DEFAULT_MAX_CHUNK_SIZE,
                               sslCtx, handshakeTimeoutMs, name, logger);
@@ -184,6 +188,7 @@ public class HttpClient {
                       int numThreads,
                       int connectionPoolMinSize,
                       int inactivityPeriodSeconds,
+                      boolean isHttp2,
                       int maxContentLength,
                       int maxChunkSize,
                       SslContext sslCtx,
@@ -192,7 +197,7 @@ public class HttpClient {
                       Logger logger) {
 
         this(host, port, numThreads, connectionPoolMinSize,
-             inactivityPeriodSeconds, false /* not minimal */,
+             inactivityPeriodSeconds, false /* not minimal */, isHttp2,
              maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
     }
 
@@ -205,6 +210,7 @@ public class HttpClient {
                        int connectionPoolMinSize,
                        int inactivityPeriodSeconds,
                        boolean isMinimalClient,
+                       boolean isHttp2,
                        int maxContentLength,
                        int maxChunkSize,
                        SslContext sslCtx,
@@ -217,6 +223,7 @@ public class HttpClient {
         this.host = host;
         this.port = port;
         this.name = name;
+        this.http2 = isHttp2;
 
         this.maxContentLength = (maxContentLength == 0 ?
             DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
@@ -290,6 +297,10 @@ public class HttpClient {
 
     String getName() {
         return name;
+    }
+
+    boolean isHttp2() {
+        return http2;
     }
 
     Logger getLogger() {

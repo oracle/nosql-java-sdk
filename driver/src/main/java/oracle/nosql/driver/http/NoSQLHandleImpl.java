@@ -12,6 +12,10 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 
+import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -124,6 +128,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 }
                 builder.sessionTimeout(config.getSSLSessionTimeout());
                 builder.sessionCacheSize(config.getSSLSessionCacheSize());
+                if (config.useHttp2()) {
+                    builder.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+                    builder.applicationProtocolConfig(
+                            new ApplicationProtocolConfig(ApplicationProtocolConfig.Protocol.ALPN,
+                                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                                    ApplicationProtocolNames.HTTP_2));
+                }
                 config.setSslContext(builder.build());
             } catch (SSLException se) {
                 throw new IllegalStateException(
@@ -137,6 +149,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         if (ap instanceof StoreAccessTokenProvider) {
             final StoreAccessTokenProvider stProvider =
                 (StoreAccessTokenProvider) ap;
+            stProvider.useHttp2(config.useHttp2());
             if (stProvider.getLogger() == null) {
                 stProvider.setLogger(logger);
             }

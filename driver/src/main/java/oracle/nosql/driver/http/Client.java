@@ -244,6 +244,7 @@ public class Client {
             httpConfig.getNumThreads(),
             httpConfig.getConnectionPoolMinSize(),
             httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.useHttp2(),
             httpConfig.getMaxContentLength(),
             httpConfig.getMaxChunkSize(),
             sslCtx,

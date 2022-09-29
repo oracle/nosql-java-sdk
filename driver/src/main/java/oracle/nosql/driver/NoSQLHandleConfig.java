@@ -143,6 +143,13 @@ public class NoSQLHandleConfig implements Cloneable {
     private int maxChunkSize = 0;
 
     /**
+     * Use http2 protocol
+     *
+     * Default: false (use http_1_1)
+     */
+    private boolean http2 = false;
+
+    /**
      * A RetryHandler, or null if not configured by the user.
      */
     private RetryHandler retryHandler;
@@ -554,6 +561,14 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     *
+     * @return http2 setting
+     */
+    public boolean useHttp2() {
+        return http2;
+    }
+
+    /**
      * Returns the configured table request timeout value, in milliseconds.
      * The table request timeout default can be specified independently to allow
      * it to be larger than a typical data request. If it is not specified the
@@ -785,6 +800,15 @@ public class NoSQLHandleConfig implements Cloneable {
                 "not be negative");
         }
         this.maxContentLength = maxContentLength;
+        return this;
+    }
+
+    /**
+     * Enables http2 protocol
+     * @return this
+     */
+    public NoSQLHandleConfig useHttp2(boolean enable) {
+        this.http2 = enable;
         return this;
     }
 

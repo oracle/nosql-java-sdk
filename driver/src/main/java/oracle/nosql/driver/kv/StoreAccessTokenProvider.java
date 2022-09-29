@@ -113,6 +113,11 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     private boolean autoRenew = true;
 
     /*
+     * Whether use http2 connection, default use http1.1
+     */
+    private boolean useHttp2 = false;
+
+    /*
      * Whether this is a secure store token provider.
      */
     private final boolean isSecure;
@@ -375,6 +380,16 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Sets useHttp2 state
+     * @param enable set to true to use Http2 connection
+     * @return this
+     */
+    public StoreAccessTokenProvider useHttp2(boolean enable) {
+        this.useHttp2 = enable;
+        return this;
+    }
+
     public String getEndpoint() {
         return endpoint;
     }
@@ -483,6 +498,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             client = HttpClient.createMinimalClient
                 (loginHost,
                  loginPort,
+                 useHttp2,
                  (isSecure && !disableSSLHook) ? sslContext : null,
                  sslHandshakeTimeoutMs,
                  serviceName,

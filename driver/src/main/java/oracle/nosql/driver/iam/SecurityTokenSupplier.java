@@ -104,13 +104,16 @@ class SecurityTokenSupplier {
             federationClient = buildHttpClient(
                 federationURL,
                 config.getSslContext(),
-                config.getSSLHandshakeTimeout(), logger);
+                config.getSSLHandshakeTimeout(),
+                config.useHttp2(),
+                logger);
         }
     }
 
     private static HttpClient buildHttpClient(URI endpoint,
                                               SslContext sslCtx,
                                               int sslHandshakeTimeout,
+                                              boolean useHttp2,
                                               Logger logger) {
         String scheme = endpoint.getScheme();
         if (scheme == null) {
@@ -119,7 +122,7 @@ class SecurityTokenSupplier {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
+            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(), useHttp2,
                                                   null, 0, "FederationClient", logger);
         }
 
@@ -132,7 +135,7 @@ class SecurityTokenSupplier {
             }
         }
 
-        return HttpClient.createMinimalClient(endpoint.getHost(), 443,
+        return HttpClient.createMinimalClient(endpoint.getHost(), 443, useHttp2,
                               sslCtx, sslHandshakeTimeout,
                               "FederationClient", logger);
     }
@@ -338,8 +341,8 @@ class SecurityTokenSupplier {
 
         /**
          * Checks if two public keys are equal
-         * @param a one public key
-         * @param b the other one
+         * @param actual one public key
+         * @param expect the other one
          * @return true if the same
          */
         private boolean isEqualPublicKey(RSAPublicKey actual,
