@@ -57,7 +57,6 @@ public class InstancePrincipalsProvider
     protected final SecurityTokenSupplier tokenSupplier;
     protected final DefaultSessionKeySupplier sessionKeySupplier;
     private final Region region;
-    private boolean useHttp2 = false;
 
     public InstancePrincipalsProvider(SecurityTokenSupplier tokenSupplier,
                                       SessionKeyPairSupplier keyPairSupplier,
@@ -73,7 +72,6 @@ public class InstancePrincipalsProvider
      */
     public void prepare(NoSQLHandleConfig config) {
         tokenSupplier.prepare(config);
-        useHttp2 = config.useHttp2();
     }
 
     public void close() {
