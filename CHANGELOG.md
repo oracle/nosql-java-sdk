@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
 - Cloud only: Updated OCI regions
 
+### Fixed
+- Cloud only: Fixed an issue where a long running applications using SignatureProvider
+ with resource principal may encounter NotAuthenticated error after several minutes even
+ if authentication succeed for the first requests.
+
 ## [5.3.6] 2022-08-23
 
 ### Added
