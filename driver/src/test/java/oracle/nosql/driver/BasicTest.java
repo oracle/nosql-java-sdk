@@ -797,15 +797,12 @@ public class BasicTest extends ProxyTestBase {
                        (serialVersion > 2), /* modtime should be recent */
                        recordKB);
 
-        /* save this for comparison below */
-        Version version = getRes.getVersion();
-
         /*
-         * get the row version of the same row using a query and assert
-         * that the versions are the same. A test could be created to use this
-         * in a condition put/delete operation but that functionality is already
-         * tested. This just ensures that the versions acquired from get()
-         * and from row_version are identical
+         * get the row version of the same row using a query and check that
+         * the version can be used in a conditional put/delete.
+         * Note we can't rely on comparing the byte arrays for each, because
+         * the arrays may be slightly different based on versions of client
+         * and server in use.
          */
         try (QueryRequest queryReq = new QueryRequest()) {
             final String versionQuery = "select row_version($t) as version " +
@@ -815,8 +812,59 @@ public class BasicTest extends ProxyTestBase {
             MapValue result = queryRet.getResults().get(0);
             Version qVersion = Version.createVersion(
                 result.get("version").asBinary().getValue());
-            assertArrayEquals(version.getBytes(), qVersion.getBytes());
+
+            /*
+             * Put an existing row with matching version, it should succeed.
+             */
+            putReq = new PutRequest()
+                .setOption(Option.IfVersion)
+                .setMatchVersion(qVersion)
+                .setValue(value)
+                .setDurability(Durability.COMMIT_SYNC)
+                .setTableName(tableName);
+            putRes = handle.put(putReq);
+            checkPutResult(putReq, putRes,
+                           true /* shouldSucceed */,
+                           true /* rowPresent */,
+                           null /* expPrevValue */,
+                           null /* expPrevVersion */,
+                           false, /* modtime should be zero */
+                           recordKB);
+            newVersion = putRes.getVersion();
         }
+
+         /*
+          * Get the version from a query again, and his time do a
+          * conditional delete
+          */
+        try (QueryRequest queryReq = new QueryRequest()) {
+            final String versionQuery = "select row_version($t) as version " +
+                "from " + tableName + " $t where id = 10";
+            queryReq.setStatement(versionQuery);
+            QueryResult queryRet = handle.query(queryReq);
+            MapValue result = queryRet.getResults().get(0);
+            Version qVersion = Version.createVersion(
+                result.get("version").asBinary().getValue());
+
+            key = new MapValue().put("id", 10);
+            DeleteRequest delReq = new DeleteRequest()
+                .setMatchVersion(qVersion)
+                .setKey(key)
+                .setTableName(tableName);
+            DeleteResult delRes = handle.delete(delReq);
+            checkDeleteResult(delReq, delRes,
+                              true  /* shouldSucceed */,
+                              true  /* rowPresent */,
+                              null  /* expPrevValue */,
+                              null  /* expPrevVersion */,
+                              false, /* modtime should be zero */
+                              recordKB);
+        }
+
+        /* Put the row back to store */
+        putReq = new PutRequest().setValue(value).setTableName(tableName);
+        putRes = handle.put(putReq);
+        newVersion = putRes.getVersion();
 
         /* Get a row with ABSOLUTE consistency */
         getReq.setConsistency(Consistency.ABSOLUTE);
