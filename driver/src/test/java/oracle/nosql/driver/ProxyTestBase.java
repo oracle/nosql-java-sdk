@@ -464,6 +464,9 @@ public class ProxyTestBase {
         logger.setLevel(Level.parse(level));
         config.setLogger(logger);
 
+        boolean useHttp2 = Boolean.getBoolean("test.http2");
+        config.useHttp2(useHttp2);
+
         /*
          * Open the handle
          */

@@ -31,6 +31,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
@@ -309,6 +310,10 @@ public class HttpClient {
 
     int getHandshakeTimeoutMs() {
         return handshakeTimeoutMs;
+    }
+
+    public String getFallbackProtocol() {
+        return ApplicationProtocolNames.HTTP_1_1;
     }
 
     public int getMaxContentLength() {

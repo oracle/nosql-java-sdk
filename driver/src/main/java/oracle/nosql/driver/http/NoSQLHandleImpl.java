@@ -135,6 +135,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                                     ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
                                     ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
+                } else {
+                    builder.applicationProtocolConfig(
+                            new ApplicationProtocolConfig(ApplicationProtocolConfig.Protocol.ALPN,
+                                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                                    ApplicationProtocolNames.HTTP_1_1));
                 }
                 config.setSslContext(builder.build());
             } catch (SSLException se) {

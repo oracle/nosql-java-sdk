@@ -7,7 +7,6 @@
 
 package oracle.nosql.driver.httpclient;
 
-import static io.netty.handler.logging.LogLevel.DEBUG;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 
 import java.net.InetSocketAddress;
@@ -23,9 +22,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelHealthChecker;
 import io.netty.channel.pool.ChannelPoolHandler;
-import io.netty.handler.codec.http.HttpClientCodec;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http2.*;
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
@@ -39,12 +35,6 @@ import io.netty.util.concurrent.Future;
 @Sharable
 public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                                                      ChannelHealthChecker {
-
-    private static final Http2FrameLogger logger = new Http2FrameLogger(DEBUG, HttpClientChannelPoolHandler.class);
-
-    private static final String CODEC_HANDLER_NAME = "http-codec";
-    private static final String AGG_HANDLER_NAME = "http-aggregator";
-    private static final String HTTP_HANDLER_NAME = "http-response-handler";
 
     private final HttpClient client;
 
@@ -85,33 +75,13 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
 
             p.addLast(sslHandler);
             p.addLast(new ChannelLoggingHandler(client));
+            // Handle ALPN protocol negotiation result, and configure the pipeline accordingly
+            p.addLast(new HttpProtocolNegotiationHandler(
+                    client.getFallbackProtocol(), new HttpClientHandler(client.getLogger()), client.getMaxChunkSize(),
+                    client.getMaxContentLength(), client.getLogger()));
+        } else {
+            // TODO: H2C upgrade
         }
-        if (client.isHttp2()) {
-            Http2Connection connection = new DefaultHttp2Connection(false);
-            HttpToHttp2ConnectionHandler connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
-                    .frameListener(new DelegatingDecompressorFrameListener(
-                            connection,
-                            new InboundHttp2ToHttpAdapterBuilder(connection)
-                                    .maxContentLength(client.getMaxContentLength())
-                                    .propagateSettings(true)
-                                    .build()))
-                    .frameLogger(logger)
-                    .connection(connection)
-                    .build();
-            Http2SettingsHandler settingsHandler = new Http2SettingsHandler(ch.newPromise());
-
-            p.addLast(connectionHandler);
-            p.addLast(settingsHandler);
-        } else { // http_1_1
-            p.addLast(CODEC_HANDLER_NAME, new HttpClientCodec
-                                (4096, // initial line
-                                8192, // header size
-                                client.getMaxChunkSize()));
-            p.addLast(AGG_HANDLER_NAME, new HttpObjectAggregator(
-                                    client.getMaxContentLength()));
-        }
-        p.addLast(HTTP_HANDLER_NAME,
-                              new HttpClientHandler(client.getLogger()));
 
         if (client.getProxyHost() != null) {
             InetSocketAddress sockAddr =
