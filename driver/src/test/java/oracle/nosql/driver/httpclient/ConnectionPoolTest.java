@@ -9,6 +9,7 @@ package oracle.nosql.driver.httpclient;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.Arrays;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +17,7 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 import java.net.URL;
 
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -66,12 +68,12 @@ public class ConnectionPoolTest {
             0, // threads
             poolMinSize,
             poolInactivityPeriod,
-            false,
             0, // contentLen
             0, // chunkSize
             null, // sslCtx
             0,    // ssl handshake timeout
             "Pool Test",
+            Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
             logger);
 
         ConnectionPool pool = client.getConnectionPool();
@@ -166,12 +168,12 @@ public class ConnectionPoolTest {
             0, // threads
             poolMinSize,
             -1, // poolInactivityPeriod
-            false,
             0, // contentLen
             0, // chunkSize
             buildSslContext(),
             0,    // ssl handshake timeout
             "Pool Cloud Test",
+            Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
             logger);
 
         ConnectionPool pool = client.getConnectionPool();

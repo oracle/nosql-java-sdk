@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -464,8 +465,14 @@ public class ProxyTestBase {
         logger.setLevel(Level.parse(level));
         config.setLogger(logger);
 
-        boolean useHttp2 = Boolean.getBoolean("test.http2");
-        config.useHttp2(useHttp2);
+        boolean useHttp1only = Boolean.getBoolean("test.http1only");
+        if (useHttp1only) {
+            config.setHttpProtocols(ApplicationProtocolNames.HTTP_1_1);
+        }
+        boolean useHttp2only = Boolean.getBoolean("test.http2only");
+        if (useHttp2only) {
+            config.setHttpProtocols(ApplicationProtocolNames.HTTP_2);
+        }
 
         /*
          * Open the handle

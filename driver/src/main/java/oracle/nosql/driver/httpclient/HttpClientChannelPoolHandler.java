@@ -77,7 +77,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             p.addLast(new ChannelLoggingHandler(client));
             // Handle ALPN protocol negotiation result, and configure the pipeline accordingly
             p.addLast(new HttpProtocolNegotiationHandler(
-                    client.getFallbackProtocol(), new HttpClientHandler(client.getLogger()), client.getMaxChunkSize(),
+                    client.getHttpFallbackProtocol(), new HttpClientHandler(client.getLogger()), client.getMaxChunkSize(),
                     client.getMaxContentLength(), client.getLogger()));
         } else {
             // TODO: H2C upgrade

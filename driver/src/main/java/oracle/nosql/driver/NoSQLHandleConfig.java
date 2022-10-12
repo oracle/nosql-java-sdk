@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -143,11 +144,11 @@ public class NoSQLHandleConfig implements Cloneable {
     private int maxChunkSize = 0;
 
     /**
-     * Use http2 protocol
+     * Default http protocols
      *
-     * Default: false (use http_1_1)
+     * Default: prefer H2 but fallback to Http1.1
      */
-    private boolean http2 = false;
+    private List<String> httpProtocols = new ArrayList<>(Arrays.asList(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1));
 
     /**
      * A RetryHandler, or null if not configured by the user.
@@ -562,10 +563,19 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      *
-     * @return http2 setting
+     * @return Http protocol settings
+     */
+    public List<String> getHttpProtocols() {
+        return httpProtocols;
+    }
+
+    /**
+     * Check if "h2" is in the protocols list
+     *
+     * @return true if "h2" is in the protocols list
      */
     public boolean useHttp2() {
-        return http2;
+        return this.httpProtocols.contains(ApplicationProtocolNames.HTTP_2);
     }
 
     /**
@@ -643,6 +653,14 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public NoSQLHandleConfig setRequestTimeout(int timeout) {
         this.timeout = timeout;
+        return this;
+    }
+
+    public NoSQLHandleConfig setHttpProtocols(String ... protocols) {
+        this.httpProtocols = new ArrayList<>(2);
+        for (String p : protocols) {
+            this.httpProtocols.add(p);
+        }
         return this;
     }
 
@@ -800,15 +818,6 @@ public class NoSQLHandleConfig implements Cloneable {
                 "not be negative");
         }
         this.maxContentLength = maxContentLength;
-        return this;
-    }
-
-    /**
-     * Enables http2 protocol
-     * @return this
-     */
-    public NoSQLHandleConfig useHttp2(boolean enable) {
-        this.http2 = enable;
         return this;
     }
 

@@ -17,6 +17,9 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -97,7 +100,8 @@ public class HttpClient {
     private final String host;
     private final int port;
     private final String name;
-    private final boolean http2;
+    private final List<String> httpProtocols;
+    private final String httpFallbackProtocol;
 
     /*
      * Amount of time to wait for acquiring a channel before timing
@@ -132,18 +136,18 @@ public class HttpClient {
      *
      * @param host the hostname for the HTTP server
      * @param port the port for the HTTP server
-     * @param useHttp2 if set to true, use http2 connections.
      * @param sslCtx if non-null, SSL context to use for connections.
      * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
+     * @param httpProtocols A list of preferred http protocols (H2 and Http1.1)
      */
     public static HttpClient createMinimalClient(String host,
                                                  int port,
-                                                 boolean useHttp2,
                                                  SslContext sslCtx,
                                                  int handshakeTimeoutMs,
                                                  String name,
+                                                 List<String> httpProtocols,
                                                  Logger logger) {
         return new HttpClient(host,
                               port,
@@ -151,10 +155,9 @@ public class HttpClient {
                               0, /* pool min */
                               0, /* pool inactivity period */
                               true, /* minimal client */
-                              useHttp2,
                               DEFAULT_MAX_CONTENT_LENGTH,
                               DEFAULT_MAX_CHUNK_SIZE,
-                              sslCtx, handshakeTimeoutMs, name, logger);
+                              sslCtx, handshakeTimeoutMs, name, httpProtocols, logger);
     }
 
     /**
@@ -183,23 +186,24 @@ public class HttpClient {
      * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
+     * @param httpProtocols A list of preferred http protocols (H2 and Http1.1)
      */
     public HttpClient(String host,
                       int port,
                       int numThreads,
                       int connectionPoolMinSize,
                       int inactivityPeriodSeconds,
-                      boolean isHttp2,
                       int maxContentLength,
                       int maxChunkSize,
                       SslContext sslCtx,
                       int handshakeTimeoutMs,
                       String name,
+                      List<String> httpProtocols,
                       Logger logger) {
 
         this(host, port, numThreads, connectionPoolMinSize,
-             inactivityPeriodSeconds, false /* not minimal */, isHttp2,
-             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
+             inactivityPeriodSeconds, false /* not minimal */,
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, httpProtocols, logger);
     }
 
     /*
@@ -211,12 +215,12 @@ public class HttpClient {
                        int connectionPoolMinSize,
                        int inactivityPeriodSeconds,
                        boolean isMinimalClient,
-                       boolean isHttp2,
                        int maxContentLength,
                        int maxChunkSize,
                        SslContext sslCtx,
                        int handshakeTimeoutMs,
                        String name,
+                       List<String> httpProtocols,
                        Logger logger) {
 
         this.logger = logger;
@@ -224,7 +228,12 @@ public class HttpClient {
         this.host = host;
         this.port = port;
         this.name = name;
-        this.http2 = isHttp2;
+
+        this.httpProtocols = httpProtocols.size() > 0 ?
+                httpProtocols :
+                new ArrayList<>(Arrays.asList(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1));
+
+        this.httpFallbackProtocol = this.httpProtocols.get(this.httpProtocols.size() - 1);
 
         this.maxContentLength = (maxContentLength == 0 ?
             DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
@@ -300,8 +309,12 @@ public class HttpClient {
         return name;
     }
 
-    boolean isHttp2() {
-        return http2;
+    List<String> getHttpProtocols() {
+        return httpProtocols;
+    }
+
+    public String getHttpFallbackProtocol() {
+        return httpFallbackProtocol;
     }
 
     Logger getLogger() {
@@ -310,10 +323,6 @@ public class HttpClient {
 
     int getHandshakeTimeoutMs() {
         return handshakeTimeoutMs;
-    }
-
-    public String getFallbackProtocol() {
-        return ApplicationProtocolNames.HTTP_1_1;
     }
 
     public int getMaxContentLength() {

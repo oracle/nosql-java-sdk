@@ -13,6 +13,7 @@ import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicReference;
@@ -113,9 +114,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     private boolean autoRenew = true;
 
     /*
-     * Whether use http2 connection, default use http1.1
+     * list of preferred http protocols
      */
-    private boolean useHttp2 = false;
+    private List<String> httpProtocols;
 
     /*
      * Whether this is a secure store token provider.
@@ -381,12 +382,12 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     }
 
     /**
-     * Sets useHttp2 state
-     * @param enable set to true to use Http2 connection
+     * Sets Http Protocols
+     * @param httpProtocols list of preferred http protocols
      * @return this
      */
-    public StoreAccessTokenProvider useHttp2(boolean enable) {
-        this.useHttp2 = enable;
+    public StoreAccessTokenProvider setHttpProtocols(List<String> httpProtocols) {
+        this.httpProtocols = httpProtocols;
         return this;
     }
 
@@ -498,10 +499,10 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             client = HttpClient.createMinimalClient
                 (loginHost,
                  loginPort,
-                 useHttp2,
                  (isSecure && !disableSSLHook) ? sslContext : null,
                  sslHandshakeTimeoutMs,
                  serviceName,
+                 httpProtocols,
                  logger);
             return HttpRequestUtil.doGetRequest(
                 client,

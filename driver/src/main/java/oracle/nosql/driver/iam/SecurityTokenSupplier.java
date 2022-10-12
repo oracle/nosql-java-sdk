@@ -21,6 +21,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -105,7 +106,7 @@ class SecurityTokenSupplier {
                 federationURL,
                 config.getSslContext(),
                 config.getSSLHandshakeTimeout(),
-                config.useHttp2(),
+                config.getHttpProtocols(),
                 logger);
         }
     }
@@ -113,7 +114,7 @@ class SecurityTokenSupplier {
     private static HttpClient buildHttpClient(URI endpoint,
                                               SslContext sslCtx,
                                               int sslHandshakeTimeout,
-                                              boolean useHttp2,
+                                              List<String> httpProtocols,
                                               Logger logger) {
         String scheme = endpoint.getScheme();
         if (scheme == null) {
@@ -122,8 +123,8 @@ class SecurityTokenSupplier {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(), useHttp2,
-                                                  null, 0, "FederationClient", logger);
+            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(), null,
+                    0, "FederationClient", httpProtocols, logger);
         }
 
         if (sslCtx == null) {
@@ -135,9 +136,9 @@ class SecurityTokenSupplier {
             }
         }
 
-        return HttpClient.createMinimalClient(endpoint.getHost(), 443, useHttp2,
+        return HttpClient.createMinimalClient(endpoint.getHost(), 443,
                               sslCtx, sslHandshakeTimeout,
-                              "FederationClient", logger);
+                              "FederationClient", httpProtocols, logger);
     }
 
     private synchronized String refreshAndGetTokenInternal() {

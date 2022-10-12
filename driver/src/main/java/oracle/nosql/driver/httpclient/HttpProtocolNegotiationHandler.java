@@ -36,7 +36,7 @@ import io.netty.util.internal.RecyclableArrayList;
  * Handle TLS protocol negotiation result, either Http1.1 or H2
  *
  * The channel initialization process:
- * 1. Channel aquired from {@link ConnectionPool} after channel is active.
+ * 1. Channel acquired from {@link ConnectionPool} after channel is active.
  * 2. SSL negotiation started, pipeline is not ready.
  * 3. {@link HttpProtocolNegotiationHandler} holds all {@link HttpMessage} while waiting for the negotiation result.
  * 4. Negotiation finished, {@link HttpProtocolNegotiationHandler} changes the pipeline according to the protocol selected.
@@ -121,7 +121,7 @@ public class HttpProtocolNegotiationHandler extends ApplicationProtocolNegotiati
     /*
      * User can write requests right after the channel is active, while protocol
      * negotiation is still in progress. At this stage the pipeline is not ready
-     * to write http request so we must hold them here.
+     * to write http requests, so we must hold them here.
      */
     @Override
     public void write(ChannelHandlerContext ctx, Object o, ChannelPromise channelPromise) throws Exception {
@@ -137,7 +137,7 @@ public class HttpProtocolNegotiationHandler extends ApplicationProtocolNegotiati
 
     /*
      * Protocol negotiation finish, handler removed, the pipeline is
-     * ready to handle http messages. Write previousely buffered http messages.
+     * ready to handle http messages. Write previously buffered http messages.
      */
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
@@ -196,8 +196,9 @@ public class HttpProtocolNegotiationHandler extends ApplicationProtocolNegotiati
 
         public boolean equals(Object other) {
             if (other instanceof Pair<?, ?>) {
-                return Objects.equals(first, ((Pair<?, ?>) other).first) &&
-                        Objects.equals(second, ((Pair<?, ?>) other).second);
+                Pair<?,?> pair = (Pair<?,?>) other;
+                return Objects.equals(first, pair.first) &&
+                        Objects.equals(second, pair.second);
             }
             return false;
         }

@@ -19,10 +19,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
@@ -295,10 +297,10 @@ public class InstancePrincipalsProvider
             try {
                 client = HttpClient.createMinimalClient(METADATA_SERVICE_HOST,
                                                         80,
-                                                        false,
                                                         null,
                                                         0,
                                                         "InstanceMDClient",
+                                                        Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
                                                         logger);
 
                 HttpResponse response = HttpRequestUtil.doGetRequest
