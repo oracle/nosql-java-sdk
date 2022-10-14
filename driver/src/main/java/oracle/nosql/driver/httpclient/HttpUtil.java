@@ -9,24 +9,17 @@ package oracle.nosql.driver.httpclient;
 
 import static io.netty.handler.logging.LogLevel.DEBUG;
 
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
 
-import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpClientUpgradeHandler;
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http2.DefaultHttp2Connection;
 import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
 import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
@@ -83,7 +76,7 @@ public class HttpUtil {
 
         HttpClientCodec sourceCodec = new HttpClientCodec(4096, 8192, maxChunkSize);
         Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(connectionHandler);
-        HttpClientUpgradeHandler upgradeHandler = new HttpClientUpgradeHandler(sourceCodec, upgradeCodec, maxContentLength);
+        HttpClientUpgradeHandler upgradeHandler = new UpgradeHandler(sourceCodec, upgradeCodec, maxContentLength);
         p.addLast(sourceCodec,
                 upgradeHandler,
                 new UpgradeRequestHandler(maxContentLength));
@@ -101,33 +94,29 @@ public class HttpUtil {
         bufferedMessages.recycle();
     }
 
-    /**
-     * A handler that triggers the cleartext upgrade to HTTP/2 by sending an initial HTTP request.
-     */
-    private static final class UpgradeRequestHandler extends ChannelInboundHandlerAdapter implements ChannelOutboundHandler {
-        private final int maxContentLength;
-        private final RecyclableArrayList bufferedMessages = RecyclableArrayList.newInstance();
-
-        public UpgradeRequestHandler(int maxContentLength) {
-            this.maxContentLength = maxContentLength;
+    private static final class UpgradeHandler extends HttpClientUpgradeHandler {
+        public UpgradeHandler(SourceCodec sourceCodec, UpgradeCodec upgradeCodec, int maxContentLength) {
+            super(sourceCodec, upgradeCodec, maxContentLength);
         }
 
         @Override
-        public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            DefaultFullHttpRequest upgradeRequest =
-                    new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/", Unpooled.EMPTY_BUFFER);
+        public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+            super.handlerRemoved(ctx);
+            ctx.fireUserEventTriggered(UpgradeFinishedEvent.INSTANCE);
+        }
+    }
 
-            // Set HOST header as the remote peer may require it.
-            InetSocketAddress remote = (InetSocketAddress) ctx.channel().remoteAddress();
-            String hostString = remote.getHostString();
-            if (hostString == null) {
-                hostString = remote.getAddress().getHostAddress();
-            }
-            upgradeRequest.headers().set(HttpHeaderNames.HOST, hostString + ':' + remote.getPort());
+    /**
+     * A handler that triggers the cleartext upgrade to HTTP/2 by sending an initial HTTP request.
+     */
+    private static final class UpgradeRequestHandler extends ChannelDuplexHandler {
+        private final int maxContentLength;
+        private final RecyclableArrayList bufferedMessages = RecyclableArrayList.newInstance();
+        private boolean upgradeTried = false;
+        private boolean upgrading = false;
 
-            ctx.writeAndFlush(upgradeRequest);
-
-            ctx.fireChannelActive();
+        public UpgradeRequestHandler(int maxContentLength) {
+            this.maxContentLength = maxContentLength;
         }
 
         @Override
@@ -142,10 +131,14 @@ public class HttpUtil {
                 HttpClientUpgradeHandler.UpgradeEvent reg = (HttpClientUpgradeHandler.UpgradeEvent) evt;
                 if (reg == HttpClientUpgradeHandler.UpgradeEvent.UPGRADE_REJECTED) {
                     ctx.pipeline().addAfter(ctx.name(), AGG_HANDLER_NAME, new HttpObjectAggregator(maxContentLength));
-                    ctx.pipeline().remove(this);
-                } else if (reg == HttpClientUpgradeHandler.UpgradeEvent.UPGRADE_SUCCESSFUL) {
-                    ctx.pipeline().remove(this);
                 }
+            }
+            if (evt instanceof UpgradeFinishedEvent) {
+                // Upgrade Finished (both SUCCESSFUL or REJECTED)
+                // The HttpClientUpgradeHandler is removed from pipeline
+                // The pipeline is now configured, and ready
+                // Remove this handler and flush the buffered messages
+                ctx.pipeline().remove(this);
             }
             ctx.fireUserEventTriggered(evt);
         }
@@ -153,12 +146,18 @@ public class HttpUtil {
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
             if (msg instanceof HttpMessage) {
-                Pair<Object, ChannelPromise> p = Pair.of(msg, promise);
-                this.bufferedMessages.add(p);
-                return;
+                // Only let the very first HttpMessage pass through
+                // The H2C upgrade handler modifies the first message,
+                // and tries to negotiate a new protocol with the server
+                // This process takes one round trip
+                if (upgrading) {
+                    Pair<Object, ChannelPromise> p = Pair.of(msg, promise);
+                    this.bufferedMessages.add(p);
+                    return;
+                }
+                upgrading = true;
             }
 
-            // let non-http message to pass, so the HTTP2 preface and settings frame can be sent
             ctx.write(msg, promise);
         }
 
@@ -195,6 +194,13 @@ public class HttpUtil {
         @Override
         public void flush(ChannelHandlerContext ctx) throws Exception {
             ctx.flush();
+        }
+    }
+
+    public static final class UpgradeFinishedEvent {
+        private static final UpgradeFinishedEvent INSTANCE = new UpgradeFinishedEvent();
+
+        private UpgradeFinishedEvent() {
         }
     }
 

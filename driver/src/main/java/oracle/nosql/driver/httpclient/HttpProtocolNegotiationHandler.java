@@ -10,7 +10,6 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.logging.Logger;
 
 import io.netty.channel.ChannelHandlerContext;
