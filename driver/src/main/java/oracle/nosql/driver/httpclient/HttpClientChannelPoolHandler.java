@@ -23,6 +23,7 @@ import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelHealthChecker;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.handler.proxy.HttpProxyHandler;
+import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.concurrent.Future;
@@ -48,6 +49,62 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         this.client = client;
     }
 
+    private void configureSSL(Channel ch) {
+        ChannelPipeline p = ch.pipeline();
+        /* Enable hostname verification */
+        final SslHandler sslHandler = client.getSslContext().newHandler(
+                ch.alloc(), client.getHost(), client.getPort());
+        final SSLEngine sslEngine = sslHandler.engine();
+        final SSLParameters sslParameters = sslEngine.getSSLParameters();
+        sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+        sslEngine.setSSLParameters(sslParameters);
+        sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
+
+        p.addLast(sslHandler);
+        p.addLast(new ChannelLoggingHandler(client));
+        // Handle ALPN protocol negotiation result, and configure the pipeline accordingly
+        p.addLast(new HttpProtocolNegotiationHandler(
+                client.getHttpFallbackProtocol(), new HttpClientHandler(client.getLogger()),
+                client.getMaxChunkSize(), client.getMaxContentLength(), client.getLogger()));
+    }
+
+    private void configureClearText(Channel ch) {
+        ChannelPipeline p = ch.pipeline();
+        HttpClientHandler handler = new HttpClientHandler(client.getLogger());
+
+        // Only true when HTTP_2 is the only protocol, as if user set:
+        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_2);
+        if (client.useHttp2() &&
+            ApplicationProtocolNames.HTTP_2.equals(client.getHttpFallbackProtocol())) {
+            // If choose to use H2 and fallback is also H2
+            // Then there is no need to upgrade from Http1.1 to H2C
+            // Directly connects with H2 protocol, so called Http2-prior-knowledge
+            HttpUtil.configureHttp2(ch.pipeline(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+
+        // Only true when HTTP_1_1 is the only protocol, as if user set:
+        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_1_1);
+        if (!client.useHttp2() &&
+            ApplicationProtocolNames.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+            HttpUtil.configureHttp1(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+
+        // Only true when both HTTP_2 and HTTP_1_1 are available, the default option:
+        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_2,
+        //                         ApplicationProtocolNames.HTTP_1_1)
+        if (client.useHttp2() &&
+            ApplicationProtocolNames.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+            HttpUtil.configureH2C(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+        throw new IllegalStateException("unknown protocol: " + client.getHttpProtocols());
+    }
+
     /**
      * Initialize a channel with handlers that:
      * 1 -- handle and HTTP
@@ -62,25 +119,10 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         logFine(client.getLogger(),
                 "HttpClient " + client.getName() + ", channel created: " + ch
                 + ", acquired channel cnt " + client.getAcquiredChannelCount());
-        ChannelPipeline p = ch.pipeline();
         if (client.getSslContext() != null) {
-            /* Enable hostname verification */
-            final SslHandler sslHandler = client.getSslContext().newHandler(
-                ch.alloc(), client.getHost(), client.getPort());
-            final SSLEngine sslEngine = sslHandler.engine();
-            final SSLParameters sslParameters = sslEngine.getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-            sslEngine.setSSLParameters(sslParameters);
-            sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
-
-            p.addLast(sslHandler);
-            p.addLast(new ChannelLoggingHandler(client));
-            // Handle ALPN protocol negotiation result, and configure the pipeline accordingly
-            p.addLast(new HttpProtocolNegotiationHandler(
-                    client.getHttpFallbackProtocol(), new HttpClientHandler(client.getLogger()), client.getMaxChunkSize(),
-                    client.getMaxContentLength(), client.getLogger()));
+            configureSSL(ch);
         } else {
-            // TODO: H2C upgrade
+            configureClearText(ch);
         }
 
         if (client.getProxyHost() != null) {
@@ -94,7 +136,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                                      client.getProxyUsername(),
                                      client.getProxyPassword());
 
-            p.addFirst("proxyServer", proxyHandler);
+            ch.pipeline().addFirst("proxyServer", proxyHandler);
         }
     }
 

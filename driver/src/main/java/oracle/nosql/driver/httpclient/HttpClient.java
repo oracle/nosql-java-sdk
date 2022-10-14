@@ -379,6 +379,15 @@ public class HttpClient {
         return pool.getFreeChannels();
     }
 
+    /**
+     * Check if "h2" is in the protocols list
+     *
+     * @return true if "h2" is in the protocols list
+     */
+    public boolean useHttp2() {
+        return this.httpProtocols.contains(ApplicationProtocolNames.HTTP_2);
+    }
+
     /* available for testing */
     ConnectionPool getConnectionPool() {
         return pool;
