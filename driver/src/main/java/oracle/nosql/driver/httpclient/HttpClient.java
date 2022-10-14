@@ -233,7 +233,10 @@ public class HttpClient {
                 httpProtocols :
                 new ArrayList<>(Arrays.asList(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1));
 
-        this.httpFallbackProtocol = this.httpProtocols.get(this.httpProtocols.size() - 1);
+        // If Http1.1 is in the httpProtocols list, we prefer use it as the fallback
+        // Else we use the last protocol in the httpProtocols list.
+        this.httpFallbackProtocol = this.httpProtocols.contains(ApplicationProtocolNames.HTTP_1_1) ?
+            ApplicationProtocolNames.HTTP_1_1 : this.httpProtocols.get(this.httpProtocols.size() - 1);
 
         this.maxContentLength = (maxContentLength == 0 ?
             DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
