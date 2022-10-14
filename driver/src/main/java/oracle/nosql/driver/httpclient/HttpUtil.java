@@ -12,6 +12,7 @@ import static io.netty.handler.logging.LogLevel.DEBUG;
 import java.net.SocketAddress;
 import java.util.Objects;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -24,6 +25,7 @@ import io.netty.handler.codec.http2.DefaultHttp2Connection;
 import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
 import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
 import io.netty.handler.codec.http2.Http2Connection;
+import io.netty.handler.codec.http2.Http2ConnectionHandler;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
 import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandlerBuilder;
@@ -46,47 +48,38 @@ public class HttpUtil {
     }
 
     public static void configureHttp2(ChannelPipeline p, int maxContentLength) {
-        Http2Connection connection = new DefaultHttp2Connection(false);
-        HttpToHttp2ConnectionHandler connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
-                .frameListener(new DelegatingDecompressorFrameListener(
-                        connection,
-                        new InboundHttp2ToHttpAdapterBuilder(connection)
-                                .maxContentLength(maxContentLength)
-                                .propagateSettings(false)
-                                .build()))
-                .frameLogger(frameLogger)
-                .connection(connection)
-                .build();
-
-        p.addLast(connectionHandler);
+        p.addLast(createHttp2ConnectionHandler(maxContentLength));
     }
 
     public static void configureH2C(ChannelPipeline p, int maxChunkSize, int maxContentLength) {
-        Http2Connection connection = new DefaultHttp2Connection(false);
-        HttpToHttp2ConnectionHandler connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
-                .frameListener(new DelegatingDecompressorFrameListener(
-                        connection,
-                        new InboundHttp2ToHttpAdapterBuilder(connection)
-                                .maxContentLength(maxContentLength)
-                                .propagateSettings(false)
-                                .build()))
-                .frameLogger(frameLogger)
-                .connection(connection)
-                .build();
-
         HttpClientCodec sourceCodec = new HttpClientCodec(4096, 8192, maxChunkSize);
-        Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(connectionHandler);
+        Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(createHttp2ConnectionHandler(maxContentLength));
         HttpClientUpgradeHandler upgradeHandler = new UpgradeHandler(sourceCodec, upgradeCodec, maxContentLength);
         p.addLast(sourceCodec,
                 upgradeHandler,
                 new UpgradeRequestHandler(maxContentLength));
     }
 
-    public static void writeBufferedMessages(ChannelHandlerContext ctx, RecyclableArrayList bufferedMessages) {
+    private static Http2ConnectionHandler createHttp2ConnectionHandler(int maxContentLength) {
+        Http2Connection connection = new DefaultHttp2Connection(false);
+        HttpToHttp2ConnectionHandler connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
+                .frameListener(new DelegatingDecompressorFrameListener(
+                        connection,
+                        new InboundHttp2ToHttpAdapterBuilder(connection)
+                                .maxContentLength(maxContentLength)
+                                .propagateSettings(false)
+                                .build()))
+                .frameLogger(frameLogger)
+                .connection(connection)
+                .build();
+        return connectionHandler;
+    }
+
+    public static void writeBufferedMessages(Channel ch, RecyclableArrayList bufferedMessages) {
         if (!bufferedMessages.isEmpty()) {
             for(int i = 0; i < bufferedMessages.size(); ++i) {
                 Pair<Object, ChannelPromise> p = (Pair<Object, ChannelPromise>)bufferedMessages.get(i);
-                ctx.channel().write(p.first, p.second);
+                ch.write(p.first, p.second);
             }
 
             bufferedMessages.clear();
@@ -107,12 +100,12 @@ public class HttpUtil {
     }
 
     /**
-     * A handler that triggers the cleartext upgrade to HTTP/2 by sending an initial HTTP request.
+     * A handler that holds HttpMessages (Except the first one)
+     * So the upgrade handler can have time to finish clear text protocol upgrade
      */
     private static final class UpgradeRequestHandler extends ChannelDuplexHandler {
         private final int maxContentLength;
         private final RecyclableArrayList bufferedMessages = RecyclableArrayList.newInstance();
-        private boolean upgradeTried = false;
         private boolean upgrading = false;
 
         public UpgradeRequestHandler(int maxContentLength) {
@@ -122,7 +115,7 @@ public class HttpUtil {
         @Override
         public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
             super.handlerRemoved(ctx);
-            writeBufferedMessages(ctx, this.bufferedMessages);
+            writeBufferedMessages(ctx.channel(), this.bufferedMessages);
         }
 
         @Override

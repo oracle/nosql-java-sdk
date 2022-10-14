@@ -85,7 +85,7 @@ public class HttpProtocolNegotiationHandler extends ApplicationProtocolNegotiati
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         super.handlerRemoved(ctx);
-        HttpUtil.writeBufferedMessages(ctx, this.bufferedMessages);
+        HttpUtil.writeBufferedMessages(ctx.channel(), this.bufferedMessages);
     }
 
     @Override
