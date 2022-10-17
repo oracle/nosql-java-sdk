@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
-import io.netty.handler.ssl.ApplicationProtocolNames;
+import oracle.nosql.driver.util.HttpConstants;
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -148,7 +148,7 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * Default: prefer H2 but fallback to Http1.1
      */
-    private List<String> httpProtocols = new ArrayList<>(Arrays.asList(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1));
+    private List<String> httpProtocols = new ArrayList<>(Arrays.asList(HttpConstants.HTTP_2, HttpConstants.HTTP_1_1));
 
     /**
      * A RetryHandler, or null if not configured by the user.
@@ -567,15 +567,6 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public List<String> getHttpProtocols() {
         return httpProtocols;
-    }
-
-    /**
-     * Check if "h2" is in the protocols list
-     *
-     * @return true if "h2" is in the protocols list
-     */
-    public boolean useHttp2() {
-        return this.httpProtocols.contains(ApplicationProtocolNames.HTTP_2);
     }
 
     /**

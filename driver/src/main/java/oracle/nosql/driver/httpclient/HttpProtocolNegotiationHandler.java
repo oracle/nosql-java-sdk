@@ -16,9 +16,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.util.internal.RecyclableArrayList;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * Handle TLS protocol negotiation result, either Http1.1 or H2
@@ -50,9 +50,9 @@ public class HttpProtocolNegotiationHandler extends ApplicationProtocolNegotiati
 
     @Override
     protected void configurePipeline(ChannelHandlerContext ctx, String protocol) {
-        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+        if (HttpConstants.HTTP_2.equals(protocol)) {
             HttpUtil.configureHttp2(ctx.pipeline(), this.maxContentLength);
-        } else if (ApplicationProtocolNames.HTTP_1_1.equals(protocol)) {
+        } else if (HttpConstants.HTTP_1_1.equals(protocol)) {
             HttpUtil.configureHttp1(ctx.pipeline(), this.maxChunkSize, this.maxContentLength);
         } else {
             throw new IllegalStateException("unknown http protocol: " + protocol);

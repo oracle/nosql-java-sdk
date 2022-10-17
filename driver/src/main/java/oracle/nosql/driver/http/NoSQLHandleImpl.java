@@ -50,6 +50,7 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
@@ -128,7 +129,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 }
                 builder.sessionTimeout(config.getSSLSessionTimeout());
                 builder.sessionCacheSize(config.getSSLSessionCacheSize());
-                if (config.useHttp2()) {
+                if (config.getHttpProtocols().contains(HttpConstants.HTTP_2)) {
                     builder.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
                 }
                 builder.applicationProtocolConfig(

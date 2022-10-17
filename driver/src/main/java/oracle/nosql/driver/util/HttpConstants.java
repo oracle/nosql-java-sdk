@@ -15,6 +15,16 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 public class HttpConstants {
 
     /**
+     * {@code "h2"}: HTTP version 2
+     */
+    public static final String HTTP_2 = "h2";
+
+    /**
+     * {@code "http/1.1"}: HTTP version 1.1
+     */
+    public static final String HTTP_1_1 = "http/1.1";
+
+    /**
      * The http header that identifies the client scoped unique request id
      * associated with each request. The request header is returned by the
      * server, as part of the response and serves to associate the response

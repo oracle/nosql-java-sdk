@@ -23,10 +23,10 @@ import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelHealthChecker;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.handler.proxy.HttpProxyHandler;
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.concurrent.Future;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * This is an instance of Netty's ChannelPoolHandler used to initialize
@@ -71,11 +71,12 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
     private void configureClearText(Channel ch) {
         ChannelPipeline p = ch.pipeline();
         HttpClientHandler handler = new HttpClientHandler(client.getLogger());
+        boolean useHttp2 = client.getHttpProtocols().contains(HttpConstants.HTTP_2);
 
         // Only true when HTTP_2 is the only protocol, as if user set:
-        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_2);
-        if (client.useHttp2() &&
-            ApplicationProtocolNames.HTTP_2.equals(client.getHttpFallbackProtocol())) {
+        // config.setHttpProtocols(HttpConstants.HTTP_2);
+        if (useHttp2 &&
+            HttpConstants.HTTP_2.equals(client.getHttpFallbackProtocol())) {
             // If choose to use H2 and fallback is also H2
             // Then there is no need to upgrade from Http1.1 to H2C
             // Directly connects with H2 protocol, so called Http2-prior-knowledge
@@ -85,19 +86,19 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         }
 
         // Only true when HTTP_1_1 is the only protocol, as if user set:
-        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_1_1);
-        if (!client.useHttp2() &&
-            ApplicationProtocolNames.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+        // config.setHttpProtocols(HttpConstants.HTTP_1_1);
+        if (!useHttp2 &&
+            HttpConstants.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
             HttpUtil.configureHttp1(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
             p.addLast(handler);
             return;
         }
 
         // Only true when both HTTP_2 and HTTP_1_1 are available, the default option:
-        // config.setHttpProtocols(ApplicationProtocolNames.HTTP_2,
-        //                         ApplicationProtocolNames.HTTP_1_1)
-        if (client.useHttp2() &&
-            ApplicationProtocolNames.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+        // config.setHttpProtocols(HttpConstants.HTTP_2,
+        //                         HttpConstants.HTTP_1_1)
+        if (useHttp2 &&
+            HttpConstants.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
             HttpUtil.configureH2C(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
             p.addLast(handler);
             return;

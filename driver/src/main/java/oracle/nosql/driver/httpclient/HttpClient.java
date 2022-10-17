@@ -34,7 +34,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
@@ -43,6 +42,7 @@ import io.netty.util.concurrent.Future;
  * from this config needs to be be abstracted to a generic class.
  */
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * Netty HTTP client. Initialization process:
@@ -231,12 +231,12 @@ public class HttpClient {
 
         this.httpProtocols = httpProtocols.size() > 0 ?
                 httpProtocols :
-                new ArrayList<>(Arrays.asList(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1));
+                new ArrayList<>(Arrays.asList(HttpConstants.HTTP_2, HttpConstants.HTTP_1_1));
 
         // If Http1.1 is in the httpProtocols list, we prefer use it as the fallback
         // Else we use the last protocol in the httpProtocols list.
-        this.httpFallbackProtocol = this.httpProtocols.contains(ApplicationProtocolNames.HTTP_1_1) ?
-            ApplicationProtocolNames.HTTP_1_1 : this.httpProtocols.get(this.httpProtocols.size() - 1);
+        this.httpFallbackProtocol = this.httpProtocols.contains(HttpConstants.HTTP_1_1) ?
+            HttpConstants.HTTP_1_1 : this.httpProtocols.get(this.httpProtocols.size() - 1);
 
         this.maxContentLength = (maxContentLength == 0 ?
             DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
@@ -380,15 +380,6 @@ public class HttpClient {
 
     public int getFreeChannelCount() {
         return pool.getFreeChannels();
-    }
-
-    /**
-     * Check if "h2" is in the protocols list
-     *
-     * @return true if "h2" is in the protocols list
-     */
-    public boolean useHttp2() {
-        return this.httpProtocols.contains(ApplicationProtocolNames.HTTP_2);
     }
 
     /* available for testing */

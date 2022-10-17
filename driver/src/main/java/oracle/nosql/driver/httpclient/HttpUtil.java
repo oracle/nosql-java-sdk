@@ -9,18 +9,24 @@ package oracle.nosql.driver.httpclient;
 
 import static io.netty.handler.logging.LogLevel.DEBUG;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpClientUpgradeHandler;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http2.DefaultHttp2Connection;
 import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
 import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
@@ -30,6 +36,7 @@ import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
 import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.InboundHttp2ToHttpAdapterBuilder;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.RecyclableArrayList;
 
 public class HttpUtil {
@@ -100,8 +107,7 @@ public class HttpUtil {
     }
 
     /**
-     * A handler that holds HttpMessages (Except the first one)
-     * So the upgrade handler can have time to finish clear text protocol upgrade
+     * A handler that triggers the cleartext upgrade to HTTP/2 by sending an initial HTTP request.
      */
     private static final class UpgradeRequestHandler extends ChannelDuplexHandler {
         private final int maxContentLength;
@@ -139,10 +145,6 @@ public class HttpUtil {
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
             if (msg instanceof HttpMessage) {
-                // Only let the very first HttpMessage pass through
-                // The H2C upgrade handler modifies the first message,
-                // and tries to negotiate a new protocol with the server
-                // This process takes one round trip
                 if (upgrading) {
                     Pair<Object, ChannelPromise> p = Pair.of(msg, promise);
                     this.bufferedMessages.add(p);
