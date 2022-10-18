@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -53,6 +52,7 @@ import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -467,11 +467,11 @@ public class ProxyTestBase {
 
         boolean useHttp1only = Boolean.getBoolean("test.http1only");
         if (useHttp1only) {
-            config.setHttpProtocols(ApplicationProtocolNames.HTTP_1_1);
+            config.setHttpProtocols(HttpConstants.HTTP_1_1);
         }
         boolean useHttp2only = Boolean.getBoolean("test.http2only");
         if (useHttp2only) {
-            config.setHttpProtocols(ApplicationProtocolNames.HTTP_2);
+            config.setHttpProtocols(HttpConstants.HTTP_2);
         }
 
         /*

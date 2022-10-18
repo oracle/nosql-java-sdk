@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
@@ -34,6 +33,7 @@ import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.HttpRequestUtil;
 import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 
@@ -300,7 +300,7 @@ public class InstancePrincipalsProvider
                                                         null,
                                                         0,
                                                         "InstanceMDClient",
-                                                        Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
+                                                        Arrays.asList(HttpConstants.HTTP_1_1),
                                                         logger);
 
                 HttpResponse response = HttpRequestUtil.doGetRequest

@@ -17,7 +17,6 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 import java.net.URL;
 
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -26,6 +25,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * This test is excluded from the test profiles and must be run standalone.
@@ -73,7 +73,7 @@ public class ConnectionPoolTest {
             null, // sslCtx
             0,    // ssl handshake timeout
             "Pool Test",
-            Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
+            Arrays.asList(HttpConstants.HTTP_1_1),
             logger);
 
         ConnectionPool pool = client.getConnectionPool();
@@ -173,7 +173,7 @@ public class ConnectionPoolTest {
             buildSslContext(),
             0,    // ssl handshake timeout
             "Pool Cloud Test",
-            Arrays.asList(ApplicationProtocolNames.HTTP_1_1),
+            Arrays.asList(HttpConstants.HTTP_1_1),
             logger);
 
         ConnectionPool pool = client.getConnectionPool();

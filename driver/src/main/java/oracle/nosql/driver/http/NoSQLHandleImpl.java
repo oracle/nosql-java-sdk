@@ -14,7 +14,6 @@ import javax.net.ssl.SSLException;
 
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
