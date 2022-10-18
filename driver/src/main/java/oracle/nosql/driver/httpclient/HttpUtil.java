@@ -43,7 +43,7 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.RecyclableArrayList;
 
 public class HttpUtil {
-    private static final Http2FrameLogger frameLogger = new Http2FrameLogger(DEBUG, HttpProtocolNegotiationHandler.class);
+    private static final Http2FrameLogger frameLogger = new Http2FrameLogger(DEBUG, HttpUtil.class);
 
     private static final String CODEC_HANDLER_NAME = "http-codec";
     private static final String AGG_HANDLER_NAME = "http-aggregator";
