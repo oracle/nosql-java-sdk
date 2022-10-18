@@ -181,7 +181,12 @@ class Utils {
         IAM_URI.put("wga", OC10_EP_BASE.format(new Object[] {"ap-dcc-canberra-1"}));
 
         /* OC14 */
+        IAM_URI.put("ork", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-1"}));
+        IAM_URI.put("snn", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-2"}));
         IAM_URI.put("bgy", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-1"}));
+        IAM_URI.put("mxp", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-2"}));
+        IAM_URI.put("dus", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-1"}));
+        IAM_URI.put("dtm", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-2"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {

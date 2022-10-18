@@ -128,7 +128,12 @@ public class Region {
     public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
 
     /* OC14 */
+    public static final Region AP_DCC_DUBLIN_1 = new Region("eu-dcc-dublin-1");
+    public static final Region AP_DCC_DUBLIN_2 = new Region("eu-dcc-dublin-2");
     public static final Region AP_DCC_MILAN_1 = new Region("eu-dcc-milan-1");
+    public static final Region AP_DCC_MILAN_2 = new Region("eu-dcc-milan-2");
+    public static final Region AP_DCC_RATING_1 = new Region("eu-dcc-rating-1");
+    public static final Region AP_DCC_RATING_2 = new Region("eu-dcc-rating-2");
 
     static {
         /* OC1 */
@@ -208,7 +213,12 @@ public class Region {
         OC10_REGIONS.put(AP_DCC_CANBERRA_1.getRegionId(), AP_DCC_CANBERRA_1);
 
         /* OC14 */
+        OC14_REGIONS.put(AP_DCC_DUBLIN_1.getRegionId(), AP_DCC_DUBLIN_1);
+        OC14_REGIONS.put(AP_DCC_DUBLIN_2.getRegionId(), AP_DCC_DUBLIN_2);
         OC14_REGIONS.put(AP_DCC_MILAN_1.getRegionId(), AP_DCC_MILAN_1);
+        OC14_REGIONS.put(AP_DCC_MILAN_2.getRegionId(), AP_DCC_MILAN_2);
+        OC14_REGIONS.put(AP_DCC_RATING_1.getRegionId(), AP_DCC_RATING_1);
+        OC14_REGIONS.put(AP_DCC_RATING_2.getRegionId(), AP_DCC_RATING_2);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
