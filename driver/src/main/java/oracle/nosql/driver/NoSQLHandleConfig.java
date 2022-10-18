@@ -562,6 +562,10 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     * Returns the list of Http Protocols. If there is no configured
+     * protocol, a "default" value of
+     * List({@link HttpConstants#HTTP_2}, {@link HttpConstants#HTTP_1_1})
+     * is used.
      *
      * @return Http protocol settings
      */
@@ -647,6 +651,14 @@ public class NoSQLHandleConfig implements Cloneable {
         return this;
     }
 
+    /**
+     * Sets the default http protocol(s). The default is {@link HttpConstants#HTTP_2}
+     * and fall back to {@link HttpConstants#HTTP_1_1}
+     *
+     * @param protocols Protocol list
+     *
+     * @return this
+     */
     public NoSQLHandleConfig setHttpProtocols(String ... protocols) {
         this.httpProtocols = new ArrayList<>(2);
         for (String p : protocols) {
