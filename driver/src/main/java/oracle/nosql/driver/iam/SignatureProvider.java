@@ -887,7 +887,14 @@ public class SignatureProvider
         long nowPlus = System.currentTimeMillis() + 60_000L;
         String date = createFormatter().format(new Date(nowPlus));
         String keyId = provider.getKeyId();
-        if (provider instanceof InstancePrincipalsProvider) {
+
+        /*
+         * Security token based providers may refresh the security token
+         * and associated private key in above getKeyId() method, reload
+         * private key to PrivateKeyProvider to avoid a mismatch, which
+         * will create an invalid signature, cause authentication error.
+         */
+        if (provider instanceof SecurityTokenBasedProvider) {
             privateKeyProvider.reload(provider.getPrivateKey(),
                                       provider.getPassphraseCharacters());
         }

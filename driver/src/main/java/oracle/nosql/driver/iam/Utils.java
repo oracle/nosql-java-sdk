@@ -98,7 +98,7 @@ class Utils {
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclegovcloud.uk");
     private final static MessageFormat OC5_EP_BASE = new MessageFormat(
-        "https://auth.{0}.oraclerealm5.com");
+        "https://auth.{0}.oraclecloud5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(
@@ -149,6 +149,7 @@ class Utils {
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
         IAM_URI.put("sjc", OC1_EP_BASE.format(new Object[] {"us-sanjose-1"}));
+        IAM_URI.put("ord", OC1_EP_BASE.format(new Object[] {"us-chicago-1"}));
 
         IAM_URI.put("yyz", OC1_EP_BASE.format(new Object[] {"ca-toronto-1"}));
         IAM_URI.put("yul", OC1_EP_BASE.format(new Object[] {"ca-montreal-1"}));
@@ -180,7 +181,12 @@ class Utils {
         IAM_URI.put("wga", OC10_EP_BASE.format(new Object[] {"ap-dcc-canberra-1"}));
 
         /* OC14 */
+        IAM_URI.put("ork", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-1"}));
+        IAM_URI.put("snn", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-2"}));
         IAM_URI.put("bgy", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-1"}));
+        IAM_URI.put("mxp", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-2"}));
+        IAM_URI.put("dus", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-1"}));
+        IAM_URI.put("dtm", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-2"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {

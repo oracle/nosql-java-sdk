@@ -92,6 +92,7 @@ public class Region {
     public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
+    public static final Region US_CHICAGO_1 = new Region("us-chicago-1");
 
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
     public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
@@ -127,7 +128,12 @@ public class Region {
     public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
 
     /* OC14 */
+    public static final Region AP_DCC_DUBLIN_1 = new Region("eu-dcc-dublin-1");
+    public static final Region AP_DCC_DUBLIN_2 = new Region("eu-dcc-dublin-2");
     public static final Region AP_DCC_MILAN_1 = new Region("eu-dcc-milan-1");
+    public static final Region AP_DCC_MILAN_2 = new Region("eu-dcc-milan-2");
+    public static final Region AP_DCC_RATING_1 = new Region("eu-dcc-rating-1");
+    public static final Region AP_DCC_RATING_2 = new Region("eu-dcc-rating-2");
 
     static {
         /* OC1 */
@@ -175,6 +181,7 @@ public class Region {
         OC1_REGIONS.put(US_ASHBURN_1.getRegionId(), US_ASHBURN_1);
         OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
         OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
+        OC1_REGIONS.put(US_CHICAGO_1.getRegionId(), US_CHICAGO_1);
 
         OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
         OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
@@ -206,7 +213,12 @@ public class Region {
         OC10_REGIONS.put(AP_DCC_CANBERRA_1.getRegionId(), AP_DCC_CANBERRA_1);
 
         /* OC14 */
+        OC14_REGIONS.put(AP_DCC_DUBLIN_1.getRegionId(), AP_DCC_DUBLIN_1);
+        OC14_REGIONS.put(AP_DCC_DUBLIN_2.getRegionId(), AP_DCC_DUBLIN_2);
         OC14_REGIONS.put(AP_DCC_MILAN_1.getRegionId(), AP_DCC_MILAN_1);
+        OC14_REGIONS.put(AP_DCC_MILAN_2.getRegionId(), AP_DCC_MILAN_2);
+        OC14_REGIONS.put(AP_DCC_RATING_1.getRegionId(), AP_DCC_RATING_1);
+        OC14_REGIONS.put(AP_DCC_RATING_2.getRegionId(), AP_DCC_RATING_2);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -216,7 +228,7 @@ public class Region {
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclegovcloud.uk");
     private final static MessageFormat OC5_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclerealm5.com");
+        "https://nosql.{0}.oci.oraclecloud5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(

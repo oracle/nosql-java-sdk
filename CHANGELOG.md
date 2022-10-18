@@ -18,8 +18,18 @@ at runtime when attempted with an older server.
 be recompiled but source compatibility is maintained for all but the more complex
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
+
+## [5.3.7] 2022-10-18
+
+## Changed
 - Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
-- Cloud only: Updated OCI regions
+- Cloud only: Updated OCI regions (ORD, BGY, TIW, MXP, DUS, DTM, ORK, SNN)
+- Update netty dependency to 4.1.82.Final
+
+### Fixed
+- Cloud only: Fixed an issue where a long running application using SignatureProvider
+ with resource principal may encounter NotAuthenticated error after several minutes even
+ if authentication succeeds for the first requests.
 
 ## [5.3.6] 2022-08-23
 
