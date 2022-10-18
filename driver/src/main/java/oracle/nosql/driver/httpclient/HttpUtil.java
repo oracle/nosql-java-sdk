@@ -48,34 +48,6 @@ public class HttpUtil {
     private static final String CODEC_HANDLER_NAME = "http-codec";
     private static final String AGG_HANDLER_NAME = "http-aggregator";
 
-    public static void removeHttpObjectAggregator(ChannelPipeline p) {
-        p.remove(AGG_HANDLER_NAME);
-    }
-
-    public static void configureHttp1(ChannelPipeline p, int maxChunkSize, int maxContentLength) {
-        p.addLast(CODEC_HANDLER_NAME,
-                new HttpClientCodec(4096, // initial line
-                        8192, // header size
-                        maxChunkSize)); // chunksize
-        p.addLast(AGG_HANDLER_NAME,
-                new HttpObjectAggregator(maxContentLength));
-    }
-
-    public static void configureHttp2(ChannelPipeline p, int maxContentLength) {
-        p.addLast(createHttp2ConnectionHandler(maxContentLength));
-    }
-
-    public static void configureH2C(ChannelPipeline p, int maxChunkSize, int maxContentLength) {
-        HttpClientCodec sourceCodec = new HttpClientCodec(4096, 8192, maxChunkSize);
-        Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(createHttp2ConnectionHandler(maxContentLength));
-        HttpClientUpgradeHandler upgradeHandler = new UpgradeHandler(sourceCodec, upgradeCodec, maxContentLength);
-
-        p.addLast(CODEC_HANDLER_NAME, sourceCodec);
-        p.addLast(upgradeHandler);
-        p.addLast(AGG_HANDLER_NAME, new HttpObjectAggregator(maxContentLength));
-        p.addLast(new UpgradeRequestHandler());
-    }
-
     private static Http2ConnectionHandler createHttp2ConnectionHandler(int maxContentLength) {
         Http2Connection connection = new DefaultHttp2Connection(false);
         HttpToHttp2ConnectionHandler connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
@@ -91,7 +63,35 @@ public class HttpUtil {
         return connectionHandler;
     }
 
-    public static void writeBufferedMessages(Channel ch, RecyclableArrayList bufferedMessages) {
+    protected static void removeHttpObjectAggregator(ChannelPipeline p) {
+        p.remove(AGG_HANDLER_NAME);
+    }
+
+    protected static void configureHttp1(ChannelPipeline p, int maxChunkSize, int maxContentLength) {
+        p.addLast(CODEC_HANDLER_NAME,
+                new HttpClientCodec(4096, // initial line
+                        8192, // header size
+                        maxChunkSize)); // chunksize
+        p.addLast(AGG_HANDLER_NAME,
+                new HttpObjectAggregator(maxContentLength));
+    }
+
+    protected static void configureHttp2(ChannelPipeline p, int maxContentLength) {
+        p.addLast(createHttp2ConnectionHandler(maxContentLength));
+    }
+
+    protected static void configureH2C(ChannelPipeline p, int maxChunkSize, int maxContentLength) {
+        HttpClientCodec sourceCodec = new HttpClientCodec(4096, 8192, maxChunkSize);
+        Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(createHttp2ConnectionHandler(maxContentLength));
+        HttpClientUpgradeHandler upgradeHandler = new UpgradeHandler(sourceCodec, upgradeCodec, maxContentLength);
+
+        p.addLast(CODEC_HANDLER_NAME, sourceCodec);
+        p.addLast(upgradeHandler);
+        p.addLast(AGG_HANDLER_NAME, new HttpObjectAggregator(maxContentLength));
+        p.addLast(new UpgradeRequestHandler());
+    }
+
+    protected static void writeBufferedMessages(Channel ch, RecyclableArrayList bufferedMessages) {
         if (!bufferedMessages.isEmpty()) {
             for(int i = 0; i < bufferedMessages.size(); ++i) {
                 Pair<Object, ChannelPromise> p = (Pair<Object, ChannelPromise>)bufferedMessages.get(i);
