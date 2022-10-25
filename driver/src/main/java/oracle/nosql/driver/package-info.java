@@ -62,9 +62,9 @@
  * some non-default configuration options related to how threads and
  * connections are managed by the networking implementation (Netty).
  * <p>
- * There are 3 methods on {@link NoSQLHandleConfig} that relate to threads
+ * There is a method on {@link NoSQLHandleConfig} that relates to threads
  * and connections. If your application isn't getting the performance
- * expected these can be tuned. There is no single answer to what is best.
+ * expected it can be tuned. There is no single answer to what is best.
  * It is best to experiment with different values and observe the behavior.
  * <ol>
  * <li> {@link NoSQLHandleConfig#setNumThreads}. This is the number
@@ -73,15 +73,11 @@
  * Unless your application has high latency operations this should be
  * sufficient.
  *  </li>
- * <li> {@link NoSQLHandleConfig#setConnectionPoolSize}. This is the
- * default size of the Netty connection pool. It also defaults to the
- * number of available CPUs * 2. Again, unless you have high latency
- * operations (long queries) this should be sufficient for most needs. </li>
  * </ol>
  * When tuning multi-threaded applications it's important to remember that
  * it's possible to have too many threads and that more threads does not
- * equal more performance. The optimal number depends on request latency and
- * other I/O performed. It is best to experiment.
+ * automatically equal more performance. The optimal number depends on
+ * request latency and other I/O performed. It is best to experiment.
  *
  * <p><strong><a id="Logging">Logging in the SDK</a></strong></p>
  * <p>
