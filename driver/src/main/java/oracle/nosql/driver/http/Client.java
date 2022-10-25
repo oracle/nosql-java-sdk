@@ -249,6 +249,7 @@ public class Client {
             sslCtx,
             config.getSSLHandshakeTimeout(),
             "NoSQL Driver",
+            config.getHttpProtocols(),
             logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);

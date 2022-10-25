@@ -17,6 +17,9 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -39,6 +42,7 @@ import io.netty.util.concurrent.Future;
  * from this config needs to be be abstracted to a generic class.
  */
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * Netty HTTP client. Initialization process:
@@ -96,6 +100,8 @@ public class HttpClient {
     private final String host;
     private final int port;
     private final String name;
+    private final List<String> httpProtocols;
+    private final String httpFallbackProtocol;
 
     /*
      * Amount of time to wait for acquiring a channel before timing
@@ -134,12 +140,14 @@ public class HttpClient {
      * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
+     * @param httpProtocols A list of preferred http protocols (H2 and Http1.1)
      */
     public static HttpClient createMinimalClient(String host,
                                                  int port,
                                                  SslContext sslCtx,
                                                  int handshakeTimeoutMs,
                                                  String name,
+                                                 List<String> httpProtocols,
                                                  Logger logger) {
         return new HttpClient(host,
                               port,
@@ -149,7 +157,7 @@ public class HttpClient {
                               true, /* minimal client */
                               DEFAULT_MAX_CONTENT_LENGTH,
                               DEFAULT_MAX_CHUNK_SIZE,
-                              sslCtx, handshakeTimeoutMs, name, logger);
+                              sslCtx, handshakeTimeoutMs, name, httpProtocols, logger);
     }
 
     /**
@@ -178,6 +186,7 @@ public class HttpClient {
      * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
+     * @param httpProtocols A list of preferred http protocols (H2 and Http1.1)
      */
     public HttpClient(String host,
                       int port,
@@ -189,11 +198,12 @@ public class HttpClient {
                       SslContext sslCtx,
                       int handshakeTimeoutMs,
                       String name,
+                      List<String> httpProtocols,
                       Logger logger) {
 
         this(host, port, numThreads, connectionPoolMinSize,
              inactivityPeriodSeconds, false /* not minimal */,
-             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, httpProtocols, logger);
     }
 
     /*
@@ -210,6 +220,7 @@ public class HttpClient {
                        SslContext sslCtx,
                        int handshakeTimeoutMs,
                        String name,
+                       List<String> httpProtocols,
                        Logger logger) {
 
         this.logger = logger;
@@ -217,6 +228,15 @@ public class HttpClient {
         this.host = host;
         this.port = port;
         this.name = name;
+
+        this.httpProtocols = httpProtocols.size() > 0 ?
+                httpProtocols :
+                new ArrayList<>(Arrays.asList(HttpConstants.HTTP_2, HttpConstants.HTTP_1_1));
+
+        // If Http1.1 is in the httpProtocols list, we prefer use it as the fallback
+        // Else we use the last protocol in the httpProtocols list.
+        this.httpFallbackProtocol = this.httpProtocols.contains(HttpConstants.HTTP_1_1) ?
+            HttpConstants.HTTP_1_1 : this.httpProtocols.get(this.httpProtocols.size() - 1);
 
         this.maxContentLength = (maxContentLength == 0 ?
             DEFAULT_MAX_CONTENT_LENGTH : maxContentLength);
@@ -290,6 +310,14 @@ public class HttpClient {
 
     String getName() {
         return name;
+    }
+
+    List<String> getHttpProtocols() {
+        return httpProtocols;
+    }
+
+    public String getHttpFallbackProtocol() {
+        return httpFallbackProtocol;
     }
 
     Logger getLogger() {

@@ -10,6 +10,7 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 
 import java.net.InetSocketAddress;
+
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 
@@ -21,12 +22,11 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelHealthChecker;
 import io.netty.channel.pool.ChannelPoolHandler;
-import io.netty.handler.codec.http.HttpClientCodec;
-import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.concurrent.Future;
+import oracle.nosql.driver.util.HttpConstants;
 
 /**
  * This is an instance of Netty's ChannelPoolHandler used to initialize
@@ -36,10 +36,6 @@ import io.netty.util.concurrent.Future;
 @Sharable
 public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                                                      ChannelHealthChecker {
-
-    private static final String CODEC_HANDLER_NAME = "http-codec";
-    private static final String AGG_HANDLER_NAME = "http-aggregator";
-    private static final String HTTP_HANDLER_NAME = "http-response-handler";
 
     private final HttpClient client;
 
@@ -51,6 +47,63 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
      */
     HttpClientChannelPoolHandler(HttpClient client) {
         this.client = client;
+    }
+
+    private void configureSSL(Channel ch) {
+        ChannelPipeline p = ch.pipeline();
+        /* Enable hostname verification */
+        final SslHandler sslHandler = client.getSslContext().newHandler(
+                ch.alloc(), client.getHost(), client.getPort());
+        final SSLEngine sslEngine = sslHandler.engine();
+        final SSLParameters sslParameters = sslEngine.getSSLParameters();
+        sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+        sslEngine.setSSLParameters(sslParameters);
+        sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
+
+        p.addLast(sslHandler);
+        p.addLast(new ChannelLoggingHandler(client));
+        // Handle ALPN protocol negotiation result, and configure the pipeline accordingly
+        p.addLast(new HttpProtocolNegotiationHandler(
+                client.getHttpFallbackProtocol(), new HttpClientHandler(client.getLogger()),
+                client.getMaxChunkSize(), client.getMaxContentLength(), client.getLogger()));
+    }
+
+    private void configureClearText(Channel ch) {
+        ChannelPipeline p = ch.pipeline();
+        HttpClientHandler handler = new HttpClientHandler(client.getLogger());
+        boolean useHttp2 = client.getHttpProtocols().contains(HttpConstants.HTTP_2);
+
+        // Only true when HTTP_2 is the only protocol, as if user set:
+        // config.setHttpProtocols(HttpConstants.HTTP_2);
+        if (useHttp2 &&
+            HttpConstants.HTTP_2.equals(client.getHttpFallbackProtocol())) {
+            // If choose to use H2 and fallback is also H2
+            // Then there is no need to upgrade from Http1.1 to H2C
+            // Directly connects with H2 protocol, so called Http2-prior-knowledge
+            HttpUtil.configureHttp2(ch.pipeline(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+
+        // Only true when HTTP_1_1 is the only protocol, as if user set:
+        // config.setHttpProtocols(HttpConstants.HTTP_1_1);
+        if (!useHttp2 &&
+            HttpConstants.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+            HttpUtil.configureHttp1(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+
+        // Only true when both HTTP_2 and HTTP_1_1 are available, the default option:
+        // config.setHttpProtocols(HttpConstants.HTTP_2,
+        //                         HttpConstants.HTTP_1_1)
+        if (useHttp2 &&
+            HttpConstants.HTTP_1_1.equals(client.getHttpFallbackProtocol())) {
+            HttpUtil.configureH2C(ch.pipeline(), client.getMaxChunkSize(), client.getMaxContentLength());
+            p.addLast(handler);
+            return;
+        }
+        throw new IllegalStateException("unknown protocol: " + client.getHttpProtocols());
     }
 
     /**
@@ -67,28 +120,11 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
         logFine(client.getLogger(),
                 "HttpClient " + client.getName() + ", channel created: " + ch
                 + ", acquired channel cnt " + client.getAcquiredChannelCount());
-        ChannelPipeline p = ch.pipeline();
         if (client.getSslContext() != null) {
-            /* Enable hostname verification */
-            final SslHandler sslHandler = client.getSslContext().newHandler(
-                ch.alloc(), client.getHost(), client.getPort());
-            final SSLEngine sslEngine = sslHandler.engine();
-            final SSLParameters sslParameters = sslEngine.getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-            sslEngine.setSSLParameters(sslParameters);
-            sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
-
-            p.addLast(sslHandler);
-            p.addLast(new ChannelLoggingHandler(client));
+            configureSSL(ch);
+        } else {
+            configureClearText(ch);
         }
-        p.addLast(CODEC_HANDLER_NAME, new HttpClientCodec
-                              (4096, // initial line
-                               8192, // header size
-                               client.getMaxChunkSize()));
-        p.addLast(AGG_HANDLER_NAME, new HttpObjectAggregator(
-                                  client.getMaxContentLength()));
-        p.addLast(HTTP_HANDLER_NAME,
-                              new HttpClientHandler(client.getLogger()));
 
         if (client.getProxyHost() != null) {
             InetSocketAddress sockAddr =
@@ -101,7 +137,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
                                      client.getProxyUsername(),
                                      client.getProxyPassword());
 
-            p.addFirst("proxyServer", proxyHandler);
+            ch.pipeline().addFirst("proxyServer", proxyHandler);
         }
     }
 

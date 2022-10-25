@@ -13,6 +13,7 @@ import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicReference;
@@ -111,6 +112,11 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * Whether to renew the login token automatically
      */
     private boolean autoRenew = true;
+
+    /*
+     * list of preferred http protocols
+     */
+    private List<String> httpProtocols;
 
     /*
      * Whether this is a secure store token provider.
@@ -375,6 +381,16 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Sets Http Protocols
+     * @param httpProtocols list of preferred http protocols
+     * @return this
+     */
+    public StoreAccessTokenProvider setHttpProtocols(List<String> httpProtocols) {
+        this.httpProtocols = httpProtocols;
+        return this;
+    }
+
     public String getEndpoint() {
         return endpoint;
     }
@@ -486,6 +502,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                  (isSecure && !disableSSLHook) ? sslContext : null,
                  sslHandshakeTimeoutMs,
                  serviceName,
+                 httpProtocols,
                  logger);
             return HttpRequestUtil.doGetRequest(
                 client,

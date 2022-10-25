@@ -21,6 +21,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SignatureProvider;
+import oracle.nosql.driver.util.HttpConstants;
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -141,6 +142,13 @@ public class NoSQLHandleConfig implements Cloneable {
      * Default: 0 (use HttpClient default value, currently 64KB)
      */
     private int maxChunkSize = 0;
+
+    /**
+     * Default http protocols
+     *
+     * Default: prefer H2 but fallback to Http1.1
+     */
+    private List<String> httpProtocols = new ArrayList<>(Arrays.asList(HttpConstants.HTTP_2, HttpConstants.HTTP_1_1));
 
     /**
      * A RetryHandler, or null if not configured by the user.
@@ -554,6 +562,18 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     * Returns the list of Http Protocols. If there is no configured
+     * protocol, a "default" value of
+     * List({@link HttpConstants#HTTP_2}, {@link HttpConstants#HTTP_1_1})
+     * is used.
+     *
+     * @return Http protocol settings
+     */
+    public List<String> getHttpProtocols() {
+        return httpProtocols;
+    }
+
+    /**
      * Returns the configured table request timeout value, in milliseconds.
      * The table request timeout default can be specified independently to allow
      * it to be larger than a typical data request. If it is not specified the
@@ -628,6 +648,22 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public NoSQLHandleConfig setRequestTimeout(int timeout) {
         this.timeout = timeout;
+        return this;
+    }
+
+    /**
+     * Sets the default http protocol(s). The default is {@link HttpConstants#HTTP_2}
+     * and fall back to {@link HttpConstants#HTTP_1_1}
+     *
+     * @param protocols Protocol list
+     *
+     * @return this
+     */
+    public NoSQLHandleConfig setHttpProtocols(String ... protocols) {
+        this.httpProtocols = new ArrayList<>(2);
+        for (String p : protocols) {
+            this.httpProtocols.add(p);
+        }
         return this;
     }
 

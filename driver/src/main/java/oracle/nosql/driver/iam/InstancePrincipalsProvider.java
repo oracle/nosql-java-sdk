@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -32,6 +33,7 @@ import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.HttpRequestUtil;
 import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 
@@ -298,6 +300,7 @@ public class InstancePrincipalsProvider
                                                         null,
                                                         0,
                                                         "InstanceMDClient",
+                                                        Arrays.asList(HttpConstants.HTTP_1_1),
                                                         logger);
 
                 HttpResponse response = HttpRequestUtil.doGetRequest

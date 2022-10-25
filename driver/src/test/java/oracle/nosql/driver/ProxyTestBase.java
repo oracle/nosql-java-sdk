@@ -52,6 +52,7 @@ import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -463,6 +464,15 @@ public class ProxyTestBase {
         }
         logger.setLevel(Level.parse(level));
         config.setLogger(logger);
+
+        boolean useHttp1only = Boolean.getBoolean("test.http1only");
+        if (useHttp1only) {
+            config.setHttpProtocols(HttpConstants.HTTP_1_1);
+        }
+        boolean useHttp2only = Boolean.getBoolean("test.http2only");
+        if (useHttp2only) {
+            config.setHttpProtocols(HttpConstants.HTTP_2);
+        }
 
         /*
          * Open the handle

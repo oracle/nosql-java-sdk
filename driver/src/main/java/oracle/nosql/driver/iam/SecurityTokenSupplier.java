@@ -21,6 +21,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -104,13 +105,16 @@ class SecurityTokenSupplier {
             federationClient = buildHttpClient(
                 federationURL,
                 config.getSslContext(),
-                config.getSSLHandshakeTimeout(), logger);
+                config.getSSLHandshakeTimeout(),
+                config.getHttpProtocols(),
+                logger);
         }
     }
 
     private static HttpClient buildHttpClient(URI endpoint,
                                               SslContext sslCtx,
                                               int sslHandshakeTimeout,
+                                              List<String> httpProtocols,
                                               Logger logger) {
         String scheme = endpoint.getScheme();
         if (scheme == null) {
@@ -119,8 +123,8 @@ class SecurityTokenSupplier {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
-                                                  null, 0, "FederationClient", logger);
+            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(), null,
+                    0, "FederationClient", httpProtocols, logger);
         }
 
         if (sslCtx == null) {
@@ -134,7 +138,7 @@ class SecurityTokenSupplier {
 
         return HttpClient.createMinimalClient(endpoint.getHost(), 443,
                               sslCtx, sslHandshakeTimeout,
-                              "FederationClient", logger);
+                              "FederationClient", httpProtocols, logger);
     }
 
     private synchronized String refreshAndGetTokenInternal() {
@@ -338,8 +342,8 @@ class SecurityTokenSupplier {
 
         /**
          * Checks if two public keys are equal
-         * @param a one public key
-         * @param b the other one
+         * @param actual one public key
+         * @param expect the other one
          * @return true if the same
          */
         private boolean isEqualPublicKey(RSAPublicKey actual,

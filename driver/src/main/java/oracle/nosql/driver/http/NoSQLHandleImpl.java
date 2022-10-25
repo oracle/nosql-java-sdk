@@ -12,6 +12,9 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 
+import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -46,6 +49,7 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
@@ -124,6 +128,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 }
                 builder.sessionTimeout(config.getSSLSessionTimeout());
                 builder.sessionCacheSize(config.getSSLSessionCacheSize());
+                if (config.getHttpProtocols().contains(HttpConstants.HTTP_2)) {
+                    builder.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+                }
+                builder.applicationProtocolConfig(
+                        new ApplicationProtocolConfig(ApplicationProtocolConfig.Protocol.ALPN,
+                                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                                config.getHttpProtocols()));
                 config.setSslContext(builder.build());
             } catch (SSLException se) {
                 throw new IllegalStateException(
@@ -137,6 +149,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         if (ap instanceof StoreAccessTokenProvider) {
             final StoreAccessTokenProvider stProvider =
                 (StoreAccessTokenProvider) ap;
+            stProvider.setHttpProtocols(config.getHttpProtocols());
             if (stProvider.getLogger() == null) {
                 stProvider.setLogger(logger);
             }
