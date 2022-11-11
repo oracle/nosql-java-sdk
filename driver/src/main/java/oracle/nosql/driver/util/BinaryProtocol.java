@@ -63,7 +63,19 @@ public final class BinaryProtocol {
         DROP_INDEX(22),
         /* added in V2 */
         SYSTEM_REQUEST(23),
-        SYSTEM_STATUS_REQUEST(24);
+        SYSTEM_STATUS_REQUEST(24),
+        /* unused ops, to be consistent with op code defined in proxy */
+        UNUSED_25(25),
+        UNUSED_26(26),
+        UNUSED_27(27),
+        UNUSED_28(28),
+        UNUSED_29(29),
+        UNUSED_30(30),
+        UNUSED_31(31),
+        UNUSED_32(32),
+        ADD_REPLICA(33),
+        DROP_REPLICA(34),
+        GET_REPLICA_STATS(35);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {
@@ -129,6 +141,12 @@ public final class BinaryProtocol {
     public static final int COMPLETE = 0;
     public static final int WORKING = 1;
 
+    /**
+     * Schema state
+     */
+    public static final int MUTABLE = 0;
+    public static final int FROZEN = 1;
+
     /*
      * Response error codes (must be non-zero)
      */
@@ -177,6 +195,8 @@ public final class BinaryProtocol {
     public static final int CANNOT_CANCEL_WORK_REQUEST = 23;
     /* added in V3 */
     public static final int UNSUPPORTED_PROTOCOL = 24;
+    /* added in V4 */
+    public static final int TABLE_NOT_READY = 26;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

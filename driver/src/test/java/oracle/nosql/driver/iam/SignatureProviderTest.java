@@ -107,7 +107,8 @@ public class SignatureProviderTest extends DriverTestBase {
                     try {
                         startFlag.await();
                         assertNotNull(
-                            provider.getSignatureDetailsInternal(false));
+                            provider.getSignatureDetailsInternal(
+                                    false, null, null, null /* content */));
                     } catch (InterruptedException e) {
                     }
                 }

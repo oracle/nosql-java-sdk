@@ -63,10 +63,13 @@ public interface AuthorizationProvider {
      * @param request the request being processed
      *
      * @param headers the HTTP headers
+     *
+     * @param content the request content bytes
      */
     public default void setRequiredHeaders(String authString,
                                            Request request,
-                                           HttpHeaders headers) {
+                                           HttpHeaders headers,
+                                           byte[] content) {
         if (authString != null) {
             headers.set(AUTHORIZATION, authString);
         }

@@ -7,8 +7,10 @@
 
 package oracle.nosql.driver;
 
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -26,6 +28,8 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.SystemRequest;
@@ -621,6 +625,65 @@ public interface NoSQLHandle extends AutoCloseable {
                                  int pollIntervalMs);
 
     /**
+     * Cloud service only.
+     * <p>
+     * Add replica on a table.
+     * <p>
+     * This operation is implicitly asynchronous. The caller must poll using
+     * methods on {@link TableResult} to determine when it has completed.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for
+     * any other reason
+     */
+    TableResult addReplica(AddReplicaRequest request);
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Drop replica on a table.
+     * <p>
+     * This operation is implicitly asynchronous. The caller must poll using
+     * methods on {@link TableResult} to determine when it has completed.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for
+     * any other reason
+     */
+    TableResult dropReplica(DropReplicaRequest request);
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Gets replica stats information
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws TableNotFoundException if the specified table does not exist
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     */
+    ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request);
+
+    /**
      * Returns an object that allows control over how statistics are collected.
      *
      * @return the StatsControl object
@@ -634,5 +697,6 @@ public interface NoSQLHandle extends AutoCloseable {
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.
      */
+    @Override
     void close();
 }

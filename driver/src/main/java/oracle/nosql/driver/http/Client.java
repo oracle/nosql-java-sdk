@@ -72,7 +72,9 @@ import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -474,9 +476,9 @@ public class Client {
         kvRequest.setStartNanos(startNanos);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
+        final boolean signContent = needSignWithContent(kvRequest);
         String requestId = "";
         int thisIterationTimeoutMs = 0;
-
         do {
             thisIterationTimeoutMs =
                 getIterationTimeoutMs(timeoutMs, startNanos);
@@ -638,7 +640,14 @@ public class Client {
                     kvRequest.setCompartmentInternal(
                         config.getDefaultCompartment());
                 }
-                authProvider.setRequiredHeaders(authString, kvRequest, headers);
+
+                /*
+                 * Get request body bytes if the request needed to be signed
+                 * with content
+                 */
+                byte[] content = signContent ? getBodyBytes(buffer) : null;
+                authProvider.setRequiredHeaders(authString, kvRequest, headers,
+                                                content);
 
                 String namespace = kvRequest.getNamespace();
                 if (namespace == null) {
@@ -1074,8 +1083,8 @@ public class Client {
         int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
                                      .intValue();
 
-        double RUs = (double)limits.getReadUnits();
-        double WUs = (double)limits.getWriteUnits();
+        double RUs = limits.getReadUnits();
+        double WUs = limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();
@@ -1712,6 +1721,42 @@ public class Client {
         }
 
         return 0;
+    }
+
+    /*
+     * Need sign with request content for MR ddl in the context of cloud
+     * to get obo token or authorization request with OBO token
+     *   o add/drop replica requests
+     *   o table request
+     *     table requests for MR table operations like create/drop index,
+     *     update table limits and alter table ttl. Although not all kinds of
+     *     table requests are applicable for MR table, TableRequest is used for
+     *     all table requests and driver don't know the operation type, so just
+     *     return true for TableRequest.
+     *   o internal ddl (cross region ddl) which has OBO token
+     */
+    private boolean needSignWithContent(Request request) {
+        if (authProvider instanceof StoreAccessTokenProvider) {
+            /* no need to sign with content for on-promises */
+            return false;
+        }
+        return request instanceof AddReplicaRequest ||
+               request instanceof DropReplicaRequest ||
+               request instanceof TableRequest ||
+               request.getOboToken() != null;
+    }
+
+    /*
+     * Returns the request content bytes
+     */
+    private byte[] getBodyBytes(ByteBuf buffer) {
+        if (buffer.hasArray()) {
+            return buffer.array();
+        }
+
+        byte[] bytes = new byte[buffer.readableBytes()];
+        buffer.getBytes(buffer.readerIndex(), bytes);
+        return bytes;
     }
 
     /**

@@ -233,7 +233,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         assertTrue(authzString.contains("opc-obo-token"));
 
         HttpHeaders headers = new DefaultHttpHeaders();
-        sp.setRequiredHeaders(authzString, request, headers);
+        sp.setRequiredHeaders(authzString, request, headers, null/* content */);
         assertEquals(headers.get("opc-obo-token"), delegationToken);
     }
 
