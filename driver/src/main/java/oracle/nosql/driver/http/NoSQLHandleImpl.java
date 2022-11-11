@@ -19,8 +19,10 @@ import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -258,6 +260,23 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public GetIndexesResult getIndexes(GetIndexesRequest request) {
         checkClient();
         return (GetIndexesResult) client.execute(request);
+    }
+
+
+    @Override
+    public TableResult addReplica(AddReplicaRequest request) {
+        checkClient();
+        /*
+         * TODO:
+         * client.updateRateLimiters(res.getTableName(), res.getTableLimits());
+         */
+        return (TableResult) client.execute(request);
+    }
+
+    @Override
+    public TableResult dropReplica(DropReplicaRequest request) {
+        checkClient();
+        return (TableResult) client.execute(request);
     }
 
     @Override

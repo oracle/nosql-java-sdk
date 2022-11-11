@@ -273,8 +273,8 @@ public class BinaryProtocol extends Nson {
     /*
      * Writes fields from Request
      */
-    static void serializeRequest(Request rq,
-                                 ByteOutputStream out)
+    protected static void serializeRequest(Request rq,
+                                           ByteOutputStream out)
         throws IOException {
 
         writeTimeout(out, rq.getTimeoutInternal());

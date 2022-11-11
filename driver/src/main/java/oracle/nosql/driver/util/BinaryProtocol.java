@@ -63,7 +63,18 @@ public final class BinaryProtocol {
         DROP_INDEX(22),
         /* added in V2 */
         SYSTEM_REQUEST(23),
-        SYSTEM_STATUS_REQUEST(24);
+        SYSTEM_STATUS_REQUEST(24),
+        /* unused ops, to be consistent with op code defined in proxy */
+        UNUSED_25(25),
+        UNUSED_26(26),
+        UNUSED_27(27),
+        UNUSED_28(28),
+        UNUSED_29(29),
+        UNUSED_30(30),
+        UNUSED_31(31),
+        UNUSED_32(32),
+        ADD_REPLICA(33),
+        DROP_REPLICA(34);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {

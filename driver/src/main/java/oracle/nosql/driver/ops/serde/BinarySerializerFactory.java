@@ -48,6 +48,11 @@ public class BinarySerializerFactory implements SerializerFactory {
     static final MultiDeleteRequestSerializer multiDeleteSerializer =
         new MultiDeleteRequestSerializer();
 
+    static final AddReplicaRequestSerializer addReplicaSerializer =
+        new AddReplicaRequestSerializer();
+    static final DropReplicaRequestSerializer dropReplicaSerializer =
+        new DropReplicaRequestSerializer();
+
     @Override
     public Serializer createDeleteSerializer() {
         return delSerializer;
@@ -116,6 +121,16 @@ public class BinarySerializerFactory implements SerializerFactory {
     @Override
     public Serializer createMultiDeleteSerializer() {
         return multiDeleteSerializer;
+    }
+
+    @Override
+    public Serializer createAddReplicaSerializer() {
+        return addReplicaSerializer;
+    }
+
+    @Override
+    public Serializer createDropReplicaSerializer() {
+        return dropReplicaSerializer;
     }
 
     /* deserializers */
@@ -187,6 +202,16 @@ public class BinarySerializerFactory implements SerializerFactory {
     @Override
     public Serializer createMultiDeleteDeserializer() {
         return multiDeleteSerializer;
+    }
+
+    @Override
+    public Serializer createAddReplicaDeserializer() {
+        return addReplicaSerializer;
+    }
+
+    @Override
+    public Serializer createDropReplicaDeserializer() {
+        return dropReplicaSerializer;
     }
 
     @Override

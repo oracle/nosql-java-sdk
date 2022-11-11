@@ -51,8 +51,10 @@ import oracle.nosql.driver.Version;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetIndexesResult.IndexInfo;
@@ -136,6 +138,10 @@ public class NsonSerializerFactory implements SerializerFactory {
         new WriteMultipleRequestSerializer();
     static final Serializer multiDeleteSerializer =
         new MultiDeleteRequestSerializer();
+    static final Serializer addReplicaSerializer =
+        new AddReplicaRequestSerializer();
+    static final Serializer dropReplicaSerializer =
+        new DropReplicaRequestSerializer();
 
     @Override
     public Serializer createDeleteSerializer() {
@@ -207,6 +213,16 @@ public class NsonSerializerFactory implements SerializerFactory {
         return multiDeleteSerializer;
     }
 
+    @Override
+    public Serializer createAddReplicaSerializer() {
+        return addReplicaSerializer;
+    }
+
+    @Override
+    public Serializer createDropReplicaSerializer() {
+        return dropReplicaSerializer;
+    }
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -276,6 +292,16 @@ public class NsonSerializerFactory implements SerializerFactory {
     @Override
     public Serializer createMultiDeleteDeserializer() {
         return multiDeleteSerializer;
+    }
+
+    @Override
+    public Serializer createAddReplicaDeserializer() {
+        return addReplicaSerializer;
+    }
+
+    @Override
+    public Serializer createDropReplicaDeserializer() {
+        return dropReplicaSerializer;
     }
 
     @Override
@@ -791,7 +817,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapFieldNZ(ns, NUMBER_LIMIT, rq.getLimit());
             writeMapFieldNZ(ns, TRACE_LEVEL, rq.getTraceLevel());
 
-            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION);
             boolean isPrepared = rq.isPrepared();
             if (isPrepared) {
                 writeMapField(ns, IS_PREPARED, isPrepared);
@@ -1088,7 +1114,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
 
-            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION);
             writeMapField(ns, STATEMENT, rq.getStatement());
             if (rq.getQueryPlan()) {
                 writeMapField(ns, GET_QUERY_PLAN, true);
@@ -1762,6 +1788,114 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
             return usage;
+        }
+    }
+
+    /**
+     * Add Replica request:
+     *  Payload:
+     *    tableName (in header)
+     *    pod (string)
+     *    readLimit (int)
+     *    writeLimit (int)
+     *
+     * Table result (all optional):
+     *  table name (string)
+     *  state (int)
+     *  domain id (int)
+     *  throughput info (read/write/storage)
+     *  schema (string)
+     *  operation id (plan id, etc) (int)
+     */
+    public static class AddReplicaRequestSerializer extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            AddReplicaRequest req = (AddReplicaRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.ADD_REPLICA.ordinal(), req);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, POD, req.getRegion());
+            writeMapField(ns, READ_LIMIT, req.getReadUnits());
+            writeMapField(ns, WRITE_LIMIT, req.getWriteUnits());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion)
+            throws IOException {
+
+            return deserializeTableResult(request, in);
+        }
+    }
+
+    /**
+     * Drop Replica request:
+     *  Payload:
+     *    tableName (in header)
+     *    pod (string)
+     *
+     * Table result (all optional):
+     *  table name (string)
+     *  state (int)
+     *  domain id (int)
+     *  throughput info (read/write/storage)
+     *  schema (string)
+     *  operation id (plan id, etc) (int)
+     */
+    public static class DropReplicaRequestSerializer extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            DropReplicaRequest req = (DropReplicaRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            /* header */
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.DROP_REPLICA.ordinal(), req);
+            endMap(ns, HEADER);
+
+            /* payload */
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, POD, req.getRegion());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion)
+            throws IOException {
+
+            return deserializeTableResult(request, in);
         }
     }
 

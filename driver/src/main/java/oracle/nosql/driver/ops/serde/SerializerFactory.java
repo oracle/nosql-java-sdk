@@ -45,6 +45,10 @@ public interface SerializerFactory {
 
     Serializer createMultiDeleteSerializer();
 
+    Serializer createAddReplicaSerializer();
+
+    Serializer createDropReplicaSerializer();
+
     /* deserializers */
     Serializer createDeleteDeserializer();
 
@@ -73,6 +77,10 @@ public interface SerializerFactory {
     Serializer createWriteMultipleDeserializer();
 
     Serializer createMultiDeleteDeserializer();
+
+    Serializer createAddReplicaDeserializer();
+
+    Serializer createDropReplicaDeserializer();
 
     /*
      * These methods encapsulate differences in serializer streams

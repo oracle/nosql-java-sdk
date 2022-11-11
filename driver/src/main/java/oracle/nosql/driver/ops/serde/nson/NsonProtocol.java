@@ -61,11 +61,13 @@ public class NsonProtocol {
     public static String NAMESPACE = "ns";
     public static String NUMBER_LIMIT = "nl";
     public static String NUM_OPERATIONS = "no";
+    public static String OPERATION = "op";
     public static String OPERATIONS = "os";
     public static String OPERATION_ID = "od";
     public static String OP_CODE = "o";
     public static String PATH = "pt";
     public static String PAYLOAD = "p";
+    public static String POD = "pd";
     public static String PREFER_THROTTLING = "pg";
     public static String PREPARE = "pp";
     public static String PREPARED_QUERY = "pq";
@@ -75,6 +77,9 @@ public class NsonProtocol {
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
     public static String READ_THROTTLE_COUNT = "rt";
+    public static String READ_LIMIT = "rl";
+    public static String RESOURCE = "rs";
+    public static String RESOURCE_ID = "ri";
     public static String RETURN_ROW = "rr";
     public static String SHARD_ID = "si";
     public static String START = "sr";
@@ -94,6 +99,7 @@ public class NsonProtocol {
     public static String UPDATE_TTL = "ut";
     public static String VALUE = "l";
     public static String VERSION = "v";
+    public static String WRITE_LIMIT = "wl";
     public static String WRITE_MULTIPLE = "wm";
     public static String WRITE_THROTTLE_COUNT = "wt";
 
@@ -198,11 +204,13 @@ public class NsonProtocol {
         {NAMESPACE,"NAMESPACE"},
         {NUMBER_LIMIT,"NUMBER_LIMIT"},
         {NUM_OPERATIONS,"NUM_OPERATIONS"},
+        {OPERATION,"OPERATION"},
         {OPERATIONS,"OPERATIONS"},
         {OPERATION_ID,"OPERATION_ID"},
         {OP_CODE,"OP_CODE"},
         {PATH,"PATH"},
         {PAYLOAD,"PAYLOAD"},
+        {POD,"POD"},
         {PREFER_THROTTLING,"PREFER_THROTTLING"},
         {PREPARE,"PREPARE"},
         {PREPARED_QUERY,"PREPARED_QUERY"},
@@ -212,6 +220,9 @@ public class NsonProtocol {
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
         {READ_THROTTLE_COUNT,"READ_THROTTLE_COUNT"},
+        {READ_LIMIT,"READ_LIMIT"},
+        {RESOURCE,"RESOURCE"},
+        {RESOURCE_ID,"RESOURCE_ID"},
         {RETURN_ROW,"RETURN_ROW"},
         {SHARD_ID,"SHARD_ID"},
         {START,"START"},
@@ -231,6 +242,7 @@ public class NsonProtocol {
         {UPDATE_TTL,"UPDATE_TTL"},
         {VALUE,"VALUE"},
         {VERSION,"VERSION"},
+        {WRITE_LIMIT,"WRITE_LIMIT"},
         {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
         {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
         {ERROR_CODE,"ERROR_CODE"},
