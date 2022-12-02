@@ -160,7 +160,7 @@ public class WriteMultipleRequest extends DurableRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * on-prem only.
+     * On-premise only.
      *
      * @param durability the durability value. Set to null for
      * the default durability setting on the kvstore server.
@@ -227,7 +227,7 @@ public class WriteMultipleRequest extends DurableRequest {
             if (!getTopTableName(wrReq.getTableName())
                     .equalsIgnoreCase(getTopTableName(tableName))) {
                 throw new IllegalArgumentException(
-                    "All sub requests should operate on the same table or " +
+                    "All sub requests must operate on the same table or " +
                     "descendant tables belonging to the same top level " +
                     "table. The table '" + wrReq.getTableName() +
                     "' is different from the table of other requests: " +

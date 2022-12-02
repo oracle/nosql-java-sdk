@@ -27,7 +27,44 @@ package oracle.nosql.driver;
  * Consistency can be specified as an optional argument to all read operations.
  * </p>
  */
-public enum Consistency {
-    EVENTUAL,
-    ABSOLUTE
+public class Consistency {
+    final private Type type;
+
+    public enum Type {
+        EVENTUAL,
+        ABSOLUTE
+    }
+
+    public static Consistency ABSOLUTE = new Consistency(Type.ABSOLUTE);
+    public static Consistency EVENTUAL = new Consistency(Type.EVENTUAL);
+
+    /**
+     * Returns the {@link Type} of Consistency
+     * @return the type
+     */
+    public Type getType() {
+        return type;
+    }
+
+    /**
+     * Returns true if this is Consistency.ABSOLUTE
+     *
+     * @return true if this instance represents ABSOLUTE Consistency
+     */
+    public boolean isAbsolute() {
+        return type == Type.ABSOLUTE;
+    }
+
+    /**
+     * Returns true if this is Consistency.EVENTUAL
+     *
+     * @return true if this instance represents EVENTUAL Consistency
+     */
+    public boolean isEventual() {
+        return type == Type.EVENTUAL;
+    }
+
+    private Consistency(Type type) {
+        this.type = type;
+    }
 }

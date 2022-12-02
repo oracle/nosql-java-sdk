@@ -29,6 +29,7 @@ public class PrepareRequest extends Request {
     private String statement;
 
     private boolean getQueryPlan;
+    private boolean getQuerySchema;
 
     public PrepareRequest() {}
 
@@ -96,11 +97,10 @@ public class PrepareRequest extends Request {
     }
 
     /**
-     * Sets whether a printout of the query execution plan should be
+     * Sets whether the string value of the query execution plan should be
      * included in the {@link PrepareResult}.
      *
-     * @param v true if a printout of the query execution plan should be
-     * included in the {@link PrepareResult}. False otherwise.
+     * @param v true to include the query plan
      *
      * @return this
      */
@@ -110,11 +110,34 @@ public class PrepareRequest extends Request {
     }
 
     /**
-     * @return whether a prinout of the query execution plan should be include in
-     * the {@link PrepareResult}.
+     * @return whether the string value of the query execution plan should
+     * be included in the {@link PrepareResult}.
      */
     public boolean getQueryPlan() {
         return getQueryPlan;
+    }
+
+    /**
+     * Sets whether the JSON value of the query result schema
+     * for the query should be included in the {@link PrepareResult}.
+     *
+     * @param v true to include the query schema
+     *
+     * @return this
+     * @since 5.4
+     */
+    public PrepareRequest setGetQuerySchema(boolean v) {
+        getQuerySchema = v;
+        return this;
+    }
+
+    /**
+     * @return whether the JSON value of the query result schema should
+     * be included in the {@link PrepareResult}.
+     * @since 5.4
+     */
+    public boolean getQuerySchema() {
+        return getQuerySchema;
     }
 
     /**

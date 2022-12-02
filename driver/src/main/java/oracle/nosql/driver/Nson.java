@@ -23,6 +23,8 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.FieldValueEventHandler;
 import oracle.nosql.driver.values.IntegerValue;
 import oracle.nosql.driver.values.JsonNullValue;
+import oracle.nosql.driver.values.JsonOptions;
+import oracle.nosql.driver.values.JsonSerializer;
 import oracle.nosql.driver.values.LongValue;
 import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.NullValue;
@@ -31,6 +33,7 @@ import oracle.nosql.driver.values.StringValue;
 import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
+import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.SerializationUtil;
 
@@ -154,6 +157,10 @@ public class Nson {
     public static final int TYPE_NULL = 11;
     public static final int TYPE_EMPTY = 12;
 
+    private static String[] NsonTypes = {"Array", "Binary", "Boolean", "Double",
+                                         "Integer", "Long", "Map", "String",
+                                         "Timestamp", "Number", "JsonNull",
+                                         "Null", "Empty"};
     /*
      * Serialization methods
      *  int - packed int
@@ -166,30 +173,66 @@ public class Nson {
     /*
      * Primitives
      */
-    static protected void writeInt(ByteOutputStream out,
-                                   int value) throws IOException {
+
+    /**
+     * Writes an integer to the output stream
+     *
+     * @param out the output stream
+     * @param value the value
+     * @throws IOException if there is a problem with the stream
+     */
+    static public void writeInt(ByteOutputStream out,
+                                int value) throws IOException {
         SerializationUtil.writePackedInt(out, value);
     }
 
-    static protected void writeLong(ByteOutputStream out,
-                                    long value) throws IOException {
+    /**
+     * Writes a long to the output stream
+     *
+     * @param out the output stream
+     * @param value the value
+     * @throws IOException if there is a problem with the stream
+     */
+    static public void writeLong(ByteOutputStream out,
+                                 long value) throws IOException {
         SerializationUtil.writePackedLong(out, value);
     }
 
-    static protected void writeDouble(ByteOutputStream out,
-                                      double value) throws IOException {
+    /**
+     * Writes a double to the output stream
+     *
+     * @param out the output stream
+     * @param value the value
+     * @throws IOException if there is a problem with the stream
+     */
+    static public void writeDouble(ByteOutputStream out,
+                                   double value) throws IOException {
         out.writeDouble(value);
     }
 
-    static protected void writeTimestamp(ByteOutputStream out,
-                                         TimestampValue value)
+    /**
+     * Writes the String value of a Timestamp to the output stream
+     *
+     * @param out the output stream
+     * @param value the timestamp
+     * @throws IOException if there is a problem with the stream
+     */
+    static public void writeTimestamp(ByteOutputStream out,
+                                      TimestampValue value)
         throws IOException {
         /* TODO, temporary */
         writeString(out, value.getString());
     }
 
-    static protected void writeString(ByteOutputStream out,
-                                      String s) throws IOException {
+    /**
+     * Writes a String to the output stream
+     *
+     * @param out the output stream
+     * @param s the string
+     * @throws IOException if there is a problem with the stream
+     */
+    static public void writeString(ByteOutputStream out,
+                                   String s) throws IOException {
 
         SerializationUtil.writeString(out, s);
     }
@@ -197,14 +240,29 @@ public class Nson {
     /**
      * Writes a char array as a UTF8 byte array. This is used for
      * system queries that may contain a password.
+     * @param out the output stream
+     * @param chars the characters to write
+     * @throws IOException if there is a problem with the stream
      */
-    static protected void writeCharArrayAsUTF8(ByteOutputStream out,
-                                               char [] chars)
+    static public void writeCharArrayAsUTF8(ByteOutputStream out,
+                                            char [] chars)
+        throws IOException {
+        writeByteArray(out, getCharArrayAsUTF8(chars));
+    }
+
+    /**
+     * Returns a char array as a UTF8 byte array. This is used for
+     * system queries that may contain a password.
+     * @param chars the characters to write
+     * @return the array
+     * @throws IOException if there is a problem with the stream
+     */
+    static public byte[] getCharArrayAsUTF8(char [] chars)
         throws IOException {
         ByteBuffer buf = StandardCharsets.UTF_8.encode(CharBuffer.wrap(chars));
         byte[] array = new byte[buf.limit()];
         buf.get(array);
-        writeByteArray(out, array);
+        return array;
     }
 
     public static int getSerializedSize(FieldValue value) {
@@ -236,6 +294,13 @@ public class Nson {
         SerializationUtil.writeByteArray(out, array);
     }
 
+    public static void writeByteArray(ByteOutputStream out,
+                                      byte[] array,
+                                      int offset,
+                                      int length) throws IOException {
+        SerializationUtil.writeByteArray(out, array, offset, length);
+    }
+
     /*
      * Writes a byte array with a full 4-byte int length
      */
@@ -248,55 +313,141 @@ public class Nson {
 
     /*
      * Deserialization
+     * These are public to allow direct use by tests and specialized
+     * applications.
      */
 
     /*
      * Primitives
      */
-    static protected int readInt(ByteInputStream in) throws IOException {
+    static public int readInt(ByteInputStream in) throws IOException {
         return SerializationUtil.readPackedInt(in);
     }
 
-    static protected long readLong(ByteInputStream in) throws IOException {
+    static public long readLong(ByteInputStream in) throws IOException {
         return SerializationUtil.readPackedLong(in);
     }
 
-    static protected double readDouble(ByteInputStream in) throws IOException {
+    static public double readDouble(ByteInputStream in) throws IOException {
         return in.readDouble();
     }
 
-    static protected String readString(ByteInputStream in) throws IOException {
+    static public String readString(ByteInputStream in) throws IOException {
         return SerializationUtil.readString(in);
     }
 
-    static protected byte[] readByteArray(ByteInputStream in)
+    static public byte[] readByteArray(ByteInputStream in)
         throws IOException {
         return SerializationUtil.readByteArray(in);
     }
 
-    static protected byte[] readByteArray(ByteInputStream in, boolean skip)
+    static public byte[] readByteArray(ByteInputStream in, boolean skip)
         throws IOException {
         return SerializationUtil.readByteArray(in, skip);
     }
 
-    static protected int[] readIntArray(ByteInputStream in)
+    static public int[] readIntArray(ByteInputStream in)
         throws IOException {
         return SerializationUtil.readPackedIntArray(in);
     }
 
     /**
      * Reads a byte array that has a not-packed integer size
+     *
+     * @param in the input stream
+     * @return a new byte array
+     * @throws IOException if there's a problem with the stream
      */
-    static protected byte[] readByteArrayWithInt(ByteInputStream in)
+    static public byte[] readByteArrayWithInt(ByteInputStream in)
         throws IOException {
         int length = in.readInt();
         if (length <= 0) {
             throw new IOException(
-                "Invalid length for prepared query: " + length);
+                "Invalid length for byte array: " + length);
         }
         byte[] query = new byte[length];
         in.readFully(query);
         return query;
+    }
+
+    /**
+     * Returns the JSON string of given bytes in NSON with default
+     * serialization behavior.
+     *
+     * @param nson bytes in NSON
+     * @return the JSON string
+     * @throws IllegalArgumentException if there's a problem with serializing
+     * NSON to JSON string
+     */
+    public static String toJsonString(byte[] nson) {
+        return toJsonString(nson, null);
+    }
+
+    /**
+     * Returns the JSON string of given bytes in NSON.
+     *
+     * @param nson bytes in NSON
+     * @param options {@link JsonOptions} to use for the serialization, or
+     * null for default behavior.
+     * @return the JSON string
+     * @throws IllegalArgumentException if there's a problem with serializing
+     * NSON to JSON string
+     */
+    public static String toJsonString(byte[] nson, JsonOptions options) {
+        if (nson == null) {
+            return null;
+        }
+        JsonSerializer jsonSerializer = new JsonSerializer(options);
+        try (NettyByteInputStream bis =
+             NettyByteInputStream.createFromBytes(nson)) {
+            Nson.generateEventsFromNson(jsonSerializer, bis, false);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Error serializing NSON to JSON: " + ioe.getMessage());
+        }
+        return jsonSerializer.toString();
+    }
+
+    /**
+     * Returns the JSON string of given input stream of NSON bytes with default
+     * serialization behavior. The input stream will be closed after serializing
+     * NSON to JSON string.
+     *
+     * @param in the input stream of NSON bytes
+     * @return the JSON string
+     * @throws IllegalArgumentException if there's a problem with serializing
+     * NSON to JSON string
+     */
+    public static String toJsonString(ByteInputStream in) {
+        return toJsonString(in, null);
+    }
+
+    /**
+     * Returns the JSON string of given input stream of NSON bytes. The input
+     * stream will be closed after serializing NSON to JSON string.
+     *
+     * @param in the input stream of NSON bytes
+     * @param options {@link JsonOptions} to use for the serialization, or
+     * null for default behavior.Th
+     * @return the JSON string
+     * @throws IllegalArgumentException if there's a problem with serializing
+     * NSON to JSON string
+     */
+    public static String toJsonString(ByteInputStream in,
+                                      JsonOptions options) {
+        if (in == null) {
+            return null;
+        }
+        JsonSerializer jsonSerializer = new JsonSerializer(options);
+        try {
+            Nson.generateEventsFromNson(jsonSerializer, in, false);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Error serializing NSON to JSON: " + ioe.getMessage());
+        } finally {
+            in.close();
+        }
+        return jsonSerializer.toString();
     }
 
     /**
@@ -323,6 +474,14 @@ public class Nson {
             this.out = out;
             offsetStack = new Stack<Integer>();
             sizeStack = new Stack<Integer>();
+        }
+
+        /**
+         * Returns the underlying stream
+         * @return the stream
+         */
+        public ByteOutputStream getStream() {
+            return out;
         }
 
         /*
@@ -428,6 +587,14 @@ public class Nson {
         }
 
         @Override
+        public void binaryValue(byte[] byteArray,
+                                int offset,
+                                int length) throws IOException {
+            out.writeByte(TYPE_BINARY);
+            writeByteArray(out, byteArray, offset, length);
+        }
+
+        @Override
         public void stringValue(String value) throws IOException {
             out.writeByte(TYPE_STRING);
             writeString(out, value);
@@ -483,6 +650,17 @@ public class Nson {
         private void incrSize() {
             int value = sizeStack.pop();
             sizeStack.push(value + 1);
+        }
+
+        /**
+         * Increase current size for map or array with given delta. It
+         * can be used after adding elements to output stream directly
+         * without generating events.
+         * @param delta size of delta to increase
+         */
+        public void incrSize(int delta) {
+            int value = sizeStack.pop();
+            sizeStack.push(value + delta);
         }
     }
 
@@ -615,7 +793,7 @@ public class Nson {
             } else {
                 currentKey = null;
             }
-            // currentValue undefined right now...
+            /* currentValue undefined right now... */
         }
 
         @Override
@@ -632,6 +810,13 @@ public class Nson {
 
         @Override
         public void binaryValue(byte[] byteArray) throws IOException {
+            currentValue = new BinaryValue(byteArray);
+        }
+
+        @Override
+        public void binaryValue(byte[] byteArray, int offset, int length)
+            throws IOException {
+            /* TODO: BinaryValue() with offset/length */
             currentValue = new BinaryValue(byteArray);
         }
 
@@ -699,7 +884,8 @@ public class Nson {
      * Reads NSON from the input stream and generates events calling the
      * provided {@link FieldValueEventHandler} instance.
      *
-     * @param handler the event handler
+     * @param handler the event handler. This can be null if skip is true
+     * and the intent is to skip the current field
      * @param in the input stream that holds the NSON
      * @param skip true if the next field should be skipped
      * @throws IOException if there is a problem reading the input
@@ -708,8 +894,12 @@ public class Nson {
         FieldValueEventHandler handler, ByteInputStream in, boolean skip)
         throws IOException {
 
+        if (handler == null && !skip) {
+            throw new IllegalArgumentException(
+                "Handler must be non-null if not skipping");
+        }
 
-        if (handler.stop()) {
+        if (handler != null && handler.stop()) {
             return;
         }
         int t = in.readByte();
@@ -913,6 +1103,36 @@ public class Nson {
         return readString(in);
     }
 
+    /**
+     * Reads a byte[] from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static byte[] readNsonBinary(ByteInputStream in)
+        throws IOException {
+
+        readType(in, TYPE_BINARY);
+        return readByteArray(in);
+    }
+
+    /**
+     * Reads a MapValue from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static MapValue readNsonMap(ByteInputStream in)
+        throws IOException {
+
+        /* cast must work */
+        return (MapValue) readFieldValue(in);
+    }
+
     private static void readType(ByteInputStream in, int expected)
         throws IOException {
 
@@ -924,7 +1144,14 @@ public class Nson {
 
     private static void throwTypeMismatch(int expected, int found) {
         throw new IllegalArgumentException(
-            "Expected type not found, expected type: " + expected +
-            ", found type: " + found);
+            "Expected type not found, expected type: " + typeString(expected) +
+            ", found type: " + typeString(found));
+    }
+
+    public static String typeString(int type) {
+        if (type < 0 || type >= (NsonTypes.length - 1)) {
+            return ("Unknown type: " + type);
+        }
+        return NsonTypes[type];
     }
 }

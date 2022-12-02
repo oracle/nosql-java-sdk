@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
@@ -44,7 +45,8 @@ import oracle.nosql.driver.util.SizeOf;
  * schema of a query projection.
  * </p>
  */
-public class MapValue extends FieldValue {
+public class MapValue extends FieldValue
+    implements Iterable<Map.Entry<String, FieldValue>> {
 
     private final Map<String, FieldValue> values;
 
@@ -113,6 +115,16 @@ public class MapValue extends FieldValue {
      */
     public Set<Map.Entry<String, FieldValue>> entrySet() {
         return values.entrySet();
+    }
+
+    /**
+     * Returns an iterator over the entry set.
+     * @return the iterator
+     * @since 5.4
+     */
+    @Override
+    public Iterator<Map.Entry<String, FieldValue>> iterator() {
+        return entrySet().iterator();
     }
 
     /**
@@ -192,6 +204,19 @@ public class MapValue extends FieldValue {
     public FieldValue get(String name) {
         requireNonNull(name, "MapValue.get: name must be non-null");
         return values.get(name);
+    }
+
+    /**
+     * Returns true if the specified field exists in the map
+     *
+     * @param name the name of the field
+     *
+     * @return true if the field exists, false if not
+     * @since 5.4
+     */
+    public boolean contains(String name) {
+        requireNonNull(name, "MapValue.contains: name must be non-null");
+        return values.containsKey(name);
     }
 
     /**

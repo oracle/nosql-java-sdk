@@ -310,10 +310,10 @@ public class PutRequest extends WriteRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * on-prem only.
+     * On-premise only.
      *
      * @param durability the durability value. Set to null for
-     * the default durability setting on the kvstore server.
+     * the default durability setting on the server.
      *
      * @return this
      *

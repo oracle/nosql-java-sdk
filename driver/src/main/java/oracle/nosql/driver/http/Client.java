@@ -15,6 +15,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
+import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
@@ -87,6 +88,7 @@ import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
+import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
@@ -114,10 +116,8 @@ public class Client {
 
     private final NoSQLHandleConfig config;
 
-    /**
-     * This may be configurable, but for now there is only one implementation
-     */
-    private final SerializerFactory factory = new BinarySerializerFactory();
+    private final SerializerFactory v3factory = new BinarySerializerFactory();
+    private final SerializerFactory v4factory = new NsonSerializerFactory();
 
     /**
      * The URL representing the server that is the target of all client
@@ -601,10 +601,25 @@ public class Client {
                     headers.add(COOKIE, sessionCookie);
                 }
 
+                String serdeVersion = getSerdeVersion(kvRequest);
+                if (serdeVersion != null) {
+                    headers.add("x-nosql-serde-version", serdeVersion);
+                }
+
+                /*
+                 * If the request doesn't set an explicit compartment, use
+                 * the config default if provided.
+                 */
+                if (kvRequest.getCompartment() == null) {
+                    kvRequest.setCompartmentInternal(
+                        config.getDefaultCompartment());
+                }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Request: " + requestClass + ", requestId=" + requestId);
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Request: " + requestClass +
+                                     ", requestId=" + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -616,9 +631,12 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Response: " + requestClass + ", status=" +
-                             responseHandler.getStatus() + ", requestId=" + requestId );
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + requestClass +
+                                     ", status=" +
+                                     responseHandler.getStatus() +
+                                     ", requestId=" + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
@@ -1033,11 +1051,11 @@ public class Client {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = serialVersion;
-        bos.writeShort(versionUsed);
-        kvRequest.createSerializer(factory).
-            serialize(kvRequest,
-                      versionUsed,
-                      bos);
+        SerializerFactory factory = chooseFactory(kvRequest);
+        factory.writeSerialVersion(versionUsed, bos);
+        kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                      versionUsed,
+                                                      bos);
         return versionUsed;
     }
 
@@ -1078,12 +1096,15 @@ public class Client {
      */
     Result processOKResponse(ByteInputStream in, Request kvRequest) {
         try {
-            int code = in.readByte();
+            SerializerFactory factory = chooseFactory(kvRequest);
+            int code = factory.readErrorCode(in);
+            /* note: this will always be zero in V4 */
             if (code == 0) {
-                Result res = kvRequest.createDeserializer(factory).
-                             deserialize(kvRequest,
-                                         in,
-                                         serialVersion);
+                Result res =
+                    kvRequest.createDeserializer(factory).
+                    deserialize(kvRequest,
+                                in,
+                                serialVersion);
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1091,10 +1112,8 @@ public class Client {
                         qreq.getDriver().setClient(this);
                     }
                 }
-
                 return res;
             }
-
             /*
              * Operation failed. Handle the failure and throw an appropriate
              * exception.
@@ -1110,6 +1129,7 @@ public class Client {
 
             throw handleResponseErrorCode(code, err);
         } catch (IOException e) {
+            e.printStackTrace();
             /*
              * TODO: Retrying here will not actually help, the
              * operation should be abandoned; we need a specific
@@ -1413,6 +1433,10 @@ public class Client {
         if (serialVersion != versionUsed) {
             return true;
         }
+        if (serialVersion == V4) {
+            serialVersion = V3;
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;
@@ -1426,6 +1450,14 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setSerialVersion(short version) {
+        serialVersion = version;
     }
 
     /**
@@ -1522,7 +1554,8 @@ public class Client {
             }
             for (Request rq : authRefreshRequests) {
                 if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
-                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
+                    stringsEqualOrNull(rq.getCompartment(),
+                                       request.getCompartment())) {
                     return;
                 }
             }
@@ -1574,5 +1607,17 @@ public class Client {
             return;
         }
         logWarning(logger, msg);
+    }
+
+    private SerializerFactory chooseFactory(Request rq) {
+        if (serialVersion == 4) {
+            return v4factory;
+        } else {
+            return v3factory; /* works for v2 also */
+        }
+    }
+
+    private String getSerdeVersion(Request rq) {
+        return chooseFactory(rq).getSerdeVersionString();
     }
 }

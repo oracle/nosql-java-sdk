@@ -186,6 +186,18 @@ public interface FieldValueEventHandler {
     void binaryValue(byte[] byteArray) throws IOException;
 
     /**
+     * A binary value with offset and length
+     *
+     * @param byteArray the byte[] value
+     * @param offset the offset to start at
+     * @param length number of bytes total, starting at offset
+     * @throws IOException conditionally, based on implementation
+     */
+    void binaryValue(byte[] byteArray,
+                     int offset,
+                     int length) throws IOException;
+
+    /**
      * A String value
      *
      * @param value the value

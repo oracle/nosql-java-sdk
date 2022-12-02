@@ -111,6 +111,13 @@ public class JsonSerializer implements FieldValueEventHandler {
     }
 
     @Override
+    public void binaryValue(byte[] byteArray, int offset, int length) {
+        /* TODO: offset/length in BinaryValue methods */
+        sb.append(QUOTE).append(BinaryValue.encodeBase64(byteArray))
+            .append(QUOTE);
+    }
+
+    @Override
     public void stringValue(String value) {
         sb.append(QUOTE);
         CharTypes.appendQuoted(sb, value);

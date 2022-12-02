@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.3.7</version>
+  <version>5.4.7</version>
 </dependency>
 ```
 
@@ -139,6 +139,11 @@ You may run the Cloud Simulator on localhost.
  See the Quickstart example below for code details for connecting to the Cloud Simulator.
 Authorization for the Cloud Simulator is a simple no-op class implemented directly
 in the Quickstart example.
+
+## Logging
+
+Addional logging can be enabled using a java properties file. For full details, see
+"Logging in the SDK" at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
 
 ## Quickstart
 

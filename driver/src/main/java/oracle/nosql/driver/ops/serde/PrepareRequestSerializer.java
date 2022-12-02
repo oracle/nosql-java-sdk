@@ -125,6 +125,7 @@ public class PrepareRequestSerializer extends BinaryProtocol
 
         return new PreparedStatement(sqlText,
                                      queryPlan,
+                                     null, // query schema
                                      ti,
                                      proxyStatement,
                                      driverPlan,

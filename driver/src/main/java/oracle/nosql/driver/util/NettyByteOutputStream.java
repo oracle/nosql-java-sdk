@@ -35,15 +35,24 @@ public class NettyByteOutputStream extends ByteBufOutputStream
     }
 
     /**
-     * Creates a NettyByteOutputStream, also allocating a ByteBuf. This
-     * buffer must be released by calling {@link #close}.
+     * Creates a NettyByteOutputStream, also allocating a heap-based ByteBuf.
+     * This buffer must be released by calling {@link #close}.
      * @return a new instance
      */
     public static NettyByteOutputStream createNettyByteOutputStream() {
         return new NettyByteOutputStream(Unpooled.buffer(), true);
     }
 
-    private NettyByteOutputStream(ByteBuf buffer, boolean release) {
+    /**
+     * Creates a NettyByteOutputStream, also allocating a direct ByteBuf. This
+     * buffer must be released by calling {@link #close}.
+     * @return a new instance
+     */
+    public static NettyByteOutputStream createDirectNettyByteOutputStream() {
+        return new NettyByteOutputStream(Unpooled.directBuffer(), true);
+    }
+
+    protected NettyByteOutputStream(ByteBuf buffer, boolean release) {
         super(buffer);
         this.buffer = buffer;
         this.releaseBuffer = release;
@@ -74,6 +83,16 @@ public class NettyByteOutputStream extends ByteBufOutputStream
     @Override
     public int getOffset() {
         return buffer.writerIndex();
+    }
+
+    @Override
+    public boolean isDirect() {
+        return buffer.isDirect();
+    }
+
+    @Override
+    public byte[] array() {
+        return buffer.array();
     }
 
     @Override
@@ -136,5 +155,15 @@ public class NettyByteOutputStream extends ByteBufOutputStream
 
         /* reset */
         buffer.writerIndex(currentOffset);
+    }
+
+    @Override
+    public void ensureCapacity(int nbytes) {
+        /*
+         * this method will expand the buffer but not beyond its maxCapacity
+         * if set. To expand beyond maxCapacity, an additional "true" argument
+         * is required. Honor the maxCapacity if set.
+         */
+        buffer.ensureWritable(nbytes);
     }
 }

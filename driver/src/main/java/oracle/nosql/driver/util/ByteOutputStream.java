@@ -23,6 +23,19 @@ public interface ByteOutputStream extends java.io.DataOutput, AutoCloseable {
     public int getOffset();
 
     /**
+     * Returns true if the backing buffer is a direct buffer, indicating
+     * that the underlying byte array is not accessible via the array() call.
+     * @return true if direct
+     */
+    public boolean isDirect();
+
+    /**
+     * Returns the backing byte array
+     * @return the array
+     */
+    public byte[] array();
+
+    /**
      * Sets the current write offset into the byte buffer
      * @param index the offset/index
      */
@@ -73,4 +86,16 @@ public interface ByteOutputStream extends java.io.DataOutput, AutoCloseable {
      */
     @Override
     public void close();
+
+    /**
+     * Ensure that the buffer has at least this many bytes available for
+     * writing in the backing array. If the backing array automatically
+     * grows it will be reallocated to a larger size and an exception is
+     * not thrown unless there is insufficient memory available.
+     *
+     * @param nbytes the number of bytes required
+     * @throws IllegalArgumentException if the specified number of bytes are
+     * not available and the buffer does not grow on demand
+     */
+    public void ensureCapacity(int nbytes);
 }
