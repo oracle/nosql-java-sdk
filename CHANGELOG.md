@@ -21,7 +21,7 @@ field
      * PreparedStatement.getQuerySchema
  - Cloud only: added use of ETags, DefinedTags and FreeFormTags in TableRequest and TableResult
 
-## Changed
+### Changed
 - Consistency is now a class and no longer a simple enumeration. Applications must
 be recompiled but source compatibility is maintained for all but the more complex
 use of an enumeration
@@ -30,7 +30,7 @@ use of an enumeration
 
 ## [5.3.7] 2022-10-18
 
-## Changed
+### Changed
 - Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
 - Cloud only: Updated OCI regions (ORD, BGY, TIW, MXP, DUS, DTM, ORK, SNN)
 - Update netty dependency to 4.1.82.Final
