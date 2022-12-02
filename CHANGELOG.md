@@ -8,16 +8,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Support for new, flexible wire protocol (V4) has been added. The previous protocol
 is still supported for communication with servers that do not yet support V4. The
 version negotation is internal and automatic; however, use of V4 features will fail
-at runtime when attempted with an older server.
-- added set/getDurability to QueryRequest for queries that modify data
-- added pagination information to TableUsageResult and TableUsageRequest
-- added shard percent usage information to TableUsageResult
+at runtime when attempted with an older server. Failure may be an empty or
+undefined result or an exception if the request cannot be serviced at all. The following
+new features or interfaces depend on the new protocol version
+ - added set/getDurability to QueryRequest for queries that modify data
+ - added pagination information to TableUsageResult and TableUsageRequest
+ - added shard percent usage information to TableUsageResult
+ - added IndexInfo.getFieldTypes to return the type information on an index on a JSON
+field
+ - added the ability to ask for and receive the schema of a query using
+     * PrepareRequest.setGetQuerySchema
+     * PreparedStatement.getQuerySchema
+ - Cloud only: added use of ETags, DefinedTags and FreeFormTags in TableRequest and TableResult
 
 ## Changed
 - Consistency is now a class and no longer a simple enumeration. Applications must
 be recompiled but source compatibility is maintained for all but the more complex
 use of an enumeration
 - Made one private serializer class public to allow for improved internal testing.
+- MapValue now implements Iterable
 
 ## [5.3.7] 2022-10-18
 
