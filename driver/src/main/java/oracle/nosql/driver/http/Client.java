@@ -25,6 +25,7 @@ import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
+import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
@@ -199,9 +200,6 @@ public class Client {
     private volatile String sessionCookie;
     /* note this must end with '=' */
     private final String SESSION_COOKIE_FIELD = "session=";
-
-    /* header returned from proxy if request was delayed */
-    private final String X_RATE_LIMIT_DELAYED = "X-NoSQL-RLDelay-Ms";
 
     /* for keeping track of SDKs usage */
     private String userAgent;
@@ -1635,7 +1633,7 @@ public class Client {
         if (headers == null) {
             return 0;
         }
-        String v = headers.get(X_RATE_LIMIT_DELAYED);
+        String v = headers.get(X_RATELIMIT_DELAY);
         if (v == null || v.isEmpty()) {
             return 0;
         }

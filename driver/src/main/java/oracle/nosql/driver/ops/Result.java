@@ -79,6 +79,7 @@ public class Result {
      * If the value is zero, rate limiting did not apply or the operation
      * did not need to wait for rate limiting.
      * @return delay time in milliseconds
+     * @since 5.2.25
      */
     public int getRateLimitDelayedMs() {
         return rateLimitDelayedMs;
