@@ -25,6 +25,7 @@ import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
+import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
@@ -644,6 +645,8 @@ public class Client {
                                        responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
+                rateDelayedMs += getRateDelayedFromHeader(
+                                       responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
@@ -1619,5 +1622,26 @@ public class Client {
 
     private String getSerdeVersion(Request rq) {
         return chooseFactory(rq).getSerdeVersionString();
+    }
+
+    /*
+     * If the response has a header indicating the amount of time the
+     * server side delayed the request due to rate limiting, return that
+     * value (in milliseconds).
+     */
+    private int getRateDelayedFromHeader(HttpHeaders headers) {
+        if (headers == null) {
+            return 0;
+        }
+        String v = headers.get(X_RATELIMIT_DELAY);
+        if (v == null || v.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+        }
+
+        return 0;
     }
 }

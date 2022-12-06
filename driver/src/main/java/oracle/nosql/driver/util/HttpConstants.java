@@ -129,6 +129,12 @@ public class HttpConstants {
     public static final String userAgent = makeUserAgent();
 
     /*
+     * If present, the amount of time the request was delayed due to
+     * rate limiting (in milliseconds).
+     */
+    public static final String X_RATELIMIT_DELAY = "X-Nosql-RL-Delay-Ms";
+
+    /*
      * Path Components
      */
 
