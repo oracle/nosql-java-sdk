@@ -142,6 +142,7 @@ public class Region {
 
     /* OC17 */
     public static final Region US_DCC_PHOENIX_1 = new Region("us-dcc-phoenix-1");
+    public static final Region US_DCC_PHOENIX_2 = new Region("us-dcc-phoenix-2");
 
     static {
         /* OC1 */
@@ -233,6 +234,7 @@ public class Region {
 
         /* OC17 */
         OC17_REGIONS.put(US_DCC_PHOENIX_1.getRegionId(), US_DCC_PHOENIX_1);
+        OC17_REGIONS.put(US_DCC_PHOENIX_2.getRegionId(), US_DCC_PHOENIX_2);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(

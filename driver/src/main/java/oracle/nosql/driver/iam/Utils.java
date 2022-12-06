@@ -197,6 +197,7 @@ class Utils {
 
         /* OC17 */
         IAM_URI.put("ifp", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-1"}));
+        IAM_URI.put("gcn", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-2"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
