@@ -200,6 +200,9 @@ public class Client {
     /* note this must end with '=' */
     private final String SESSION_COOKIE_FIELD = "session=";
 
+    /* header returned from proxy if request was delayed */
+    private final String X_RATE_LIMIT_DELAYED = "X-NoSQL-RLDelay-Ms";
+
     /* for keeping track of SDKs usage */
     private String userAgent;
 
@@ -644,6 +647,8 @@ public class Client {
                                        responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
+                rateDelayedMs += getRateDelayedFromHeader(
+                                       responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
@@ -1619,5 +1624,26 @@ public class Client {
 
     private String getSerdeVersion(Request rq) {
         return chooseFactory(rq).getSerdeVersionString();
+    }
+
+    /*
+     * If the response has a header indicating the amount of time the
+     * server side delayed the request due to rate limiting, return that
+     * value (in milliseconds).
+     */
+    private int getRateDelayedFromHeader(HttpHeaders headers) {
+        if (headers == null) {
+            return 0;
+        }
+        String v = headers.get(X_RATE_LIMIT_DELAYED);
+        if (v == null || v.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+        }
+
+        return 0;
     }
 }
