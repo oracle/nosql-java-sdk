@@ -20,6 +20,7 @@ field
      * PrepareRequest.setGetQuerySchema
      * PreparedStatement.getQuerySchema
  - Cloud only: added use of ETags, DefinedTags and FreeFormTags in TableRequest and TableResult
+ - Cloud only: Updated OCI regions (SGU, IFP)
 
 ### Changed
 - Consistency is now a class and no longer a simple enumeration. Applications must
