@@ -2,7 +2,9 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unpublished]
+## [5.4.7] 2022-12-06
+
+Note: there are no 5.4 releases before 5.4.7
 
 ### Added
 - Support for new, flexible wire protocol (V4) has been added. The previous protocol
