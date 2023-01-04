@@ -717,8 +717,10 @@ public class Client {
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
             } catch (InvalidAuthorizationException iae) {
-                /* allow a single retry on clock skew errors */
-                if (iae.getMessage().contains("clock skew") == false ||
+                /* allow a single retry on clock skew / auth errors */
+                String msg = iae.getMessage();
+                if ((msg.contains("clock skew") == false &&
+                    msg.contains("request signature is invalid") == false) ||
                     kvRequest.getNumRetries() > 0) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
