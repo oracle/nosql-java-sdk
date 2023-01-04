@@ -718,10 +718,7 @@ public class Client {
                         rae.getMessage(), rae);
             } catch (InvalidAuthorizationException iae) {
                 /* allow a single retry on clock skew / auth errors */
-                String msg = iae.getMessage();
-                if ((msg.contains("clock skew") == false &&
-                    msg.contains("request signature is invalid") == false) ||
-                    kvRequest.getNumRetries() > 0) {
+                if (kvRequest.getNumRetries() > 0) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
