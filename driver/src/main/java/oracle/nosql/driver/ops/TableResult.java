@@ -111,6 +111,8 @@ public class TableResult extends Result {
      * the on-premise service.
      *
      * @return the table OCID
+     *
+     * @since 5.4
      */
     public String getTableId() {
         return tableOcid;
@@ -122,6 +124,8 @@ public class TableResult extends Result {
      * Returns compartment id of the target table
      *
      * @return the compartment id if set
+     *
+     * @since 5.4
      */
     public String getCompartmentId() {
         return compartmentOrNamespace;
@@ -135,6 +139,8 @@ public class TableResult extends Result {
      * is in a namespace.
      *
      * @return the namespace id if set
+     *
+     * @since 5.4
      */
     public String getNamespace() {
         return compartmentOrNamespace;
@@ -155,6 +161,8 @@ public class TableResult extends Result {
      * Returns the JSON-formatted schema of the table if available and null if
      * not
      * @return the schema
+     *
+     * @since 5.4
      */
     public String getSchema() {
         return schema;
@@ -177,6 +185,8 @@ public class TableResult extends Result {
      * if available, or null otherwise.
      *
      * @return the FreeFormTags
+     *
+     * @since 5.4
      */
     public FreeFormTags getFreeFormTags() {
         return freeFormTags;
@@ -189,6 +199,8 @@ public class TableResult extends Result {
      * if available, or null otherwise.
      *
      * @return the DefinedTags
+     *
+     * @since 5.4
      */
     public DefinedTags getDefinedTags() {
         return definedTags;
@@ -204,6 +216,7 @@ public class TableResult extends Result {
      * optimistic concurrency control mechanism.
      *
      * @return the matchETag
+     *
      * @since 5.4
      */
     public String getMatchETag() {
