@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.7</version>
+  <version>5.4.8</version>
 </dependency>
 ```
 
@@ -182,7 +182,7 @@ is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
