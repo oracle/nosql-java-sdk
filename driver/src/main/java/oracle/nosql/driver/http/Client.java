@@ -717,7 +717,11 @@ public class Client {
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
             } catch (InvalidAuthorizationException iae) {
-                /* allow a single retry on clock skew / auth errors */
+                /*
+                 * Allow a single retry for invalid/expired auth
+                 * This includes "clock skew" errors
+                 * This does not include permissions-related errors
+                 */
                 if (kvRequest.getNumRetries() > 0) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
