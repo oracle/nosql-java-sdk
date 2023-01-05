@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [5.4.8] 2023-01-05
+
+### Fixed
+- Cloud only: Fixed an issue where a long running application using SignatureProvider
+ with instance principal may encounter NotAuthenticated error after several minutes even
+ if authentication succeeds for the first requests.
+
+### Changed
+- Updated copyrights to 2023
+
 ## [5.4.7] 2022-12-06
 
 Note: there are no 5.4 releases before 5.4.7
