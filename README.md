@@ -131,7 +131,7 @@ See the Quickstart example below for code details for connecting on-premise.
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
 
 When you develop an application, you may wish to start with
-[Oracle NoSQL Database Cloud Simulator](https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/develop-oracle-nosql-cloud-simulator.html).
+[Oracle NoSQL Database Cloud Simulator](https://docs.oracle.com/en/cloud/paas/nosql-cloud/donsq/index.html).
 The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
