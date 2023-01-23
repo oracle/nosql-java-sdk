@@ -416,6 +416,15 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     /**
+     * @hidden
+     *
+     * Testing use only.
+     */
+    public void setDefaultNamespace(String ns) {
+        client.setDefaultNamespace(ns);
+    }
+
+    /**
      * Cloud service only.
      * The refresh method of this class is called when a Signature is refreshed
      * in SignatureProvider. This happens every 4 minutes or so. This mechanism
