@@ -47,10 +47,10 @@ public class HttpConstants {
     public static final String REQUEST_COMPARTMENT_ID = "x-nosql-compartment-id";
 
     /**
-     * A header for transferring the namespace on an http request.
+     * A header for transferring the default namespace on an http request.
      * onprem use only.
      */
-    public static final String REQUEST_NAMESPACE_HEADER = "x-nosql-namespace";
+    public static final String REQUEST_NAMESPACE_HEADER = "x-nosql-default-ns";
 
     /**
      * Headers possibly set by the load balancer service to indicate original

@@ -205,14 +205,14 @@ public class NoSQLHandleConfig implements Cloneable {
     private String compartment;
 
     /**
-     * Onprem use only.
+     * On-premise only.
      *
      * The default namespace to use for all requests. If this is null (the
      * default), no namespace is used unless specified in table names in
      * requests and SQL statements.
      *
-     * Any namespace specified in a table name (using the namespace:tablename
-     * syntax) in requests and/or SQL statements overrides this default.
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
      */
     private String namespace;
 
@@ -1089,14 +1089,14 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * @hidden
      *
-     * Onprem use only.
+     * On-premise only.
      *
      * Sets the default namespace to use for requests sent using the
      * handle. This is an optional convenience method to avoid having to
      * add the namespace to table names in requests and SQL statements.
      *
-     * Any namespace specified in a table name (using the namespace:tablename
-     * syntax) in requests and/or SQL statements will override this default.
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
      *
      * @param namespace the default namespace to use
      *
@@ -1110,7 +1110,7 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * @hidden
      *
-     * Onprem use only.
+     * On-premise only.
      *
      * Returns the default namespace to use for requests or null if not set.
      *
