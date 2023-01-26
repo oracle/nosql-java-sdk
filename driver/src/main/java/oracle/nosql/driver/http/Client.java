@@ -516,6 +516,10 @@ public class Client {
                 break;
             }
 
+            /* update iteration timeout in case limiters slept for some time */
+            thisTime = System.currentTimeMillis();
+            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+
             final String authString =
                 authProvider.getAuthorizationString(kvRequest);
             authProvider.validateAuthString(authString);
@@ -566,6 +570,9 @@ public class Client {
                  * writeContent().
                  */
                 kvRequest.setCheckRequestSize(false);
+
+                /* update timeout in request to match this iteration timeout */
+                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
 
                 serialVersionUsed = writeContent(buffer, kvRequest);
 
