@@ -214,7 +214,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * Any non-namespace qualified table name in requests and/or SQL
      * statements will be resolved/qualified to the specified namespace.
      */
-    private String namespace;
+    private String defaultNamespace;
 
     /**
      * Enable rate limiting.
@@ -1102,8 +1102,8 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @return this
      */
-    public NoSQLHandleConfig setDefaultNamespace(String namespace) {
-        this.namespace = namespace;
+    public NoSQLHandleConfig setDefaultNamespace(String defaultNamespace) {
+        this.defaultNamespace = defaultNamespace;
         return this;
     }
 
@@ -1114,10 +1114,10 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * Returns the default namespace to use for requests or null if not set.
      *
-     * @return the namespace
+     * @return the default namespace
      */
     public String getDefaultNamespace() {
-        return namespace;
+        return defaultNamespace;
     }
 
     /**
