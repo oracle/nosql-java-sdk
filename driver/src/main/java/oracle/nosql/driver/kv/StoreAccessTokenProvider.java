@@ -35,7 +35,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.ssl.SslContext;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * StoreAccessTokenProvider is an {@link AuthorizationProvider} that performs
  * the following functions:

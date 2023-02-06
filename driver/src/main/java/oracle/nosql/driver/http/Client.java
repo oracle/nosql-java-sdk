@@ -333,13 +333,15 @@ public class Client {
     /**
      * Execute the KV request and return the response. This is the top-level
      * method for request execution.
-     *
+     * <p>
      * This method handles exceptions to distinguish between what can be retried
-     * what what cannot, making sure that root cause exceptions are
+     * and what cannot, making sure that root cause exceptions are
      * kept. Examples:
-     *  o can't connect (host, port, etc)
-     *  o throttling exceptions
-     *  o general networking issues, IOException
+     * <ul>
+     *  <li>can't connect (host, port, etc)</li>
+     *  <li>throttling exceptions</li>
+     *  <li>general networking issues, IOException</li>
+     * </ul>
      *
      * RequestTimeoutException needs a cause, or at least needs to include the
      * message from the causing exception.
@@ -576,7 +578,7 @@ public class Client {
                 serialVersionUsed = writeContent(buffer, kvRequest);
 
                 /*
-                 * If on-premise the authProvider will always be a
+                 * If on-premises the authProvider will always be a
                  * StoreAccessTokenProvider. If so, check against
                  * configurable limit. Otherwise check against internal
                  * hardcoded cloud limit.
@@ -948,7 +950,7 @@ public class Client {
     }
 
     /**
-     * Comsume rate limiter units after successful operation.
+     * Consume rate limiter units after successful operation.
      * @return the number of milliseconds delayed due to rate limiting
      */
     private int consumeLimiterUnits(RateLimiter rl,
@@ -961,7 +963,7 @@ public class Client {
         /*
          * The logic consumes units (and potentially delays) _after_ a
          * successful operation for a couple reasons:
-         * 1) We don't know the actual number of units an op uses unitl
+         * 1) We don't know the actual number of units an op uses until
          *    after the operation successfully finishes
          * 2) Delaying after the op keeps the application from immediately
          *    trying the next op and ending up waiting along with other
@@ -1105,7 +1107,7 @@ public class Client {
      *
      * @return the result of processing the successful request
      *
-     * @throws IOException if the stream could not be read for some reason
+     * @throws NoSQLException if the stream could not be read for some reason
      */
     Result processOKResponse(ByteInputStream in, Request kvRequest) {
         try {
@@ -1547,9 +1549,9 @@ public class Client {
     /**
      * Look for the compartment,table combination in the list. If
      * present, do nothing. If not, add that combination to the list.
-     * This is not particular efficient but it is not expected that a given
+     * This is not particularly efficient but it is not expected that a given
      * handle will be accessing a large number of tables.
-     *
+     * <p>
      * The operation type is not checked -- all 3 types of requests are created
      * no matter the access. This simplifies the logic and if a given type is
      * not given to this Principal it doesn't hurt.

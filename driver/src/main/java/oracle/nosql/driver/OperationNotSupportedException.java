@@ -9,7 +9,7 @@ package oracle.nosql.driver;
 
 /**
  * The operation attempted is not supported. This may be related to
- * on-premise vs cloud service configurations.
+ * on-premises vs cloud service configurations.
  */
 public class OperationNotSupportedException extends NoSQLException {
 

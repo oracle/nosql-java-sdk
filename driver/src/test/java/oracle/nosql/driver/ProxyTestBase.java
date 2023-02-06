@@ -1,14 +1,14 @@
 /**
  * Test base for tests that talk to a server. The server (proxy) may be
  * one of:
- *  o on-premise configuration, not secure
- *  o on-premise configuration, secure
+ *  o on-premises configuration, not secure
+ *  o on-premises configuration, secure
  *  o cloud simulator configuration
  *
  * Information required to connect and run tests
  *  1. endpoint
  *  2. type of server for conditional tests
- *  3. secure on-premise adds authentication information:
+ *  3. secure on-premises adds authentication information:
  *    o user name and password of an authorized user
  *    o path to a trust store for SSL configuration
  *

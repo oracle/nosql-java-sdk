@@ -27,7 +27,7 @@ import oracle.nosql.driver.values.MapValue;
  * Examples can be run against:
  *  1. the cloud service
  *  2. the cloud simulator (CloudSim)
- *  3. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  3. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *
  * To run:

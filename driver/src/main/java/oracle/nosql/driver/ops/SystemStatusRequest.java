@@ -13,7 +13,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * SystemStatusRequest is an on-premise-only request used to check the status
  * of an operation started using a {@link SystemRequest}.

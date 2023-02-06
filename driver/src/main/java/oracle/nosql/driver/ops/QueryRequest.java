@@ -642,7 +642,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * Sets the durability to use for the operation.
-     * On-premise only. This setting only applies if the query modifies
+     * On-premises only. This setting only applies if the query modifies
      * a row using an INSERT, UPSERT, or DELETE statement. If the query is
      * read-only it is ignored.
      *

@@ -6,6 +6,6 @@
  */
 /**
  * This package contains classes that are specific to using the driver
- * on-premise and not applicable to the Cloud Service.
+ * on-premises and not applicable to the Cloud Service.
  */
 package oracle.nosql.driver.kv;

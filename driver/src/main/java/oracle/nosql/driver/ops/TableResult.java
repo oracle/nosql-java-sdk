@@ -108,7 +108,7 @@ public class TableResult extends Result {
      * Cloud service only.
      * <p>
      * Returns the OCID of the table. This value will be null if used with
-     * the on-premise service.
+     * the on-premises service.
      *
      * @return the table OCID
      *
@@ -147,7 +147,7 @@ public class TableResult extends Result {
     }
 
     /**
-     * Returns the table name of the target table. If on-premise and the table
+     * Returns the table name of the target table. If on-premises and the table
      * is in a namespace the namespace is included as a prefix using the format
      * <em>namespace:tableName</em>
      *
@@ -170,7 +170,7 @@ public class TableResult extends Result {
 
     /**
      * Returns the throughput and capacity limits for the table.
-     * Limits from an on-premise service will always be null.
+     * Limits from an on-premises service will always be null.
      *
      * @return the limits
      */

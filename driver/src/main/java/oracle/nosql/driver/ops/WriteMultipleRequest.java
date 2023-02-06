@@ -160,7 +160,7 @@ public class WriteMultipleRequest extends DurableRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * On-premise only.
+     * On-premises only.
      *
      * @param durability the durability value. Set to null for
      * the default durability setting on the kvstore server.
@@ -251,7 +251,7 @@ public class WriteMultipleRequest extends DurableRequest {
     /**
      * @hidden
      * Internal use only
-     * @return true if the opearations all work on
+     * @return true if the operations all work on
      * a single table
      */
     public boolean isSingleTable() {

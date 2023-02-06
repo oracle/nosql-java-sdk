@@ -19,7 +19,7 @@
  * </a>
  * <p>
  * This and other packages in the system support both users of the Oracle NoSQL
- * Database Cloud Service and the on-premise Oracle NoSQL Database. Some
+ * Database Cloud Service and the on-premises Oracle NoSQL Database. Some
  * classes, methods, and parameters are specific to each environment. The
  * documentation for affected classes and methods notes whether there are
  * environment-specific considerations. Unless otherwise noted they are
