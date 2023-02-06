@@ -8,7 +8,7 @@
 package oracle.nosql.driver;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * A class that encapsulates the information associated with a user including
  * the id and user name in the system.

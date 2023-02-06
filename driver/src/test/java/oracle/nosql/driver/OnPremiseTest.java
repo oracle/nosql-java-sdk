@@ -44,10 +44,10 @@ import org.junit.After;
 import org.junit.Test;
 
 /**
- * Test features that are supported on-premise only at this time:
+ * Test features that are supported on-premises only at this time:
  * o child tables
  * o namespaces
- * o (TBD) security-relevant on-premise operations
+ * o (TBD) security-relevant on-premises operations
  */
 public class OnPremiseTest extends ProxyTestBase {
 

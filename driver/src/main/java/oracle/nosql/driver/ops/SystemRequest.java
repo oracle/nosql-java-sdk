@@ -13,7 +13,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * SystemRequest is an on-premise-only request used to perform any
  * table-independent administrative operation such as

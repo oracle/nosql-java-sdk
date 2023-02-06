@@ -120,7 +120,7 @@ public class ListTablesRequest extends Request {
     }
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Sets the namespace to use for the list. If not set all tables accessible
      * to the user will be returned. If set, only tables in the namespace
@@ -136,7 +136,7 @@ public class ListTablesRequest extends Request {
     }
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Returns the namespace to use for the list or null if not set.
      *

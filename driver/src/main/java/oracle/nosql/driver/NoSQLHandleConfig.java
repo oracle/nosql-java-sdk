@@ -770,7 +770,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets the maximum size in bytes of request/response payloads.
-     * On-premise only. This setting is ignored for cloud operations.
+     * On-premises only. This setting is ignored for cloud operations.
      * If not set, or set to zero, the default value of 32MB is used.
      *
      * @param maxContentLength the maximum bytes allowed in
@@ -790,7 +790,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Returns the maximum size, in bytes, of a request operation payload.
-     * On-premise only. This value is ignored for cloud operations.
+     * On-premises only. This value is ignored for cloud operations.
      *
      * @return the size
      */

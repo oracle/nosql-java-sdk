@@ -12,7 +12,7 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * SystemResult is returned from {@link NoSQLHandle#systemStatus} and
  * {@link NoSQLHandle#systemRequest} operations. It encapsulates the
@@ -48,7 +48,7 @@ public class SystemResult extends Result {
     private String resultString;
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * The current state of the operation
      */

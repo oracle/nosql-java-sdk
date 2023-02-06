@@ -57,7 +57,7 @@
   <profiles>
 
     <!-- test profiles used with the test target
-         Running tests requires a running on-premise service and httpproxy
+         Running tests requires a running on-premises service and httpproxy
          or a running cloud simulator. Required information:
             o endpoint
          Examples:
@@ -85,7 +85,7 @@
         <secure>false</secure>
         <onprem>false</onprem>
         <serverType>cloudsim</serverType>
-        <!-- exclude non-server tests and on-premise tests -->
+        <!-- exclude non-server tests and on-premises tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,

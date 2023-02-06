@@ -28,7 +28,7 @@ import io.netty.util.ReferenceCountUtil;
  * response asynchronously by overriding the responseReceived() method, or
  * synchronously by using the default implementation and waiting for the
  * response.
- *
+ * <p>
  * Instances of this class must be closed using close().
  *
  * TODO: examples of both sync and async usage

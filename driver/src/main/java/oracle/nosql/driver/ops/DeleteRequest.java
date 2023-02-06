@@ -155,7 +155,7 @@ public class DeleteRequest extends WriteRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * On-premise only.
+     * On-premises only.
      *
      * @param durability the durability value
      *

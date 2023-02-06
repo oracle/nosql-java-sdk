@@ -163,7 +163,7 @@ public class TableRequest extends Request {
      * 2 cases -- table creation statements and limits modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If limits are set for an on-premise service they are silently ignored.
+     * If limits are set for an on-premises service they are silently ignored.
      *
      * @param tableLimits the limits
      *
@@ -182,7 +182,7 @@ public class TableRequest extends Request {
      * modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If tags are set for an on-premise service they are silently ignored.
+     * If tags are set for an on-premises service they are silently ignored.
      *
      * @param definedTags the tags
      *
@@ -202,7 +202,7 @@ public class TableRequest extends Request {
      * modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If tags are set for an on-premise service they are silently ignored.
+     * If tags are set for an on-premises service they are silently ignored.
      *
      * @param freeFormTags the tags
      *
@@ -223,7 +223,7 @@ public class TableRequest extends Request {
      * control allowing an application to ensure no unexpected modifications
      * have been made to the table.
      * <p>
-     * If set for an on-premise service the ETag is silently ignored.
+     * If set for an on-premises service the ETag is silently ignored.
      *
      * @param etag the ETag
      *

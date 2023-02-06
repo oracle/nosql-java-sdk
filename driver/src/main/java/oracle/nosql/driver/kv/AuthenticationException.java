@@ -10,7 +10,7 @@ package oracle.nosql.driver.kv;
 import oracle.nosql.driver.NoSQLException;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * This exception is thrown when use StoreAccessTokenProvider in following
  * cases:

@@ -26,7 +26,7 @@
  * operations that succeed. All result instances contain information about
  * throughput used by that operation if available, in the form of
  * <em>getReadUnits</em> and <em>getWriteUnits</em> interfaces on the objects.
- * When used against an on-premise service resource consumption information is
+ * When used against an on-premises service resource consumption information is
  * not available and will be 0.
  * <p>
  * {@link oracle.nosql.driver.ops.Request} and

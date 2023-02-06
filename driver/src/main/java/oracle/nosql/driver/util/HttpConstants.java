@@ -150,7 +150,7 @@ public class HttpConstants {
                                                           "nosql/data");
 
     /**
-     * The base path to the on-premise security services. All users need
+     * The base path to the on-premises security services. All users need
      * a leading "/" so add it here.
      */
     public static final String KV_SECURITY_PATH = makePath("/" + NOSQL_VERSION,

@@ -302,7 +302,7 @@ MapValue  instances created from JSON to maintain the insertion order of fields
 in the map so that iteration is predictable.
 
 ### Fixed
-- Don't validate request sizes. On-premise only
+- Don't validate request sizes. On-premises only
 - JsonOptions.setPrettyPrint(true) now works
 - Request timeouts now operate correctly on milliseconds instead of rounding up to seconds
 - Changed min/max implementation to make them deterministic
@@ -317,7 +317,7 @@ removed in a future version.
 - Fix another memory leak that could occur on the receive side when the response
 was discarded due to unmatched request Id.
 - Fixed a problem where the HTTP Host header was not being adding in all request
-cases. This prevented use of an intermediate proxy such as Nginx, which validates headers. On-premise only.
+cases. This prevented use of an intermediate proxy such as Nginx, which validates headers. On-premises only.
 - TableUsageRequest: added validation check that startTime, endTime and limit
 must not be negative value.
 
@@ -363,16 +363,16 @@ exact schema match is required on a put. The default behavior is false.
 - Added a new, simpler TableResult.waitForCompletion() interface to wait for the completion of a TableRequest vs waiting for a specific state.
 - Added NoSQLHandle.doTableRequest to encapsulate a TableRequest and waiting for
   its completion in a single, synchronous call.
-- Added OperationNotSupportedException to handle operations that are specific to on-premise and cloud service environments
+- Added OperationNotSupportedException to handle operations that are specific to on-premises and cloud service environments
 
-- Support for both the Oracle NoSQL Database Cloud Service and the on-premise Oracle NoSQL Database product.
-  - Added StoreAccessTokenProvider for authentication of access to an on-premise store
+- Support for both the Oracle NoSQL Database Cloud Service and the on-premises Oracle NoSQL Database product.
+  - Added StoreAccessTokenProvider for authentication of access to an on-premises store
   - Added AuthenticationException to encapsulate authentication problems when
-  accessing an on-premise store.
+  accessing an on-premises store.
   - Added SystemRequest, SystemStatusRequest, and SystemResult for administrative
   operations that are not table-specific.
   - Added NoSQLHandle.doSystemRequest to encapsulate a SystemRequest and waiting for its completion in a single, synchronous call.
-  -   Now that the driver can access both the cloud service and an on-premise store
+  -   Now that the driver can access both the cloud service and an on-premises store
   some operations, classes and exceptions are specific to each environment. These are
   noted in updated javadoc.
 

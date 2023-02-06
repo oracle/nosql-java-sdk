@@ -119,7 +119,7 @@ See the Quickstart example below for code details for using a Resource Principal
 
 ### Connecting to the Oracle NoSQL Database On-premise
 
-The on-premise configuration requires a running instance of Oracle NoSQL
+The on-premises configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.1/admin/proxy-and-driver.html)
@@ -149,7 +149,7 @@ Addional logging can be enabled using a java properties file. For full details, 
 
 The following is a quick start tutorial to run a simple program in all supported
 environments. It requires access to the Oracle NoSQL Database Cloud Service,
-a running on-premise Oracle NoSQL Database instance, or a running Oracle
+a running on-premises Oracle NoSQL Database instance, or a running Oracle
 NoSQL Cloud Simulator instance. As a standalone program it will run most easily
 using a download version of the Oracle NoSQL SDK for Java.
 
@@ -166,7 +166,7 @@ Using the cloud service on region us-ashburn-1
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloud -endpoint us-ashburn-1
 ```
-Using a non-secure on-premise service on endpoint http://localhost:8090
+Using a non-secure on-premises service on endpoint http://localhost:8090
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http://localhost:8090
 ```
@@ -225,7 +225,7 @@ import oracle.nosql.driver.values.MapValue;
  *
  * This program can be run against:
  *  1. the cloud service
- *  2. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  2. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *  3. the cloud simulator (CloudSim)
  *
@@ -512,7 +512,7 @@ $ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
   -Dexec.args="http://localhost:8080"
 ```
 
-Run BasicTableExample using an on-premise  instance on endpoint
+Run BasicTableExample using an on-premises instance on endpoint
 localhost:8090
 
 ```
@@ -559,7 +559,7 @@ The region argument will change depending on which region you use.
 
 #### Run using the Oracle NoSQL Database On-premise
 
-Running against the on-premise Oracle NoSQL Database on-premise requires
+Running against the on-premises Oracle NoSQL Database on-premises requires
 a running instance of the database and running proxy service. See above.
 
 Run against a not-secure proxy and store, with the proxy running on port 80:

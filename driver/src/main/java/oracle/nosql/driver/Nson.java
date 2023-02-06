@@ -428,7 +428,7 @@ public class Nson {
      *
      * @param in the input stream of NSON bytes
      * @param options {@link JsonOptions} to use for the serialization, or
-     * null for default behavior.Th
+     * null for default behavior
      * @return the JSON string
      * @throws IllegalArgumentException if there's a problem with serializing
      * NSON to JSON string
