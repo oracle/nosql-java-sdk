@@ -205,6 +205,18 @@ public class NoSQLHandleConfig implements Cloneable {
     private String compartment;
 
     /**
+     * On-premise only.
+     *
+     * The default namespace to use for all requests. If this is null (the
+     * default), no namespace is used unless specified in table names in
+     * requests and SQL statements.
+     *
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
+     */
+    private String defaultNamespace;
+
+    /**
      * Enable rate limiting.
      * Cloud service only.
      */
@@ -1072,6 +1084,40 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public String getDefaultCompartment() {
         return compartment;
+    }
+
+    /**
+     * @hidden
+     *
+     * On-premise only.
+     *
+     * Sets the default namespace to use for requests sent using the
+     * handle. This is an optional convenience method to avoid having to
+     * add the namespace to table names in requests and SQL statements.
+     *
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
+     *
+     * @param namespace the default namespace to use
+     *
+     * @return this
+     */
+    public NoSQLHandleConfig setDefaultNamespace(String defaultNamespace) {
+        this.defaultNamespace = defaultNamespace;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * On-premise only.
+     *
+     * Returns the default namespace to use for requests or null if not set.
+     *
+     * @return the default namespace
+     */
+    public String getDefaultNamespace() {
+        return defaultNamespace;
     }
 
     /**

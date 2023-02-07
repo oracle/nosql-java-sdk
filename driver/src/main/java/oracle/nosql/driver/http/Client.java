@@ -22,6 +22,7 @@ import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.COOKIE;
+import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
@@ -626,6 +627,11 @@ public class Client {
                 }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
+                if (config.getDefaultNamespace() != null) {
+                    headers.add(REQUEST_NAMESPACE_HEADER,
+                                config.getDefaultNamespace());
+                }
+
                 if (isLoggable(logger, Level.FINE) &&
                     !kvRequest.getIsRefresh()) {
                     logTrace(logger, "Request: " + requestClass +
@@ -808,7 +814,7 @@ public class Client {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
                     exception = upe;
-                    logInfo(logger, "Got unsupported protocol error " +
+                    logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
                     continue;
@@ -1655,5 +1661,13 @@ public class Client {
         }
 
         return 0;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setDefaultNamespace(String ns) {
+        config.setDefaultNamespace(ns);
     }
 }
