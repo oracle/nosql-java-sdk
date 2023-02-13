@@ -86,9 +86,7 @@ There are 3 ways to authorize an application using the Oracle NoSQL Database Clo
 You will need an Oracle Cloud account and credentials to use this SDK. With this
 information, you'll set up a client configuration to tell your application how to
 find the cloud service, and how to properly authenticate.
-See [Acquring Credentials](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud/csnsd&id=acquire-creds)
-for details of how to get credentials. This only needs to be done once for any
-user.
+See [Authentication to connect to Oracle NoSQL Database](https://docs.oracle.com/en/cloud/paas/nosql-cloud/dtddt/index.html) for details of credentials you will need to configure an application. This only needs to be done once for any user.
 
 You should have the following information in hand:
 
@@ -122,7 +120,7 @@ See the Quickstart example below for code details for using a Resource Principal
 The on-premise configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.1/admin/proxy-and-driver.html)
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.3/admin/proxy-and-driver.html)
 for proxy configuration information.
 
 On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
@@ -131,7 +129,7 @@ See the Quickstart example below for code details for connecting on-premise.
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
 
 When you develop an application, you may wish to start with
-[Oracle NoSQL Database Cloud Simulator](https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/develop-oracle-nosql-cloud-simulator.html).
+[Oracle NoSQL Database Cloud Simulator](https://www.oracle.com/downloads/cloud/nosql-cloud-sdk-downloads.html).
 The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
@@ -596,7 +594,7 @@ party notices and licenses.
 ## Help
 
 * Open an issue in the [Issues](https://github.com/oracle/nosql-java-sdk/issues) page
-* Post your question on the [Oracle NoSQL Database Community](https://community.oracle.com/community/groundbreakers/database/nosql_database).
+* Post your question on the [Oracle NoSQL Database Community](https://forums.oracle.com/ords/apexds/domain/dev-community/category/nosql_database).
 * [Email to nosql\_sdk\_help\_grp@oracle.com](mailto:nosql_sdk_help_grp@oracle.com)
 
 When requesting help please be sure to include as much detail as possible,
