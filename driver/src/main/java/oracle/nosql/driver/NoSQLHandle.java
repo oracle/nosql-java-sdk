@@ -338,10 +338,10 @@ public interface NoSQLHandle extends AutoCloseable {
      * is necessary to close the QueryIterableResult or use the
      * try-with-resources statement:
      * <pre>
-     *    QueryRequest qreq = new QueryRequest()
-     *        .setStatement("select * from MyTable");
-     *
-     *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+     *    try (
+     *        QueryRequest qreq = new QueryRequest()
+     *            .setStatement("select * from MyTable");
+     *        QueryIterableResult qir = handle.queryIterable(qreq)) {
      *        for( MapValue row : qir) {
      *            // do something with row
      *        }

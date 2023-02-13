@@ -39,9 +39,9 @@ import oracle.nosql.driver.query.TopologyInfo;
  * <pre>
  *    NoSQLHandle handle = ...;
  *
- *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
- *
- *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+ *    try (
+ *        QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ *        QueryIterableResult qir = handle.queryIterable(qreq)) {
  *        for( MapValue row : qir) {
  *            // do something with row
  *        }
