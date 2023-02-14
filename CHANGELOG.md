@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [5.4.9] 2023-02-14
+
+### Added
+- On-premises only: added support for default namespace in NoSQLHandleConfig
+
+### Changed
+- Updated javadoc for QueryRequest try-with-resources
+
+### Fixed
+- Fixed timeout value sent to server on internal retries
+
 ## [5.4.8] 2023-01-05
 
 ### Fixed
@@ -11,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Updated copyrights to 2023
+- Update netty dependency to 4.1.86.Final
 
 ## [5.4.7] 2022-12-06
 
