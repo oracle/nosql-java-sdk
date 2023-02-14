@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -423,6 +423,16 @@ public abstract class Request {
         this.rateLimitDelayedMs = rateLimitDelayedMs;
     }
 
+    /**
+     * Get the time the operation was delayed due to rate limiting.
+     * Cloud only.
+     * If rate limiting is in place, this value will represent the number of
+     * milliseconds that the operation was delayed due to rate limiting.
+     * If the value is zero, rate limiting did not apply or the operation
+     * did not need to wait for rate limiting.
+     * @return delay time in milliseconds
+     * @since 5.2.25
+     */
     public int getRateLimitDelayedMs() {
         return rateLimitDelayedMs;
     }

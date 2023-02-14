@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -20,6 +20,7 @@ import oracle.nosql.driver.values.TimestampValue;
 public class TableUsageResult extends Result {
     private String tableName;
     private TableUsage[] usageRecords;
+    private int lastIndexReturned;
 
     /**
      * Returns the table name used by the operation
@@ -38,6 +39,28 @@ public class TableUsageResult extends Result {
      */
     public TableUsage[] getUsageRecords() {
         return usageRecords;
+    }
+
+    /**
+     * Returns the index of the last usage record returned. This can be provided
+     * to {@link TableUsageRequest} to be used as a starting point for listing
+     * usage records.
+     *
+     * @return the index
+     * @since 5.4
+     */
+    public int getLastReturnedIndex() {
+        return lastIndexReturned;
+    }
+
+    /**
+     * @hidden
+     * @param lastIndexReturned the index
+     * @return this
+     */
+    public TableUsageResult setLastIndexReturned(int lastIndexReturned) {
+        this.lastIndexReturned = lastIndexReturned;
+        return this;
     }
 
     /**
@@ -63,8 +86,8 @@ public class TableUsageResult extends Result {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("GetTableUsageResult [table=");
-        sb.append(tableName).append("] [tableUsage=[");
+        sb.append("GetTableUsageResult [table=").append(tableName).append("]");
+        sb.append(" [tableUsage=[");
         if (usageRecords == null) {
             sb.append("null");
         } else {
@@ -118,6 +141,10 @@ public class TableUsageResult extends Result {
          * @hidden
          */
         public int storageThrottleCount;
+        /**
+         * @hidden
+         */
+        public int maxShardUsagePercent;
 
         /**
          * @hidden
@@ -215,6 +242,19 @@ public class TableUsageResult extends Result {
         }
 
         /**
+         * Returns the percentage of allowed storage usage for the shard with
+         * the highest usage percentage across all table shards. This can be
+         * used as a gauge of total storage available as well as a hint for
+         * key distribution across shards.
+         *
+         * @return the percentage
+         * @since 5.4
+         */
+        public int getMaxShardUsagePercent() {
+            return maxShardUsagePercent;
+        }
+
+        /**
          * @hidden
          * Output object state to a StringBuilder
          *
@@ -237,6 +277,8 @@ public class TableUsageResult extends Result {
             builder.append(writeThrottleCount);
             builder.append(", storageThrottleCount=");
             builder.append(storageThrottleCount);
+            builder.append(", maxShardUsagePercent=");
+            builder.append(maxShardUsagePercent);
             builder.append("]");
         }
     }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,7 +8,7 @@
 package oracle.nosql.driver;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * A class that encapsulates the information associated with a user including
  * the id and user name in the system.

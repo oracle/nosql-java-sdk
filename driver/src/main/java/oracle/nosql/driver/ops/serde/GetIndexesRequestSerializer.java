@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -65,6 +65,6 @@ class GetIndexesRequestSerializer extends BinaryProtocol
         for (int n = 0; n < nFields; n++) {
             fieldNames[n] = readString(in);
         }
-        return new IndexInfo(indexName, fieldNames);
+        return new IndexInfo(indexName, fieldNames, null);
     }
 }

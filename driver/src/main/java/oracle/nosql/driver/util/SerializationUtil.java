@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,8 +7,6 @@
 
 package oracle.nosql.driver.util;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.MathContext;
@@ -35,7 +33,22 @@ public class SerializationUtil {
      * @return the integer that was read
      * @throws IOException if an I/O error occurs
      */
-    public static int readPackedInt(DataInput in) throws IOException {
+    public static int readPackedInt(ByteInputStream in) throws IOException {
+
+        if (in.isDirect()) {
+            return readPackedIntDirect(in);
+        }
+        in.ensureCapacity(1);
+        final int offset = in.getOffset();
+        final byte[] array = in.array();
+        final int len = PackedInteger.getReadSortedIntLength(array, offset);
+        /* move the offset past the integer; this also ensures length */
+        in.skip(len);
+        return PackedInteger.readSortedInt(array, offset);
+    }
+
+    private static int readPackedIntDirect(ByteInputStream in)
+        throws IOException {
 
         final byte[] bytes = new byte[PackedInteger.MAX_LENGTH];
         in.readFully(bytes, 0, 1);
@@ -58,6 +71,21 @@ public class SerializationUtil {
     public static int skipPackedInt(ByteInputStream in)
         throws IOException {
 
+        if (in.isDirect()) {
+            return skipPackedIntDirect(in);
+        }
+        in.ensureCapacity(1);
+        final int offset = in.getOffset();
+        final byte[] array = in.array();
+        final int len = PackedInteger.getReadSortedIntLength(array, offset);
+        /* move the offset past the integer; this also ensures length */
+        in.skip(len);
+        return len;
+    }
+
+    private static int skipPackedIntDirect(ByteInputStream in)
+        throws IOException {
+
         byte b = in.readByte();
         int len = PackedInteger.getReadSortedIntLength(new byte[]{b}, 0);
         if (len > 1) {
@@ -74,8 +102,23 @@ public class SerializationUtil {
      * @return the length of bytes written
      * @throws IOException if an I/O error occurs
      */
-    public static int writePackedInt(DataOutput out, int value)
+    public static int writePackedInt(ByteOutputStream out, int value)
             throws IOException {
+
+        if (out.isDirect()) {
+            return writePackedIntDirect(out, value);
+        }
+        final int len = PackedInteger.getWriteSortedIntLength(value);
+        out.ensureCapacity(len);
+        final int offset = out.getOffset();
+        final byte[] array = out.array();
+        out.skip(len);
+        return PackedInteger.writeSortedInt(array, offset, value);
+    }
+
+    public static int writePackedIntDirect(ByteOutputStream out, int value)
+            throws IOException {
+
         final byte[] buf = new byte[PackedInteger.MAX_LENGTH];
         final int offset = PackedInteger.writeSortedInt(buf, 0, value);
         out.write(buf, 0, offset);
@@ -90,6 +133,23 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      */
     public static long readPackedLong(ByteInputStream in) throws IOException {
+
+        if (in.isDirect()) {
+            return readPackedLongDirect(in);
+        }
+
+        in.ensureCapacity(1);
+        final int offset = in.getOffset();
+        final byte[] array = in.array();
+        final int len = PackedInteger.getReadSortedLongLength(array, offset);
+        /* move the offset past the integer; this also ensures length */
+        in.skip(len);
+        return PackedInteger.readSortedLong(array, offset);
+    }
+
+    public static long readPackedLongDirect(ByteInputStream in)
+        throws IOException {
+
         final byte[] bytes = new byte[PackedInteger.MAX_LONG_LENGTH];
         in.readFully(bytes, 0, 1);
         final int len = PackedInteger.getReadSortedLongLength(bytes, 0);
@@ -109,12 +169,8 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      */
     public static int skipPackedLong(ByteInputStream in) throws IOException {
-        byte b = in.readByte();
-        int len = PackedInteger.getReadSortedLongLength(new byte[]{b}, 0);
-        if (len > 1) {
-            in.skip(len - 1);
-        }
-        return len;
+        /* the code is the same as for int */
+        return skipPackedInt(in);
     }
 
     /**
@@ -122,13 +178,31 @@ public class SerializationUtil {
      *
      * @param out the data output
      * @param value the long to be written
+     * @return the length of bytes written
      * @throws IOException if an I/O error occurs
      */
-    public static void writePackedLong(DataOutput out, long value)
+    public static int writePackedLong(ByteOutputStream out, long value)
             throws IOException {
+
+        if (out.isDirect()) {
+            return writePackedLongDirect(out, value);
+        }
+
+        final int len = PackedInteger.getWriteSortedLongLength(value);
+        out.ensureCapacity(len);
+        final int offset = out.getOffset();
+        final byte[] array = out.array();
+        out.skip(len);
+        return PackedInteger.writeSortedLong(array, offset, value);
+    }
+
+    public static int writePackedLongDirect(ByteOutputStream out, long value)
+            throws IOException {
+
         final byte[] buf = new byte[PackedInteger.MAX_LONG_LENGTH];
         final int offset = PackedInteger.writeSortedLong(buf, 0, value);
         out.write(buf, 0, offset);
+        return offset;
     }
 
     /**
@@ -210,9 +284,19 @@ public class SerializationUtil {
         if (length == 0) {
             return EMPTY_STRING;
         }
-        final byte[] bytes = new byte[length];
-        in.readFully(bytes);
-        return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(bytes)).toString();
+
+        if (in.isDirect()) {
+            final byte[] bytes = new byte[length];
+            in.readFully(bytes);
+            return StandardCharsets.UTF_8.decode(
+                ByteBuffer.wrap(bytes)).toString();
+        } else {
+            final byte[] bytes = in.array();
+            int offset = in.getOffset();
+            in.skip(length);
+            return StandardCharsets.UTF_8.decode(
+                ByteBuffer.wrap(bytes, offset, length)).toString();
+        }
     }
 
     /**
@@ -221,7 +305,8 @@ public class SerializationUtil {
      * between the two, maintaining the ability to round-trip null and empty
      * string values.
      *
-     * <p>This format is used rather than that of {@link ByteOutputStream#writeUTF}
+     * <p>This format is used rather than that of
+     * {@link ByteOutputStream#writeUTF}
      * to allow packing of the size of the string. For shorter strings this
      * size savings is a significant percentage of the space used.
      *
@@ -241,7 +326,7 @@ public class SerializationUtil {
      * @return the number of bytes written
      * @throws IOException if an I/O error occurs
      */
-    public static int writeString(DataOutput out, String value)
+    public static int writeString(ByteOutputStream out, String value)
         throws IOException {
 
         return writeStdUTF8String(out, value);
@@ -257,7 +342,7 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      * @throws IllegalArgumentException if {@code value} is {@code null}
      */
-    public static void writeNonNullString(DataOutput out, String value)
+    public static void writeNonNullString(ByteOutputStream out, String value)
         throws IOException {
 
         checkNull("value", value);
@@ -277,7 +362,7 @@ public class SerializationUtil {
      * @return the number of bytes written
      * @throws IOException if an I/O error occurs
      */
-    private static int writeStdUTF8String(DataOutput out, String value)
+    private static int writeStdUTF8String(ByteOutputStream out, String value)
         throws IOException {
 
         if (value == null) {
@@ -346,7 +431,7 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      * @throws IllegalArgumentException if length is less than -1
      */
-    public static void writeSequenceLength(DataOutput out, int length)
+    public static void writeSequenceLength(ByteOutputStream out, int length)
         throws IOException {
 
         if (length < -1) {
@@ -367,7 +452,8 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      * @throws IllegalArgumentException if length is less than 0
      */
-    public static void writeNonNullSequenceLength(DataOutput out, int length)
+    public static void writeNonNullSequenceLength(ByteOutputStream out,
+                                                  int length)
         throws IOException {
 
         if (length < 0) {
@@ -406,7 +492,8 @@ public class SerializationUtil {
 
         final int len = readSequenceLength(in);
         if (len < -1) {
-            throw new IOException("Invalid length of byte array: " + len);
+            throw new IllegalArgumentException(
+                "Invalid length of byte array: " + len);
         }
         if (len == -1) {
             return null;
@@ -449,7 +536,7 @@ public class SerializationUtil {
      * @param array the byte array or null
      * @throws IOException if an I/O error occurs
      */
-    public static void writeByteArray(DataOutput out, byte[] array)
+    public static void writeByteArray(ByteOutputStream out, byte[] array)
         throws IOException {
 
         final int length = (array == null) ? -1 : Array.getLength(array);
@@ -458,6 +545,28 @@ public class SerializationUtil {
             out.write(array);
         }
     }
+
+    /**
+     * Writes a possibly null byte array as a {@link #writeSequenceLength
+     * sequence length} followed by the array contents as specified by
+     * offset and length.
+     *
+     * @param out the output stream
+     * @param array the byte array or null
+     * @param offset the byte offset into the array
+     * @param length the length of bytes to write, starting at offset
+     * @throws IOException if an I/O error occurs
+     */
+    public static void writeByteArray(ByteOutputStream out, byte[] array,
+                                      int offset, int length)
+        throws IOException {
+
+        writeSequenceLength(out, length);
+        if (length > 0 && array != null) {
+            out.write(array, offset, length);
+        }
+    }
+
 
     /**
      * Reads a non-null byte array as a {@link #readNonNullSequenceLength
@@ -486,7 +595,7 @@ public class SerializationUtil {
      * @param array the byte array
      * @throws IOException if an I/O error occurs
      */
-    public static void writeNonNullByteArray(DataOutput out, byte[] array)
+    public static void writeNonNullByteArray(ByteOutputStream out, byte[] array)
         throws IOException {
 
         checkNull("array", array);
@@ -501,7 +610,7 @@ public class SerializationUtil {
      * @param array the int array or null
      * @throws IOException if an I/O error occurs
      */
-    public static void writePackedIntArray(DataOutput out, int[] array)
+    public static void writePackedIntArray(ByteOutputStream out, int[] array)
         throws IOException {
 
         final int len = (array == null ? -1 : array.length);
@@ -552,7 +661,7 @@ public class SerializationUtil {
      * @param array the int array or null
      * @throws IOException if an I/O error occurs
      */
-    public static void writeIntArray(DataOutput out, int[] array)
+    public static void writeIntArray(ByteOutputStream out, int[] array)
         throws IOException {
 
         final int len = (array == null ? -1 : array.length);
@@ -615,9 +724,8 @@ public class SerializationUtil {
         return array;
     }
 
-    public static void writeMathContext(
-        MathContext mathContext,
-        DataOutput out)
+    public static void writeMathContext(MathContext mathContext,
+                                        ByteOutputStream out)
         throws IOException {
 
         if (mathContext == null) {
@@ -637,7 +745,7 @@ public class SerializationUtil {
         }
     }
 
-    public static MathContext readMathContext(DataInput in)
+    public static MathContext readMathContext(ByteInputStream in)
         throws IOException {
 
         int code = in.readByte();
@@ -659,7 +767,8 @@ public class SerializationUtil {
             return
                 new MathContext(precision, RoundingMode.valueOf(roundingMode));
         default:
-            throw new IOException("Unknown MathContext code.");
+            throw new IllegalArgumentException(
+                "Unknown MathContext code: " + code);
         }
     }
 

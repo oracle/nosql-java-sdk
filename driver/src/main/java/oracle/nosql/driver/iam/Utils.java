@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -97,12 +97,20 @@ class Utils {
         "https://auth.{0}.oraclegovcloud.com");
     private final static MessageFormat OC4_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclegovcloud.uk");
+    private final static MessageFormat OC5_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud5.com");
     private final static MessageFormat OC8_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud8.com");
     private final static MessageFormat OC9_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud9.com");
     private final static MessageFormat OC10_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud10.com");
+    private final static MessageFormat OC14_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud14.com");
+    private final static MessageFormat OC16_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud16.com");
+    private final static MessageFormat OC17_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud17.com");
 
     static {
         /* OC1 */
@@ -145,6 +153,7 @@ class Utils {
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
         IAM_URI.put("sjc", OC1_EP_BASE.format(new Object[] {"us-sanjose-1"}));
+        IAM_URI.put("ord", OC1_EP_BASE.format(new Object[] {"us-chicago-1"}));
 
         IAM_URI.put("yyz", OC1_EP_BASE.format(new Object[] {"ca-toronto-1"}));
         IAM_URI.put("yul", OC1_EP_BASE.format(new Object[] {"ca-montreal-1"}));
@@ -162,6 +171,9 @@ class Utils {
         IAM_URI.put("ltn", OC4_EP_BASE.format(new Object[] {"uk-gov-london-1"}));
         IAM_URI.put("brs", OC4_EP_BASE.format(new Object[] {"uk-gov-cardiff-1"}));
 
+        /* OC5 */
+        IAM_URI.put("tiw", OC5_EP_BASE.format(new Object[] {"us-tacoma-1"}));
+
         /* OC8 */
         IAM_URI.put("nja", OC8_EP_BASE.format(new Object[] {"ap-chiyoda-1"}));
         IAM_URI.put("ukb", OC8_EP_BASE.format(new Object[] {"ap-ibaraki-1"}));
@@ -171,6 +183,21 @@ class Utils {
 
         /* OC10 */
         IAM_URI.put("wga", OC10_EP_BASE.format(new Object[] {"ap-dcc-canberra-1"}));
+
+        /* OC14 */
+        IAM_URI.put("ork", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-1"}));
+        IAM_URI.put("snn", OC14_EP_BASE.format(new Object[] {"eu-dcc-dublin-2"}));
+        IAM_URI.put("bgy", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-1"}));
+        IAM_URI.put("mxp", OC14_EP_BASE.format(new Object[] {"eu-dcc-milan-2"}));
+        IAM_URI.put("dus", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-1"}));
+        IAM_URI.put("dtm", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-2"}));
+
+        /* OC16 */
+        IAM_URI.put("sgu", OC16_EP_BASE.format(new Object[] {"us-westjordan-1"}));
+
+        /* OC17 */
+        IAM_URI.put("ifp", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-1"}));
+        IAM_URI.put("gcn", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-2"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -185,6 +212,9 @@ class Utils {
             if (Region.isOC4Region(regionIdOrCode)) {
                 return OC4_EP_BASE.format(new Object[] {regionIdOrCode});
             }
+            if (Region.isOC5Region(regionIdOrCode)) {
+                return OC5_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
             if (Region.isOC8Region(regionIdOrCode)) {
                 return OC8_EP_BASE.format(new Object[] {regionIdOrCode});
             }
@@ -193,6 +223,15 @@ class Utils {
             }
             if (Region.isOC10Region(regionIdOrCode)) {
                 return OC10_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC14Region(regionIdOrCode)) {
+                return OC14_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC16Region(regionIdOrCode)) {
+                return OC16_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC17Region(regionIdOrCode)) {
+                return OC17_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 

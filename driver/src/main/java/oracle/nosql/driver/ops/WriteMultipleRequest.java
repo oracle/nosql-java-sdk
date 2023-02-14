@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -160,7 +160,7 @@ public class WriteMultipleRequest extends DurableRequest {
 
     /**
      * Sets the durability to use for the operation.
-     * on-prem only.
+     * On-premises only.
      *
      * @param durability the durability value. Set to null for
      * the default durability setting on the kvstore server.
@@ -224,15 +224,48 @@ public class WriteMultipleRequest extends DurableRequest {
         if (tableName == null) {
             tableName = wrReq.getTableName();
         } else {
-            if (!wrReq.getTableName().equalsIgnoreCase(tableName)) {
-                throw new IllegalArgumentException("The tableName used for " +
-                    "the operation is different from that of others: " +
-                    tableName);
+            if (!getTopTableName(wrReq.getTableName())
+                    .equalsIgnoreCase(getTopTableName(tableName))) {
+                throw new IllegalArgumentException(
+                    "All sub requests must operate on the same table or " +
+                    "descendant tables belonging to the same top level " +
+                    "table. The table '" + wrReq.getTableName() +
+                    "' is different from the table of other requests: " +
+                     tableName);
             }
         }
 
         request.validate();
         operations.add(new OperationRequest(wrReq, abortIfUnsuccessful));
+    }
+
+    /* Returns the top level table name */
+    private String getTopTableName(String tname) {
+        int pos = tname.indexOf(".");
+        if (pos == -1) {
+            return tname;
+        }
+        return tname.substring(0, pos);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return true if the operations all work on
+     * a single table
+     */
+    public boolean isSingleTable() {
+        if (operations.size() < 2) {
+            return true;
+        }
+        String singleTableName = getTableName();
+        for (OperationRequest op : operations) {
+            if (!singleTableName.equalsIgnoreCase(
+                    op.getRequest().getTableName())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

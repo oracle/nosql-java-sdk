@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -62,15 +62,20 @@ public class GetIndexesResult extends Result {
 
         private String indexName;
         private String[] fieldNames;
+        private String[] fieldTypes;
 
         /**
          * @hidden
          * @param indexName the index
          * @param fieldNames the fields
+         * @param fieldTypes the types
          */
-        public IndexInfo(String indexName, String[] fieldNames) {
+        public IndexInfo(String indexName,
+                         String[] fieldNames,
+                         String[] fieldTypes) {
             this.indexName = indexName;
             this.fieldNames = fieldNames;
+            this.fieldTypes = fieldTypes;
         }
 
         /**
@@ -91,6 +96,19 @@ public class GetIndexesResult extends Result {
             return fieldNames;
         }
 
+        /**
+         * Returns the array of field types corresponding to the array
+         * of field names. The type is only non-null if the index is on
+         * a field of type JSON and is explicitly typed. If using a
+         * server that does not support this information, this will be null
+         *
+         * @return the field types
+         * @since 5.4
+         */
+        public String[] getFieldTypes() {
+            return fieldTypes;
+        }
+
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
@@ -103,6 +121,9 @@ public class GetIndexesResult extends Result {
             sb.append(", fields=[");
             for (int i = 0; i < fieldNames.length; i++) {
                 sb.append(fieldNames[i]);
+                if (fieldTypes[i] != null) {
+                    sb.append(":").append(fieldTypes[i]);
+                }
                 if (i < fieldNames.length - 1) {
                     sb.append(", ");
                 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -54,7 +54,8 @@ import org.junit.Test;
  */
 public class QueryTest extends ProxyTestBase {
 
-    private static boolean showResults = false;
+    private static boolean showResults = Boolean.getBoolean("test.showresults");
+    private static int traceLevel = Integer.getInteger("test.tracelevel", 0);
 
     private final static int MIN_QUERY_COST = 2;
 
@@ -127,7 +128,7 @@ public class QueryTest extends ProxyTestBase {
 
     @Override
     public void afterTest() throws Exception {
-        QueryRequest qreq = new QueryRequest();
+        QueryRequest qreq = newQueryRequest();
         qreq.setStatement("DELETE FROM testTable");
         handle.queryIterable(qreq);
         tableOperation(handle, "DROP TABLE testTable", null);
@@ -165,7 +166,7 @@ public class QueryTest extends ProxyTestBase {
         /*
          * Perform an update query
          */
-        try (QueryRequest queryRequest = new QueryRequest()) {
+        try (QueryRequest queryRequest = newQueryRequest()) {
             queryRequest.setStatement(updateQuery);
             handle.query(queryRequest);
         }
@@ -173,7 +174,7 @@ public class QueryTest extends ProxyTestBase {
         /*
          * Use a simple get query to validate the update
          */
-        try (QueryRequest queryRequest = new QueryRequest()) {
+        try (QueryRequest queryRequest = newQueryRequest()) {
             queryRequest.setStatement(getQuery);
             QueryResult queryRes = handle.query(queryRequest);
             assertEquals(1, queryRes.getResults().size());
@@ -399,12 +400,10 @@ public class QueryTest extends ProxyTestBase {
                         recordKB, Consistency.EVENTUAL);
         }
 
-        showResults = false;
-
         /*
          * Case 3: partial key offset limit
          */
-       query = "select sid, id, name, state " +
+        query = "select sid, id, name, state " +
                 "from testTable " +
                 "order by sid " +
                 "limit 5 offset 44";
@@ -1019,14 +1018,14 @@ public class QueryTest extends ProxyTestBase {
             "(1, 15, \"myname\", 23, \"WI\", 2500, [], \"" +
             longString + "\")";
 
-        req = new QueryRequest();
+        req = newQueryRequest();
         req.setStatement(query);
         ret = handle.query(req);
 
         assertTrue(ret.getResults().size() == 1);
 
         query = "select sid, id, name from testTable where id = 15";
-        req = new QueryRequest();
+        req = newQueryRequest();
         req.setStatement(query);
         ret = handle.query(req);
         assertTrue(ret.getResults().size() == 1);
@@ -1059,7 +1058,7 @@ public class QueryTest extends ProxyTestBase {
             .setVariable("$sid", new IntegerValue(0))
             .setVariable("$id", new IntegerValue(1));
 
-        try(QueryRequest req = new QueryRequest()) {
+        try(QueryRequest req = newQueryRequest()) {
             req.setPreparedStatement(prepRet);
             QueryResult res = handle.query(req);
             assertNotNull(res.getResults());
@@ -1110,7 +1109,7 @@ public class QueryTest extends ProxyTestBase {
                 .setVariable("$sid", new IntegerValue(0))
                 .setVariable("$id", new IntegerValue(1));
 
-            try (QueryRequest req = new QueryRequest()) {
+            try (QueryRequest req = newQueryRequest()) {
                 req.setPreparedStatement(prepRet);
                 total++;
                 verbose("Running query #" + total + "...");
@@ -1184,7 +1183,7 @@ public class QueryTest extends ProxyTestBase {
             fail("query should have failed");
         } catch (IllegalArgumentException iae) {}
 
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement("random string");
         try {
             handle.query(queryReq);
@@ -1192,7 +1191,7 @@ public class QueryTest extends ProxyTestBase {
         } catch (IllegalArgumentException iae) {}
 
         /* Try a query that requires external variables that are missing */
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement(queryWithVariables);
         try {
             handle.query(queryReq);
@@ -1202,7 +1201,7 @@ public class QueryTest extends ProxyTestBase {
 
         prepReq = new PrepareRequest().setStatement(queryWithVariables);
         PrepareResult prepRes = handle.prepare(prepReq);
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setPreparedStatement(prepRes);
         try {
             handle.query(queryReq);
@@ -1216,7 +1215,7 @@ public class QueryTest extends ProxyTestBase {
         PreparedStatement prepStmt = prepRes.getPreparedStatement();
         prepStmt.setVariable("sid", new IntegerValue(9));
         prepStmt.setVariable("id", new IntegerValue(3));
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setPreparedStatement(prepRes);
         try {
             handle.query(queryReq);
@@ -1230,7 +1229,7 @@ public class QueryTest extends ProxyTestBase {
         prepStmt = prepRes.getPreparedStatement();
         prepStmt.setVariable("$sid", new DoubleValue(9.1d));
         prepStmt.setVariable("$id", new IntegerValue(3));
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setPreparedStatement(prepRes);
         try {
             handle.query(queryReq);
@@ -1247,7 +1246,7 @@ public class QueryTest extends ProxyTestBase {
         } catch (TableNotFoundException tnfe) {
         }
 
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement(query);
         try {
             handle.query(queryReq);
@@ -1264,7 +1263,7 @@ public class QueryTest extends ProxyTestBase {
         } catch (IllegalArgumentException iae) {
         }
 
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement(query);
         try {
             handle.query(queryReq);
@@ -1281,7 +1280,7 @@ public class QueryTest extends ProxyTestBase {
         } catch (IllegalArgumentException iae) {
         }
 
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement(query);
         try {
             handle.query(queryReq);
@@ -1289,7 +1288,7 @@ public class QueryTest extends ProxyTestBase {
         } catch (IllegalArgumentException iae) {
         }
 
-        queryReq = new QueryRequest();
+        queryReq = newQueryRequest();
         queryReq.setStatement(query);
         try {
             queryReq.setLimit(-1);
@@ -1578,7 +1577,7 @@ public class QueryTest extends ProxyTestBase {
         PrepareResult prepRet = handle.prepare(prepReq);
         assertNotNull(prepRet.getPreparedStatement());
 
-        try(QueryRequest qreq = new QueryRequest()) {
+        try(QueryRequest qreq = newQueryRequest()) {
             qreq.setPreparedStatement(prepRet);
             QueryResult qres = handle.query(qreq);
             assertEquals(10, qres.getResults().size());
@@ -1675,7 +1674,7 @@ public class QueryTest extends ProxyTestBase {
         /* Load rows to table */
         loadRowsToScanTable(10, 10, 1);
 
-        try (QueryRequest queryReq = new QueryRequest()) {
+        try (QueryRequest queryReq = newQueryRequest()) {
             queryReq.setStatement(
                 "select * from testTable where id = 1 and sid = 1");
 
@@ -1711,7 +1710,7 @@ public class QueryTest extends ProxyTestBase {
         if (onprem == false) {
             assumeKVVersion("testLowThroughput", 21, 3, 1);
         }
-        final int numRows = 500;
+        final int numRows = 30;
         String name = "testThroughput";
         String createTableDdl =
             "CREATE TABLE " + name +
@@ -1720,7 +1719,7 @@ public class QueryTest extends ProxyTestBase {
         tableOperation(handle, createTableDdl, new TableLimits(2, 20000, 1));
 
         MapValue value = new MapValue()
-            .put("bin", new byte[10000])
+            .put("bin", new byte[3000])
             .put("json", "abc");
         PutRequest putReq = new PutRequest().setTableName(name);
 
@@ -1733,9 +1732,11 @@ public class QueryTest extends ProxyTestBase {
         }
 
         /*
-         * Ensure that this query completes
+         * Ensure that this query completes.
+         * 30 rows of 3K+ each = ~90KB.
+         * at 2RUs/sec, that's about 45 seconds.
          */
-        try (QueryRequest queryReq = new QueryRequest()) {
+        try (QueryRequest queryReq = newQueryRequest()) {
             queryReq.setStatement("select * from " + name);
             int numRes = 0;
             do {
@@ -1800,11 +1801,11 @@ public class QueryTest extends ProxyTestBase {
                 "set t.data = " + data + "where id = 1 returning id";
 
             /* insert, then update */
-            QueryRequest req = new QueryRequest();
+            QueryRequest req = newQueryRequest();
             req.setStatement(iquery);
             QueryResult res = handle.query(req);
             assertEquals(1, res.getResults().get(0).get("id").getInt());
-            req = new QueryRequest();
+            req = newQueryRequest();
             req.setStatement(uquery);
             res = handle.query(req);
             assertEquals(1, res.getResults().get(0).get("id").getInt());
@@ -1814,7 +1815,7 @@ public class QueryTest extends ProxyTestBase {
         final String squery = "select * from " + tableName +
             " t where t.data.data = " + genString(15000);
 
-        try (QueryRequest req = new QueryRequest()) {
+        try (QueryRequest req = newQueryRequest()) {
             req.setStatement(squery);
             handle.query(req);
             fail("Query should have failed");
@@ -1907,7 +1908,7 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", arrVal);
 
-        try (QueryRequest req = new QueryRequest()) {
+        try (QueryRequest req = newQueryRequest()) {
             req.setPreparedStatement(pstmt);
             handle.query(req);
             fail("Expected IAE");
@@ -1923,7 +1924,7 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", arrVal);
 
-        try (QueryRequest req = new QueryRequest()) {
+        try (QueryRequest req = newQueryRequest()) {
             req.setPreparedStatement(pstmt);
             handle.query(req);
             fail("Expected IAE");
@@ -1936,7 +1937,7 @@ public class QueryTest extends ProxyTestBase {
         /* Load rows to table */
         loadRowsToScanTable(3, 2, 1);
 
-        QueryRequest qreq = new QueryRequest();
+        QueryRequest qreq = newQueryRequest();
         qreq.setStatement("select * from testTable").setLimit(3);
 
         int count = 0;
@@ -1980,7 +1981,7 @@ public class QueryTest extends ProxyTestBase {
             totalReadUnits = 0, totalWriteUnits = 0;
         RetryStats totalRetryStats = null;
 
-        try (QueryRequest qreq = new QueryRequest()) {
+        try (QueryRequest qreq = newQueryRequest()) {
             qreq.setStatement(query).setLimit(3);
 
             QueryResult qres;
@@ -2007,7 +2008,7 @@ public class QueryTest extends ProxyTestBase {
             while (!qreq.isDone());
         }
 
-        QueryRequest qreq = new QueryRequest();
+        QueryRequest qreq = newQueryRequest();
         qreq.setStatement(query).setLimit(3);
         QueryIterableResult qires = handle.queryIterable(qreq);
         Set<MapValue> actualSet = new HashSet<>();
@@ -2050,10 +2051,10 @@ public class QueryTest extends ProxyTestBase {
      * the same as regular query() results.
      */
     private void checkQueryIterableOrdered(String query) {
-        QueryRequest qireq = new QueryRequest();
+        QueryRequest qireq = newQueryRequest();
         qireq.setStatement(query);
         try (QueryIterableResult qires = handle.queryIterable(qireq);
-             QueryRequest qreq = new QueryRequest()) {
+             QueryRequest qreq = newQueryRequest()) {
             qreq.setStatement(query);
 
             Iterator<MapValue> qiIter = qires.iterator();
@@ -2122,7 +2123,7 @@ public class QueryTest extends ProxyTestBase {
         loadRowsToScanTable(numMajor, numPerMajor, 1);
 
         /* Get all results and try to use the iterator again */
-        QueryRequest qr = new QueryRequest();
+        QueryRequest qr = newQueryRequest();
         qr.setLimit(4).setStatement("select * from testTable");
 
         int count = 0;
@@ -2178,7 +2179,7 @@ public class QueryTest extends ProxyTestBase {
         pstmt.setVariable("$id", new IntegerValue(id));
         pstmt.setVariable("$info", info);
 
-        try (QueryRequest req = new QueryRequest()) {
+        try (QueryRequest req = newQueryRequest()) {
             req.setPreparedStatement(pstmt);
             QueryResult ret = handle.query(req);
             assertEquals(1, ret.getResults().get(0).asMap()
@@ -2186,7 +2187,7 @@ public class QueryTest extends ProxyTestBase {
         }
 
         String stmt = "select info from " + tableName + " where id = " + id;
-        try (QueryRequest req = new QueryRequest()) {
+        try (QueryRequest req = newQueryRequest()) {
             req.setStatement(stmt);
             QueryResult ret = handle.query(req);
             assertEquals(1, ret.getResults().size());
@@ -2224,7 +2225,7 @@ public class QueryTest extends ProxyTestBase {
                               int recordKB,
                               Consistency consistency) {
 
-        try (final QueryRequest queryReq = new QueryRequest()) {
+        try (final QueryRequest queryReq = newQueryRequest()) {
             queryReq.setStatement(statement).setLimit(numLimit)
                 .setConsistency(consistency)
                 .setMaxReadKB(sizeLimit);
@@ -2274,8 +2275,7 @@ public class QueryTest extends ProxyTestBase {
                 writeKB += wkb;
 
                 numBatches++;
-            }
-            while (!queryReq.isDone());
+            } while (!queryReq.isDone());
 
             if (showResults) {
                 System.out.println("Total ReadKB = " + readKB +
@@ -2294,7 +2294,7 @@ public class QueryTest extends ProxyTestBase {
                               int maxReadKB,
                               boolean usePrepStmt) {
 
-        try (final QueryRequest queryReq = new QueryRequest()) {
+        try (final QueryRequest queryReq = newQueryRequest()) {
 
             if (bindValues == null || !usePrepStmt) {
                 queryReq
@@ -2394,5 +2394,9 @@ public class QueryTest extends ProxyTestBase {
 
     private static int getMinQueryCost() {
         return MIN_QUERY_COST;
+    }
+
+    private QueryRequest newQueryRequest() {
+        return new QueryRequest().setTraceLevel(traceLevel);
     }
 }

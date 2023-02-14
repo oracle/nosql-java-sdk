@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -12,17 +12,21 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
+import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
+import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 import static oracle.nosql.driver.util.HttpConstants.ACCEPT;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.COOKIE;
+import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
+import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
@@ -52,6 +56,7 @@ import oracle.nosql.driver.DefaultRetryHandler;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
@@ -80,10 +85,12 @@ import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
+import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
@@ -111,10 +118,8 @@ public class Client {
 
     private final NoSQLHandleConfig config;
 
-    /**
-     * This may be configurable, but for now there is only one implementation
-     */
-    private final SerializerFactory factory = new BinarySerializerFactory();
+    private final SerializerFactory v3factory = new BinarySerializerFactory();
+    private final SerializerFactory v4factory = new NsonSerializerFactory();
 
     /**
      * The URL representing the server that is the target of all client
@@ -329,13 +334,15 @@ public class Client {
     /**
      * Execute the KV request and return the response. This is the top-level
      * method for request execution.
-     *
+     * <p>
      * This method handles exceptions to distinguish between what can be retried
-     * what what cannot, making sure that root cause exceptions are
+     * and what cannot, making sure that root cause exceptions are
      * kept. Examples:
-     *  o can't connect (host, port, etc)
-     *  o throttling exceptions
-     *  o general networking issues, IOException
+     * <ul>
+     *  <li>can't connect (host, port, etc)</li>
+     *  <li>throttling exceptions</li>
+     *  <li>general networking issues, IOException</li>
+     * </ul>
      *
      * RequestTimeoutException needs a cause, or at least needs to include the
      * message from the causing exception.
@@ -511,6 +518,10 @@ public class Client {
                 break;
             }
 
+            /* update iteration timeout in case limiters slept for some time */
+            thisTime = System.currentTimeMillis();
+            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+
             final String authString =
                 authProvider.getAuthorizationString(kvRequest);
             authProvider.validateAuthString(authString);
@@ -562,10 +573,13 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
+                /* update timeout in request to match this iteration timeout */
+                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
+
                 serialVersionUsed = writeContent(buffer, kvRequest);
 
                 /*
-                 * If on-premise the authProvider will always be a
+                 * If on-premises the authProvider will always be a
                  * StoreAccessTokenProvider. If so, check against
                  * configurable limit. Otherwise check against internal
                  * hardcoded cloud limit.
@@ -598,10 +612,30 @@ public class Client {
                     headers.add(COOKIE, sessionCookie);
                 }
 
+                String serdeVersion = getSerdeVersion(kvRequest);
+                if (serdeVersion != null) {
+                    headers.add("x-nosql-serde-version", serdeVersion);
+                }
+
+                /*
+                 * If the request doesn't set an explicit compartment, use
+                 * the config default if provided.
+                 */
+                if (kvRequest.getCompartment() == null) {
+                    kvRequest.setCompartmentInternal(
+                        config.getDefaultCompartment());
+                }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Request: " + requestClass + ", requestId=" + requestId);
+                if (config.getDefaultNamespace() != null) {
+                    headers.add(REQUEST_NAMESPACE_HEADER,
+                                config.getDefaultNamespace());
+                }
+
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Request: " + requestClass +
+                                     ", requestId=" + requestId);
                 }
                 networkLatency = System.currentTimeMillis();
                 httpClient.runRequest(request, responseHandler, channel);
@@ -613,9 +647,12 @@ public class Client {
                         timeoutMs + " milliseconds: requestId=" + requestId);
                 }
 
-                if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Response: " + requestClass + ", status=" +
-                             responseHandler.getStatus() + ", requestId=" + requestId );
+                if (isLoggable(logger, Level.FINE) &&
+                    !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + requestClass +
+                                     ", status=" +
+                                     responseHandler.getStatus() +
+                                     ", requestId=" + requestId );
                 }
 
                 ByteBuf wireContent = responseHandler.getContent();
@@ -623,6 +660,8 @@ public class Client {
                                        responseHandler.getHeaders(),
                                        wireContent,
                                        kvRequest);
+                rateDelayedMs += getRateDelayedFromHeader(
+                                       responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
                 networkLatency = System.currentTimeMillis() - networkLatency;
 
@@ -693,9 +732,12 @@ public class Client {
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
             } catch (InvalidAuthorizationException iae) {
-                /* allow a single retry on clock skew errors */
-                if (iae.getMessage().contains("clock skew") == false ||
-                    kvRequest.getNumRetries() > 0) {
+                /*
+                 * Allow a single retry for invalid/expired auth
+                 * This includes "clock skew" errors
+                 * This does not include permissions-related errors
+                 */
+                if (kvRequest.getNumRetries() > 0) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
@@ -772,7 +814,7 @@ public class Client {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
                     exception = upe;
-                    logInfo(logger, "Got unsupported protocol error " +
+                    logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
                     continue;
@@ -914,7 +956,7 @@ public class Client {
     }
 
     /**
-     * Comsume rate limiter units after successful operation.
+     * Consume rate limiter units after successful operation.
      * @return the number of milliseconds delayed due to rate limiting
      */
     private int consumeLimiterUnits(RateLimiter rl,
@@ -927,7 +969,7 @@ public class Client {
         /*
          * The logic consumes units (and potentially delays) _after_ a
          * successful operation for a couple reasons:
-         * 1) We don't know the actual number of units an op uses unitl
+         * 1) We don't know the actual number of units an op uses until
          *    after the operation successfully finishes
          * 2) Delaying after the op keeps the application from immediately
          *    trying the next op and ending up waiting along with other
@@ -1030,11 +1072,11 @@ public class Client {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = serialVersion;
-        bos.writeShort(versionUsed);
-        kvRequest.createSerializer(factory).
-            serialize(kvRequest,
-                      versionUsed,
-                      bos);
+        SerializerFactory factory = chooseFactory(kvRequest);
+        factory.writeSerialVersion(versionUsed, bos);
+        kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                      versionUsed,
+                                                      bos);
         return versionUsed;
     }
 
@@ -1071,16 +1113,19 @@ public class Client {
      *
      * @return the result of processing the successful request
      *
-     * @throws IOException if the stream could not be read for some reason
+     * @throws NoSQLException if the stream could not be read for some reason
      */
     Result processOKResponse(ByteInputStream in, Request kvRequest) {
         try {
-            int code = in.readByte();
+            SerializerFactory factory = chooseFactory(kvRequest);
+            int code = factory.readErrorCode(in);
+            /* note: this will always be zero in V4 */
             if (code == 0) {
-                Result res = kvRequest.createDeserializer(factory).
-                             deserialize(kvRequest,
-                                         in,
-                                         serialVersion);
+                Result res =
+                    kvRequest.createDeserializer(factory).
+                    deserialize(kvRequest,
+                                in,
+                                serialVersion);
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1088,17 +1133,24 @@ public class Client {
                         qreq.getDriver().setClient(this);
                     }
                 }
-
                 return res;
             }
-
             /*
              * Operation failed. Handle the failure and throw an appropriate
              * exception.
              */
             String err = readString(in);
+
+            /* special case for TNF errors on WriteMultiple with many tables */
+            if (code == TABLE_NOT_FOUND &&
+                (kvRequest instanceof WriteMultipleRequest)) {
+                throw handleWriteMultipleTableNotFound(code, err,
+                                     (WriteMultipleRequest)kvRequest);
+            }
+
             throw handleResponseErrorCode(code, err);
         } catch (IOException e) {
+            e.printStackTrace();
             /*
              * TODO: Retrying here will not actually help, the
              * operation should be abandoned; we need a specific
@@ -1303,6 +1355,31 @@ public class Client {
         throw exc;
     }
 
+    /*
+     * special case for TNF errors on WriteMultiple with many tables.
+     * Earlier server versions do not support this and will return a
+     * Table Not Found error with the table names in a single string,
+     * separated by commas, with no brackets, like:
+     *    table1,table2,table3
+     *
+     * Later versions may legitimately return Table Not Found,
+     * but table names will be inside a bracketed list, like:
+     *    [table1, table2, table3]
+     */
+    private RuntimeException handleWriteMultipleTableNotFound(int code,
+                                 String msg,
+                                 WriteMultipleRequest wrRequest) {
+        if (code != TABLE_NOT_FOUND ||
+            wrRequest.isSingleTable() ||
+            msg.indexOf(",") < 0 ||
+            msg.indexOf("[") >= 0) {
+            return handleResponseErrorCode(code, msg);
+        }
+        throw new OperationNotSupportedException("WriteMultiple requests " +
+                      "using multiple tables are not supported by the " +
+                      "version of the connected server.");
+    }
+
     private void addCommonHeaders(HttpHeaders headers) {
         headers.set(CONTENT_TYPE, "application/octet-stream")
             .set(CONNECTION, "keep-alive")
@@ -1377,6 +1454,10 @@ public class Client {
         if (serialVersion != versionUsed) {
             return true;
         }
+        if (serialVersion == V4) {
+            serialVersion = V3;
+            return true;
+        }
         if (serialVersion == V3) {
             serialVersion = V2;
             return true;
@@ -1390,6 +1471,14 @@ public class Client {
      */
     public short getSerialVersion() {
         return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setSerialVersion(short version) {
+        serialVersion = version;
     }
 
     /**
@@ -1466,9 +1555,9 @@ public class Client {
     /**
      * Look for the compartment,table combination in the list. If
      * present, do nothing. If not, add that combination to the list.
-     * This is not particular efficient but it is not expected that a given
+     * This is not particularly efficient but it is not expected that a given
      * handle will be accessing a large number of tables.
-     *
+     * <p>
      * The operation type is not checked -- all 3 types of requests are created
      * no matter the access. This simplifies the logic and if a given type is
      * not given to this Principal it doesn't hurt.
@@ -1486,7 +1575,8 @@ public class Client {
             }
             for (Request rq : authRefreshRequests) {
                 if (rq.getTableName().equalsIgnoreCase(request.getTableName()) &&
-                    stringsEqualOrNull(rq.getCompartment(), request.getCompartment())) {
+                    stringsEqualOrNull(rq.getCompartment(),
+                                       request.getCompartment())) {
                     return;
                 }
             }
@@ -1538,5 +1628,46 @@ public class Client {
             return;
         }
         logWarning(logger, msg);
+    }
+
+    private SerializerFactory chooseFactory(Request rq) {
+        if (serialVersion == 4) {
+            return v4factory;
+        } else {
+            return v3factory; /* works for v2 also */
+        }
+    }
+
+    private String getSerdeVersion(Request rq) {
+        return chooseFactory(rq).getSerdeVersionString();
+    }
+
+    /*
+     * If the response has a header indicating the amount of time the
+     * server side delayed the request due to rate limiting, return that
+     * value (in milliseconds).
+     */
+    private int getRateDelayedFromHeader(HttpHeaders headers) {
+        if (headers == null) {
+            return 0;
+        }
+        String v = headers.get(X_RATELIMIT_DELAY);
+        if (v == null || v.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+        }
+
+        return 0;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setDefaultNamespace(String ns) {
+        config.setDefaultNamespace(ns);
     }
 }

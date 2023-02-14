@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver;
 
+import java.util.Arrays;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.PutRequest;
 
@@ -60,5 +61,24 @@ public class Version {
             return "non-null Version";
         }
         return "null Version";
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof Version) {
+            return Arrays.equals(version, ((Version)other).version);
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(version);
     }
 }

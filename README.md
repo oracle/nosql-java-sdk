@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.3.2</version>
+  <version>5.4.8</version>
 </dependency>
 ```
 
@@ -117,7 +117,7 @@ See the Quickstart example below for code details for using a Resource Principal
 
 ### Connecting to the Oracle NoSQL Database On-premise
 
-The on-premise configuration requires a running instance of Oracle NoSQL
+The on-premises configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.3/admin/proxy-and-driver.html)
@@ -130,6 +130,7 @@ See the Quickstart example below for code details for connecting on-premise.
 
 When you develop an application, you may wish to start with
 [Oracle NoSQL Database Cloud Simulator](https://www.oracle.com/downloads/cloud/nosql-cloud-sdk-downloads.html).
+
 The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
@@ -138,11 +139,16 @@ You may run the Cloud Simulator on localhost.
 Authorization for the Cloud Simulator is a simple no-op class implemented directly
 in the Quickstart example.
 
+## Logging
+
+Addional logging can be enabled using a java properties file. For full details, see
+"Logging in the SDK" at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
+
 ## Quickstart
 
 The following is a quick start tutorial to run a simple program in all supported
 environments. It requires access to the Oracle NoSQL Database Cloud Service,
-a running on-premise Oracle NoSQL Database instance, or a running Oracle
+a running on-premises Oracle NoSQL Database instance, or a running Oracle
 NoSQL Cloud Simulator instance. As a standalone program it will run most easily
 using a download version of the Oracle NoSQL SDK for Java.
 
@@ -159,7 +165,7 @@ Using the cloud service on region us-ashburn-1
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloud -endpoint us-ashburn-1
 ```
-Using a non-secure on-premise service on endpoint http://localhost:8090
+Using a non-secure on-premises service on endpoint http://localhost:8090
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http://localhost:8090
 ```
@@ -175,7 +181,7 @@ is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -218,7 +224,7 @@ import oracle.nosql.driver.values.MapValue;
  *
  * This program can be run against:
  *  1. the cloud service
- *  2. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  2. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *  3. the cloud simulator (CloudSim)
  *
@@ -505,7 +511,7 @@ $ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
   -Dexec.args="http://localhost:8080"
 ```
 
-Run BasicTableExample using an on-premise  instance on endpoint
+Run BasicTableExample using an on-premises instance on endpoint
 localhost:8090
 
 ```
@@ -552,7 +558,7 @@ The region argument will change depending on which region you use.
 
 #### Run using the Oracle NoSQL Database On-premise
 
-Running against the on-premise Oracle NoSQL Database on-premise requires
+Running against the on-premises Oracle NoSQL Database on-premises requires
 a running instance of the database and running proxy service. See above.
 
 Run against a not-secure proxy and store, with the proxy running on port 80:

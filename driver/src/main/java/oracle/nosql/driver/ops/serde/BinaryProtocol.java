@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -191,8 +191,8 @@ public class BinaryProtocol extends Nson {
      * @throws IOException if exception
      */
     static void writeCapacityMode(ByteOutputStream out,
-                                CapacityMode mode,
-                                short serialVersion)
+                                  CapacityMode mode,
+                                  short serialVersion)
         throws IOException {
 
         if (serialVersion < V3) {
@@ -337,7 +337,7 @@ public class BinaryProtocol extends Nson {
         TableResult result = new TableResult();
         boolean hasInfo = in.readBoolean();
         if (hasInfo) {
-            result.setDomainId(readString(in));
+            result.setCompartmentId(readString(in));
             result.setTableName(readString(in));
             result.setState(getTableState(in.readByte()));
             boolean hasStaticState = in.readBoolean();
@@ -531,7 +531,7 @@ public class BinaryProtocol extends Nson {
         return dur;
     }
 
-    static TableResult.State getTableState(int state) {
+    public static TableResult.State getTableState(int state) {
         switch (state) {
         case ACTIVE:
             return TableResult.State.ACTIVE;

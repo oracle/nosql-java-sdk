@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.DefinedTags;
+import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
@@ -31,14 +33,20 @@ import oracle.nosql.driver.RequestTimeoutException;
  */
 public class TableResult extends Result {
     /*
-     * domainId is the compartment id (ocid)
+     * compartment id (ocid) or namespace (if on-prem)
      */
-    private String domainId;
+    private String compartmentOrNamespace;
+    /* tableOcid is only used for the cloud service */
+    private String tableOcid;
     private String tableName;
     private State state;
     private TableLimits limits;
     private String schema;
+    private String ddl;
     private String operationId;
+    private FreeFormTags freeFormTags;
+    private DefinedTags definedTags;
+    private String matchETag;
 
     /**
      * The current state of the table
@@ -80,18 +88,68 @@ public class TableResult extends Result {
     }
 
     /**
+     * Returns the DDL (create table) statement used to create this table if
+     * available. If the table has been altered since initial creation the
+     * statement is also altered to reflect the current table schema. This
+     * value, when non-null, is functionally equivalent to the schema
+     * returned by {@link getSchema}. The most reliable way to get the
+     * DDL statement is using {@link NoSQLHandle#getTable} on an existing
+     * table.
+     *
+     * @return the create table statement
+     *
+     * @since 5.4
+     */
+    public String getDdl() {
+        return ddl;
+    }
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Returns the OCID of the table. This value will be null if used with
+     * the on-premises service.
+     *
+     * @return the table OCID
+     *
+     * @since 5.4
+     */
+    public String getTableId() {
+        return tableOcid;
+    }
+
+    /**
      * Cloud service only.
      * <p>
      * Returns compartment id of the target table
      *
-     * @return the domain
+     * @return the compartment id if set
+     *
+     * @since 5.4
      */
     public String getCompartmentId() {
-        return domainId;
+        return compartmentOrNamespace;
     }
 
     /**
-     * Returns the table name of the target table
+     * On-premise service only.
+     * <p>
+     * Returns the namespace of the table, or null if it is not in a namespace.
+     * Note that the tablename is prefixed with the namespace as well if it
+     * is in a namespace.
+     *
+     * @return the namespace id if set
+     *
+     * @since 5.4
+     */
+    public String getNamespace() {
+        return compartmentOrNamespace;
+    }
+
+    /**
+     * Returns the table name of the target table. If on-premises and the table
+     * is in a namespace the namespace is included as a prefix using the format
+     * <em>namespace:tableName</em>
      *
      * @return the table name
      */
@@ -99,18 +157,70 @@ public class TableResult extends Result {
         return tableName;
     }
 
+    /**
+     * Returns the JSON-formatted schema of the table if available and null if
+     * not
+     * @return the schema
+     *
+     * @since 5.4
+     */
     public String getSchema() {
         return schema;
     }
 
     /**
      * Returns the throughput and capacity limits for the table.
-     * Limits from an on-premise service will always be null.
+     * Limits from an on-premises service will always be null.
      *
      * @return the limits
      */
     public TableLimits getTableLimits() {
         return limits;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns the {@link FreeFormTags} associated with this table,
+     * if available, or null otherwise.
+     *
+     * @return the FreeFormTags
+     *
+     * @since 5.4
+     */
+    public FreeFormTags getFreeFormTags() {
+        return freeFormTags;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns the {@link DefinedTags} associated with this table,
+     * if available, or null otherwise.
+     *
+     * @return the DefinedTags
+     *
+     * @since 5.4
+     */
+    public DefinedTags getDefinedTags() {
+        return definedTags;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns the matchETag associated with this table. The matchETag is an
+     * opaque field that represents the current version of the table itself and
+     * can be used in future table modification operations to only perform
+     * them if the matchETag for the table has not changed. This is an
+     * optimistic concurrency control mechanism.
+     *
+     * @return the matchETag
+     *
+     * @since 5.4
+     */
+    public String getMatchETag() {
+        return matchETag;
     }
 
     /**
@@ -146,11 +256,31 @@ public class TableResult extends Result {
 
     /**
      * @hidden
-     * @param domainId the auth domain
+     * @param value the compartment OCID
      * @return this
      */
-    public TableResult setDomainId(String domainId) {
-        this.domainId = domainId;
+    public TableResult setCompartmentId(String value) {
+        this.compartmentOrNamespace = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param value the namespace
+     * @return this
+     */
+    public TableResult setNamespace(String value) {
+        this.compartmentOrNamespace = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param value the OCID
+     * @return this
+     */
+    public TableResult setTableId(String value) {
+        this.tableOcid = value;
         return this;
     }
 
@@ -176,6 +306,16 @@ public class TableResult extends Result {
 
     /**
      * @hidden
+     * @param ddl the ddl
+     * @return this
+     */
+    public TableResult setDdl(String ddl) {
+        this.ddl = ddl;
+        return this;
+    }
+
+    /**
+     * @hidden
      * @param limits table limits
      * @return this
      */
@@ -184,15 +324,59 @@ public class TableResult extends Result {
         return this;
     }
 
+    /**
+     * @hidden
+     * @param tags the tags
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setFreeFormTags(FreeFormTags tags) {
+        this.freeFormTags = tags;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param tags the tags
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setDefinedTags(DefinedTags tags) {
+        this.definedTags = tags;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param matchETag the matchETag
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setMatchETag(String matchETag) {
+        this.matchETag = matchETag;
+        return this;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("table ");
-        sb.append(tableName).append("[")
-            .append(state).append("] ").append(limits).append(" schema [" +
-                                                              schema + "]")
-            .append(" operationId = ").append(operationId);
-
+        sb.append(tableName).append("state=[").append(state).append("] ");
+        if (limits != null) {
+            sb.append("\nlimits=").append(limits);
+        }
+        if (schema != null) {
+            sb.append("\nschema=[" + schema + "]");
+        }
+        if (ddl != null) {
+            sb.append("\nddl=[" + ddl + "]");
+        }
+        if (operationId != null) {
+            sb.append("\noperationId=").append(operationId);
+        }
+        if (matchETag != null) {
+            sb.append("\nmatchETag=").append(matchETag);
+        }
         return sb.toString();
     }
 
@@ -436,7 +620,8 @@ public class TableResult extends Result {
 
         GetTableRequest getTable =
             new GetTableRequest().setTableName(tableName).
-            setOperationId(operationId).setCompartment(domainId);
+            setOperationId(operationId).setCompartment(
+                compartmentOrNamespace);
         TableResult res = null;
 
         while (!isTerminal()) {
@@ -462,6 +647,8 @@ public class TableResult extends Result {
                 state = res.getTableState();
                 limits = res.getTableLimits();
                 schema = res.getSchema();
+                matchETag = res.getMatchETag();
+                ddl = res.getDdl();
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());

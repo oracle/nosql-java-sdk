@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -36,28 +36,30 @@ import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
 /*
  * If this code is ever made generic, the proxy information obtained
- * from this config needs to be be abstracted to a generic class.
+ * from this config needs to be abstracted to a generic class.
  */
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
  * Netty HTTP client. Initialization process:
- *
- * 1. create event loop for handling connections and requests. Assign it
- * a number of threads.
- * 2. bootstrap a client, setting the event loop group, socket options, and
- * remote address.
- * 3. create a ChannelPoolHandler instance to handle callback events from
+ * <p>
+ * <ol>
+ *   <li>create event loop for handling connections and requests. Assign it
+ * a number of threads.</li>
+ *   <li>bootstrap a client, setting the event loop group, socket options, and
+ * remote address.</li>
+ *   <li>create a ChannelPoolHandler instance to handle callback events from
  * a ChannelPool. The pool is used to allow the client to create new
  * connections on demand if one is busy. HTTP/1.1 doesn't allow concurrent
  * use of a single connection. This handler must be prepared to initialize
- * each new connection on creation.
- * 4. create a ChannelPool instance used to acquire and release channels for
- * use by requests.
- *
+ * each new connection on creation.</li>
+ *   <li>create a ChannelPool instance used to acquire and release channels for
+ * use by requests.</li>
+ * </ol>
+ * <p>
  * Using the client to send request and get a synchronous response. The
  * request must be an instance of HttpRequest:
- *
+ * <p>
  * 1. Get a Channel.
  *   Channel channel = client.getChannel(timeoutMs);
  * 2. Create a ResponseHandler to handle a response.

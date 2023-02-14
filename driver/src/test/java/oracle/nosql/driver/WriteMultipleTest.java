@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -48,6 +48,7 @@ import org.junit.Test;
 public class WriteMultipleTest extends ProxyTestBase {
 
     final static String tableName = "writeMultipleTable";
+    final static String childTableName = "writeMultipleTable.child";
 
     /* Create a table */
     final static String createTableDDL =
@@ -56,17 +57,33 @@ public class WriteMultipleTest extends ProxyTestBase {
         "PRIMARY KEY(SHARD(sid), id)) " +
         "USING TTL 1 DAYS";
 
+    /* a single child table, if supported by server */
+    final static String createChildTableDDL =
+        "CREATE TABLE IF NOT EXISTS writeMultipleTable.child(" +
+        "childid INTEGER, childname STRING, childdata STRING, " +
+        "PRIMARY KEY(childid)) " +
+        "USING TTL 1 DAYS";
+
     final static TimeToLive tableTTL = TimeToLive.ofDays(1);
+
+    /* child tables first appeared in KV 21.2 */
+    final static int childTablesKVVersion = 21_002_000;
 
     @Override
     public void beforeTest() throws Exception {
         super.beforeTest();
         tableOperation(handle, createTableDDL,
                        new TableLimits(5000, 5000, 50));
+        if (kvServerVersion >= childTablesKVVersion) {
+            tableOperation(handle, createChildTableDDL, null);
+        }
     }
 
     @Override
     public void afterTest() throws Exception {
+        if (kvServerVersion >= childTablesKVVersion) {
+            dropTable(childTableName);
+        }
         dropTable(tableName);
         super.afterTest();
     }
@@ -221,6 +238,58 @@ public class WriteMultipleTest extends ProxyTestBase {
         shouldSucceed.add(false);
 
         umResult = handle.writeMultiple(umRequest);
+        verifyResult(umResult, umRequest, shouldSucceed, rowPresent, recordKB);
+
+        if (kvServerVersion < childTablesKVVersion) {
+            return;
+        }
+
+        umRequest.clear();
+        shouldSucceed.clear();
+        rowPresent.clear();
+
+        /* Put rows with intermixed parent and child table data */
+        for (int i = 0; i < 5; i++) {
+            value = genRow(20, i, recordKB);
+            PutRequest putRequest = new PutRequest()
+                .setValue(value)
+                .setTableName(tableName);
+            umRequest.add(putRequest, false);
+            rowPresent.add(false);
+            shouldSucceed.add(true);
+            value = genChildRow(20, i, i, "name_" + i, "data_" + i);
+            putRequest = new PutRequest()
+                .setValue(value)
+                .setTableName(childTableName);
+            umRequest.add(putRequest, false);
+            rowPresent.add(false);
+            shouldSucceed.add(true);
+        }
+
+        try {
+            umResult = handle.writeMultiple(umRequest);
+        } catch (OperationNotSupportedException onse) {
+            /*
+             * This is expected in:
+             * 21.2 <= .51
+             * 22.1 <= .22
+             * 22.2 <= .13
+             */
+           if (kvServerVersion <= 21_002_051 ||
+               (kvServerVersion >= 22_001_000 && kvServerVersion <= 22_001_022) ||
+               (kvServerVersion >= 22_002_000 && kvServerVersion <= 22_002_013) ||
+               (kvServerVersion >= 22_003_000 && kvServerVersion <= 22_003_002)) {
+               return;
+           }
+           throw onse;
+        } catch (TableNotFoundException tnfe) {
+           /* expected in 22.3.2 only */
+           if (kvServerVersion == 22_003_002) {
+               return;
+           }
+           throw tnfe;
+        }
+
         verifyResult(umResult, umRequest, shouldSucceed, rowPresent, recordKB);
     }
 
@@ -762,6 +831,14 @@ public class WriteMultipleTest extends ProxyTestBase {
         return new MapValue().put("sid", sid).put("id", id)
             .put("name", (upd ? "name_upd_" : "name_") + sid + "_" + id)
             .put("longString", genString((recordKB - 1) * 1024));
+    }
+
+    private MapValue genChildRow(int sid, int id, int childid,
+                                 String name, String data) {
+        return new MapValue().put("sid", sid).put("id", id)
+            .put("childid", id)
+            .put("childname", name)
+            .put("childdata", data);
     }
 
     private MapValue genKey(int sid, int id) {

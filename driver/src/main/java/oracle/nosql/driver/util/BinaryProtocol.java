@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -20,12 +20,14 @@ public final class BinaryProtocol {
 
     public static final short V3 = 3;
 
+    public static final short V4 = 4;
+
     /**
      * Default serial version of the protocol.
      * Note the actual version used may be less if the
      * driver is connected to an older proxy.
      */
-    public static final short DEFAULT_SERIAL_VERSION = V3;
+    public static final short DEFAULT_SERIAL_VERSION = V4;
 
     /**
      * Serial version of the sub-protocol related to queries

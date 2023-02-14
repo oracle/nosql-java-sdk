@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -34,6 +34,7 @@ public class TableUsageRequest extends Request {
     private long startTime;
     private long endTime;
     private int limit;
+    private int startIndex;
 
     /**
      * Cloud service only.
@@ -202,6 +203,36 @@ public class TableUsageRequest extends Request {
      */
     public int getLimit() {
         return limit;
+    }
+
+
+    /**
+     * Sets the index to use to start returning usage records. This is related
+     * to the {@link TableUsageResult#getLastReturnedIndex} from a previous
+     * request and can be used to page usage records.
+     * If not set, the list starts at index 0.
+     *
+     * @param startIndex the start index
+     *
+     * @return this
+     * @since 5.4
+     */
+    public TableUsageRequest setStartIndex(int startIndex) {
+        this.startIndex = startIndex;
+        return this;
+    }
+
+    /**
+     * Returns the index to use to start returning usage records.
+     * This is related to the {@link TableUsageResult#getLastReturnedIndex}
+     * from a previous request and can be used to page usage records.
+     * If not set, the list starts at index 0.
+     *
+     * @return the start index.
+     * @since 5.4
+     */
+    public int getStartIndex() {
+        return startIndex;
     }
 
     /**

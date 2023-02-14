@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -79,6 +79,7 @@ public class Result {
      * If the value is zero, rate limiting did not apply or the operation
      * did not need to wait for rate limiting.
      * @return delay time in milliseconds
+     * @since 5.2.25
      */
     public int getRateLimitDelayedMs() {
         return rateLimitDelayedMs;

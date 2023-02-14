@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -28,7 +28,7 @@ import io.netty.util.ReferenceCountUtil;
  * response asynchronously by overriding the responseReceived() method, or
  * synchronously by using the default implementation and waiting for the
  * response.
- *
+ * <p>
  * Instances of this class must be closed using close().
  *
  * TODO: examples of both sync and async usage

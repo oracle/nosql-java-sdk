@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -19,7 +19,7 @@
  * </a>
  * <p>
  * This and other packages in the system support both users of the Oracle NoSQL
- * Database Cloud Service and the on-premise Oracle NoSQL Database. Some
+ * Database Cloud Service and the on-premises Oracle NoSQL Database. Some
  * classes, methods, and parameters are specific to each environment. The
  * documentation for affected classes and methods notes whether there are
  * environment-specific considerations. Unless otherwise noted they are
@@ -62,9 +62,9 @@
  * some non-default configuration options related to how threads and
  * connections are managed by the networking implementation (Netty).
  * <p>
- * There are 3 methods on {@link NoSQLHandleConfig} that relate to threads
+ * There is a method on {@link NoSQLHandleConfig} that relates to threads
  * and connections. If your application isn't getting the performance
- * expected these can be tuned. There is no single answer to what is best.
+ * expected it can be tuned. There is no single answer to what is best.
  * It is best to experiment with different values and observe the behavior.
  * <ol>
  * <li> {@link NoSQLHandleConfig#setNumThreads}. This is the number
@@ -73,15 +73,11 @@
  * Unless your application has high latency operations this should be
  * sufficient.
  *  </li>
- * <li> {@link NoSQLHandleConfig#setConnectionPoolSize}. This is the
- * default size of the Netty connection pool. It also defaults to the
- * number of available CPUs * 2. Again, unless you have high latency
- * operations (long queries) this should be sufficient for most needs. </li>
  * </ol>
  * When tuning multi-threaded applications it's important to remember that
  * it's possible to have too many threads and that more threads does not
- * equal more performance. The optimal number depends on request latency and
- * other I/O performed. It is best to experiment.
+ * automatically equal more performance. The optimal number depends on
+ * request latency and other I/O performed. It is best to experiment.
  *
  * <p><strong><a id="Logging">Logging in the SDK</a></strong></p>
  * <p>

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -32,6 +32,8 @@ public class PreparedStatement {
     private final String sqlText;
 
     private final String queryPlan;
+
+    private final String querySchema;
 
     /*
      * Applicable to advanced queries only.
@@ -111,6 +113,7 @@ public class PreparedStatement {
      * This is public so that it can be constructed on deserialization.
      * @param sqlText the query
      * @param queryPlan the query plan
+     * @param querySchema the query schema
      * @param ti the topo info
      * @param proxyStatement proxy statement
      * @param driverPlan the portion of the query plan executed on driver
@@ -124,6 +127,7 @@ public class PreparedStatement {
     public PreparedStatement(
         String sqlText,
         String queryPlan,
+        String querySchema,
         TopologyInfo ti,
         byte[] proxyStatement,
         PlanIter driverPlan,
@@ -142,6 +146,7 @@ public class PreparedStatement {
 
         this.sqlText = sqlText;
         this.queryPlan = queryPlan;
+        this.querySchema = querySchema;
         this.topologyInfo = ti;
         this.proxyStatement = proxyStatement;
         this.driverQueryPlan = driverPlan;
@@ -164,6 +169,7 @@ public class PreparedStatement {
 
         return new PreparedStatement(sqlText,
                                      queryPlan,
+                                     querySchema,
                                      topologyInfo,
                                      proxyStatement,
                                      driverQueryPlan,
@@ -192,6 +198,19 @@ public class PreparedStatement {
      */
     public String getQueryPlan() {
         return queryPlan;
+    }
+
+    /**
+     * Returns a string (JSON) representation of the schema of the query
+     * result for this query, if it was
+     * requested in the {@link PrepareRequest}; null otherwise.
+     *
+     * @return the string representation of the query schema
+     *
+     * @since 5.4
+     */
+    public String getQuerySchema() {
+        return querySchema;
     }
 
     /**

@@ -2,6 +2,67 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [5.4.8] 2023-01-05
+
+### Fixed
+- Cloud only: Fixed an issue where a long running application using SignatureProvider
+ with instance principal may encounter NotAuthenticated error after several minutes even
+ if authentication succeeds for the first requests.
+
+### Changed
+- Updated copyrights to 2023
+
+## [5.4.7] 2022-12-06
+
+Note: there are no 5.4 releases before 5.4.7
+
+### Added
+- Support for new, flexible wire protocol (V4) has been added. The previous protocol
+is still supported for communication with servers that do not yet support V4. The
+version negotation is internal and automatic; however, use of V4 features will fail
+at runtime when attempted with an older server. Failure may be an empty or
+undefined result or an exception if the request cannot be serviced at all. The following
+new features or interfaces depend on the new protocol version
+ - added set/getDurability to QueryRequest for queries that modify data
+ - added pagination information to TableUsageResult and TableUsageRequest
+ - added shard percent usage information to TableUsageResult
+ - added IndexInfo.getFieldTypes to return the type information on an index on a JSON
+field
+ - added the ability to ask for and receive the schema of a query using
+     * PrepareRequest.setGetQuerySchema
+     * PreparedStatement.getQuerySchema
+ - Cloud only: added use of ETags, DefinedTags and FreeFormTags in TableRequest and TableResult
+ - Cloud only: Updated OCI regions (SGU, IFP)
+
+### Changed
+- Consistency is now a class and no longer a simple enumeration. Applications must
+be recompiled but source compatibility is maintained for all but the more complex
+use of an enumeration
+- Made one private serializer class public to allow for improved internal testing.
+- MapValue now implements Iterable
+
+## [5.3.7] 2022-10-18
+
+### Changed
+- Allow application to retry a QueryRequest if it gets a timeout exception and the query only does reads
+- Cloud only: Updated OCI regions (ORD, BGY, TIW, MXP, DUS, DTM, ORK, SNN)
+- Update netty dependency to 4.1.82.Final
+
+### Fixed
+- Cloud only: Fixed an issue where a long running application using SignatureProvider
+ with resource principal may encounter NotAuthenticated error after several minutes even
+ if authentication succeeds for the first requests.
+
+## [5.3.6] 2022-08-23
+
+### Added
+- Added support for parent/child tables usage in WriteMultiple requests.
+
+## [5.3.5] 2022-07-20
+
+### Added
+- Made one private serializer class public to allow for improved internal testing.
+
 ## [5.3.4] 2022-06-16
 
 NOTE: there was briefly a 5.3.3 release available on GitHub. This release is functionally
@@ -18,8 +79,6 @@ query that returns row_version() as a BinaryValue. The Version can be used for
 conditional put and delete operations
 - added support for setting an extension to the User Agent http header by
 setting the ExtensionUserAgent property on NoSQLHandlerConfig.
-
-### Changed
 - Cloud only: Added OCI regions: CDG (Paris), MAD (Madrid), QRO (Queretaro)
 
 ## [5.3.2] 2022-03-21
@@ -243,7 +302,7 @@ MapValue  instances created from JSON to maintain the insertion order of fields
 in the map so that iteration is predictable.
 
 ### Fixed
-- Don't validate request sizes. On-premise only
+- Don't validate request sizes. On-premises only
 - JsonOptions.setPrettyPrint(true) now works
 - Request timeouts now operate correctly on milliseconds instead of rounding up to seconds
 - Changed min/max implementation to make them deterministic
@@ -258,7 +317,7 @@ removed in a future version.
 - Fix another memory leak that could occur on the receive side when the response
 was discarded due to unmatched request Id.
 - Fixed a problem where the HTTP Host header was not being adding in all request
-cases. This prevented use of an intermediate proxy such as Nginx, which validates headers. On-premise only.
+cases. This prevented use of an intermediate proxy such as Nginx, which validates headers. On-premises only.
 - TableUsageRequest: added validation check that startTime, endTime and limit
 must not be negative value.
 
@@ -304,16 +363,16 @@ exact schema match is required on a put. The default behavior is false.
 - Added a new, simpler TableResult.waitForCompletion() interface to wait for the completion of a TableRequest vs waiting for a specific state.
 - Added NoSQLHandle.doTableRequest to encapsulate a TableRequest and waiting for
   its completion in a single, synchronous call.
-- Added OperationNotSupportedException to handle operations that are specific to on-premise and cloud service environments
+- Added OperationNotSupportedException to handle operations that are specific to on-premises and cloud service environments
 
-- Support for both the Oracle NoSQL Database Cloud Service and the on-premise Oracle NoSQL Database product.
-  - Added StoreAccessTokenProvider for authentication of access to an on-premise store
+- Support for both the Oracle NoSQL Database Cloud Service and the on-premises Oracle NoSQL Database product.
+  - Added StoreAccessTokenProvider for authentication of access to an on-premises store
   - Added AuthenticationException to encapsulate authentication problems when
-  accessing an on-premise store.
+  accessing an on-premises store.
   - Added SystemRequest, SystemStatusRequest, and SystemResult for administrative
   operations that are not table-specific.
   - Added NoSQLHandle.doSystemRequest to encapsulate a SystemRequest and waiting for its completion in a single, synchronous call.
-  -   Now that the driver can access both the cloud service and an on-premise store
+  -   Now that the driver can access both the cloud service and an on-premises store
   some operations, classes and exceptions are specific to each environment. These are
   noted in updated javadoc.
 

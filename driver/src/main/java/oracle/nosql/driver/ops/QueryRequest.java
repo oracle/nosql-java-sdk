@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 import oracle.nosql.driver.Consistency;
+import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -85,8 +86,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * @see NoSQLHandle#query(QueryRequest)
  * @see NoSQLHandle#prepare(PrepareRequest)
  */
-public class QueryRequest
-    extends Request implements AutoCloseable {
+public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private int traceLevel;
 
@@ -623,6 +623,7 @@ public class QueryRequest
      * query at the driver. An application should use this method if it wishes
      * to terminate query execution before retrieving all of the query results.
      */
+    @Override
     public void close() {
         setContinuationKey(null);
     }
@@ -636,6 +637,24 @@ public class QueryRequest
      */
     public QueryRequest setConsistency(Consistency consistency) {
         this.consistency = consistency;
+        return this;
+    }
+
+    /**
+     * Sets the durability to use for the operation.
+     * On-premises only. This setting only applies if the query modifies
+     * a row using an INSERT, UPSERT, or DELETE statement. If the query is
+     * read-only it is ignored.
+     *
+     * @param durability the durability value. Set to null for
+     * the default durability setting on the server.
+     *
+     * @return this
+     *
+     * @since 5.4.0
+     */
+    public QueryRequest setDurability(Durability durability) {
+        setDurabilityInternal(durability);
         return this;
     }
 

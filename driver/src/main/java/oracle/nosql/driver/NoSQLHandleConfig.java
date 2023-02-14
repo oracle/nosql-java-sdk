@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -203,6 +203,18 @@ public class NoSQLHandleConfig implements Cloneable {
      * default.
      */
     private String compartment;
+
+    /**
+     * On-premise only.
+     *
+     * The default namespace to use for all requests. If this is null (the
+     * default), no namespace is used unless specified in table names in
+     * requests and SQL statements.
+     *
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
+     */
+    private String defaultNamespace;
 
     /**
      * Enable rate limiting.
@@ -770,7 +782,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets the maximum size in bytes of request/response payloads.
-     * On-premise only. This setting is ignored for cloud operations.
+     * On-premises only. This setting is ignored for cloud operations.
      * If not set, or set to zero, the default value of 32MB is used.
      *
      * @param maxContentLength the maximum bytes allowed in
@@ -790,7 +802,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Returns the maximum size, in bytes, of a request operation payload.
-     * On-premise only. This value is ignored for cloud operations.
+     * On-premises only. This value is ignored for cloud operations.
      *
      * @return the size
      */
@@ -1072,6 +1084,40 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public String getDefaultCompartment() {
         return compartment;
+    }
+
+    /**
+     * @hidden
+     *
+     * On-premise only.
+     *
+     * Sets the default namespace to use for requests sent using the
+     * handle. This is an optional convenience method to avoid having to
+     * add the namespace to table names in requests and SQL statements.
+     *
+     * Any non-namespace qualified table name in requests and/or SQL
+     * statements will be resolved/qualified to the specified namespace.
+     *
+     * @param namespace the default namespace to use
+     *
+     * @return this
+     */
+    public NoSQLHandleConfig setDefaultNamespace(String defaultNamespace) {
+        this.defaultNamespace = defaultNamespace;
+        return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * On-premise only.
+     *
+     * Returns the default namespace to use for requests or null if not set.
+     *
+     * @return the default namespace
+     */
+    public String getDefaultNamespace() {
+        return defaultNamespace;
     }
 
     /**

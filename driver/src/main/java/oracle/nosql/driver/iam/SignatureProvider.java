@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -887,7 +887,14 @@ public class SignatureProvider
         long nowPlus = System.currentTimeMillis() + 60_000L;
         String date = createFormatter().format(new Date(nowPlus));
         String keyId = provider.getKeyId();
-        if (provider instanceof InstancePrincipalsProvider) {
+
+        /*
+         * Security token based providers may refresh the security token
+         * and associated private key in above getKeyId() method, reload
+         * private key to PrivateKeyProvider to avoid a mismatch, which
+         * will create an invalid signature, cause authentication error.
+         */
+        if (provider instanceof SecurityTokenBasedProvider) {
             privateKeyProvider.reload(provider.getPrivateKey(),
                                       provider.getPassphraseCharacters());
         }
