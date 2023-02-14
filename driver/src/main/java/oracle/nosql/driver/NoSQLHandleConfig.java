@@ -1098,7 +1098,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * Any non-namespace qualified table name in requests and/or SQL
      * statements will be resolved/qualified to the specified namespace.
      *
-     * @param namespace the default namespace to use
+     * @param defaultNamespace the default namespace to use
      *
      * @return this
      */
