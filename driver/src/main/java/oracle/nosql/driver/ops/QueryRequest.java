@@ -73,7 +73,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * of the rows read satisfied the query conditions).
  * <p>
  * If an application wishes to terminate query execution before retrieving all
- * of the query results, it should call {@link #close} in order to release any
+ * the query results, it should call {@link #close} in order to release any
  * local resources held by the query. This also allows the application to reuse
  * the QueryRequest instance to run the same query from the beginning or a
  * different query.

@@ -358,13 +358,25 @@ public class DocSnippets {
 
         /* Snippet start "Query iterable/iterator" */
 
-        QueryRequest qreq = new QueryRequest();
-        qreq.setStatement("select * from MyTable");
-
-        try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+        try (
+            QueryRequest qreq = new QueryRequest()
+                .setStatement("select * from MyTable");
+            QueryIterableResult qir = handle.queryIterable(qreq)) {
              for( MapValue row : qir) {
                  // do something with row
              }
+        }
+
+        /* ------ Snippet end -------*/
+
+        /* Snippet start "QueryIterableResult iterable/iterator" */
+
+        try (QueryRequest qreq = new QueryRequest()
+                 .setStatement("select * from foo") ) {
+
+            for (MapValue row : handle.queryIterable(qreq)) {
+              // do something with row
+            }
         }
 
         /* ------ Snippet end -------*/

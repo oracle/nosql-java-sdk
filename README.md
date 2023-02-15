@@ -437,15 +437,14 @@ public class Quickstart {
 
             /*
              * Perform a query using iterable and iterator
-             */
-            QueryRequest queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
-
-            /*
+             *
              * To ensure the query resources are closed properly, use
              * try-with-resources statement.
              */
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName);
+                QueryIterableResult results =
                     handle.queryIterable(queryRequest)) {
                 System.out.println("Query results:");
                 for (MapValue res : results) {
@@ -456,23 +455,25 @@ public class Quickstart {
             /*
              * Perform a query using partial results
              */
-            queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName) ) {
 
-            /*
-             * Because a query can return partial results execution must occur
-             * in a loop, accumulating or processing results
-             */
-            ArrayList<MapValue> results = new ArrayList<MapValue>();
-            do {
-                QueryResult queryResult = handle.query(queryRequest);
-                results.addAll(queryResult.getResults());
-            } while (!queryRequest.isDone());
-            System.out.println("Query results again:");
-            for (MapValue res : results) {
-                System.out.println("\t" + res);
+                /*
+                 * Because a query can return partial results execution must occur
+                 * in a loop, accumulating or processing results
+                 */
+                ArrayList<MapValue> results = new ArrayList<MapValue>();
+                do {
+                    QueryResult queryResult = handle.query(queryRequest);
+                    results.addAll(queryResult.getResults());
+                } while (!queryRequest.isDone());
+                System.out.println("Query results again:");
+                for (MapValue res : results) {
+                    System.out.println("\t" + res);
+                }
             }
-
+            
             /*
              * Drop the table
              */
