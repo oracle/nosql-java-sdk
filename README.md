@@ -590,7 +590,7 @@ started on a different host or port adjust the endpoint accordingly.
 
     $ java -cp .:../lib/nosqldriver.jar BasicTableExample localhost:8080
 
-## Licenses
+## License
 
 See the [LICENSE](LICENSE.txt) file.
 
