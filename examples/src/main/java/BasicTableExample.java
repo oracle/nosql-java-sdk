@@ -139,9 +139,10 @@ public class BasicTableExample {
                 " \"audience_segment\": { " +
                 " \"sports_lover\":\"2020-05-10\", " +
                 " \"foodie\":\"2020-06-01\"}})";
-            QueryRequest queryRequest = new QueryRequest();
-            queryRequest.setStatement(insertQuery);
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement(insertQuery);
+                QueryIterableResult results =
                 handle.queryIterable(queryRequest)) {
                 System.out.println("Inserted row via query, result:");
                 for (MapValue qval : results) {
@@ -195,9 +196,10 @@ public class BasicTableExample {
             String query = "SELECT * from " + tableName +
                 " WHERE cookie_id = 456";
 
-            queryRequest = new QueryRequest();
-            queryRequest.setStatement(query);
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement(query);
+                QueryIterableResult results =
                      handle.queryIterable(queryRequest)) {
                 System.out.println("Query results for " + query + ": ");
                 for (MapValue qval : results) {
