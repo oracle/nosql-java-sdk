@@ -40,6 +40,7 @@ import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.TableRequest;
 
 import io.netty.handler.codec.http.HttpHeaders;
 
@@ -721,6 +722,7 @@ public class SignatureProvider
         SignatureDetails sigDetails =
                 (request instanceof AddReplicaRequest ||
                  request instanceof DropReplicaRequest ||
+                 request instanceof TableRequest ||
                  request.getOboToken() != null) ?
             getSignatureWithContent(request, headers):
             getSignatureDetails(request);
