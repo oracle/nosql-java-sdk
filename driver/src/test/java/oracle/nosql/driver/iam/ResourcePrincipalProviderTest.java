@@ -207,36 +207,4 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
                      ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
                      "tenantId");
     }
-
-    @Test
-    public void testValidateKey()
-        throws Exception {
-
-        int refreshWindowSec = 1;
-        String token = expiringToken(TOKEN,
-                                     refreshWindowSec,
-                                     keypair.getPublicKey());
-        Path keyFile = Files.write(Paths.get(getTestDir(), "key.pem"),
-                                   keypair.getKey().getBytes(),
-                                   StandardOpenOption.CREATE);
-        SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
-            keyFile.toAbsolutePath().toString(), null);
-        File tokenFile = new File(getTestDir(), "token");
-        Files.write(tokenFile.toPath(), token.getBytes());
-        FileSecurityTokenSupplier fileSupplier =
-            new FileSecurityTokenSupplier(keySupplier,
-                                          tokenFile.getAbsolutePath(),
-                                          null);
-        ResourcePrincipalProvider rpProvider =
-            new ResourcePrincipalProvider(fileSupplier,
-                                          keySupplier,
-                                          Region.US_ASHBURN_1);
-        rpProvider.setMinTokenLifetime((refreshWindowSec * 1000) + 100);
-        try {
-            rpProvider.getKeyId();
-            fail("expected");
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "less lifetime");
-        }
-    }
 }

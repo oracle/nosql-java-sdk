@@ -218,6 +218,17 @@
       <version>4.13.1</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- IAM unit tests only - Bouncycastle has changed
+         the packaging since 1.69, classes needed by test
+         has been moved to bcutil-jdk15on.
+    -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcutil-jdk15on</artifactId>
+      <version>${bouncy.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
