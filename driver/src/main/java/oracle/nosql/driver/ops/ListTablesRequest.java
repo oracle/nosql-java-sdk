@@ -129,6 +129,8 @@ public class ListTablesRequest extends Request {
      * @param namespace the namespace to use
      *
      * @return this
+     *
+     * @since 5.4.10
      */
     public ListTablesRequest setNamespace(String namespace) {
         this.namespace = namespace;
@@ -142,6 +144,7 @@ public class ListTablesRequest extends Request {
      *
      * @return the namespace
      */
+    @Override
     public String getNamespace() {
         return namespace;
     }

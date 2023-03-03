@@ -252,6 +252,26 @@ public class TableRequest extends Request {
         return this;
     }
 
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set in {@link NoSQLHandleConfig}.
+     * Note: if a namespace is specified in the table name for the request
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public TableRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
+        return this;
+    }
+
     /*
      * use table request timeout
      */

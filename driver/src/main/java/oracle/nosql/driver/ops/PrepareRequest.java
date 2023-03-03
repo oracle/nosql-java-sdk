@@ -97,6 +97,26 @@ public class PrepareRequest extends Request {
     }
 
     /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set in {@link NoSQLHandleConfig}.
+     * Note: if a namespace is specified in the table name in the SQL statement
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public PrepareRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
+        return this;
+    }
+
+    /**
      * Sets whether the string value of the query execution plan should be
      * included in the {@link PrepareResult}.
      *

@@ -470,16 +470,15 @@ public class Client {
             }
         }
 
-        final long startTime = System.currentTimeMillis();
-        kvRequest.setStartTimeMs(startTime);
+        final long startNanos = System.nanoTime();
+        kvRequest.setStartNanos(startNanos);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
         String requestId = "";
         int thisIterationTimeoutMs = 0;
 
         do {
-            long thisTime = System.currentTimeMillis();
-            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+            thisIterationTimeoutMs = getIterationTimeoutMs(timeoutMs, startNanos);
 
             /*
              * Check rate limiters before executing the request.
@@ -513,14 +512,14 @@ public class Client {
                 }
             }
 
+            /* update iteration timeout in case limiters slept for some time */
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
+
             /* ensure limiting didn't throw us over the timeout */
-            if (timeoutRequest(startTime, timeoutMs, exception)) {
+            if (thisIterationTimeoutMs <= 0) {
                 break;
             }
-
-            /* update iteration timeout in case limiters slept for some time */
-            thisTime = System.currentTimeMillis();
-            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
 
             final String authString =
                 authProvider.getAuthorizationString(kvRequest);
@@ -550,7 +549,6 @@ public class Client {
             ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
-            long networkLatency;
             try {
                 /*
                  * NOTE: the ResponseHandler will release the Channel
@@ -559,6 +557,14 @@ public class Client {
                  * operations in the loop.
                  */
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
+                /* update iteration timeout in case channel took some time */
+                thisIterationTimeoutMs =
+                    getIterationTimeoutMs(timeoutMs, startNanos);
+                /* ensure limiting didn't throw us over the timeout */
+                if (thisIterationTimeoutMs <= 0) {
+                    break;
+                }
+
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel,
@@ -573,10 +579,16 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                /* update timeout in request to match this iteration timeout */
+                /*
+                 * Temporarily change the timeout in the request object so
+                 * the serialized timeout sent to the server is correct for
+                 * this iteration. After serializing the request, set the
+                 * timeout back to the overall request timeout so that other
+                 * processing (retry delays, etc) work correctly.
+                 */
                 kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
-
                 serialVersionUsed = writeContent(buffer, kvRequest);
+                kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
                  * If on-premises the authProvider will always be a
@@ -627,7 +639,11 @@ public class Client {
                 }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (config.getDefaultNamespace() != null) {
+                String namespace = kvRequest.getNamespace();
+                if (namespace == null) {
+                    namespace = config.getDefaultNamespace();
+                }
+                if (namespace != null) {
                     headers.add(REQUEST_NAMESPACE_HEADER,
                                 config.getDefaultNamespace());
                 }
@@ -637,7 +653,7 @@ public class Client {
                     logTrace(logger, "Request: " + requestClass +
                                      ", requestId=" + requestId);
                 }
-                networkLatency = System.currentTimeMillis();
+                long latencyNanos = System.nanoTime();
                 httpClient.runRequest(request, responseHandler, channel);
 
                 boolean isTimeout =
@@ -663,7 +679,9 @@ public class Client {
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
-                networkLatency = System.currentTimeMillis() - networkLatency;
+                long networkLatency =
+                    (System.nanoTime() - latencyNanos) / 1_000_000;
+
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -813,7 +831,8 @@ public class Client {
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
-                    exception = upe;
+                    // Don't set this exception: it's misleading
+                    // exception = upe;
                     logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
@@ -900,7 +919,7 @@ public class Client {
                     responseHandler.close();
                 }
             }
-        } while (! timeoutRequest(startTime, timeoutMs, exception));
+        } while (! timeoutRequest(startNanos, timeoutMs, exception));
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
@@ -910,6 +929,18 @@ public class Client {
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
+    }
+
+    /**
+     * Calculate the timeout for the next iteration.
+     * This is basically the given timeout minus the time
+     * elapsed since the start of the request processing.
+     * If this returns zero or negative, the request should be
+     * aborted with a timeout exception.
+     */
+    private int getIterationTimeoutMs(long timeoutMs, long startNanos) {
+        long diffNanos = System.nanoTime() - startNanos;
+        return ((int)timeoutMs - Math.toIntExact(diffNanos / 1_000_000));
     }
 
     /**
@@ -1046,18 +1077,18 @@ public class Client {
 
     /**
      * Determine if the request should be timed out.
-     * Check if the request exceed the timeout given.
+     * Check if the request exceeds the timeout given.
      *
-     * @param startTime when the request starts
-     * @param requestTimeout the default timeout of this request
+     * @param startNanos when the request starts
+     * @param requestTimeoutMs the timeout of this request in ms
      * @param exception the last exception
      *
-     * @return true the request need to be timed out.
+     * @return true if the request needs to be timed out.
      */
-    boolean timeoutRequest(long startTime,
-                           long requestTimeout,
+    boolean timeoutRequest(long startNanos,
+                           long requestTimeoutMs,
                            Throwable exception) {
-        return ((System.currentTimeMillis() - startTime) >= requestTimeout);
+        return (getIterationTimeoutMs(requestTimeoutMs, startNanos) <= 0);
     }
 
     /**

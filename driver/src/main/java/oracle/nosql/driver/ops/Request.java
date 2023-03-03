@@ -41,6 +41,14 @@ public abstract class Request {
     protected String compartment;
 
     /**
+     * On-premises use only.
+     *
+     * Set the namespace to use for the operation. Note: if a namespace is
+     * also specified in the table name, that namespace will override this one.
+     */
+    protected String namespace;
+
+    /**
      *  @hidden
      */
     private boolean checkRequestSize = true;
@@ -53,7 +61,7 @@ public abstract class Request {
     /**
      * @hidden
      */
-    private long startTimeMs;
+    private long startNanos;
 
     /**
      * @hidden
@@ -173,8 +181,6 @@ public abstract class Request {
      * Sets the table name to use for the operation.
      *
      * @param tableName the table name
-     *
-     * @return this
      */
     protected void setTableNameInternal(String tableName) {
         this.tableName = tableName;
@@ -187,6 +193,31 @@ public abstract class Request {
      */
     public String getTableName() {
         return tableName;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * Sets the namespace to use for the operation.
+     *
+     * @param namespace the namespace name
+     *
+     * @since 5.4.10
+     */
+    protected void setNamespaceInternal(String namespace) {
+        this.namespace = namespace;
+    }
+
+    /**
+     * Returns the namespace to use for the operation.
+     *
+     * Note: if a namespace is supplied in the table name for the operation,
+     * that namespace will override this one.
+     *
+     * @return the namespace, or null if not set
+     */
+    public String getNamespace() {
+        return namespace;
     }
 
     /**
@@ -404,19 +435,19 @@ public abstract class Request {
     /**
      * @hidden
      * internal use only
-     * @param ms start time of request processing
+     * @param nanos start nanos of request processing
      */
-    public void setStartTimeMs(long ms) {
-        startTimeMs = ms;
+    public void setStartNanos(long nanos) {
+        startNanos = nanos;
     }
 
     /**
      * @hidden
      * internal use only
-     * @return start time of request processing
+     * @return start nanos of request processing
      */
-    public long getStartTimeMs() {
-        return startTimeMs;
+    public long getStartNanos() {
+        return startNanos;
     }
 
     public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
@@ -472,7 +503,7 @@ public abstract class Request {
         other.setCheckRequestSize(this.checkRequestSize);
         other.setCompartmentInternal(this.compartment);
         other.setTableNameInternal(this.tableName);
-        other.setStartTimeMs(this.startTimeMs);
+        other.setStartNanos(this.startNanos);
         other.setRetryStats(this.retryStats);
         other.setReadRateLimiter(this.readRateLimiter);
         other.setWriteRateLimiter(this.writeRateLimiter);
