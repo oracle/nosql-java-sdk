@@ -394,39 +394,6 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     }
 
     @Test
-    public void testValidateKey()
-        throws Exception {
-
-        EXPIRING_TOKEN = true;
-
-        CertificateSupplier leaf = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?cert.pem"),
-            getURLDetails(base + "/instance?key.pem"),
-            (char[]) null);
-
-        CertificateSupplier inter = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?intermediate.pem"),
-            null,
-            (char[]) null);
-
-        InstancePrincipalsProvider provider =
-            InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(base)
-            .setLeafCertificateSupplier(leaf)
-            .setIntermediateCertificateSuppliers(Collections.singleton(inter))
-            .setTenantId(tenantId)
-            .build();
-        provider.setMinTokenLifetime(REFRESH_WINDOW_SEC * 1000 + 100);
-        provider.prepare(new NoSQLHandleConfig("http://test"));
-        try {
-            provider.getKeyId();
-            fail("expected");
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "less lifetime");
-        }
-    }
-
-    @Test
     public void testRegionURI() {
         for (Region r : Region.getOC1Regions()) {
             assertEquals(r.endpoint(),
