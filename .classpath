@@ -5,18 +5,13 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" path="driver/src/main/java"/>
-	<classpathentry kind="src" path="driver/src/test/java"/>
-	<classpathentry kind="src" path="examples/src/main/java"/>
-	<classpathentry kind="lib" path="driver/target/nosqldriver.jar"/>
-	<classpathentry kind="lib" path="examples/target/nosql-java-sdk-examples.jar"/>
-	<classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-core/2.12.4/jackson-core-2.12.4.jar"/>	<classpathentry kind="var" path="M2_REPO/io/netty/netty-buffer/4.1.74.Final/netty-buffer-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec/4.1.74.Final/netty-codec-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec-http/4.1.74.Final/netty-codec-http-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-common/4.1.74.Final/netty-common-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler/4.1.74.Final/netty-handler-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler-proxy/4.1.74.Final/netty-handler-proxy-4.1.74.Final.jar"/>
-        <classpathentry kind="var" path="M2_REPO/io/netty/netty-transport/4.1.74.Final/netty-transport-4.1.74.Final.jar"/>
+	<classpathentry kind="var" path="M2_REPO/com/fasterxml/jackson/core/jackson-core/2.13.2/jackson-core-2.13.2.jar"/>	<classpathentry kind="var" path="M2_REPO/io/netty/netty-buffer/4.1.86.Final/netty-buffer-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec/4.1.86.Final/netty-codec-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-codec-http/4.1.86.Final/netty-codec-http-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-common/4.1.86.Final/netty-common-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler/4.1.86.Final/netty-handler-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-handler-proxy/4.1.86.Final/netty-handler-proxy-4.1.86.Final.jar"/>
+        <classpathentry kind="var" path="M2_REPO/io/netty/netty-transport/4.1.86.Final/netty-transport-4.1.86.Final.jar"/>
 	<classpathentry kind="var" path="M2_REPO/org/bouncycastle/bcprov-jdk15on/1.68/bcprov-jdk15on-1.68.jar"/>
 	<classpathentry kind="var" path="M2_REPO/org/bouncycastle/bcpkix-jdk15on/1.68/bcpkix-jdk15on-1.68.jar"/>
 	<classpathentry kind="var" path="M2_REPO/junit/junit/4.13.1/junit-4.13.1.jar"/>

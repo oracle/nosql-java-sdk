@@ -15,7 +15,7 @@ package oracle.nosql.driver.util;
  *
  * Static methods for reading and writing packed integers.
  */
-class PackedInteger {
+public class PackedInteger {
 
     /**
      * The maximum number of bytes needed to store an int value (5).

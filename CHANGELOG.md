@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- Allow a space in addition to a "T" to separate date and time in String
+ TimestampValue format
+- Code cleanup, removing unused/obsolete code and tests
+
 ## [5.4.9] 2023-02-14
 
 ### Added

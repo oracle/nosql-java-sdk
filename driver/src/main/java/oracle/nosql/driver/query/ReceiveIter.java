@@ -623,7 +623,7 @@ public class ReceiveIter extends PlanIter {
             break;
         case NUMBER:
             NumberValue num = (NumberValue)val;
-            SerializationUtil.writeByteArray(out, num.getBytes());
+            SerializationUtil.writeString(out, num.getString());
             break;
         case STRING:
             SerializationUtil.writeString(out, val.getString());

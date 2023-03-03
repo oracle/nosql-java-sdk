@@ -14,31 +14,21 @@ import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Stack;
 
-import oracle.nosql.driver.values.ArrayValue;
-import oracle.nosql.driver.values.BinaryValue;
-import oracle.nosql.driver.values.BooleanValue;
-import oracle.nosql.driver.values.DoubleValue;
-import oracle.nosql.driver.values.EmptyValue;
-import oracle.nosql.driver.values.FieldValue;
-import oracle.nosql.driver.values.FieldValueEventHandler;
-import oracle.nosql.driver.values.IntegerValue;
-import oracle.nosql.driver.values.JsonNullValue;
-import oracle.nosql.driver.values.JsonOptions;
-import oracle.nosql.driver.values.JsonSerializer;
-import oracle.nosql.driver.values.LongValue;
-import oracle.nosql.driver.values.MapValue;
-import oracle.nosql.driver.values.NullValue;
-import oracle.nosql.driver.values.NumberValue;
-import oracle.nosql.driver.values.StringValue;
-import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.SerializationUtil;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.FieldValueCreator;
+import oracle.nosql.driver.values.FieldValueEventHandler;
+import oracle.nosql.driver.values.JsonOptions;
+import oracle.nosql.driver.values.JsonPrettySerializer;
+import oracle.nosql.driver.values.JsonSerializer;
+import oracle.nosql.driver.values.MapValue;
+import oracle.nosql.driver.values.TimestampValue;
 
 /**
- * @hidden
  * This class implements the NSON format including serialization to the
  * format using a {@link FieldValueEventHandler} instance and deserialization
  * from the format by generating {@link FieldValueEventHandler} events from
@@ -50,54 +40,65 @@ import oracle.nosql.driver.util.SerializationUtil;
  * performed by passing NSON and a {@link FieldValueEventHandler} to
  * {@link #generateEventsFromNson}
  * <p>
- * The NSON format
- *
- * The format is relatively simple:
+ * NSON is a simple tagged (typed) value format:
+ * <pre>
  * &lt;byte&gt; field type
  * &lt;variable&gt; field value
- *
-
+ * </pre>
  * Primitive/atomic types have well-known formats and lengths. An NSON "row"
  * can be as simple as a single primitive. For example a single byte
  * representing the JSON null value is the smallest possible NSON document.
  * Complex types (map and array) include their total size in bytes, allowing
  * navigational code to skip them entirely if they are not of interest.
  * Details of the format of each data type is below.
- *
+ * <p>
  * Data Types
- *
- * Array
+ * <ul>
+ * <li> Array
+ * <pre>
  *  Tag value: 0
  *  Value:
  *    4-byte (unpacked int) – size of the entire array in bytes
  *    4-byte (unpacked int) – number of elements in the array
  *  The array fields, which are NSON values. Because NSON is schemaless the
  *  array elements may be of any type
- *
- * Binary
+ * </pre>
+ * </li>
+ * <li> Binary
+ * <pre>
  *  Tag value: 1
  *  Value:
  *    size of array in bytes (can be 0)
  *    the bytes
- *
- * Boolean
+ * </pre>
+ * </li>
+ * <li> Boolean
+ * <pre>
  *  Tag value: 2
  *  Value (byte): 0 (false) or non-zero (true)
- *
- * Double
+ * </pre>
+ * </li>
+ * <li> Double
+ * <pre>
  *  Tag value: 3
  *  Value: double value as written by Java's DataOutput class (TBD: describe this
  *  in more detail)
- *
- * Integer
+ * </pre>
+ * </li>
+ * <li> Integer
+ * <pre>
  *  Tag value: 4
  *  Value: packed int (see below)
- *
- * Long
+ * </pre>
+ * </li>
+ * <li> Long
+ * <pre>
  *  Tag value: 5
  *  Value: packed long (see below)
- *
- * Map
+ * </pre>
+ * </li>
+ * <li> Map
+ * <pre>
  *  Tag value: 6
  *  Value:
  *    4-byte (unpacked int) – size of the entire map in bytes (value as written
@@ -108,35 +109,51 @@ import oracle.nosql.driver.util.SerializationUtil;
  *      key – String (see String below), cannot be null
  *      value – an NSON value. Because NSON is schemaless the map values may be
  *              of any type
- *
- * String
+ * </pre>
+ * </li>
+ * <li> String
+ * <pre>
  *  Tag value: 7
  *  Value: UTF-8 encoded string, as bytes
  *    The first byte is packed integer and is the length of the string. If
  *    if the string is null a length of -1 is used
  *    the rest of the bytes are the string encoded as utf-8
- *
- * Timestamp
+ * </pre>
+ * </li>
+ * <li> Timestamp
+ * <pre>
  *  Tag value: 8
  *  Value: ISO 8601 formatted string (see String above)
- *
- * Number
+ * </pre>
+ * </li>
+ * <li> Number
+ * <pre>
  *  Tag value: 9
  *  Value: A string (see String above) representing a BigDecimal (Java) value.
  *         TBD: describe in detail
- *
- * Json Null
+ * </pre>
+ * </li>
+ * <li> Json Null
+ * <pre>
  *  Tag value: 10
  *  Value: none
- *
- * Null
+ * </pre>
+ * </li>
+ * <li> Null
+ * <pre>
  *  Tag value: 11
  *  Value: none
- *
- * Packed formats (TBD)
+ * </pre>
+ * </li>
+ * <li> Packed formats (TBD)
+ * <pre>
  *   packed int, long -- – describe algorithm
  *   unpacked int – endian?
  *   Java BigDecimal/number format
+ * </pre>
+ * </li>
+ * </ul>
+ * @hidden
  */
 public class Nson {
 
@@ -428,7 +445,7 @@ public class Nson {
      *
      * @param in the input stream of NSON bytes
      * @param options {@link JsonOptions} to use for the serialization, or
-     * null for default behavior
+     * null for default behavior.
      * @return the JSON string
      * @throws IllegalArgumentException if there's a problem with serializing
      * NSON to JSON string
@@ -438,7 +455,9 @@ public class Nson {
         if (in == null) {
             return null;
         }
-        JsonSerializer jsonSerializer = new JsonSerializer(options);
+        JsonSerializer jsonSerializer = (options != null &&
+                                         options.getPrettyPrint()) ?
+            new JsonPrettySerializer(options) : new JsonSerializer(options);
         try {
             Nson.generateEventsFromNson(jsonSerializer, in, false);
         } catch (IOException ioe) {
@@ -451,9 +470,9 @@ public class Nson {
     }
 
     /**
+     * An instance of {@link FieldValueEventHandler} that accepts events
+     * and adds them to a {@link ByteOutputStream} in NSON format.
      * @hidden
-     * An instance of FieldValueEventHandler that accepts events and adds them
-     * to the protocol output stream.
      */
     public static class NsonSerializer implements FieldValueEventHandler {
 
@@ -664,208 +683,6 @@ public class Nson {
         }
     }
 
-    /**
-     * @hidden
-     *
-     * An instance of FieldValueEventHandler that accepts events and constructs
-     * a {@link FieldValue} instance. This is used for creating instances
-     * from the wire protocol.
-     *
-     * In order to handle creation of nested complex types such as maps and
-     * arrays stacks are maintained.
-
-     * The current FieldValue instance is available using the
-     * getCurrentValue() method.
-     *
-     * This class is public only so it can be tested.
-     */
-    public static class FieldValueCreator implements FieldValueEventHandler {
-
-        private Stack<MapValue> mapStack;
-        private Stack<ArrayValue> arrayStack;
-
-        /*
-         * A stack of map keys is needed to handle the situation where maps
-         * are nested.
-         */
-        private Stack<String> keyStack;
-        private MapValue currentMap;
-        private ArrayValue currentArray;
-        private String currentKey;
-        private FieldValue currentValue;
-
-        private void pushMap(MapValue map) {
-            if (currentMap != null) {
-                if (mapStack == null) {
-                    mapStack = new Stack<MapValue>();
-                }
-                mapStack.push(currentMap);
-            }
-            currentMap = map;
-            currentValue = map;
-        }
-
-        private void pushArray(ArrayValue array) {
-            if (currentArray != null) {
-                if (arrayStack == null) {
-                    arrayStack = new Stack<ArrayValue>();
-                }
-                arrayStack.push(currentArray);
-            }
-            currentArray = array;
-            currentValue = array;
-        }
-
-        private void pushKey(String key) {
-            if (currentKey != null) {
-                if (keyStack == null) {
-                    keyStack = new Stack<String>();
-                }
-                keyStack.push(currentKey);
-            }
-            currentKey = key;
-        }
-
-        /**
-         * Returns the current FieldValue if available
-         *
-         * @return the current value
-         */
-        public FieldValue getCurrentValue() {
-            return currentValue;
-        }
-
-        @Override
-        public void startMap(int size) throws IOException {
-            /* maintain insertion order */
-            pushMap(new MapValue(true, size));
-        }
-
-        @Override
-        public void startArray(int size) throws IOException {
-            pushArray(new ArrayValue(size));
-        }
-
-        @Override
-        public void endMap(int size) throws IOException {
-            /*
-             * The in-process map becomes the currentValue
-             */
-            currentValue = currentMap;
-            if (mapStack != null && !mapStack.empty()) {
-                currentMap = mapStack.pop();
-            } else {
-                currentMap = null;
-            }
-        }
-
-        @Override
-        public void endArray(int size) throws IOException {
-            /*
-             * The in-process array becomes the currentValue
-             */
-            currentValue = currentArray;
-            if (arrayStack != null && !arrayStack.empty()) {
-                currentArray = arrayStack.pop();
-            } else {
-                currentArray = null;
-            }
-        }
-
-        @Override
-        public boolean startMapField(String key) throws IOException {
-            pushKey(key);
-            return false; /* don't skip */
-        }
-
-        @Override
-        public void endMapField(String key) throws IOException {
-            /*
-             * currentMap could be null if a subclass has suppressed
-             * creation of a wrapper map for the entire FieldValue.
-             * The "finder" code might do this
-             */
-            if (currentKey != null && currentMap != null) {
-                currentMap.put(currentKey, currentValue);
-            }
-            if (keyStack != null && !keyStack.empty()) {
-                currentKey = keyStack.pop();
-            } else {
-                currentKey = null;
-            }
-            /* currentValue undefined right now... */
-        }
-
-        @Override
-        public void endArrayField(int index) throws IOException {
-            if (currentArray != null) {
-                currentArray.add(currentValue);
-            }
-        }
-
-        @Override
-        public void booleanValue(boolean value) throws IOException {
-            currentValue = BooleanValue.getInstance(value);
-        }
-
-        @Override
-        public void binaryValue(byte[] byteArray) throws IOException {
-            currentValue = new BinaryValue(byteArray);
-        }
-
-        @Override
-        public void binaryValue(byte[] byteArray, int offset, int length)
-            throws IOException {
-            /* TODO: BinaryValue() with offset/length */
-            currentValue = new BinaryValue(byteArray);
-        }
-
-        @Override
-        public void stringValue(String value) throws IOException {
-            currentValue = new StringValue(value);
-        }
-
-        @Override
-        public void integerValue(int value) throws IOException {
-            currentValue = new IntegerValue(value);
-        }
-
-        @Override
-        public void longValue(long value) throws IOException {
-            currentValue = new LongValue(value);
-        }
-
-        @Override
-        public void doubleValue(double value) throws IOException {
-            currentValue = new DoubleValue(value);
-        }
-
-        @Override
-        public void numberValue(BigDecimal value) throws IOException {
-            currentValue = new NumberValue(value);
-        }
-
-        @Override
-        public void timestampValue(TimestampValue timestamp) {
-            currentValue = timestamp;
-        }
-
-        @Override
-        public void jsonNullValue() throws IOException {
-            currentValue = JsonNullValue.getInstance();
-        }
-
-        @Override
-        public void nullValue() throws IOException {
-            currentValue = NullValue.getInstance();
-        }
-
-        @Override
-        public void emptyValue() throws IOException {
-            currentValue = EmptyValue.getInstance();
-        }
-    }
-
     /*
      * Read the protocol input stream and send events to a handler that
      * creates a FieldValue.
@@ -1071,6 +888,21 @@ public class Nson {
     public static double readNsonDouble(ByteInputStream in) throws IOException {
         readType(in, TYPE_DOUBLE);
         return readDouble(in);
+    }
+
+    /**
+     * Reads a Number as BigDecimal from the {@link ByteInputStream}
+     * @param in the input stream
+     * @return the value
+     * @throws IllegalArgumentException if the type at the stream is not
+     * the one expected
+     * @throws IOException if there are problems reading the stream
+     */
+    public static BigDecimal readNsonNumber(ByteInputStream in)
+        throws IOException {
+
+        readType(in, TYPE_NUMBER);
+        return new BigDecimal(Nson.readString(in));
     }
 
     /**

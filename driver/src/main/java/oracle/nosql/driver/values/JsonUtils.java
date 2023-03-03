@@ -26,10 +26,10 @@ import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * @hidden
  * Internal use only
  *
  * A utility class for working with JSON and FieldValue instances.
+ * @hidden
  */
 public class JsonUtils {
 
