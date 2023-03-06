@@ -478,7 +478,8 @@ public class Client {
         int thisIterationTimeoutMs = 0;
 
         do {
-            thisIterationTimeoutMs = getIterationTimeoutMs(timeoutMs, startNanos);
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
 
             /*
              * Check rate limiters before executing the request.
@@ -644,8 +645,7 @@ public class Client {
                     namespace = config.getDefaultNamespace();
                 }
                 if (namespace != null) {
-                    headers.add(REQUEST_NAMESPACE_HEADER,
-                                config.getDefaultNamespace());
+                    headers.add(REQUEST_NAMESPACE_HEADER, namespace);
                 }
 
                 if (isLoggable(logger, Level.FINE) &&
@@ -831,8 +831,8 @@ public class Client {
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
-                    // Don't set this exception: it's misleading
-                    // exception = upe;
+                    /* Don't set this exception: it's misleading */
+                    /* exception = upe; */
                     logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
