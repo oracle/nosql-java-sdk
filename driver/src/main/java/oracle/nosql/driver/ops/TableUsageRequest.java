@@ -237,8 +237,8 @@ public class TableUsageRequest extends Request {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *

@@ -132,7 +132,7 @@ public class TableResult extends Result {
     }
 
     /**
-     * On-premise service only.
+     * On-premises service only.
      * <p>
      * Returns the namespace of the table, or null if it is not in a namespace.
      * Note that the tablename is prefixed with the namespace as well if it

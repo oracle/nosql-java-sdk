@@ -135,8 +135,8 @@ public class WriteMultipleRequest extends DurableRequest {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -147,6 +147,27 @@ public class WriteMultipleRequest extends DurableRequest {
      */
     public WriteMultipleRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name for the request
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public WriteMultipleRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 
