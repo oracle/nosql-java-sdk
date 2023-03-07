@@ -4,10 +4,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- On-premises only: added support for setting namespace on a per-request basis
+
 ### Changed
 - Allow a space in addition to a "T" to separate date and time in String
  TimestampValue format
 - Code cleanup, removing unused/obsolete code and tests
+
+### Fixed
+- Internal: changed to use nanoTime() instead of currentTimeMillis() to avoid
+ possible issue if system clock rolls backwards
+- Additional internal per-request-iteration timeout corrections
 
 ## [5.4.9] 2023-02-14
 

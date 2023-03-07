@@ -98,9 +98,6 @@ public class DefaultRetryHandler implements RetryHandler {
      *         do not delay at all.
      */
     public static int computeBackoffDelay(Request request, int fixedDelayMs) {
-        int timeoutMs = request.getTimeoutInternal();
-        long startTimeMs = request.getStartTimeMs();
-
         int delayMs = fixedDelayMs;
         if (delayMs == 0) {
             /* add 200ms plus a small random amount */
@@ -114,10 +111,12 @@ public class DefaultRetryHandler implements RetryHandler {
          * if the delay would put us over the timeout, reduce it to just before
          * the timeout would occur.
          */
-        long nowMs = System.currentTimeMillis();
-        long msLeft = (startTimeMs + (long)timeoutMs) - nowMs;
-        if ((int)msLeft < delayMs) {
-            delayMs = (int)msLeft;
+        long nanosUsed = System.nanoTime() - request.getStartNanos();
+        int msUsed = Math.toIntExact(nanosUsed / 1_000_000);
+        int timeoutMs = request.getTimeoutInternal();
+        int msLeft = (timeoutMs - msUsed) - 1;
+        if (msLeft < delayMs) {
+            delayMs = msLeft;
             if (delayMs < 1) {
                 return 0;
             }
