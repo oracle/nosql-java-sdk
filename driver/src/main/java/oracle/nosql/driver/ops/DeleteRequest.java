@@ -211,8 +211,8 @@ public class DeleteRequest extends WriteRequest {
 
     /**
      * Sets the optional request timeout value, in milliseconds. This overrides
-     * any default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * any default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -230,7 +230,8 @@ public class DeleteRequest extends WriteRequest {
      * Sets the optional namespace.
      * On-premises only.
      *
-     * This overrides any default value set in {@link NoSQLHandleConfig}.
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
      * Note: if a namespace is specified in the table name for the request
      * (using the namespace:tablename format), that value will override this
      * setting.
