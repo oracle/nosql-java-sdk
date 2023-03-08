@@ -7,9 +7,6 @@
 
 package oracle.nosql.driver;
 
-import java.util.Iterator;
-import java.util.Map;
-
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 

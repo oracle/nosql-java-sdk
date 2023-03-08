@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 - On-premises only: added support for setting namespace on a per-request basis
 
+### Changed
+- Allow a space in addition to a "T" to separate date and time in String
+ TimestampValue format
+- Code cleanup, removing unused/obsolete code and tests
+
 ### Fixed
 - Internal: changed to use nanoTime() instead of currentTimeMillis() to avoid
  possible issue if system clock rolls backwards

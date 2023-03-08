@@ -48,8 +48,8 @@ import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
-import oracle.nosql.driver.values.FieldFinder;
 import oracle.nosql.driver.values.JsonUtils;
+import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
@@ -441,7 +441,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             GetResult result = new GetResult();
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -514,7 +514,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             DeleteResult result = new DeleteResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -601,7 +601,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             MultiDeleteResult result = new MultiDeleteResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -681,7 +681,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             PutResult result = new PutResult();
 
             in.setOffset(0);
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -868,7 +868,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             int[] shardIds = null;
             byte[] contKey = null;
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1243,7 +1243,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
             WriteMultipleResult  result = new WriteMultipleResult();
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1266,7 +1266,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     }
                 } else if (name.equals(WM_FAILURE)) {
                     /* failure is a map */
-                    FieldFinder.MapWalker fw = new FieldFinder.MapWalker(in);
+                    MapWalker fw = new MapWalker(in);
                     while (fw.hasNext()) {
                         fw.next();
                         String fname = fw.getCurrentName();
@@ -1297,7 +1297,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             ByteInputStream in) throws IOException {
             OperationResult opResult = new OperationResult();
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1461,7 +1461,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
             ListTablesResult  result = new ListTablesResult();
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1547,7 +1547,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             GetIndexesResult  result = new GetIndexesResult();
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1583,7 +1583,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
         private IndexInfo readIndexInfo(ByteInputStream in)
             throws IOException {
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             String indexName = null;
             String[] fields = null;
             String[] types = null;
@@ -1606,8 +1606,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     types = new String[numElements];
                     /* it's an array of map with PATH, TYPE elements */
                     for (int i = 0; i < numElements; i++) {
-                        FieldFinder.MapWalker infoWalker =
-                            new FieldFinder.MapWalker(in);
+                        MapWalker infoWalker =
+                            new MapWalker(in);
                         while (infoWalker.hasNext()) {
                             infoWalker.next();
                             String fname = infoWalker.getCurrentName();
@@ -1694,7 +1694,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                   short serialVersion) throws IOException {
             TableUsageResult result = new TableUsageResult();
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -1734,7 +1734,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
         private TableUsage readUsageRecord(ByteInputStream in)
             throws IOException {
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             TableUsage usage = new TableUsage();
             while (walker.hasNext()) {
                 walker.next();
@@ -2052,7 +2052,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * This method either returns a non-zero error code or throws an
          * exception based on the error code and additional information.
          */
-        protected static int handleErrorCode(FieldFinder.MapWalker walker)
+        protected static int handleErrorCode(MapWalker walker)
             throws IOException {
             ByteInputStream in = walker.getStream();
             int code = Nson.readNsonInt(in);
@@ -2097,7 +2097,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                          Result result)
             throws IOException {
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2120,7 +2120,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         static void readRow(ByteInputStream in, GetResult result)
             throws IOException {
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2152,7 +2152,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                    WriteResult result)
             throws IOException {
 
-            FieldFinder.MapWalker walker = new FieldFinder.MapWalker(in);
+            MapWalker walker = new MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2224,7 +2224,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             SystemResult result = new SystemResult();
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2268,7 +2268,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             in.setOffset(0);
 
-            FieldFinder.MapWalker walker = getMapWalker(in);
+            MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
@@ -2299,7 +2299,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(ETAG)) {
                     result.setMatchETag(Nson.readNsonString(in));
                 } else if (name.equals(LIMITS)) {
-                    FieldFinder.MapWalker lw = new FieldFinder.MapWalker(in);
+                    MapWalker lw = new MapWalker(in);
                     int ru = 0;
                     int wu = 0;
                     int sg = 0;
@@ -2349,7 +2349,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
         }
 
-        protected static void skipUnknownField(FieldFinder.MapWalker walker,
+        protected static void skipUnknownField(MapWalker walker,
                                                String name)
             throws IOException {
             // TODO log/warn
@@ -2384,11 +2384,11 @@ public class NsonSerializerFactory implements SerializerFactory {
          * serial version negotiation logic will detect it and decrement
          * the serial version accordingly.
          */
-        protected static FieldFinder.MapWalker getMapWalker(ByteInputStream in)
+        protected static MapWalker getMapWalker(ByteInputStream in)
             throws IOException {
             int offset = in.getOffset();
             try {
-                return new FieldFinder.MapWalker(in);
+                return new MapWalker(in);
             } catch (IllegalArgumentException e) {
                 /* verify it was one of the two above error codes */
                 in.setOffset(offset);

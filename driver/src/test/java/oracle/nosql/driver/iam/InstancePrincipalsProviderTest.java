@@ -44,6 +44,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 
+@SuppressWarnings("restriction")
 public class InstancePrincipalsProviderTest extends DriverTestBase {
     private static final FreePortLocator portLocator =
         new FreePortLocator("localhost", 4242, 14000);

@@ -27,16 +27,12 @@ public class EmptyValue extends FieldValue {
         super();
     }
 
-    /**
-     * @hidden
-     */
     @Override
     public Type getType() {
         return Type.EMPTY;
     }
 
     /**
-     * @hidden
      * Returns an instance (singleton) of EmptyValue.
      *
      * @return the value
@@ -45,9 +41,6 @@ public class EmptyValue extends FieldValue {
         return INSTANCE;
     }
 
-    /**
-     * @hidden
-     */
     @Override
     public int compareTo(FieldValue other) {
         if (other instanceof EmptyValue) {
@@ -57,25 +50,16 @@ public class EmptyValue extends FieldValue {
         return -1;
     }
 
-    /**
-     * @hidden
-     */
     @Override
     public String toJson(JsonOptions options) {
         return "\"EMPTY\"";
     }
 
-    /**
-     * @hidden
-     */
     @Override
     public boolean equals(Object other) {
         return other == INSTANCE;
     }
 
-    /**
-     * @hidden
-     */
     @Override
     public int hashCode() {
         return super.hashCode();

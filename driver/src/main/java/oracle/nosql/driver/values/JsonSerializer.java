@@ -12,10 +12,9 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.core.io.CharTypes;
 
 /**
- * @hidden
- *
  * JsonSerializer is a {@link FieldValueEventHandler} instance that creates
  * a JSON string value without pretty printing.
+ * @hidden
  */
 public class JsonSerializer implements FieldValueEventHandler {
 

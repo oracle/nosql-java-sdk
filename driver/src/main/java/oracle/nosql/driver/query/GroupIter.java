@@ -14,6 +14,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.SerializationUtil;
+import oracle.nosql.driver.util.SizeOf;
 import oracle.nosql.driver.values.DoubleValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.IntegerValue;
@@ -21,10 +24,6 @@ import oracle.nosql.driver.values.LongValue;
 import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.NullValue;
 import oracle.nosql.driver.values.NumberValue;
-import oracle.nosql.driver.query.Compare;
-import oracle.nosql.driver.util.SizeOf;
-import oracle.nosql.driver.util.ByteInputStream;
-import oracle.nosql.driver.util.SerializationUtil;
 
 public class GroupIter extends PlanIter {
 
