@@ -453,25 +453,117 @@ public class OnPremiseTest extends ProxyTestBase {
         /*
          * Note: tables will be dropped by a cascading drop of the namespace
          */
-        final String parentName = "parent";
-        final String childName = "parent.child";
-        final String nsParentName = "myns:parent";
-        final String nsChildName = "myns:parent.child";
+
+        final String parentName = "myns:parent";
+        final String childName = "myns:parent.child";
         final int numParent = 30;
         final int numChild = 40;
-
-        ((NoSQLHandleImpl)handle).setDefaultNamespace("myns");
 
         doSysOp(handle, "create namespace myns");
 
         /* parent in myns */
+        TableRequest treq = new TableRequest().setStatement(
+            "create table myns:parent(id integer, primary key(id))");
+        TableResult tres = handle.tableRequest(treq);
+        tres.waitForCompletion(handle, 100000, 1000);
+
+        /* child in myns */
+        treq = new TableRequest().setStatement(
+            "create table myns:parent.child(cid integer, name string, " +
+            "primary key(cid))");
+        tres = handle.tableRequest(treq);
+        tres.waitForCompletion(handle, 100000, 1000);
+
+        /* put data in both tables */
+        PutRequest preq = new PutRequest();
+        MapValue value = new MapValue();
+        for (int i = 0; i < numParent; i++) {
+            value.put("name", "myname"); // ignored in parent
+            value.put("id", i);
+            preq.setTableName(parentName).setValue(value);
+            PutResult pres = handle.put(preq);
+            assertNotNull("Parent put failed", pres.getVersion());
+            for (int j = 0; j < numChild; j++) {
+                value.put("cid", j); // ignored in parent
+                preq.setTableName(childName).setValue(value);
+                pres = handle.put(preq);
+                assertNotNull("Child put failed", pres.getVersion());
+                assertNoUnits(pres);
+            }
+        }
+
+        /* get parent */
+        GetRequest getReq = new GetRequest().setTableName(parentName)
+            .setKey(new MapValue().put("id", 1));
+        GetResult getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+
+        /* get child */
+        getReq = new GetRequest().setTableName(childName)
+            .setKey(new MapValue().put("id", 1).put("cid", 1));
+        getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+        assertNoUnits(getRes);
+
+        try {
+            /* query parent */
+            String query = "select * from " + parentName;
+            List<MapValue> res = doQuery(handle, query);
+            assertEquals(numParent, res.size());
+
+            /* query child */
+            query = "select * from " + childName;
+            res = doQuery(handle, query);
+            assertEquals(numParent * numChild, res.size());
+
+            /* prepared query on child */
+            res = doPreparedQuery(handle, query);
+            assertEquals(numParent * numChild, res.size());
+        } catch (RequestTimeoutException rte) {
+            /*
+            if (!(rte.getCause() instanceof SystemException)) {
+                throw rte;
+            }
+            */
+            /* ignore this exception for 19 for now; known bug */
+        }
+
+        /* test ListTables with namespace */
+        ListTablesRequest listTables =
+            new ListTablesRequest().setNamespace("myns");
+        ListTablesResult lres = handle.listTables(listTables);
+        assertEquals(2, lres.getTables().length);
+    }
+
+    @Test
+    public void testDefaultNamespaces()
+        throws Exception {
+
+        /* this only works with versions of KV with default namespace support */
+        assumeKVVersion("testDefaultNamespaces", 22, 3, 32);
+
+        /*
+         * Note: tables will be dropped by a cascading drop of the namespace
+         */
+        final String parentName = "parent";
+        final String childName = "parent.child";
+        final String nsParentName = "mydns:parent";
+        final String nsChildName = "mydns:parent.child";
+        final int numParent = 30;
+        final int numChild = 40;
+
+        ((NoSQLHandleImpl)handle).setDefaultNamespace("mydns");
+
+        doSysOp(handle, "create namespace mydns");
+
+        /* parent in mydns */
         TableRequest treq = new TableRequest().setStatement(
             "create table parent(sid integer, id integer, name string, " +
             "salary long, primary key(SHARD(sid), id))");
         TableResult tres = handle.tableRequest(treq);
         tres.waitForCompletion(handle, 100000, 1000);
 
-        /* child in myns */
+        /* child in mydns */
         treq = new TableRequest().setStatement(
             "create table parent.child(cid integer, cname string, " +
             "primary key(cid))");
@@ -487,7 +579,7 @@ public class OnPremiseTest extends ProxyTestBase {
         assertTrue(lres.getTables().length > 2);
 
         /* test ListTables with explicit namespace */
-        listTables = new ListTablesRequest().setNamespace("myns");
+        listTables = new ListTablesRequest().setNamespace("mydns");
         lres = handle.listTables(listTables);
         assertEquals(2, lres.getTables().length);
 
@@ -578,7 +670,7 @@ public class OnPremiseTest extends ProxyTestBase {
 
         /* This should pass */
         getReq = new GetRequest().setTableName(parentName)
-            .setNamespace("myns")
+            .setNamespace("mydns")
             .setKey(new MapValue().put("id", 1).put("sid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
@@ -586,7 +678,7 @@ public class OnPremiseTest extends ProxyTestBase {
         /* This should pass */
         ((NoSQLHandleImpl)handle).setDefaultNamespace("invalid");
         getReq = new GetRequest().setTableName(parentName)
-            .setNamespace("myns")
+            .setNamespace("mydns")
             .setKey(new MapValue().put("id", 1).put("sid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
@@ -596,7 +688,7 @@ public class OnPremiseTest extends ProxyTestBase {
         String query = "select sid, count(*) as cnt, sum(salary) as sum " +
                 "from " + parentName + " group by sid";
         /* this should pass */
-        List<MapValue> res = doQuery(handle, query, "myns");
+        List<MapValue> res = doQuery(handle, query, "mydns");
         assertEquals(numParent, res.size());
 
         /* this should fail */
@@ -631,12 +723,12 @@ public class OnPremiseTest extends ProxyTestBase {
         /* drop table with namespace in request */
         treq = new TableRequest()
             .setStatement("drop table parent.child")
-            .setNamespace("myns");
+            .setNamespace("mydns");
         tres = handle.tableRequest(treq);
         tres.waitForCompletion(handle, 100000, 1000);
 
         /* drop namespace - use cascade to remove tables */
-        doSysOp(handle, "drop namespace myns cascade");
+        doSysOp(handle, "drop namespace mydns cascade");
     }
 
     /**
