@@ -466,13 +466,14 @@ public class OnPremiseTest extends ProxyTestBase {
 
         /* parent in myns */
         TableRequest treq = new TableRequest().setStatement(
-            "create table parent(id integer, primary key(id))");
+            "create table parent(sid integer, id integer, name string, " +
+            "salary long, primary key(SHARD(sid), id))");
         TableResult tres = handle.tableRequest(treq);
         tres.waitForCompletion(handle, 100000, 1000);
 
         /* child in myns */
         treq = new TableRequest().setStatement(
-            "create table parent.child(cid integer, name string, " +
+            "create table parent.child(cid integer, cname string, " +
             "primary key(cid))");
         tres = handle.tableRequest(treq);
         tres.waitForCompletion(handle, 100000, 1000);
@@ -499,13 +500,16 @@ public class OnPremiseTest extends ProxyTestBase {
         PutRequest preq = new PutRequest();
         MapValue value = new MapValue();
         for (int i = 0; i < numParent; i++) {
-            value.put("name", "myname"); // ignored in parent
+            value.put("name", "pname");
             value.put("id", i);
+            value.put("sid", i);
+            value.put("salary", i*1000);
             preq.setTableName(parentName).setValue(value);
             PutResult pres = handle.put(preq);
             assertNotNull("Parent put failed", pres.getVersion());
             for (int j = 0; j < numChild; j++) {
-                value.put("cid", j); // ignored in parent
+                value.put("cid", j);
+                value.put("cname", "cname" + j);
                 preq.setTableName(childName).setValue(value);
                 pres = handle.put(preq);
                 assertNotNull("Child put failed", pres.getVersion());
@@ -515,13 +519,13 @@ public class OnPremiseTest extends ProxyTestBase {
 
         /* get parent */
         GetRequest getReq = new GetRequest().setTableName(parentName)
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         GetResult getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
 
         /* get child */
         getReq = new GetRequest().setTableName(childName)
-            .setKey(new MapValue().put("id", 1).put("cid", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1).put("cid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
         assertNoUnits(getRes);
@@ -564,7 +568,7 @@ public class OnPremiseTest extends ProxyTestBase {
 
         /* this should fail */
         getReq = new GetRequest().setTableName(parentName)
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         try {
             getRes = handle.get(getReq);
             fail("Get should have failed");
@@ -575,7 +579,7 @@ public class OnPremiseTest extends ProxyTestBase {
         /* This should pass */
         getReq = new GetRequest().setTableName(parentName)
             .setNamespace("myns")
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
 
@@ -583,16 +587,33 @@ public class OnPremiseTest extends ProxyTestBase {
         ((NoSQLHandleImpl)handle).setDefaultNamespace("invalid");
         getReq = new GetRequest().setTableName(parentName)
             .setNamespace("myns")
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
+
+
+        /* test complex query (exercises internal request copying) */
+        String query = "select sid, count(*) as cnt, sum(salary) as sum " +
+                "from " + parentName + " group by sid";
+        /* this should pass */
+        List<MapValue> res = doQuery(handle, query, "myns");
+        assertEquals(numParent, res.size());
+
+        /* this should fail */
+        try {
+            res = doQuery(handle, query, "invalid");
+            fail("query should have failed");
+        } catch (TableNotFoundException e) {
+            // expected
+        }
+
 
         /* verify table name overrides request namespace */
 
         /* this should fail */
         getReq = new GetRequest().setTableName(parentName)
             .setNamespace("invalid")
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         try {
             getRes = handle.get(getReq);
             fail("Get should have failed");
@@ -603,7 +624,7 @@ public class OnPremiseTest extends ProxyTestBase {
         /* This should pass */
         getReq = new GetRequest().setTableName(nsParentName)
             .setNamespace("invalid")
-            .setKey(new MapValue().put("id", 1));
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
         getRes = handle.get(getReq);
         assertNotNull(getRes.getValue());
 
