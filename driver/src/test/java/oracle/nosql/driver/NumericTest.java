@@ -334,7 +334,7 @@ public class NumericTest extends ProxyTestBase {
         JsonOptions optNumericAsNumber =
             new JsonOptions().setNumericAsNumber(true);
 
-        BigDecimal bd = new BigDecimal("123456789012345678901234567890");
+        BigDecimal bd = new BigDecimal("1.2345678901234567890123456789E29");
         runGetDeleteTest(tabName, bd, null, false);
         runGetDeleteTest(tabName, bd, optNumericAsNumber, true);
 
