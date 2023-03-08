@@ -34,6 +34,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+@SuppressWarnings("restriction")
 public class StoreAccessTokenProviderTest {
 
     private static final String loginPath = KV_SECURITY_PATH + "/login";

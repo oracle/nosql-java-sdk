@@ -47,6 +47,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
  * A common base for driver tests. It is empty at this point but may
  * eventually contain common utilities.
  */
+@SuppressWarnings("restriction")
 public class DriverTestBase {
 
     /*

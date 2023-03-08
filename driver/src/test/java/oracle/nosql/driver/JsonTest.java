@@ -12,7 +12,6 @@ import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
-import oracle.nosql.driver.JsonParseException;
 import oracle.nosql.driver.values.JsonOptions;
 import oracle.nosql.driver.values.JsonReader;
 import oracle.nosql.driver.values.MapValue;

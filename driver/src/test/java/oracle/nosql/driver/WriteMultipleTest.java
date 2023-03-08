@@ -21,10 +21,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import oracle.nosql.driver.BatchOperationNumberLimitException;
-import oracle.nosql.driver.RowSizeLimitException;
-import oracle.nosql.driver.TimeToLive;
-import oracle.nosql.driver.Version;
+import org.junit.Test;
+
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -39,8 +37,6 @@ import oracle.nosql.driver.ops.WriteMultipleResult;
 import oracle.nosql.driver.ops.WriteMultipleResult.OperationResult;
 import oracle.nosql.driver.ops.WriteRequest;
 import oracle.nosql.driver.values.MapValue;
-
-import org.junit.Test;
 
 /**
  * Test on WriteMultiple operation.

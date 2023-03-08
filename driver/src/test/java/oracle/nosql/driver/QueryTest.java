@@ -2396,7 +2396,8 @@ public class QueryTest extends ProxyTestBase {
         return MIN_QUERY_COST;
     }
 
-    private QueryRequest newQueryRequest() {
+    @SuppressWarnings("resource")
+	private QueryRequest newQueryRequest() {
         return new QueryRequest().setTraceLevel(traceLevel);
     }
 }

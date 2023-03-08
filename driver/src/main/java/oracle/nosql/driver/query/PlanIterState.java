@@ -7,8 +7,6 @@
 
 package oracle.nosql.driver.query;
 
-import oracle.nosql.driver.query.QueryStateException;
-
 public class PlanIterState {
 
     public static enum StateEnum {
