@@ -581,8 +581,17 @@ public class ProxyTestBase {
     }
 
     protected static List<MapValue> doQuery(NoSQLHandle qHandle, String query) {
+        return doQuery(qHandle, query, null);
+    }
+
+    protected static List<MapValue> doQuery(NoSQLHandle qHandle,
+                                            String query,
+                                            String namespace) {
         try( QueryRequest queryRequest = new QueryRequest()) {
             queryRequest.setStatement(query);
+            if (namespace != null) {
+                queryRequest.setNamespace(namespace);
+            }
             List<MapValue> results = new ArrayList<MapValue>();
 
             do {

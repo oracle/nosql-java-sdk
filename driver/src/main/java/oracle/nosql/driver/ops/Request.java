@@ -503,6 +503,7 @@ public abstract class Request {
         other.setCheckRequestSize(this.checkRequestSize);
         other.setCompartmentInternal(this.compartment);
         other.setTableNameInternal(this.tableName);
+        other.setNamespaceInternal(this.namespace);
         other.setStartNanos(this.startNanos);
         other.setRetryStats(this.retryStats);
         other.setReadRateLimiter(this.readRateLimiter);
