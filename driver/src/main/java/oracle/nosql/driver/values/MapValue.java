@@ -39,6 +39,9 @@ import oracle.nosql.driver.util.SizeOf;
  * schema field names are treated as case-insensitive. If a MapValue
  * represents JSON, field names are case-sensitive.
  * </p>
+ * MapValue does not support put of Java null values. If a "null" JSON value is
+ * desired it is possible to put a {@link NullValue} instance using
+ * "put(fieldName, NullValue.getInstance())"
  * <p>
  * When a MapValue is received on output the value will always conform to
  * the schema of the table from which the value was received or the implied
@@ -289,6 +292,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, BigDecimal value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new NumberValue(value));
     }
 
@@ -303,6 +307,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, String value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new StringValue(value));
     }
 
@@ -331,6 +336,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, byte[] value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new BinaryValue(value));
     }
 
@@ -345,6 +351,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, Timestamp value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new TimestampValue(value));
     }
 
@@ -367,6 +374,8 @@ public class MapValue extends FieldValue
     public MapValue putFromJson(String name,
                                 String jsonString,
                                 JsonOptions options) {
+        requireNonNull(jsonString,
+                       "MapValue.putFromJson: JSON string must be non-null");
         return put(name, JsonUtils.createValueFromJson(jsonString, options));
     }
 
