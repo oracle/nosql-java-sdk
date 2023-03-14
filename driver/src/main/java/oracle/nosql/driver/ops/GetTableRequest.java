@@ -131,7 +131,7 @@ public class GetTableRequest extends Request {
      */
     @Override
     public void validate() {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 "GetTableRequest requires a table name");
         }

@@ -257,7 +257,7 @@ public class TableUsageRequest extends Request {
      */
     @Override
     public void validate() {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 "TableUsageRequest requires a table name");
         }
