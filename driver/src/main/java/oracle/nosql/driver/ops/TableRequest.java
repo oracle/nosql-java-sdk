@@ -286,7 +286,7 @@ public class TableRequest extends Request {
 
     @Override
     public  void validate() {
-        if (statement == null && tableName == null) {
+        if (statement == null && (tableName == null || tableName.isEmpty())) {
             throw new IllegalArgumentException(
                 "TableRequest requires statement or TableLimits and name");
         }

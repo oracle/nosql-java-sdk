@@ -53,7 +53,7 @@ public abstract class ReadRequest extends Request {
     }
 
     protected void validateReadRequest(String requestName) {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 (requestName +
                  " requires table name"));

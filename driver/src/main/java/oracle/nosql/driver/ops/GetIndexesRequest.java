@@ -128,7 +128,7 @@ public class GetIndexesRequest extends Request {
      */
     @Override
     public void validate() {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 "GetIndexesRequest requires a table name");
         }

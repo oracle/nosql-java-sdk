@@ -44,7 +44,7 @@ public abstract class WriteRequest extends DurableRequest {
     }
 
     protected void validateWriteRequest(String requestName) {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 (requestName +
                  " requires table name"));

@@ -258,7 +258,7 @@ public class MultiDeleteRequest extends DurableRequest {
      */
     @Override
     public void validate() {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
             ("MultiDeleteRequest requires table name"));
         }
