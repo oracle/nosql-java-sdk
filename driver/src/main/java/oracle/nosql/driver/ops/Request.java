@@ -73,6 +73,8 @@ public abstract class Request {
      */
     private RateLimiter writeRateLimiter;
     private int rateLimitDelayedMs;
+    private boolean preferThrottling;
+    private boolean drlOptIn;
 
     /**
      * @hidden
@@ -495,6 +497,43 @@ public abstract class Request {
 
     /**
      * @hidden
+     * Cloud only
+     * If using DRL, return immediate throttling error if the
+     * table is currently over its configured throughput limit.
+     * Otherwise, allow DRL to delay request processing to match
+     * table limits (default).
+     */
+    public void setPreferThrottling(boolean preferThrottling) {
+        this.preferThrottling = preferThrottling;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean getPreferThrottling() {
+        return preferThrottling;
+    }
+
+    /**
+     * @hidden
+     * Cloud only
+     * Opt-in to using Distributed Rate Limiting (DRL). This setting
+     * will eventually be deprecated, as all requests will eventually
+     * use DRL unconditionally in the cloud.
+     */
+    public void setDRLOptIn(boolean drlOptIn) {
+        this.drlOptIn = drlOptIn;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean getDRLOptIn() {
+        return drlOptIn;
+    }
+
+    /**
+     * @hidden
      * Copy internal fields to another Request object.
      * @param other the Request object to copy to.
      */
@@ -509,5 +548,7 @@ public abstract class Request {
         other.setReadRateLimiter(this.readRateLimiter);
         other.setWriteRateLimiter(this.writeRateLimiter);
         other.setRateLimitDelayedMs(this.rateLimitDelayedMs);
+        other.setPreferThrottling(this.preferThrottling);
+        other.setDRLOptIn(this.drlOptIn);
     }
 }

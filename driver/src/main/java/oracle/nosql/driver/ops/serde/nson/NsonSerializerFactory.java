@@ -1792,6 +1792,12 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             writeMapField(ns, OP_CODE, op);
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
+            if (rq.getPreferThrottling()) {
+                writeMapField(ns, PREFER_THROTTLING, true);
+            }
+            if (rq.getDRLOptIn()) {
+                writeMapField(ns, DRL_OPTIN, true);
+            }
         }
 
         /**
