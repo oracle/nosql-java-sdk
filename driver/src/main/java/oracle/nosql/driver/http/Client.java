@@ -1037,7 +1037,7 @@ public class Client {
         if (limits == null ||
             (limits.getReadUnits() <= 0 && limits.getWriteUnits() <= 0)) {
             rateLimiterMap.remove(tableName);
-            logInfo(logger, "removing rate limiting from table " + tableName);
+            logFine(logger, "removing rate limiting from table " + tableName);
             return false;
         }
 
@@ -1067,9 +1067,11 @@ public class Client {
         }
 
         rateLimiterMap.update(tableName, RUs, WUs, durationSeconds);
-        final String msg = String.format("Updated table '%s' to have " +
-            "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
-        logInfo(logger, msg);
+        if (isLoggable(logger, Level.FINE)) {
+            final String msg = String.format("Updated table '%s' to have " +
+                "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
+            logFine(logger, msg);
+        }
 
         return true;
     }
@@ -1321,17 +1323,17 @@ public class Client {
             .setTimeout(1000);
         TableResult res = null;
         try {
-            logInfo(logger, "Starting GetTableRequest for table '" +
+            logFine(logger, "Starting GetTableRequest for table '" +
                 tableName + "'");
             res = (TableResult) this.execute(gtr);
         } catch (Exception e) {
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned exception: " + e.getMessage());
         }
 
         if (res == null) {
             /* table doesn't exist? other error? */
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned null");
             AtomicLong then = tableLimitUpdateMap.get(tableName);
             if (then != null) {
@@ -1341,11 +1343,11 @@ public class Client {
             return;
         }
 
-        logInfo(logger, "GetTableRequest completed for table '" +
+        logFine(logger, "GetTableRequest completed for table '" +
             tableName + "'");
         /* update/add rate limiters for table */
         if (updateRateLimiters(tableName, res.getTableLimits())) {
-            logInfo(logger, "background thread added limiters for table '" +
+            logFine(logger, "background thread added limiters for table '" +
                 tableName + "'");
         }
     }
