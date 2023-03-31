@@ -28,6 +28,8 @@ public class RuntimeControlBlock {
      */
     private final QueryDriver theQueryDriver;
 
+    private final TopologyInfo theBaseTopo;
+
     /*
      * An array storing the values of the extenrnal variables set for the
      * operation. These come from the map in the BoundStatement.
@@ -90,6 +92,7 @@ public class RuntimeControlBlock {
         theIteratorStates = new PlanIterState[numIters];
         theRegisters = new FieldValue[numRegs];
         theExternalVars = externalVars;
+        theBaseTopo = getClient().getTopology();
     }
 
     public int getTraceLevel() {
@@ -109,8 +112,8 @@ public class RuntimeControlBlock {
         return theQueryDriver.getRequest();
     }
 
-    TopologyInfo getTopologyInfo() {
-        return theQueryDriver.getTopologyInfo();
+    TopologyInfo getBaseTopo() {
+        return theBaseTopo;
     }
 
     Consistency getConsistency() {

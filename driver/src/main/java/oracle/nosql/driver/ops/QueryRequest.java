@@ -19,6 +19,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
+import oracle.nosql.driver.query.VirtualScan;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -108,6 +109,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private byte[] continuationKey;
 
+    private VirtualScan virtualScan;
+
     /*
      * The QueryDriver, for advanced queries only.
      */
@@ -126,6 +129,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     private int shardId = -1;
 
+    private String queryName;
+
     public QueryRequest() {
     }
 
@@ -140,6 +145,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         super.copyTo(internalReq);
 
         internalReq.traceLevel = traceLevel;
+        internalReq.queryName = queryName;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
@@ -149,6 +155,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
+        internalReq.topoSeqNum = topoSeqNum;
         return internalReq;
     }
 
@@ -217,26 +224,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     * @return TopologyInfo
-     */
-    public TopologyInfo topologyInfo() {
-        return (preparedStatement == null ?
-                null :
-                preparedStatement.topologyInfo());
-    }
-
-    /**
-     * @hidden
-     * @return topology seq num
-     */
-    public int topologySeqNum() {
-        return (preparedStatement == null ?
-                -1 :
-                preparedStatement.topologySeqNum());
-    }
-
-    /**
-     * @hidden
      */
     @Override
     public boolean isQueryRequest() {
@@ -292,6 +279,20 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     */
+    public void setVirtualScan(VirtualScan vs) {
+        virtualScan = vs;
+    }
+
+    /**
+     * @hidden
+     */
+    public VirtualScan getVirtualScan() {
+        return virtualScan;
+    }
+
+    /**
+     * @hidden
      *
      * @param level trace level
      * @return this
@@ -303,6 +304,30 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         }
         traceLevel = level;
         return this;
+    }
+
+    /**
+     * @hidden
+     * Set a symbolic name for this query. This name will appear in query logs
+     * if query tracing has been turned on.
+     *
+     * @param name the query name
+     *
+     * @return this
+     */
+    public QueryRequest setQueryName(String name) {
+        queryName = name;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * Returns the query name
+     *
+     * @return the query name, or null if it has not been set
+     */
+    public String getQueryName() {
+        return queryName;
     }
 
     /**

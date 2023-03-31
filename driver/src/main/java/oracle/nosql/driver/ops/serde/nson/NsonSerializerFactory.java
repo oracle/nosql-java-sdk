@@ -93,6 +93,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.PlanIter;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
+import oracle.nosql.driver.query.VirtualScan;
 import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
@@ -810,12 +811,29 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getShardId() != -1) { // default
                 writeMapField(ns, SHARD_ID, rq.getShardId());
             }
-            if (rq.topologySeqNum() != -1) { // default
-                writeMapField(ns, TOPO_SEQ_NUM, rq.topologySeqNum());
+            if (rq.topoSeqNum() != -1) { // default
+                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
             }
-
+            if (rq.getQueryName() != null) {
+                writeMapField(ns, QUERY_NAME, rq.getQueryName());
+            }
+            if (rq.getVirtualScan() != null) {
+                writeVirtualScan(ns, rq.getVirtualScan());
+            }
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
+        }
+
+        private static void writeVirtualScan(NsonSerializer ns,
+                                             VirtualScan vs)
+            throws IOException {
+            startMap(ns, VIRTUAL_SCAN);
+            writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
+            writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
+            writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
+            writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
+            writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
+            endMap(ns, VIRTUAL_SCAN);
         }
 
         private static class DriverPlanInfo {
@@ -844,10 +862,12 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Either qreq/qres are given, or preq/pres are given.
          */
         public static void deserializePrepareOrQuery(
-                               QueryRequest qreq, QueryResult qres,
-                               PrepareRequest preq, PrepareResult pres,
-                               ByteInputStream in,
-                               short serialVersion) throws IOException {
+            QueryRequest qreq,
+            QueryResult qres,
+            PrepareRequest preq,
+            PrepareResult pres,
+            ByteInputStream in,
+            short serialVersion) throws IOException {
 
             PreparedStatement prep = null;
             if (qreq != null ) {
@@ -864,80 +884,105 @@ public class NsonSerializerFactory implements SerializerFactory {
             String namespace = null;
             String querySchema = null;
             byte operation = 0;
-            int proxyTopoSeqNum = 0;
+            int proxyTopoSeqNum = 1;
             int[] shardIds = null;
             byte[] contKey = null;
+            VirtualScan[] virtualScans = null;
 
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
+
                 if (name.equals(ERROR_CODE)) {
                     handleErrorCode(walker);
+
                 } else if (name.equals(CONSUMED)) {
                     readConsumedCapacity(in, (qres!=null)?qres:pres);
+
                 } else if (name.equals(QUERY_RESULTS) && qres != null) {
                     qres.setResults(readQueryResults(in));
+
                 } else if (name.equals(CONTINUATION_KEY)) {
                     contKey = Nson.readNsonBinary(in);
+
                 } else if (name.equals(SORT_PHASE1_RESULTS) && qres != null) {
                     byte[] arr = Nson.readNsonBinary(in);
                     readPhase1Results(arr, qres);
+
                 } else if (name.equals(PREPARED_QUERY)) {
                     proxyPreparedQuery = Nson.readNsonBinary(in);
+
                 } else if (name.equals(DRIVER_QUERY_PLAN)) {
                     dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
                                             serialVersion);
+
                 } else if (name.equals(REACHED_LIMIT) && qres != null) {
                     qres.setReachedLimit(Nson.readNsonBoolean(in));
+
                 } else if (name.equals(PROXY_TOPO_SEQNUM)) {
                     proxyTopoSeqNum = Nson.readNsonInt(in);
+
                 } else if (name.equals(SHARD_IDS)) {
                     shardIds = readNsonIntArray(in);
+
                 } else if (name.equals(TABLE_NAME)) {
                     tableName = Nson.readNsonString(in);
+
                 } else if (name.equals(NAMESPACE)) {
                     namespace = Nson.readNsonString(in);
+
                 } else if (name.equals(QUERY_PLAN_STRING)) {
                     queryPlan = Nson.readNsonString(in);
+
                 } else if (name.equals(QUERY_RESULT_SCHEMA)) {
                     querySchema = Nson.readNsonString(in);
+
                 } else if (name.equals(QUERY_OPERATION)) {
                     operation = (byte)Nson.readNsonInt(in);
+
+                } else if (name.equals(VIRTUAL_SCANS)) {
+                    readType(in, Nson.TYPE_ARRAY);
+                    in.readInt(); /* length of array in bytes */
+                    int numScans = in.readInt(); /* number of array elements */
+                    virtualScans = new VirtualScan[numScans];
+                    for (int i = 0; i < numScans; ++i) {
+                        virtualScans[i] = readVirtualScan(in);
+                    }
                 } else {
                     // log/warn
                     walker.skip();
                 }
             }
 
-            if (qres != null) {
-                qres.setContinuationKey(contKey);
-                qreq.setContKey(qres.getContinuationKey());
-            }
-
-            if (isPreparedRequest) {
-                if (qreq != null) {
-                    // TODO update topo info
-                }
-                return;
-            }
-
-            //assert(proxyPreparedQuery != null);
-            //assert(driverQueryPlan != null);
             TopologyInfo ti = null;
             if (proxyTopoSeqNum >= 0) {
                 ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
             }
+
+            if (qres != null) {
+                qres.setContinuationKey(contKey);
+                qreq.setContKey(qres.getContinuationKey());
+                qres.setVirtualScans(virtualScans);
+                qres.setTopology(ti);
+            } else {
+                pres.setTopology(ti);
+            }
+
+            if (isPreparedRequest) {
+                return;
+            }
+
             String statement;
             if (qreq != null) {
                 statement = qreq.getStatement();
             } else {
                 statement = preq.getStatement();
             }
+
             prep = new PreparedStatement(statement,
                                          queryPlan,
                                          querySchema,
-                                         ti,
                                          proxyPreparedQuery,
                                          (dpi!=null)?dpi.driverQueryPlan:null,
                                          (dpi!=null)?dpi.numIterators:0,
@@ -952,11 +997,42 @@ public class NsonSerializerFactory implements SerializerFactory {
                 qreq.setPreparedStatement(prep);
                 if (!prep.isSimpleQuery()) {
                     QueryDriver driver = new QueryDriver(qreq);
-                    driver.setTopologyInfo(prep.topologyInfo());
                     driver.setPrepCost(qres.getReadKB());
                     qres.setComputed(false);
                 }
             }
+        }
+
+        private static VirtualScan readVirtualScan(ByteInputStream in)
+            throws IOException {
+
+            int sid = -1;
+            int pid = -1;
+            byte[] primKey = null;
+            byte[] secKey = null;
+            boolean moveAfter = true;
+
+            MapWalker walker = getMapWalker(in);
+
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(VIRTUAL_SCAN_SID)) {
+                    sid = Nson.readNsonInt(in);
+                } else if (name.equals(VIRTUAL_SCAN_PID)) {
+                    pid = Nson.readNsonInt(in);
+                } else if (name.equals(VIRTUAL_SCAN_PRIM_KEY)) {
+                    primKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_SEC_KEY)) {
+                    secKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_MOVE_AFTER)) {
+                    moveAfter = Nson.readNsonBoolean(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+
+            return new VirtualScan(pid, sid, primKey, secKey, moveAfter);
         }
 
         private static void readPhase1Results(byte[] arr, QueryResult result)
@@ -977,7 +1053,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         private static DriverPlanInfo getDriverPlanInfo(byte[] arr,
-                                                 short serialVersion)
+                                                        short serialVersion)
             throws IOException {
             if (arr == null || arr.length == 0) {
                 return null;
@@ -1095,6 +1171,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             if (rq.getQuerySchema()) {
                 writeMapField(ns, GET_QUERY_SCHEMA, true);
+            }
+           if (rq.topoSeqNum() != -1) { // default
+                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
             }
 
             endMap(ns, PAYLOAD);
@@ -1770,6 +1849,22 @@ public class NsonSerializerFactory implements SerializerFactory {
      * deserialization of V4 protocol
      */
     public static abstract class NsonSerializerBase implements Serializer {
+
+        public static void readType(ByteInputStream in, int expected)
+            throws IOException {
+
+            int type = in.readByte();
+            if (type != expected) {
+                throwTypeMismatch(expected, type);
+            }
+        }
+
+        private static void throwTypeMismatch(int expected, int found) {
+            throw new IllegalArgumentException(
+               "Expected type not found, expected type: " +
+               Nson.typeString(expected) +
+               ", found type: " + Nson.typeString(found));
+        }
 
         /**
          * Header

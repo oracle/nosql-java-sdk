@@ -92,6 +92,7 @@ import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -204,6 +205,8 @@ public class Client {
 
     /* for keeping track of SDKs usage */
     private String userAgent;
+
+    private volatile TopologyInfo topology;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -374,8 +377,12 @@ public class Client {
         kvRequest.setRetryStats(null);
         kvRequest.setRateLimitDelayedMs(0);
 
+        /* kvRequest.isQueryRequest() returns true if kvRequest is a
+         * non-internal QueryRequest */
         if (kvRequest.isQueryRequest()) {
+
             QueryRequest qreq = (QueryRequest)kvRequest;
+            kvRequest.setTopoSeqNum(getTopoSeqNum());
 
             statsControl.observeQuery(qreq);
 
@@ -404,7 +411,6 @@ public class Client {
                 trace("QueryRequest has no QueryDriver, but is prepared", 2);
                 QueryDriver driver = new QueryDriver(qreq);
                 driver.setClient(this);
-                driver.setTopologyInfo(qreq.topologyInfo());
                 return new QueryResult(qreq, false);
             }
 
@@ -579,6 +585,10 @@ public class Client {
                  * writeContent().
                  */
                 kvRequest.setCheckRequestSize(false);
+                if (!(kvRequest instanceof QueryRequest) ||
+                    kvRequest.isQueryRequest()) {
+                    kvRequest.setTopoSeqNum(getTopoSeqNum());
+                }
 
                 /*
                  * Temporarily change the timeout in the request object so
@@ -682,6 +692,7 @@ public class Client {
                 long networkLatency =
                     (System.nanoTime() - latencyNanos) / 1_000_000;
 
+                setTopology(res.getTopology());
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -1702,5 +1713,25 @@ public class Client {
      */
     public void setDefaultNamespace(String ns) {
         config.setDefaultNamespace(ns);
+    }
+
+    public TopologyInfo getTopology() {
+        return topology;
+    }
+
+    private synchronized int getTopoSeqNum() {
+        return (topology == null ? -1 : topology.getSeqNum());
+    }
+
+    private synchronized void setTopology(TopologyInfo topo) {
+
+        if (topo == null) {
+            return;
+        }
+
+        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+            topology = topo;
+            trace("New topology: " + topo, 0);
+        }
     }
 }

@@ -71,6 +71,7 @@ public class NsonProtocol {
     public static String PREPARED_QUERY = "pq";
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
+    public static String QUERY_NAME = "qn";
     public static String QUERY_VERSION = "qv";
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
@@ -94,6 +95,13 @@ public class NsonProtocol {
     public static String UPDATE_TTL = "ut";
     public static String VALUE = "l";
     public static String VERSION = "v";
+    public static String VIRTUAL_SCAN = "vs";
+    public static String VIRTUAL_SCANS = "vsa";
+    public static String VIRTUAL_SCAN_SID = "vsid";
+    public static String VIRTUAL_SCAN_PID = "vpid";
+    public static String VIRTUAL_SCAN_PRIM_KEY = "vpk";
+    public static String VIRTUAL_SCAN_SEC_KEY = "vsk";
+    public static String VIRTUAL_SCAN_MOVE_AFTER = "vma";
     public static String WRITE_MULTIPLE = "wm";
     public static String WRITE_THROTTLE_COUNT = "wt";
 
@@ -208,6 +216,7 @@ public class NsonProtocol {
         {PREPARED_QUERY,"PREPARED_QUERY"},
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
+        {QUERY_NAME,"QUERY_NAME"},
         {QUERY_VERSION,"QUERY_VERSION"},
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
@@ -231,6 +240,13 @@ public class NsonProtocol {
         {UPDATE_TTL,"UPDATE_TTL"},
         {VALUE,"VALUE"},
         {VERSION,"VERSION"},
+        {VIRTUAL_SCAN,"VIRTUAL_SCAN"},
+        {VIRTUAL_SCANS,"VIRTUAL_SCANS"},
+        {VIRTUAL_SCAN_SID,"VIRTUAL_SCAN_SID"},
+        {VIRTUAL_SCAN_PID,"VIRTUAL_SCAN_PID"},
+        {VIRTUAL_SCAN_PRIM_KEY,"VIRTUAL_SCAN_PRIM_KEY"},
+        {VIRTUAL_SCAN_SEC_KEY,"VIRTUAL_SCAN_SEC_KEY"},
+        {VIRTUAL_SCAN_MOVE_AFTER,"VIRTUAL_SCAN_MOVE_AFTER"},
         {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
         {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
         {ERROR_CODE,"ERROR_CODE"},

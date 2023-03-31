@@ -623,7 +623,7 @@ public class Compare {
 
             int comp = sortAtomics(rcb, v1, v2, i, sortSpecs);
 
-            if (rcb.getTraceLevel() >= 3) {
+            if (rcb.getTraceLevel() >= 4) {
                 rcb.trace("Sort-Compared " + v1 + " with " + v2 +
                           " res = " + comp);
             }

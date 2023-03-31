@@ -12,6 +12,7 @@ import java.util.List;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.VirtualScan;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -80,6 +81,8 @@ public class QueryResult extends Result {
     private int[] numResultsPerPid;
 
     private byte[][] continuationKeys;
+
+    private VirtualScan[] virtualScans;
 
     /**
      * @hidden
@@ -282,6 +285,20 @@ public class QueryResult extends Result {
     public QueryResult setContinuationKey(byte[] continuationKey) {
         this.continuationKey = continuationKey;
         return this;
+    }
+
+    /**
+     * @hidden
+     */
+    public VirtualScan[] getVirtualScans() {
+        return virtualScans;
+    }
+
+    /**
+     * @hidden
+     */
+    public void setVirtualScans(VirtualScan[] vs) {
+        virtualScans = vs;
     }
 
     /* from Result */

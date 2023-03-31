@@ -58,12 +58,6 @@ public class ReceiveIter extends PlanIter {
     private static class ReceiveIterState extends PlanIterState {
 
         /*
-         * It stores the set of shard ids. Needed for sorting all-shard
-         * queries only.
-         */
-        TopologyInfo theTopoInfo;
-
-        /*
          * The remote scanner used for non-sorting queries.
          */
         RemoteScanner theScanner;
@@ -90,6 +84,8 @@ public class ReceiveIter extends PlanIter {
          * sort-phase-1 of a sorting, all-partition query.
          */
         byte[] theContinuationKey = null;
+
+        int theBaseVSID = -1;
 
         /*
          * Hash set used for duplicate elimination. It stores the primary
@@ -123,8 +119,6 @@ public class ReceiveIter extends PlanIter {
 
         ReceiveIterState(RuntimeControlBlock rcb, ReceiveIter iter) {
 
-            theTopoInfo = rcb.getTopologyInfo();
-
             if (iter.doesDupElim()) {
                 thePrimKeysSet = new HashSet<BinaryValue>(1000);
             }
@@ -132,17 +126,22 @@ public class ReceiveIter extends PlanIter {
             if (iter.doesSort() &&
                 iter.theDistributionKind == DistributionKind.ALL_PARTITIONS) {
                 theSortedScanners = new TreeSet<RemoteScanner>();
+
             } else if (iter.doesSort() &&
                        iter.theDistributionKind == DistributionKind.ALL_SHARDS) {
-                int numShards = theTopoInfo.numShards();
+
+                TopologyInfo baseTopo = rcb.getBaseTopo();
+                int numShards = baseTopo.numShards();
                 theSortedScanners = new TreeSet<RemoteScanner>();
                 for (int i = 0; i < numShards; ++i) {
                     theSortedScanners.add(
                         iter.new RemoteScanner(rcb, this, true,
-                                               theTopoInfo.getShardId(i)));
+                                               baseTopo.getShardId(i),
+                                               null));
                 }
+                theBaseVSID = baseTopo.getLastShardId() + 1;
             } else {
-                theScanner = iter.new RemoteScanner(rcb, this, false, -1);
+                theScanner = iter.new RemoteScanner(rcb, this, false, -1, null);
             }
         }
 
@@ -354,6 +353,7 @@ public class ReceiveIter extends PlanIter {
             if (!scanner.isDone()) {
                 try {
                     scanner.fetch();
+                    handleVirtualScans(rcb, state, scanner);
                 } catch (RetryableException e) {
                     state.theSortedScanners.add(scanner);
                     throw e;
@@ -376,8 +376,6 @@ public class ReceiveIter extends PlanIter {
                 }
             }
 
-            handleTopologyChange(rcb, state);
-
             /*
              * For simplicity, we don't want to allow the possibility of
              * another remote fetch during the same batch, so whether or not
@@ -388,36 +386,6 @@ public class ReceiveIter extends PlanIter {
             rcb.setReachedLimit(true);
             return false;
         }
-    }
-
-    /**
-     * Execute a copy of a request.
-     * After execution, copy specific fields from the request copy back
-     * to the original request. This is needed because client.execute() may
-     * set or update specific fields in the request, such as startTime,
-     * retry stats, rate limiters, etc.
-     */
-    private QueryResult execute(RuntimeControlBlock rcb,
-                                QueryRequest origRequest,
-                                QueryRequest reqCopy) {
-        NoSQLException e = null;
-        QueryResult result = null;
-        try {
-            result = (QueryResult)rcb.getClient().execute(reqCopy);
-        } catch (NoSQLException qe) {
-            e = qe;
-        }
-        /*
-         * Copy values back to original request, even when the execute()
-         * throws an error. This is because even in the error case the
-         * execute() call may have set/updated these values.
-         */
-        reqCopy.copyTo(origRequest);
-        /* if the execute() call threw an error, throw it here */
-        if (e != null) {
-            throw e;
-        }
-        return result;
     }
 
     /*
@@ -494,7 +462,7 @@ public class ReceiveIter extends PlanIter {
             }
 
             RemoteScanner scanner =
-                this.new RemoteScanner(rcb, state, false, pid);
+                this.new RemoteScanner(rcb, state, false, pid, null);
             scanner.addResults(partitionResults, contKey);
             state.theSortedScanners.add(scanner);
         }
@@ -514,56 +482,25 @@ public class ReceiveIter extends PlanIter {
         rcb.setReachedLimit(true);
     }
 
-    private void handleTopologyChange(
+    private void handleVirtualScans(
         RuntimeControlBlock rcb,
-        ReceiveIterState state) {
-
-        TopologyInfo newTopoInfo = rcb.getTopologyInfo();
+        ReceiveIterState state,
+        RemoteScanner scanner) {
 
         if (theDistributionKind == DistributionKind.ALL_PARTITIONS ||
-            newTopoInfo.equals(state.theTopoInfo)) {
+            scanner.theVirtualScans == null) {
             return;
         }
 
-        int[] newShards = newTopoInfo.getShardIds();
-        int[] currShards = state.theTopoInfo.getShardIds();
+        for (VirtualScan vs : scanner.theVirtualScans) {
 
-        for (int i = 0; i < newShards.length; ++i) {
+            int vsid = state.theBaseVSID++;
 
-            int j;
-            for (j = 0; j < currShards.length; ++j) {
-                if (newShards[i] == currShards[j]) {
-                    currShards[j] = -1;
-                    break;
-                }
-            }
-
-            if (j < currShards.length) {
-                continue;
-            }
-
-            /* We have a new shard */
             state.theSortedScanners.add(
-                this.new RemoteScanner(rcb, state, true, newShards[i]));
+                this.new RemoteScanner(rcb, state, true, vsid, vs));
         }
 
-        for (int j = 0; j < currShards.length; ++j) {
-
-            if (currShards[j] == -1) {
-                continue;
-            }
-
-            /* This shard does not exist any more */
-            for (RemoteScanner scanner : state.theSortedScanners) {
-
-                if (scanner.theShardOrPartId == currShards[j]) {
-                    state.theSortedScanners.remove(scanner);
-                    break;
-                }
-            }
-        }
-
-        state.theTopoInfo = newTopoInfo;
+        scanner.theVirtualScans = null;
     }
 
     private boolean checkDuplicate(
@@ -639,6 +576,36 @@ public class ReceiveIter extends PlanIter {
     }
 
     /**
+     * Execute a copy of a request.
+     * After execution, copy specific fields from the request copy back
+     * to the original request. This is needed because client.execute() may
+     * set or update specific fields in the request, such as startTime,
+     * retry stats, rate limiters, etc.
+     */
+    private QueryResult execute(RuntimeControlBlock rcb,
+                                QueryRequest origRequest,
+                                QueryRequest reqCopy) {
+        NoSQLException e = null;
+        QueryResult result = null;
+        try {
+            result = (QueryResult)rcb.getClient().execute(reqCopy);
+        } catch (NoSQLException qe) {
+            e = qe;
+        }
+        /*
+         * Copy values back to original request, even when the execute()
+         * throws an error. This is because even in the error case the
+         * execute() call may have set/updated these values.
+         */
+        reqCopy.copyTo(origRequest);
+        /* if the execute() call threw an error, throw it here */
+        if (e != null) {
+            throw e;
+        }
+        return result;
+    }
+
+    /**
      * For all-shard, ordering queries, there is one RemoteScanner per shard.
      * In this case, each RemoteScanner will fetch results only from the shard
      * specified by theShardOrPartId.
@@ -671,19 +638,27 @@ public class ReceiveIter extends PlanIter {
 
         byte[] theContinuationKey;
 
+        VirtualScan[] theVirtualScans;
+
+        VirtualScan theVirtualScan;
+
+        boolean theHaveDoneVirtualScan;
+
         boolean theMoreRemoteResults;
 
         public RemoteScanner(
             RuntimeControlBlock rcb,
             ReceiveIterState state,
             boolean isForShard,
-            int spid) {
+            int spid,
+            VirtualScan vs) {
 
             theRCB = rcb;
             theState = state;
             theMoreRemoteResults = true;
             theIsForShard = isForShard;
             theShardOrPartId = spid;
+            theVirtualScan = vs;
         }
 
         boolean isDone() {
@@ -761,13 +736,25 @@ public class ReceiveIter extends PlanIter {
             if (theRCB.getTraceLevel() >= 1) {
                 theRCB.trace("RemoteScanner : executing remote request. spid = " +
                              theShardOrPartId);
+                if (theVirtualScan != null) {
+                    theRCB.trace("RemoteScanner : request is for virtual scan:\n" +
+                                 theVirtualScan);
+                }
                 assert(reqCopy.hasDriver());
+            }
+
+            if (theVirtualScan != null && !theHaveDoneVirtualScan) {
+                assert(theIsForShard);
+                assert(doesSort());
+                reqCopy.setVirtualScan(theVirtualScan);
+                theHaveDoneVirtualScan = true;
             }
 
             QueryResult result = execute(theRCB, origRequest, reqCopy);
 
             theResults = result.getResultsInternal();
             theContinuationKey = result.getContinuationKey();
+            theVirtualScans = result.getVirtualScans();
             theNextResultPos = 0;
             theMoreRemoteResults = (theContinuationKey != null);
 

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import oracle.nosql.driver.ops.PreparedStatement;
+import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -53,7 +54,7 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         out.writeByte((byte)queryRq.getTraceLevel());
         writeInt(out, queryRq.getMaxWriteKB());
         SerializationUtil.writeMathContext(queryRq.getMathContext(), out);
-        writeInt(out, queryRq.topologySeqNum());
+        writeInt(out, queryRq.topoSeqNum());
         writeInt(out, queryRq.getShardId());
         out.writeBoolean(queryRq.isPrepared() && queryRq.isSimpleQuery());
 
@@ -77,6 +78,8 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         } else {
             writeString(out, queryRq.getStatement());
         }
+
+        writeString(out, queryRq.getQueryName());
     }
 
     @Override
@@ -125,11 +128,16 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
          * results, so that the preparation does not need to be done during each
          * query batch.
          */
+        PrepareResult prepResult = null;
+
         if (!isPrepared) {
+
+            prepResult = new PrepareResult();
 
             prep = PrepareRequestSerializer.
                    deserializeInternal(qreq.getStatement(),
                                        false,
+                                       prepResult,
                                        in,
                                        serialVersion);
 
@@ -140,18 +148,14 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
             if (!isPrepared) {
                 assert(numRows == 0);
                 QueryDriver driver = new QueryDriver(qreq);
-                driver.setTopologyInfo(prep.topologyInfo());
                 driver.setPrepCost(result.getReadKB());
                 result.setComputed(false);
+                result.setTopology(prepResult.getTopology());
             } else {
                 /* In this case, the QueryRequest is an "internal" one */
                 result.setReachedLimit(in.readBoolean());
                 TopologyInfo ti = BinaryProtocol.readTopologyInfo(in);
-                QueryDriver driver = qreq.getDriver();
-                if (ti != null) {
-                    prep.setTopologyInfo(ti);
-                    driver.setTopologyInfo(ti);
-                }
+                result.setTopology(ti);
             }
         }
 
