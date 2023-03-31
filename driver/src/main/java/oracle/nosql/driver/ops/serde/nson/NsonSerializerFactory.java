@@ -24,8 +24,11 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
+import static oracle.nosql.driver.util.BinaryProtocol.FLUID;
+import static oracle.nosql.driver.util.BinaryProtocol.FROZEN;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
+import static oracle.nosql.driver.util.BinaryProtocol.SCHEMALESS;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 
@@ -83,6 +86,7 @@ import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.TableResult.Replica;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleRequest.OperationRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
@@ -2462,11 +2466,73 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setTableLimits(new TableLimits(
                                               ru, wu, sg,
                                               getCapacityMode(mode)));
+                } else if (name.equals(SCHEMA_STATE)) {
+                    result.setSchemaState(getSchemaState(Nson.readNsonInt(in)));
+                } else if (name.equals(INITIALIZED)) {
+                    result.setInitialized(Nson.readNsonBoolean(in));
+                } else if (name.equals(REPLICAS)) {
+                    readReplicas(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
             }
             return result;
+        }
+
+        private static TableResult.SchemaState getSchemaState(int state) {
+            switch(state) {
+            case FLUID:
+                return TableResult.SchemaState.FLUID;
+            case FROZEN:
+                return TableResult.SchemaState.FROZEN;
+            case SCHEMALESS:
+                return TableResult.SchemaState.SCHEMALESS;
+            default:
+                throw new IllegalStateException("Unknown schema state " +
+                                                state);
+            }
+        }
+
+        private static void readReplicas(ByteInputStream in, TableResult result)
+            throws IOException {
+
+            /* array of replicas */
+            int t = in.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalStateException(
+                    "Replicas: bad type in table result: " +
+                    Nson.typeString(t) + ", should be ARRAY");
+            }
+            in.readInt();
+            int numElements = in.readInt();
+            Replica[] replicas = new Replica[numElements];
+            for (int i = 0; i < numElements; i++) {
+                Replica replica = new Replica();
+                readReplica(in, replica);
+                replicas[i] = replica;
+            }
+            result.setReplicas(replicas);
+        }
+
+        private static void readReplica(ByteInputStream in, Replica replia)
+            throws IOException {
+
+            MapWalker walker = new MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(REGION)) {
+                    replia.setRegion(Nson.readNsonString(in));
+                } else if (name.equals(TABLE_OCID)) {
+                    replia.setTableId(Nson.readNsonString(in));
+                } else if (name.equals(WRITE_UNITS)) {
+                    replia.setWriteUnits(Nson.readNsonInt(in));
+                } else if (name.equals(TABLE_STATE)) {
+                    replia.setState(getTableState(Nson.readNsonInt(in)));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
         }
 
         /*

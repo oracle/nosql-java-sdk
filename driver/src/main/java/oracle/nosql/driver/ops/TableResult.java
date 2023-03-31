@@ -48,6 +48,10 @@ public class TableResult extends Result {
     private DefinedTags definedTags;
     private String matchETag;
 
+    private SchemaState schemaState;
+    private boolean initialized;
+    private Replica[] replicas;
+
     /**
      * The current state of the table
      */
@@ -75,6 +79,21 @@ public class TableResult extends Result {
          * while the table is in this state.
          */
         UPDATING
+    }
+
+    public enum SchemaState {
+        /**
+         * The schema is mutable. The table is not eligible for replication.
+         */
+        FLUID,
+        /**
+         * The schema is immutable. The table is eligible for replication.
+         */
+        FROZEN,
+        /**
+         * The table has no schema. The table is eligible for replication.
+         */
+        SCHEMALESS
     }
 
     /**
@@ -235,6 +254,60 @@ public class TableResult extends Result {
     }
 
     /**
+     * Cloud service only.
+     *
+     * Returns the schema state of the table.
+     *
+     * @return the schemaState
+     *
+     * @since 5.4
+     */
+    public SchemaState getSchemaState() {
+        return schemaState;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns true if the table is multi-region table.
+     *
+     * @return the flag
+     *
+     * @since 5.4
+     */
+    public boolean isMultiRegion() {
+        return replicas != null;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns true if the table is multi-region table and complete the
+     * initialization process, otherwise return false.
+     *
+     * @return the flag
+     *
+     * @since 5.4
+     */
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns a array of {@link Replica} if the table is multi-region table,
+     * or null if table is singleton table.
+     *
+     * @return the remote Replicas
+     *
+     * @since 5.4
+     */
+    public Replica[] getReplicas() {
+        return replicas;
+    }
+
+    /**
      * @hidden
      * @param operationId the operation id
      * @return this
@@ -357,6 +430,39 @@ public class TableResult extends Result {
         return this;
     }
 
+    /**
+     * @hidden
+     * @param schemaState the SchemaState
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setSchemaState(SchemaState schemaState) {
+        this.schemaState = schemaState;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param initialized the flag
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setInitialized(boolean initialized) {
+        this.initialized = initialized;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param replicas the Replica array
+     * @return this
+     * @since 5.4
+     */
+    public TableResult setReplicas(Replica[] replicas) {
+        this.replicas = replicas;
+        return this;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -376,6 +482,23 @@ public class TableResult extends Result {
         }
         if (matchETag != null) {
             sb.append("\nmatchETag=").append(matchETag);
+        }
+        if (schemaState != null) {
+            sb.append("\nschemaState=").append(schemaState);
+        }
+        if (isMultiRegion()) {
+            sb.append("\ninitialized=").append(initialized);
+            sb.append("\nreplicas=[");
+            boolean first = true;
+            for (Replica rep : replicas) {
+                if (first) {
+                    first = false;
+                } else {
+                    sb.append(", ");
+                }
+                sb.append(rep.toString());
+            }
+            sb.append("]");
         }
         return sb.toString();
     }
@@ -649,6 +772,9 @@ public class TableResult extends Result {
                 schema = res.getSchema();
                 matchETag = res.getMatchETag();
                 ddl = res.getDdl();
+                schemaState = res.getSchemaState();
+                initialized = res.isInitialized();
+                replicas = res.getReplicas();
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());
@@ -658,5 +784,123 @@ public class TableResult extends Result {
 
     private boolean isTerminal() {
         return state == State.ACTIVE || state == State.DROPPED;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * The remote replica information
+     */
+    public static class Replica {
+        private String region;
+        private String tableOcid;
+        private int writeUnits;
+        private State state;
+
+        public Replica() {
+        }
+
+        /**
+         * Returns the region name of remote replica.
+         *
+         * @return the region name
+         *
+         * @since 5.4
+         */
+        public String getRegion() {
+            return region;
+        }
+
+        /**
+         * Returns the OCID of the table on remote replica.
+         *
+         * @return the table OCID
+         *
+         * @since 5.4
+         */
+        public String getTableId() {
+            return tableOcid;
+        }
+
+        /**
+         * Returns the write units of the table on remote replica.
+         *
+         * @return the write units
+         *
+         * @since 5.4
+         */
+        public int getWriteUnits() {
+            return writeUnits;
+        }
+
+        /**
+         * Returns the state of remote replica
+         *
+         * @return the state
+         *
+         * @since 5.4
+         */
+        public State getState() {
+            return state;
+        }
+
+        /**
+         * @hidden
+         * @param region the region name
+         * @return this
+         * @since 5.4
+         */
+        public Replica setRegion(String region) {
+            this.region = region;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param tableOcid the OCID of remote replica table
+         * @return this
+         * @since 5.4
+         */
+        public Replica setTableId(String tableOcid) {
+            this.tableOcid = tableOcid;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param writeUnits the write units of remote replica table
+         * @return this
+         * @since 5.4
+         */
+        public Replica setWriteUnits(int writeUnits) {
+            this.writeUnits = writeUnits;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param state the state of remote replica table
+         * @return this
+         * @since 5.4
+         */
+        public Replica setState(State state) {
+            this.state = state;
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Replica[region=").append(region);
+            sb.append(", state=").append(state);
+            if (tableOcid != null) {
+                sb.append(", tableId=").append(tableOcid);
+            }
+            if (writeUnits > 0) {
+                sb.append(", writeUnits=").append(writeUnits);
+            }
+            sb.append("]");
+            return sb.toString();
+        }
     }
 }

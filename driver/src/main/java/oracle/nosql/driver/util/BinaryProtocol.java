@@ -140,6 +140,13 @@ public final class BinaryProtocol {
     public static final int COMPLETE = 0;
     public static final int WORKING = 1;
 
+    /**
+     * Schema state
+     */
+    public static final int FLUID = 0;
+    public static final int FROZEN = 1;
+    public static final int SCHEMALESS = 2;
+
     /*
      * Response error codes (must be non-zero)
      */

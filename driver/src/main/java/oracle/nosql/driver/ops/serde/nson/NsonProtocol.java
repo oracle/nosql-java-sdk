@@ -117,6 +117,10 @@ public class NsonProtocol {
     public static String WM_SUCCESS = "ws";
 
     /* table metadata */
+    public static String INITIALIZED = "in";
+    public static String REGION = "rg";
+    public static String REPLICAS = "rc";
+    public static String SCHEMA_STATE = "st";
     public static String TABLE_SCHEMA = "ac";
     public static String TABLE_STATE = "as";
 
@@ -254,6 +258,10 @@ public class NsonProtocol {
         {WM_FAIL_INDEX,"WM_FAIL_INDEX"},
         {WM_FAIL_RESULT,"WM_FAIL_RESULT"},
         {WM_SUCCESS,"WM_SUCCESS"},
+        {INITIALIZED,"INITIALIZED"},
+        {REGION,"REGION"},
+        {REPLICAS,"REPLICAS"},
+        {SCHEMA_STATE,"SCHEMA_STATE"},
         {TABLE_SCHEMA,"TABLE_SCHEMA"},
         {TABLE_STATE,"TABLE_STATE"},
         {SYSOP_RESULT,"SYSOP_RESULT"},
