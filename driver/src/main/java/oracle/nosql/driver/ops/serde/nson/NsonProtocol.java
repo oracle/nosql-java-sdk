@@ -102,6 +102,11 @@ public class NsonProtocol {
     public static String VIRTUAL_SCAN_PRIM_KEY = "vpk";
     public static String VIRTUAL_SCAN_SEC_KEY = "vsk";
     public static String VIRTUAL_SCAN_MOVE_AFTER = "vma";
+    public static String VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY = "vsjdrk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_TABLES = "vsjpt";
+    public static String VIRTUAL_SCAN_JOIN_PATH_KEY = "vsjpk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_SEC_KEY = "vsjpsk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_MATCHED = "vsjpm";
     public static String WRITE_MULTIPLE = "wm";
     public static String WRITE_THROTTLE_COUNT = "wt";
 
@@ -247,6 +252,11 @@ public class NsonProtocol {
         {VIRTUAL_SCAN_PRIM_KEY,"VIRTUAL_SCAN_PRIM_KEY"},
         {VIRTUAL_SCAN_SEC_KEY,"VIRTUAL_SCAN_SEC_KEY"},
         {VIRTUAL_SCAN_MOVE_AFTER,"VIRTUAL_SCAN_MOVE_AFTER"},
+        {VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY,"VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_TABLES,"VIRTUAL_SCAN_JOIN_PATH_TABLES"},
+        {VIRTUAL_SCAN_JOIN_PATH_KEY,"VIRTUAL_SCAN_JOIN_PATH_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_SEC_KEY,"VIRTUAL_SCAN_JOIN_PATH_SEC_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_MATCHED,"VIRTUAL_SCAN_JOIN_PATH_MATCHED"},
         {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
         {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
         {ERROR_CODE,"ERROR_CODE"},

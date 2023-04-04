@@ -1011,6 +1011,11 @@ public class NsonSerializerFactory implements SerializerFactory {
             byte[] primKey = null;
             byte[] secKey = null;
             boolean moveAfter = true;
+            byte[] descResumeKey = null;
+            int[] joinPathTables = null;
+            byte[] joinPathKey = null;
+            byte[] joinPathSecKey = null;
+            boolean joinPathMatched = false;
 
             MapWalker walker = getMapWalker(in);
 
@@ -1027,6 +1032,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                     secKey = Nson.readNsonBinary(in);
                 } else if (name.equals(VIRTUAL_SCAN_MOVE_AFTER)) {
                     moveAfter = Nson.readNsonBoolean(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY)) {
+                    descResumeKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_TABLES)) {
+                    joinPathTables = Nson.readIntArray(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_KEY)) {
+                    joinPathKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_SEC_KEY)) {
+                    joinPathSecKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_MATCHED)) {
+                    joinPathMatched = Nson.readNsonBoolean(in);
                 } else {
                     skipUnknownField(walker, name);
                 }
