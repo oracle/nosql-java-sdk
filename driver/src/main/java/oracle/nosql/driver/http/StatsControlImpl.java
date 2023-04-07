@@ -43,7 +43,8 @@ public class StatsControlImpl
 
         if (profile != Profile.NONE) {
             if (config.getStatsEnableLog() &&
-                logger.getLevel().intValue() > Level.INFO.intValue()) {
+                ( logger.getLevel() == null ||
+                  logger.getLevel().intValue() > Level.INFO.intValue())) {
                 logger.setLevel(Level.INFO);
             }
             logger.log(Level.INFO, LOG_PREFIX +

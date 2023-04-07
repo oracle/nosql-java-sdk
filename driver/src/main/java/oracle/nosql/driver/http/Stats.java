@@ -434,16 +434,18 @@ public class Stats {
             extraQueryStats = new ExtraQueryStats(statsControl);
         }
 
-        // Setup the scheduler for interval logging
+        // Set up the scheduler for interval logging
         Runnable runnable = () -> {
             try {
                 logClientStats();
             } catch (RuntimeException re) {
-                StringWriter stackTrace = new StringWriter();
-                re.printStackTrace(new PrintWriter(stackTrace));
-                statsControl.getLogger().log(Level.INFO,
-                    "Stats exception: " + re.getMessage() + "\n" +
-                        stackTrace);
+                if (statsControl.getLogger() != null) {
+                    StringWriter stackTrace = new StringWriter();
+                    re.printStackTrace(new PrintWriter(stackTrace));
+                    statsControl.getLogger().log(Level.INFO,
+                        "Stats exception: " + re.getMessage() + "\n" +
+                            stackTrace);
+                }
             }
         };
 
@@ -482,10 +484,12 @@ public class Stats {
         }
 
         // Output stats to logger.
-        String json = fvStats.toJson(statsControl.getPrettyPrint() ?
-            JsonOptions.PRETTY : null);
-        statsControl.getLogger().log(Level.INFO,
-            StatsControl.LOG_PREFIX + json);
+        if (statsControl.getLogger() != null) {
+            String json = fvStats.toJson(statsControl.getPrettyPrint() ?
+                JsonOptions.PRETTY : null);
+            statsControl.getLogger().log(Level.INFO,
+                StatsControl.LOG_PREFIX + json);
+        }
     }
 
     private MapValue generateFieldValueStats() {
