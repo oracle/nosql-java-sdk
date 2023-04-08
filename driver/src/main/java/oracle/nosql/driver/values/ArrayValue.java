@@ -10,6 +10,7 @@ package oracle.nosql.driver.values;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.function.Consumer;
@@ -608,5 +609,16 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
         }
 
         return size;
+    }
+
+    /**
+     * Sorts the elements of the array according to the given comparator.
+     *
+     * @param comparator The Comparator to use for comparing the array
+     * elements. It must not be null.
+     */
+    public void sort(Comparator<FieldValue> comparator) {
+        requireNonNull(comparator, "Comparator must be non-null");
+        array.sort(comparator);
     }
 }

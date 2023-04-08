@@ -118,7 +118,8 @@ public abstract class PlanIter {
         FN_MIN_MAX(41),
 
         GROUP(65),
-        SORT2(66);
+        SORT2(66),
+        FN_COLLECT(78);
 
         private static final PlanIterKind[] VALUES = values();
 
@@ -157,7 +158,8 @@ public abstract class PlanIter {
         FN_COUNT_NUMBERS(44),
         FN_SUM(45),
         FN_MIN(47),
-        FN_MAX(48);
+        FN_MAX(48),
+        FN_COLLECT(91);
 
         private static final FuncCode[] VALUES = values();
 
@@ -314,9 +316,7 @@ public abstract class PlanIter {
         PlanIterKind kind = PlanIterKind.valueOf(ord);
 
         if (theTraceDeser) {
-        /* TODO: think about logging
             System.out.println("Deserializing " + kind + " iter");
-        */
         }
 
         PlanIter iter = null;
@@ -355,6 +355,9 @@ public abstract class PlanIter {
             break;
         case FN_MIN_MAX:
             iter = new FuncMinMaxIter(in, serialVersion);
+            break;
+        case FN_COLLECT:
+            iter = new FuncCollectIter(in, serialVersion);
             break;
         default:
             throw new QueryStateException(

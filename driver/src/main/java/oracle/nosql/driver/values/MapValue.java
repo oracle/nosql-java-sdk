@@ -17,13 +17,15 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 //import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
- * MapValue represents a row in a NoSQL Database table. A top-level row is
+ * MapValue represents a rowb in a NoSQL Database table. A top-level row is
  * always a MapValue instance that contains {@link FieldValue} objects which
  * may be atomic types or embedded MapValue or {@link ArrayValue} instances,
  * creating a structured row.
@@ -115,6 +117,16 @@ public class MapValue extends FieldValue
      */
     public Set<Map.Entry<String, FieldValue>> entrySet() {
         return values.entrySet();
+    }
+
+    /**
+     * Returns the set of keys in this map, sorted according to the
+     * String.compareTo() method.
+     *
+     * @return the soerted set of keys
+     */
+    public SortedSet<String> sortedKeys() {
+        return new TreeSet<String>(values.keySet());
     }
 
     /**

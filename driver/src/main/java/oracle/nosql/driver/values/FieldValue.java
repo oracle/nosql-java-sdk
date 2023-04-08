@@ -568,6 +568,17 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     }
 
     /**
+     * @hidden
+     * @return true if is NULL, json null, or empty
+     */
+    public boolean isSpecialValue() {
+        Type type = getType();
+        return (type == Type.NULL ||
+                type == Type.JSON_NULL ||
+                type == Type.EMPTY);
+    }
+
+    /**
      * Returns a JSON representation of the value using a default
      * configuration for output format.
      *

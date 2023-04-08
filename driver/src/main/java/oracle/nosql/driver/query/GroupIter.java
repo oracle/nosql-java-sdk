@@ -576,7 +576,7 @@ public class GroupIter extends PlanIter {
                 return;
             }
 
-            int cmp = Compare.compareAtomics(rcb, aggrValue.theValue, val, true);
+            int cmp = Compare.compareAtomicsTotalOrder(rcb, aggrValue.theValue, val);
 
             if (rcb.getTraceLevel() >= 3) {
                 rcb.trace("Compared values: \n" + aggrValue.theValue + "\n" +
