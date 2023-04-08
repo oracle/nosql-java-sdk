@@ -114,6 +114,7 @@ public abstract class PlanIter {
 
         ARITH_OP(8),
 
+        FN_SIZE(15),
         FN_SUM(39),
         FN_MIN_MAX(41),
 
@@ -349,6 +350,9 @@ public abstract class PlanIter {
             break;
         case ARITH_OP:
             iter = new ArithOpIter(in, serialVersion);
+            break;
+        case FN_SIZE:
+            iter = new FuncSizeIter(in, serialVersion);
             break;
         case FN_SUM:
             iter = new FuncSumIter(in, serialVersion);
