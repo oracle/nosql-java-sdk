@@ -181,7 +181,7 @@ public class SimpleRateLimiter implements RateLimiter {
         if (timeoutMs > 0 && msToSleep >= timeoutMs) {
             uninterruptibleSleep(timeoutMs);
             throw new TimeoutException("timed out waiting " + timeoutMs +
-                "ms for " + units + " units in rate limiter");
+                                       "ms due to rate limiting");
         }
 
         /* sleep for the requested time. */
