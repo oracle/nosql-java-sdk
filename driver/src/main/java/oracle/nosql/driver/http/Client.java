@@ -924,7 +924,8 @@ public class Client {
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
         throw new RequestTimeoutException(timeoutMs,
-            requestClass + " timed out: requestId=" + requestId + " " +
+            requestClass + " timed out:" +
+            (requestId.isEmpty() ? "" : " requestId=" + requestId) +
             " nextRequestId=" + nextRequestId() +
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
