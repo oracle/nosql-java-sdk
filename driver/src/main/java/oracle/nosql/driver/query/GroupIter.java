@@ -11,9 +11,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 
+import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.DoubleValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.IntegerValue;
@@ -22,6 +24,9 @@ import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.NullValue;
 import oracle.nosql.driver.values.NumberValue;
 import oracle.nosql.driver.query.Compare;
+import oracle.nosql.driver.query.FuncCollectIter.CompareFunction;
+import oracle.nosql.driver.query.FuncCollectIter.WrappedValue;
+import oracle.nosql.driver.query.PlanIter.FuncCode;
 import oracle.nosql.driver.util.SizeOf;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.SerializationUtil;
@@ -75,13 +80,13 @@ public class GroupIter extends PlanIter {
 
     private static class AggrValue {
 
-        FieldValue theValue;
+        Object theValue;
 
         boolean theGotNumericInput;
 
-        AggrValue(FuncCode kind) {
+        AggrValue(FuncCode aggrIterKind) {
 
-            switch (kind) {
+            switch (aggrIterKind) {
             case FN_COUNT:
             case FN_COUNT_NUMBERS:
             case FN_COUNT_STAR:
@@ -92,16 +97,63 @@ public class GroupIter extends PlanIter {
             case FN_MAX:
                 theValue = NullValue.getInstance();
                 break;
+            case FN_COLLECT:
+                theValue = new ArrayValue();
+                break;
+            case FN_COLLECT_DISTINCT:
+                theValue = new HashSet<WrappedValue>();
+                break;
             default:
                 assert(false);
             }
         }
 
         long sizeof() {
-            return (SizeOf.OBJECT_OVERHEAD +
-                    SizeOf.OBJECT_REF_OVERHEAD +
-                    theValue.sizeof() +
-                    1);
+            long sz = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD + 1);
+            if (theValue instanceof FieldValue) {
+                sz += ((FieldValue)theValue).sizeof();
+            } else {
+                HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)theValue;
+                Iterator<WrappedValue> iter = collectSet.iterator();
+                while (iter.hasNext()) {
+                    sz += (SizeOf.HASHSET_ENTRY_OVERHEAD + iter.next().sizeof());
+                }
+            }
+            return sz;
+        }
+
+        void collect(
+            RuntimeControlBlock rcb,
+            FieldValue val,
+            boolean countMemory) {
+
+            if (val.isNull() || val.isEMPTY()) {
+                return;
+            }
+
+            boolean isDistinct = !(theValue instanceof FieldValue);
+
+            if (isDistinct) {
+                HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)theValue;
+                ArrayValue arrval = (ArrayValue)val;
+                for (FieldValue elem : arrval) {
+                    WrappedValue welem = new WrappedValue(elem);
+                    collectSet.add(welem);
+                    if (countMemory) {
+                        rcb.incMemoryConsumption(welem.sizeof() +
+                                                 SizeOf.HASHSET_ENTRY_OVERHEAD);
+                    }
+                }
+            } else {
+                ArrayValue collectArray = (ArrayValue)theValue;
+                ArrayValue arrayVal = (ArrayValue)val; 
+                collectArray.addAll(arrayVal.iterator());
+                if (countMemory) {
+                    rcb.incMemoryConsumption(val.sizeof() +
+                                             SizeOf.OBJECT_REF_OVERHEAD *
+                                             arrayVal.size());
+                }
+            }
         }
 
         void add(
@@ -113,11 +165,12 @@ public class GroupIter extends PlanIter {
 
             BigDecimal bd;
             long sz = 0;
+            FieldValue sumValue = (FieldValue)theValue;
 
             switch (val.getType()) {
             case INTEGER: {
                 theGotNumericInput = true;
-                switch (theValue.getType()) {
+                switch (sumValue.getType()) {
                 case LONG: {
                     long sum = ((LongValue)theValue).getValue();
                     sum += ((IntegerValue)val).getValue();
@@ -144,7 +197,7 @@ public class GroupIter extends PlanIter {
             }
             case LONG: {
                 theGotNumericInput = true;
-                switch (theValue.getType()) {
+                switch (sumValue.getType()) {
                 case LONG: {
                     long sum = ((LongValue)theValue).getValue();
                     sum += ((LongValue)val).getValue();
@@ -171,16 +224,17 @@ public class GroupIter extends PlanIter {
             }
             case DOUBLE: {
                 theGotNumericInput = true;
-                switch (theValue.getType()) {
+                switch (sumValue.getType()) {
                 case LONG: {
                     double sum = ((LongValue)theValue).getValue();
                     sum += ((DoubleValue)val).getValue();
                     if (countMemory) {
-                        sz = theValue.sizeof();
+                        sz = sumValue.sizeof();
                     }
-                    theValue = new DoubleValue(sum);
+                    sumValue = new DoubleValue(sum);
+                    theValue = sumValue;
                     if (countMemory) {
-                        rcb.incMemoryConsumption(theValue.sizeof() - sz);
+                        rcb.incMemoryConsumption(sumValue.sizeof() - sz);
                     }
                     break;
                 }
@@ -204,17 +258,18 @@ public class GroupIter extends PlanIter {
             }
             case NUMBER: {
                 theGotNumericInput = true;
-                switch (theValue.getType()) {
+                switch (sumValue.getType()) {
                 case LONG: {
                     BigDecimal sum =
                         new BigDecimal(((LongValue)theValue).getValue());
                     sum = sum.add(((NumberValue)val).getValue(), ctx);
                     if (countMemory) {
-                        sz = theValue.sizeof();
+                        sz = sumValue.sizeof();
                     }
-                    theValue = new NumberValue(sum);
+                    sumValue = new NumberValue(sum);
+                    theValue = sumValue;
                     if (countMemory) {
-                        rcb.incMemoryConsumption(theValue.sizeof() - sz);
+                        rcb.incMemoryConsumption(sumValue.sizeof() - sz);
                     }
                     break;
                 }
@@ -223,11 +278,12 @@ public class GroupIter extends PlanIter {
                         new BigDecimal(((DoubleValue)theValue).getValue());
                     sum = sum.add(((NumberValue)val).getValue(), ctx);
                     if (countMemory) {
-                        sz = theValue.sizeof();
+                        sz = sumValue.sizeof();
                     }
-                    theValue = new NumberValue(sum);
+                    sumValue = new NumberValue(sum);
+                    theValue = sumValue;
                     if (countMemory) {
-                        rcb.incMemoryConsumption(theValue.sizeof() - sz);
+                        rcb.incMemoryConsumption(sumValue.sizeof() - sz);
                     }
                     break;
                 }
@@ -250,14 +306,17 @@ public class GroupIter extends PlanIter {
 
     private static class GroupIterState extends PlanIterState {
 
+        final CompareFunction theComparator;
+
         final HashMap<GroupTuple, AggrValue[]> theResults;
 
         Iterator<Map.Entry<GroupTuple, AggrValue[]>> theResultsIter;
 
         GroupTuple theGBTuple;
 
-        public GroupIterState(GroupIter iter) {
+        public GroupIterState(RuntimeControlBlock rcb, GroupIter iter) {
             super();
+            theComparator = new CompareFunction(rcb);
             theResults = new HashMap<GroupTuple, AggrValue[]>(4096);
             theGBTuple = new GroupTuple(iter.theNumGBColumns);
         }
@@ -337,7 +396,7 @@ public class GroupIter extends PlanIter {
     @Override
     public void open(RuntimeControlBlock rcb) {
 
-        GroupIterState state = new GroupIterState(this);
+        GroupIterState state = new GroupIterState(rcb, this);
         rcb.setState(theStatePos, state);
         theInput.open(rcb);
     }
@@ -386,7 +445,7 @@ public class GroupIter extends PlanIter {
                         res.put(theColumnNames[i], gbTuple.theValues[i]);
                     }
                     for (; i < theColumnNames.length; ++i) {
-                        FieldValue aggr = getAggrValue(rcb, aggrTuple, i);
+                        FieldValue aggr = getAggrValue(rcb, state, aggrTuple, i);
                         res.put(theColumnNames[i], aggr);
                     }
 
@@ -562,24 +621,25 @@ public class GroupIter extends PlanIter {
                 break;
             }
 
-            if (aggrValue.theValue.isNull()) {
+            FieldValue minmaxValue = (FieldValue)aggrValue.theValue;
+
+            if (minmaxValue.isNull()) {
 
                 if (rcb.getTraceLevel() >= 3) {
                     rcb.trace("Setting min/max to " + val);
                 }
 
                 if (theCountMemory) {
-                    rcb.incMemoryConsumption(val.sizeof() -
-                                             aggrValue.theValue.sizeof());
+                    rcb.incMemoryConsumption(val.sizeof() - minmaxValue.sizeof());
                 }
                 aggrValue.theValue = val;
                 return;
             }
 
-            int cmp = Compare.compareAtomicsTotalOrder(rcb, aggrValue.theValue, val);
+            int cmp = Compare.compareAtomicsTotalOrder(rcb, minmaxValue, val);
 
             if (rcb.getTraceLevel() >= 3) {
-                rcb.trace("Compared values: \n" + aggrValue.theValue + "\n" +
+                rcb.trace("Compared values: \n" + minmaxValue + "\n" +
                           val + "\ncomp res = " + cmp);
             }
 
@@ -598,12 +658,15 @@ public class GroupIter extends PlanIter {
             }
 
             if (theCountMemory &&
-                val.getType() != aggrValue.theValue.getType()) {
-                rcb.incMemoryConsumption(val.sizeof() -
-                                         aggrValue.theValue.sizeof());
+                val.getType() != minmaxValue.getType()) {
+                rcb.incMemoryConsumption(val.sizeof() - minmaxValue.sizeof());
             }
 
             aggrValue.theValue = val;
+            return;
+        case FN_COLLECT:
+        case FN_COLLECT_DISTINCT:
+            aggrValue.collect(rcb, val, theCountMemory);
             return;
         default:
             throw new QueryStateException(
@@ -614,6 +677,7 @@ public class GroupIter extends PlanIter {
 
     private FieldValue getAggrValue(
         RuntimeControlBlock rcb,
+        GroupIterState state,
         AggrValue[] aggrTuple,
         int column) {
 
@@ -625,7 +689,25 @@ public class GroupIter extends PlanIter {
             return NullValue.getInstance();
         }
 
-        return aggrValue.theValue;
+        if (aggrKind == FuncCode.FN_COLLECT) {
+            ArrayValue collectArray = (ArrayValue)aggrValue.theValue;
+            collectArray.getArrayInternal().sort(state.theComparator);
+            return collectArray;
+        }
+
+        if (aggrKind == FuncCode.FN_COLLECT_DISTINCT) {
+            ArrayValue collectArray = new ArrayValue();
+            HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)
+                                               aggrValue.theValue;
+            Iterator<WrappedValue> iter = collectSet.iterator();
+            while (iter.hasNext()) {
+                collectArray.add(iter.next().theValue);
+            }
+            collectArray.getArrayInternal().sort(state.theComparator);
+            return collectArray;
+        }
+
+        return (FieldValue)aggrValue.theValue;
     }
 
     private String printResult(GroupTuple gbTuple, AggrValue[] aggrValues) {
