@@ -7,7 +7,11 @@
 
 package oracle.nosql.driver.ops.serde;
 
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
+
 import java.io.IOException;
+
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
 
@@ -41,17 +45,11 @@ public class BinarySerializerFactory implements SerializerFactory {
         new ListTablesRequestSerializer();
     static final GetIndexesRequestSerializer getIndexesSerializer =
         new GetIndexesRequestSerializer();
-
     static final WriteMultipleRequestSerializer writeMultipleSerializer =
         new WriteMultipleRequestSerializer(new PutRequestSerializer(true),
                                            new DeleteRequestSerializer(true));
     static final MultiDeleteRequestSerializer multiDeleteSerializer =
         new MultiDeleteRequestSerializer();
-
-    static final AddReplicaRequestSerializer addReplicaSerializer =
-        new AddReplicaRequestSerializer();
-    static final DropReplicaRequestSerializer dropReplicaSerializer =
-        new DropReplicaRequestSerializer();
 
     @Override
     public Serializer createDeleteSerializer() {
@@ -125,12 +123,20 @@ public class BinarySerializerFactory implements SerializerFactory {
 
     @Override
     public Serializer createAddReplicaSerializer() {
-        return addReplicaSerializer;
+        throw new UnsupportedProtocolException(
+            "AddReplica is not supported with serial version: " + V3);
     }
 
     @Override
     public Serializer createDropReplicaSerializer() {
-        return dropReplicaSerializer;
+        throw new UnsupportedProtocolException(
+            "DropReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createGetReplicaStatsSerializer() {
+        throw new UnsupportedProtocolException(
+            "GetReplicaStats is not supported with serial version: " + V3);
     }
 
     /* deserializers */
@@ -206,12 +212,20 @@ public class BinarySerializerFactory implements SerializerFactory {
 
     @Override
     public Serializer createAddReplicaDeserializer() {
-        return addReplicaSerializer;
+        throw new UnsupportedProtocolException(
+            "AddReplica is not supported with serial version: " + V3);
     }
 
     @Override
     public Serializer createDropReplicaDeserializer() {
-        return dropReplicaSerializer;
+        throw new UnsupportedProtocolException(
+            "DropReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createGetReplicaStatsDeserializer() {
+        throw new UnsupportedProtocolException(
+            "GetReplciaStats is not supported with serial version: " + V3);
     }
 
     @Override

@@ -67,7 +67,6 @@ public class NsonProtocol {
     public static String OP_CODE = "o";
     public static String PATH = "pt";
     public static String PAYLOAD = "p";
-    public static String POD = "pd";
     public static String PREFER_THROTTLING = "pg";
     public static String PREPARE = "pp";
     public static String PREPARED_QUERY = "pq";
@@ -77,9 +76,10 @@ public class NsonProtocol {
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
     public static String READ_THROTTLE_COUNT = "rt";
-    public static String READ_LIMIT = "rl";
-    public static String RESOURCE = "rs";
-    public static String RESOURCE_ID = "ri";
+    public static String READ_UNITS = "ru";
+    public static String REGION = "rn";
+    public static String RESOURCE = "ro";
+    public static String RESOURCE_ID = "rd";
     public static String RETURN_ROW = "rr";
     public static String SHARD_ID = "si";
     public static String START = "sr";
@@ -99,9 +99,9 @@ public class NsonProtocol {
     public static String UPDATE_TTL = "ut";
     public static String VALUE = "l";
     public static String VERSION = "v";
-    public static String WRITE_LIMIT = "wl";
     public static String WRITE_MULTIPLE = "wm";
     public static String WRITE_THROTTLE_COUNT = "wt";
+    public static String WRITE_UNITS = "wu";
 
     /*
      * response fields
@@ -117,10 +117,9 @@ public class NsonProtocol {
     public static String WM_SUCCESS = "ws";
 
     /* table metadata */
-    public static String INITIALIZED = "in";
-    public static String REGION = "rg";
+    public static String INITIALIZED = "it";
     public static String REPLICAS = "rc";
-    public static String SCHEMA_STATE = "st";
+    public static String SCHEMA_STATE = "sh";
     public static String TABLE_SCHEMA = "ac";
     public static String TABLE_STATE = "as";
 
@@ -133,10 +132,8 @@ public class NsonProtocol {
     public static String LIMITS = "lm";
     public static String LIMITS_MODE = "mo";
     public static String READ_KB = "rk";
-    public static String READ_UNITS = "ru";
     public static String STORAGE_GB = "sg";
     public static String WRITE_KB = "wk";
-    public static String WRITE_UNITS = "wu";
 
     /* row metadata */
     public static String EXPIRATION = "xp";
@@ -168,6 +165,12 @@ public class NsonProtocol {
     public static String SORT_PHASE1_RESULTS = "p1";
     public static String TABLE_ACCESS_INFO = "ai";
     public static String TOPOLOGY_INFO = "tp";
+
+    /* replica stats response fields */
+    public static String NEXT_START_TIME = "ni";
+    public static String REPLICA_STATS = "ra";
+    public static String REPLICA_LAG = "rl";
+    public static String TIME = "tm";
 
     private static String[][] mapVals = new String[][] {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
@@ -214,7 +217,6 @@ public class NsonProtocol {
         {OP_CODE,"OP_CODE"},
         {PATH,"PATH"},
         {PAYLOAD,"PAYLOAD"},
-        {POD,"POD"},
         {PREFER_THROTTLING,"PREFER_THROTTLING"},
         {PREPARE,"PREPARE"},
         {PREPARED_QUERY,"PREPARED_QUERY"},
@@ -224,7 +226,8 @@ public class NsonProtocol {
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
         {READ_THROTTLE_COUNT,"READ_THROTTLE_COUNT"},
-        {READ_LIMIT,"READ_LIMIT"},
+        {READ_UNITS,"READ_UNITS"},
+        {REGION,"REGION"},
         {RESOURCE,"RESOURCE"},
         {RESOURCE_ID,"RESOURCE_ID"},
         {RETURN_ROW,"RETURN_ROW"},
@@ -246,9 +249,9 @@ public class NsonProtocol {
         {UPDATE_TTL,"UPDATE_TTL"},
         {VALUE,"VALUE"},
         {VERSION,"VERSION"},
-        {WRITE_LIMIT,"WRITE_LIMIT"},
         {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
         {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
+        {WRITE_UNITS,"WRITE_UNITS"},
         {ERROR_CODE,"ERROR_CODE"},
         {EXCEPTION,"EXCEPTION"},
         {NUM_DELETIONS,"NUM_DELETIONS"},
@@ -259,7 +262,6 @@ public class NsonProtocol {
         {WM_FAIL_RESULT,"WM_FAIL_RESULT"},
         {WM_SUCCESS,"WM_SUCCESS"},
         {INITIALIZED,"INITIALIZED"},
-        {REGION,"REGION"},
         {REPLICAS,"REPLICAS"},
         {SCHEMA_STATE,"SCHEMA_STATE"},
         {TABLE_SCHEMA,"TABLE_SCHEMA"},
@@ -270,10 +272,8 @@ public class NsonProtocol {
         {LIMITS,"LIMITS"},
         {LIMITS_MODE,"LIMITS_MODE"},
         {READ_KB,"READ_KB"},
-        {READ_UNITS,"READ_UNITS"},
         {STORAGE_GB,"STORAGE_GB"},
         {WRITE_KB,"WRITE_KB"},
-        {WRITE_UNITS,"WRITE_UNITS"},
         {EXPIRATION,"EXPIRATION"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
@@ -299,6 +299,10 @@ public class NsonProtocol {
         {SORT_PHASE1_RESULTS,"SORT_PHASE1_RESULTS"},
         {TABLE_ACCESS_INFO,"TABLE_ACCESS_INFO"},
         {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
+        {NEXT_START_TIME,"NEXT_START_TIME"},
+        {REPLICA_STATS,"REPLICA_STATS"},
+        {REPLICA_LAG,"REPLICA_LAG"},
+        {TIME,"TIME"},
     };
 
     private static HashMap<String, String> fieldMap = null;

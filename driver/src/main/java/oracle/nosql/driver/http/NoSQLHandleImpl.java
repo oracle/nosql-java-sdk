@@ -39,6 +39,8 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
@@ -277,6 +279,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public TableResult dropReplica(DropReplicaRequest request) {
         checkClient();
         return (TableResult) client.execute(request);
+    }
+
+    @Override
+    public ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request) {
+        checkClient();
+        return (ReplicaStatsResult) client.execute(request);
     }
 
     @Override

@@ -74,7 +74,8 @@ public final class BinaryProtocol {
         UNUSED_31(31),
         UNUSED_32(32),
         ADD_REPLICA(33),
-        DROP_REPLICA(34);
+        DROP_REPLICA(34),
+        GET_REPLICA_STATS(35);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {
@@ -143,9 +144,8 @@ public final class BinaryProtocol {
     /**
      * Schema state
      */
-    public static final int FLUID = 0;
+    public static final int MUTABLE = 0;
     public static final int FROZEN = 1;
-    public static final int SCHEMALESS = 2;
 
     /*
      * Response error codes (must be non-zero)

@@ -12,6 +12,7 @@ import static oracle.nosql.driver.iam.Utils.RSA;
 import static oracle.nosql.driver.iam.Utils.SIGNATURE_HEADER_FORMAT;
 import static oracle.nosql.driver.iam.Utils.SINGATURE_VERSION;
 import static oracle.nosql.driver.iam.Utils.createFormatter;
+import static oracle.nosql.driver.iam.Utils.computeBodySHA256;
 import static oracle.nosql.driver.iam.Utils.sign;
 import static oracle.nosql.driver.util.HttpConstants.*;
 
@@ -22,9 +23,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -1026,18 +1024,6 @@ public class SignatureProvider
               .append(HEADER_DELIMITER).append(token);
         }
         return sb.toString();
-    }
-
-    /* TODO: re-factoring FederationRequestHelper.computeBodySHA256() */
-    private static String computeBodySHA256(byte[] body) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(body);
-            byte[] hash = digest.digest();
-            return new String(Base64.getEncoder().encodeToString(hash));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algorithm SHA-256 unavailable", e);
-        }
     }
 
     private void scheduleRefresh() {

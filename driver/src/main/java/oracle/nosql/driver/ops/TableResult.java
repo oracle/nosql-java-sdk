@@ -12,6 +12,7 @@ import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.ops.TableLimits.CapacityMode;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
@@ -49,7 +50,7 @@ public class TableResult extends Result {
     private String matchETag;
 
     private SchemaState schemaState;
-    private boolean initialized;
+    private boolean isLocalReplicaInitialized;
     private Replica[] replicas;
 
     /**
@@ -83,17 +84,13 @@ public class TableResult extends Result {
 
     public enum SchemaState {
         /**
-         * The schema is mutable. The table is not eligible for replication.
+         * The schema can be changed. The table is not eligible for replication.
          */
-        FLUID,
+        MUTABLE,
         /**
          * The schema is immutable. The table is eligible for replication.
          */
-        FROZEN,
-        /**
-         * The table has no schema. The table is eligible for replication.
-         */
-        SCHEMALESS
+        FROZEN
     }
 
     /**
@@ -289,8 +286,8 @@ public class TableResult extends Result {
      *
      * @since 5.4
      */
-    public boolean isInitialized() {
-        return initialized;
+    public boolean isLocalReplicaInitialized() {
+        return isLocalReplicaInitialized;
     }
 
     /**
@@ -447,8 +444,8 @@ public class TableResult extends Result {
      * @return this
      * @since 5.4
      */
-    public TableResult setInitialized(boolean initialized) {
-        this.initialized = initialized;
+    public TableResult setLocalReplicaInitialized(boolean initialized) {
+        this.isLocalReplicaInitialized = initialized;
         return this;
     }
 
@@ -487,7 +484,8 @@ public class TableResult extends Result {
             sb.append("\nschemaState=").append(schemaState);
         }
         if (isMultiRegion()) {
-            sb.append("\ninitialized=").append(initialized);
+            sb.append("\nisLocalReplicaInitialized=")
+              .append(isLocalReplicaInitialized);
             sb.append("\nreplicas=[");
             boolean first = true;
             for (Replica rep : replicas) {
@@ -773,7 +771,7 @@ public class TableResult extends Result {
                 matchETag = res.getMatchETag();
                 ddl = res.getDdl();
                 schemaState = res.getSchemaState();
-                initialized = res.isInitialized();
+                isLocalReplicaInitialized = res.isLocalReplicaInitialized();
                 replicas = res.getReplicas();
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
@@ -795,6 +793,7 @@ public class TableResult extends Result {
         private String region;
         private String tableOcid;
         private int writeUnits;
+        private CapacityMode mode;
         private State state;
 
         public Replica() {
@@ -831,6 +830,18 @@ public class TableResult extends Result {
          */
         public int getWriteUnits() {
             return writeUnits;
+        }
+
+
+        /**
+         * Returns the capacity mode of the table on remote replica.
+         *
+         * @return the capacity mode
+         *
+         * @since 5.4
+         */
+        public CapacityMode getMode() {
+            return mode;
         }
 
         /**
@@ -879,6 +890,17 @@ public class TableResult extends Result {
 
         /**
          * @hidden
+         * @param mode the capacity mode of remote replica table
+         * @return this
+         * @since 5.4
+         */
+        public Replica setCapacityMode(CapacityMode mode) {
+            this.mode = mode;
+            return this;
+        }
+
+        /**
+         * @hidden
          * @param state the state of remote replica table
          * @return this
          * @since 5.4
@@ -898,6 +920,9 @@ public class TableResult extends Result {
             }
             if (writeUnits > 0) {
                 sb.append(", writeUnits=").append(writeUnits);
+            }
+            if (mode != null) {
+                sb.append(", mode=").append(mode);
             }
             sb.append("]");
             return sb.toString();

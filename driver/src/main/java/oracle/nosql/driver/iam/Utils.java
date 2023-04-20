@@ -530,6 +530,17 @@ class Utils {
         }
     }
 
+    static String computeBodySHA256(byte[] body) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(body);
+            byte[] hash = digest.digest();
+            return new String(Base64.getEncoder().encodeToString(hash));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algorithm SHA-256 unavailable", e);
+        }
+    }
+
     static JsonParser createParser(String json)
         throws IOException {
 

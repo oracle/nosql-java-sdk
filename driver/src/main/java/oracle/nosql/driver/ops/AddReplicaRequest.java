@@ -141,7 +141,7 @@ public class AddReplicaRequest extends Request {
 
     @Override
     public void validate() {
-        if (region == null || tableName == null) {
+        if (tableName == null || region == null) {
             throw new IllegalArgumentException(
                 "AddReplicaRequest requires table name and region");
         }

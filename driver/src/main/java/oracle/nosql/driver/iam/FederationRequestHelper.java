@@ -16,9 +16,6 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -127,7 +124,7 @@ class FederationRequestHelper {
                                        Logger logger) {
 
         String date = createFormatter().format(new Date());
-        String bodySha = calculateBodySHA256(body);
+        String bodySha = computeBodySHA256(body);
         StringBuilder sign = new StringBuilder();
         sign.append(DATE).append(HEADER_DELIMITER)
             .append(date).append("\n")
@@ -170,17 +167,6 @@ class FederationRequestHelper {
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {
         return String.format("%s/fed-x509-sha256/%s",
                              tenantId, Utils.getFingerPrint(pair));
-    }
-
-    private static String calculateBodySHA256(byte[] body) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(body);
-            byte[] hash = digest.digest();
-            return new String(Base64.getEncoder().encodeToString(hash));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algorithm SHA-256 unavailable", e);
-        }
     }
 
     /*

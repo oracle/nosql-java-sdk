@@ -24,11 +24,10 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
-import static oracle.nosql.driver.util.BinaryProtocol.FLUID;
 import static oracle.nosql.driver.util.BinaryProtocol.FROZEN;
+import static oracle.nosql.driver.util.BinaryProtocol.MUTABLE;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
-import static oracle.nosql.driver.util.BinaryProtocol.SCHEMALESS;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 
@@ -75,6 +74,9 @@ import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
+import oracle.nosql.driver.ops.ReplicaStatsResult.ReplicaStats;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
@@ -146,6 +148,8 @@ public class NsonSerializerFactory implements SerializerFactory {
         new AddReplicaRequestSerializer();
     static final Serializer dropReplicaSerializer =
         new DropReplicaRequestSerializer();
+    static final Serializer getReplicaStatsSerializer =
+        new GetReplicaStatsRequestSerializer();
 
     @Override
     public Serializer createDeleteSerializer() {
@@ -227,6 +231,11 @@ public class NsonSerializerFactory implements SerializerFactory {
         return dropReplicaSerializer;
     }
 
+    @Override
+    public Serializer createGetReplicaStatsSerializer() {
+        return getReplicaStatsSerializer;
+    }
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -306,6 +315,10 @@ public class NsonSerializerFactory implements SerializerFactory {
     @Override
     public Serializer createDropReplicaDeserializer() {
         return dropReplicaSerializer;
+    }
+    @Override
+    public Serializer createGetReplicaStatsDeserializer() {
+        return getReplicaStatsSerializer;
     }
 
     @Override
@@ -1797,19 +1810,33 @@ public class NsonSerializerFactory implements SerializerFactory {
 
     /**
      * Add Replica request:
-     *  Payload:
-     *    tableName (in header)
-     *    pod (string)
-     *    readLimit (int)
-     *    writeLimit (int)
+     *   tableName (in header) -- required
+     *   region (string) -- required
+     *   readUnits (int)
+     *   writeUnits (int)
      *
      * Table result (all optional):
-     *  table name (string)
-     *  state (int)
-     *  domain id (int)
-     *  throughput info (read/write/storage)
-     *  schema (string)
-     *  operation id (plan id, etc) (int)
+     *   compartment ocid (string)
+     *   namespace (string)
+     *   table ocid (string)
+     *   table name (string)
+     *   state (int)
+     *   schema (string)
+     *   ddl (string)
+     *   throughput info (read/write/storage)
+     *   operation id (plan id, etc) (int)
+     *   free form tags (string)
+     *   defined tags (string)
+     *   etag (string)
+     *   schemaState (int): 0-MUTABLE, 1-FROZEN
+     *   initialized (boolean)
+     *   replicas (array(<replica>))
+     *     <replica>:
+     *       region (string)
+     *       tableOcid (string)
+     *       writeUnits (int)
+     *       mode (int)
+     *       tableState (int): same value as TableResult.tableState
      */
     public static class AddReplicaRequestSerializer extends NsonSerializerBase {
 
@@ -1833,9 +1860,9 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            writeMapField(ns, POD, req.getRegion());
-            writeMapField(ns, READ_LIMIT, req.getReadUnits());
-            writeMapField(ns, WRITE_LIMIT, req.getWriteUnits());
+            writeMapField(ns, REGION, req.getRegion());
+            writeMapFieldNZ(ns, READ_UNITS, req.getReadUnits());
+            writeMapFieldNZ(ns, WRITE_UNITS, req.getWriteUnits());
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -1854,16 +1881,31 @@ public class NsonSerializerFactory implements SerializerFactory {
     /**
      * Drop Replica request:
      *  Payload:
-     *    tableName (in header)
-     *    pod (string)
+     *    tableName (in header) -- required
+     *    region (string) -- required
      *
      * Table result (all optional):
-     *  table name (string)
-     *  state (int)
-     *  domain id (int)
-     *  throughput info (read/write/storage)
-     *  schema (string)
-     *  operation id (plan id, etc) (int)
+     *   compartment ocid (string)
+     *   namespace (string)
+     *   table ocid (string)
+     *   table name (string)
+     *   state (int)
+     *   schema (string)
+     *   ddl (string)
+     *   throughput info (read/write/storage)
+     *   operation id (plan id, etc) (int)
+     *   free form tags (string)
+     *   defined tags (string)
+     *   etag (string)
+     *   schemaState (int): 0-MUTABLE, 1-FROZEN
+     *   initialized (boolean)
+     *   replicas (array(<replica>))
+     *     <replica>:
+     *       region (string)
+     *       tableOcid (string)
+     *       writeUnits (int)
+     *       mode (int)
+     *       tableState (int): same value as TableResult.tableState
      */
     public static class DropReplicaRequestSerializer extends NsonSerializerBase {
 
@@ -1887,7 +1929,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             /* payload */
             startMap(ns, PAYLOAD);
-            writeMapField(ns, POD, req.getRegion());
+            writeMapField(ns, REGION, req.getRegion());
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -1900,6 +1942,133 @@ public class NsonSerializerFactory implements SerializerFactory {
             throws IOException {
 
             return deserializeTableResult(request, in);
+        }
+    }
+
+    /**
+     * GetReplicaStatsRequest:
+     *   tableName (in header)  -- required
+     *   replica (string)  -- required
+     *   startTime (string)
+     *   limit (int)
+     *
+     * GetReplicaStatsResult:
+     *   tableName (string)
+     *   nextStartTime (long)
+     *   replicaStats (Map<string, Array<ReplicaStats>>)
+     *     key - replicaName (string)
+     *     value - Array<ReplicaStats>
+     *     <ReplicaStats>:
+     *       time (long)
+     *       replicaLag (int)
+     */
+    public static class GetReplicaStatsRequestSerializer
+        extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            ReplicaStatsRequest req = (ReplicaStatsRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            /* header */
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.GET_REPLICA_STATS.ordinal(), req);
+            endMap(ns, HEADER);
+
+            /* payload */
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, REGION, req.getReplicaName());
+            writeMapField(ns, START, req.getStartTimeString());
+            writeMapFieldNZ(ns, LIST_MAX_TO_READ, req.getLimit());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion)
+            throws IOException {
+
+            ReplicaStatsResult result = new ReplicaStatsResult();
+
+            in.setOffset(0);
+            MapWalker walker = getMapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(TABLE_NAME)) {
+                    result.setTableName(Nson.readNsonString(in));
+                } else if (name.equals(REPLICA_STATS)) {
+                    readReplicasStatsRecord(in, result);
+                } else if (name.equals(NEXT_START_TIME)) {
+                    result.setNextStartTime(Nson.readNsonLong(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
+        }
+
+        private void readReplicasStatsRecord(ByteInputStream in,
+                                             ReplicaStatsResult result)
+            throws IOException {
+
+            MapWalker walker = new MapWalker(in);
+            Map<String, ReplicaStats[]> repRecords = new HashMap<>();
+            while (walker.hasNext()) {
+                walker.next();
+                String replicaName = walker.getCurrentName();
+
+                /* array of replica stats */
+                int t = in.readByte();
+                if (t != Nson.TYPE_ARRAY) {
+                    throw new IllegalStateException(
+                        "Operations: bad type in replica stats: " +
+                        Nson.typeString(t) + ", should be ARRAY");
+                }
+
+                in.readInt();
+                int numElements = in.readInt();
+                ReplicaStats[] records = new ReplicaStats[numElements];
+
+                for (int i = 0; i < numElements; i++) {
+                    ReplicaStats stats = new ReplicaStats();
+                    readReplicaStats(in, stats);
+                    records[i] = stats;
+                }
+
+                repRecords.put(replicaName, records);
+            }
+            result.setStatsRecords(repRecords);
+        }
+
+        private void readReplicaStats(ByteInputStream in, ReplicaStats stats)
+            throws IOException {
+
+            MapWalker walker = new MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(TIME)) {
+                    stats.time = Nson.readNsonLong(in);
+                } else if (name.equals(REPLICA_LAG)) {
+                    stats.replicaLag = Nson.readNsonInt(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
         }
     }
 
@@ -2469,7 +2638,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(SCHEMA_STATE)) {
                     result.setSchemaState(getSchemaState(Nson.readNsonInt(in)));
                 } else if (name.equals(INITIALIZED)) {
-                    result.setInitialized(Nson.readNsonBoolean(in));
+                    result.setLocalReplicaInitialized(Nson.readNsonBoolean(in));
                 } else if (name.equals(REPLICAS)) {
                     readReplicas(in, result);
                 } else {
@@ -2481,12 +2650,10 @@ public class NsonSerializerFactory implements SerializerFactory {
 
         private static TableResult.SchemaState getSchemaState(int state) {
             switch(state) {
-            case FLUID:
-                return TableResult.SchemaState.FLUID;
+            case MUTABLE:
+                return TableResult.SchemaState.MUTABLE;
             case FROZEN:
                 return TableResult.SchemaState.FROZEN;
-            case SCHEMALESS:
-                return TableResult.SchemaState.SCHEMALESS;
             default:
                 throw new IllegalStateException("Unknown schema state " +
                                                 state);
@@ -2514,7 +2681,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             result.setReplicas(replicas);
         }
 
-        private static void readReplica(ByteInputStream in, Replica replia)
+        private static void readReplica(ByteInputStream in, Replica replica)
             throws IOException {
 
             MapWalker walker = new MapWalker(in);
@@ -2522,13 +2689,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(REGION)) {
-                    replia.setRegion(Nson.readNsonString(in));
+                    replica.setRegion(Nson.readNsonString(in));
                 } else if (name.equals(TABLE_OCID)) {
-                    replia.setTableId(Nson.readNsonString(in));
+                    replica.setTableId(Nson.readNsonString(in));
                 } else if (name.equals(WRITE_UNITS)) {
-                    replia.setWriteUnits(Nson.readNsonInt(in));
+                    replica.setWriteUnits(Nson.readNsonInt(in));
+                } else if (name.equals(LIMITS_MODE)) {
+                    replica.setCapacityMode(
+                        getCapacityMode(Nson.readNsonInt(in)));
                 } else if (name.equals(TABLE_STATE)) {
-                    replia.setState(getTableState(Nson.readNsonInt(in)));
+                    replica.setState(getTableState(Nson.readNsonInt(in)));
                 } else {
                     skipUnknownField(walker, name);
                 }
