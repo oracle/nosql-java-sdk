@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [5.4.10] 2023-04-25
 
 ### Added
 - On-premises only: added support for setting namespace on a per-request basis
