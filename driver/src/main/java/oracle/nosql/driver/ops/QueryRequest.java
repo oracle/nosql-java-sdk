@@ -98,6 +98,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private long maxMemoryConsumption = 1024 * 1024 * 1024;
 
+    private long maxServerMemoryConsumption = 10 * 1024 * 1024;
+
     private MathContext mathContext = MathContext.DECIMAL32;
 
     private Consistency consistency;
@@ -430,9 +432,12 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * (which may be required due to the use of an index on an array or map)
      * and sorting. Such operations may consume a lot of memory as they need
      * to cache the full result set or a large subset of it at the client
-     * memory. The default value is 1GB.
+     * memory. If the maximum amount of memory is exceeded, a exception will
+     * be throw.
+     * <p>
+     * The default value is 1GB.
      *
-     * @param maxBytes the value to use in bytes
+     * @param maxBytes the amount of memory to use, in bytes
      *
      * @return this
      */
@@ -451,12 +456,48 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * array or map) and sorting (sorting by distance when a query contains
      * a geo_near() function). Such operations may consume a lot of memory
      * as they need to cache the full result set at the client memory.
-     * The default value is 100MB.
+     * <p>
+     * The default value is 1GB.
      *
      * @return the maximum number of memory bytes
      */
     public long getMaxMemoryConsumption() {
         return maxMemoryConsumption;
+    }
+
+    /**
+     * Sets the maximum number of memory bytes that may be consumed by the
+     * statement at a replication node. In general, queries do not consume
+     * a lot of memory while executing at a replcation node and the value
+     * of this parameter has no effect. Currently, the only exception are
+     * queries that use the array_collect function. For such queries, if
+     * the maximum amount of memory is exceeded, execution of the query
+     * at the replication node will be terminated (without error) and the
+     * set of query results that have been computed so far will be sent
+     * to the driver. The driver will keep executing the query, sending 
+     * more requests to the replication nodes for additional results.
+     * So, for queries that use array_collect, increasing the value of this
+     * parameter will decrease the number of interactions between the driver
+     * and the replacation nodes at the expense of consuming the memory
+     * consumption at the nodes.
+     * <p> 
+     * The default value is 10MB, and for applacations running on the
+     * cloud, it can not be inreased beyond this default.
+     *
+     * @param maxBytes the value to use in bytes
+     *
+     * @return this
+     */
+    public QueryRequest setMaxServerMemoryConsumption(long maxBytes) {
+        if (maxBytes < 0) {
+            throw new IllegalArgumentException("maxBytes must be >= 0");
+        }
+        maxServerMemoryConsumption = maxBytes;
+        return this;
+    }
+
+    public long getMaxServerMemoryConsumption() {
+        return maxServerMemoryConsumption;
     }
 
     /**

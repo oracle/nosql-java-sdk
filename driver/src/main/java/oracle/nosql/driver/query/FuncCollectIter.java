@@ -181,11 +181,15 @@ public class FuncCollectIter extends PlanIter {
             ArrayValue arr = (ArrayValue)val;
             int size = arr.size();
             for (int i = 0; i < size; ++i) {
-                state.theValues.add(new WrappedValue(arr.get(i)));
+                WrappedValue wval = new WrappedValue(arr.get(i));
+                state.theValues.add(wval);
+                rcb.incMemoryConsumption(wval.sizeof());
             }
         } else {
             ArrayValue arr = (ArrayValue)val;
             state.theArray.addAll(arr.iterator());
+            rcb.incMemoryConsumption(arr.sizeof() + 
+                                     arr.size() * SizeOf.OBJECT_REF_OVERHEAD);
         }
     }
 

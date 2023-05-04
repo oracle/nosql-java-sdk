@@ -75,6 +75,7 @@ public class NsonProtocol {
     public static String READ_THROTTLE_COUNT = "rt";
     public static String RETURN_ROW = "rr";
     public static String SHARD_ID = "si";
+    public static String SERVER_MEMORY_CONSUMPTION = "sm";
     public static String START = "sr";
     public static String STATEMENT = "st";
     public static String STORAGE_THROTTLE_COUNT = "sl";
@@ -210,6 +211,7 @@ public class NsonProtocol {
         {READ_THROTTLE_COUNT,"READ_THROTTLE_COUNT"},
         {RETURN_ROW,"RETURN_ROW"},
         {SHARD_ID,"SHARD_ID"},
+        {SERVER_MEMORY_CONSUMPTION,"SERVER_MEMORY_CONSUMPTION"},
         {START,"START"},
         {STATEMENT,"STATEMENT"},
         {STORAGE_THROTTLE_COUNT,"STORAGE_THROTTLE_COUNT"},
