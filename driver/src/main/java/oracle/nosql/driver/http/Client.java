@@ -72,7 +72,9 @@ import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -476,7 +478,7 @@ public class Client {
 
         String requestId = "";
         int thisIterationTimeoutMs = 0;
-
+        byte[] content = null;
         do {
             thisIterationTimeoutMs =
                 getIterationTimeoutMs(timeoutMs, startNanos);
@@ -638,7 +640,22 @@ public class Client {
                     kvRequest.setCompartmentInternal(
                         config.getDefaultCompartment());
                 }
-                authProvider.setRequiredHeaders(authString, kvRequest, headers);
+
+                /*
+                 * Get request body bytes if the request needed to be signed
+                 * with content, it should not be changed in retries.
+                 *
+                 * But the thisIterationTimeoutMs is recalculated on each retry
+                 * and also set in the request, which leads to content changed
+                 * on retry. To solve this, store the request body bytes in
+                 * local variable byte[] content and always use it for this
+                 * request.
+                 */
+                if (needSignWithContent(kvRequest) && content == null) {
+                    content = getBodyBytes(buffer);
+                }
+                authProvider.setRequiredHeaders(authString, kvRequest, headers,
+                                                content);
 
                 String namespace = kvRequest.getNamespace();
                 if (namespace == null) {
@@ -1057,8 +1074,8 @@ public class Client {
         int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
                                      .intValue();
 
-        double RUs = (double)limits.getReadUnits();
-        double WUs = (double)limits.getWriteUnits();
+        double RUs = limits.getReadUnits();
+        double WUs = limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();
@@ -1695,6 +1712,36 @@ public class Client {
         }
 
         return 0;
+    }
+
+    /**
+     * Need sign with request content for MR ddl in the context of cloud
+     * to get obo token or authorization with obotoken(?)
+     * (TODO: double confirm the reason)
+     *   o add/drop replica
+     *   o table request including create/drop index, update-table-limits,
+     *     alter-table
+     *   o internal ddl (cross region ddl)
+     */
+    private boolean needSignWithContent(Request request) {
+        if (authProvider instanceof StoreAccessTokenProvider) {
+            /* no need to sign with content for on-promises */
+            return false;
+        }
+        return request instanceof AddReplicaRequest ||
+               request instanceof DropReplicaRequest ||
+               request instanceof TableRequest ||
+               request.getOboToken() != null;
+    }
+
+    private byte[] getBodyBytes(ByteBuf buffer) {
+        if (buffer.hasArray()) {
+            return buffer.array();
+        }
+
+        byte[] bytes = new byte[buffer.readableBytes()];
+        buffer.getBytes(buffer.readerIndex(), bytes);
+        return bytes;
     }
 
     /**

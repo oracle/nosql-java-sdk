@@ -35,10 +35,7 @@ import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
-import oracle.nosql.driver.ops.AddReplicaRequest;
-import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.Request;
-import oracle.nosql.driver.ops.TableRequest;
 
 import io.netty.handler.codec.http.HttpHeaders;
 
@@ -715,14 +712,11 @@ public class SignatureProvider
     @Override
     public void setRequiredHeaders(String authString,
                                    Request request,
-                                   HttpHeaders headers) {
+                                   HttpHeaders headers,
+                                   byte[] content) {
 
-        SignatureDetails sigDetails =
-                (request instanceof AddReplicaRequest ||
-                 request instanceof DropReplicaRequest ||
-                 request instanceof TableRequest ||
-                 request.getOboToken() != null) ?
-            getSignatureWithContent(request, headers):
+        SignatureDetails sigDetails = (content != null) ?
+            getSignatureWithContent(request, headers, content):
             getSignatureDetails(request);
         if (sigDetails == null) {
             return;
@@ -897,13 +891,17 @@ public class SignatureProvider
     }
 
     private SignatureDetails getSignatureWithContent(Request request,
-                                                     HttpHeaders headers) {
-        return getSignatureDetailsInternal(false, request, headers, true);
+                                                     HttpHeaders headers,
+                                                     byte[] content) {
+        return getSignatureDetailsInternal(false, request, headers, content);
     }
 
     synchronized SignatureDetails
         getSignatureDetailsForCache(Request request, boolean isRefresh) {
-        return getSignatureDetailsInternal(isRefresh, null, null, false);
+        return getSignatureDetailsInternal(isRefresh,
+                                           null /* request */,
+                                           null /* headers */,
+                                           null /* content */);
     }
 
     private String getDelegationToken(Request req) {
@@ -916,7 +914,7 @@ public class SignatureProvider
         getSignatureDetailsInternal(boolean isRefresh,
                                     Request request,
                                     HttpHeaders headers,
-                                    boolean withContent) {
+                                    byte[] content) {
         /*
          * add one minute to the current time, so that any caching is
          * effective over a more valid time period.
@@ -938,7 +936,7 @@ public class SignatureProvider
 
         String signature;
         try {
-            signature = sign(signingContent(date, request, headers, withContent),
+            signature = sign(signingContent(date, request, headers, content),
                              privateKeyProvider.getKey());
         } catch (Exception e) {
             logMessage(Level.SEVERE, "Error signing request " + e.getMessage());
@@ -947,7 +945,7 @@ public class SignatureProvider
 
         String token = getDelegationToken(request);
         String signingHeader;
-        if (withContent) {
+        if (content != null) {
             signingHeader = (token == null)
                 ? SIGNING_HEADERS_WITH_CONTENT :
                   SIGNING_HEADERS_WITH_CONTENT_OBO;
@@ -996,7 +994,7 @@ public class SignatureProvider
     String signingContent(String date,
                           Request request,
                           HttpHeaders headers,
-                          boolean withContent) {
+                          byte[] content) {
         StringBuilder sb = new StringBuilder();
         sb.append(REQUEST_TARGET).append(HEADER_DELIMITER)
           .append("post /").append(NOSQL_DATA_PATH).append("\n")
@@ -1004,15 +1002,14 @@ public class SignatureProvider
           .append(serviceHost).append("\n")
           .append(DATE).append(HEADER_DELIMITER).append(date);
 
-        if (withContent) {
+        if (content != null) {
             /* Must be in this order */
             sb.append("\n").append("content-length")
               .append(HEADER_DELIMITER).append(headers.get(CONTENT_LENGTH))
               .append("\n").append("content-type")
               .append(HEADER_DELIMITER).append(headers.get(CONTENT_TYPE));
 
-            /* TODO: request body, use empty string for now */
-            String sha256 = computeBodySHA256("".getBytes());
+            String sha256 = computeBodySHA256(content);
             sb.append("\n").append("x-content-sha256")
               .append(HEADER_DELIMITER).append(sha256);
             headers.add("x-content-sha256", sha256);
