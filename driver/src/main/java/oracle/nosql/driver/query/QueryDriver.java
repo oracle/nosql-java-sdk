@@ -233,4 +233,8 @@ public class QueryDriver {
             theResults = null;
         }
     }
+
+    public String getQueryTrace() {
+        return theRCB.getQueryTrace();
+    }
 }

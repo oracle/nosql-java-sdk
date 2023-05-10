@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -791,6 +792,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapFieldNZ(ns, MAX_WRITE_KB, rq.getMaxWriteKB());
             writeMapFieldNZ(ns, NUMBER_LIMIT, rq.getLimit());
             writeMapFieldNZ(ns, TRACE_LEVEL, rq.getTraceLevel());
+            if (rq.getTraceLevel() > 0) {
+                writeMapField(ns, TRACE_AT_LOG_FILES, rq.getLogFileTracing());
+                writeMapField(ns, BATCH_COUNTER, rq.getBatchCounter());
+            }
 
             writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
             boolean isPrepared = rq.isPrepared();
@@ -888,6 +893,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             int[] shardIds = null;
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
+            TreeMap<String, String> queryTraces = null;
 
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
@@ -949,6 +955,17 @@ public class NsonSerializerFactory implements SerializerFactory {
                     for (int i = 0; i < numScans; ++i) {
                         virtualScans[i] = readVirtualScan(in);
                     }
+
+                } else if (name.equals(QUERY_BATCH_TRACES)) {
+                    readType(in, Nson.TYPE_ARRAY);
+                    in.readInt(); /* length of array in bytes */
+                    int numTraces = in.readInt() / 2; /* number of array elements */
+                    queryTraces = new TreeMap();
+                    for (int i = 0; i < numTraces; ++i) {
+                        String batchName = Nson.readNsonString(in);
+                        String batchTrace = Nson.readNsonString(in);
+                        queryTraces.put(batchName, batchTrace);
+                    }
                 } else {
                     // log/warn
                     walker.skip();
@@ -965,6 +982,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 qreq.setContKey(qres.getContinuationKey());
                 qres.setVirtualScans(virtualScans);
                 qres.setTopology(ti);
+                qres.setQueryTraces(queryTraces);
             } else {
                 pres.setTopology(ti);
             }

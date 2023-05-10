@@ -715,6 +715,7 @@ public class ReceiveIter extends PlanIter {
         void fetch() {
 
             QueryRequest origRequest = theRCB.getRequest();
+            origRequest.incBatchCounter();
             QueryRequest reqCopy = origRequest.copyInternal();
             reqCopy.setContKey(theContinuationKey);
             reqCopy.setShardId(theIsForShard ? theShardOrPartId : -1);
@@ -734,7 +735,8 @@ public class ReceiveIter extends PlanIter {
             }
 
             if (theRCB.getTraceLevel() >= 1) {
-                theRCB.trace("RemoteScanner : executing remote request. spid = " +
+                theRCB.trace("RemoteScanner : executing remote batch " + 
+                             origRequest.getBatchCounter() + ". spid = " +
                              theShardOrPartId);
                 if (theVirtualScan != null) {
                     theRCB.trace("RemoteScanner : request is for virtual scan:\n" +
@@ -765,6 +767,8 @@ public class ReceiveIter extends PlanIter {
             theRCB.tallyRetryStats(result.getRetryStats());
 
             assert(result.reachedLimit() || !theMoreRemoteResults);
+
+            origRequest.addQueryTraces(result.getQueryTraces());
 
             /*
              * For simplicity, if the query is a sorting one, we consider

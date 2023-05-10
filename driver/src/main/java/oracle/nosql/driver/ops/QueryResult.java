@@ -8,6 +8,7 @@
 package oracle.nosql.driver.ops;
 
 import java.util.List;
+import java.util.Map;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
@@ -83,6 +84,8 @@ public class QueryResult extends Result {
     private byte[][] continuationKeys;
 
     private VirtualScan[] virtualScans;
+
+    private Map<String, String> queryTraces;
 
     /**
      * @hidden
@@ -299,6 +302,20 @@ public class QueryResult extends Result {
      */
     public void setVirtualScans(VirtualScan[] vs) {
         virtualScans = vs;
+    }
+
+    /**
+     * @hidden
+     */
+    public void setQueryTraces(Map<String, String> traces) {
+        queryTraces = traces;
+    }
+
+    /**
+     * @hidden
+     */
+    public Map<String, String> getQueryTraces() {
+        return queryTraces;
     }
 
     /* from Result */

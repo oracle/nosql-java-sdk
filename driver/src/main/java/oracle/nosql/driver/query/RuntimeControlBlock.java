@@ -8,6 +8,8 @@
 package oracle.nosql.driver.query;
 
 import java.math.MathContext;
+import java.time.temporal.ChronoUnit;
+import java.time.Clock;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.http.Client;
@@ -78,6 +80,8 @@ public class RuntimeControlBlock {
      */
     long theMemoryConsumption;
 
+    private final StringBuilder theTraceBuilder = new StringBuilder();
+
     public RuntimeControlBlock(
         QueryDriver driver,
         PlanIter rootIter,
@@ -100,8 +104,27 @@ public class RuntimeControlBlock {
     }
 
     public void trace(String msg) {
-        /* TODO: think about logging */
-        System.out.println("D-QUERY: " + msg);
+        if (getRequest().getLogFileTracing()) {
+            System.out.println(
+                Clock.systemUTC().instant().
+                truncatedTo(ChronoUnit.MILLIS) +
+                " DRIVER " + getRequest().getQueryName() +
+                "(" + Thread.currentThread().getId() +
+                ") : " + msg);
+        } else {
+            String time = Clock.systemUTC().instant().
+                          truncatedTo(ChronoUnit.MILLIS).toString();
+            time = time.substring(11);
+            theTraceBuilder.append(time);
+            theTraceBuilder.append(" (").
+                append(Thread.currentThread().getId()).
+                append(") :\n");
+            theTraceBuilder.append(msg).append("\n");
+        }
+    }
+
+    String getQueryTrace() {
+        return theTraceBuilder.toString();
     }
 
     public Client getClient() {

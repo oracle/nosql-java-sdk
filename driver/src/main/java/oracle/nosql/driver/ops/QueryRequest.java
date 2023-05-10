@@ -7,8 +7,11 @@
 
 package oracle.nosql.driver.ops;
 
+import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.Map;
+import java.util.TreeMap;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
@@ -131,6 +134,14 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private String queryName;
 
+    private boolean logFileTracing = true;
+
+    private String driverQueryTrace;
+
+    private Map<String, String> serverQueryTraces;
+
+    private int batchCounter;
+
     public QueryRequest() {
     }
 
@@ -145,7 +156,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         super.copyTo(internalReq);
 
         internalReq.traceLevel = traceLevel;
+        internalReq.logFileTracing = logFileTracing;
         internalReq.queryName = queryName;
+        internalReq.batchCounter = batchCounter;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
@@ -170,6 +183,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
+        driverQueryTrace = null;
+        batchCounter = 0;
         return internalReq;
     }
 
@@ -270,15 +285,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     *
-     * @return trace level
-     */
-    public int getTraceLevel() {
-        return traceLevel;
-    }
-
-    /**
-     * @hidden
      */
     public void setVirtualScan(VirtualScan vs) {
         virtualScan = vs;
@@ -308,6 +314,15 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     *
+     * @return trace level
+     */
+    public int getTraceLevel() {
+        return traceLevel;
+    }
+
+    /**
+     * @hidden
      * Set a symbolic name for this query. This name will appear in query logs
      * if query tracing has been turned on.
      *
@@ -328,6 +343,83 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     public String getQueryName() {
         return queryName;
+    }
+
+    /**
+     * @hidden
+     * If the logFileTracing parameter is set to true, log records produced
+     * during query execution tracing will be written to the log files. 
+     * Otherwise, they are shipped by the servers to the driver, where they
+     * can be displayed via the {@link #printTrace} method.
+     *
+     * @param value
+     * @return this
+     */
+    public QueryRequest setLogFileTracing(boolean value) {
+        logFileTracing = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean getLogFileTracing() {
+        return logFileTracing;
+    }
+
+    /**
+     * @hidden
+     */
+    public void addQueryTraces(Map<String, String> traces) {
+
+        if (traces == null) {
+            return;
+        }
+
+        if (serverQueryTraces == null) {
+            serverQueryTraces = new TreeMap<String, String>();
+        }
+        serverQueryTraces.putAll(traces);
+    }
+
+    /**
+     * @hidden
+     */
+    public void printTrace(PrintStream out) {
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("\n\n---------------------------------\n");
+        sb.append("CLIENT : " + queryName);
+        sb.append("\n---------------------------------\n\n");
+        if (driver != null) {
+            sb.append(driver.getQueryTrace());
+        } else if (driverQueryTrace != null) {
+            sb.append(driverQueryTrace);
+        }
+        sb.append("\n");
+
+        if (serverQueryTraces != null) {
+            for (Map.Entry<String, String> entry : serverQueryTraces.entrySet()) {
+                sb.append("\n\n-------------------------------------------\n");
+                sb.append(queryName);
+                sb.append(": ");
+                sb.append(entry.getKey());
+                sb.append("\n-------------------------------------------\n\n");
+                sb.append(entry.getValue());
+                sb.append("\n");
+            }
+        }
+
+        out.println(sb.toString());
+    }
+
+    public int getBatchCounter() {
+        return batchCounter;
+    }
+
+    public void incBatchCounter() {
+        ++batchCounter;
     }
 
     /**
@@ -626,6 +718,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         this.continuationKey = continuationKey;
 
         if (driver != null && !isInternal && continuationKey == null) {
+            driverQueryTrace = driver.getQueryTrace();
             driver.close();
             driver = null;
         }

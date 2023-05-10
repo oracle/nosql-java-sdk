@@ -24,6 +24,7 @@ public class NsonProtocol {
      * format
      */
     public static String ABORT_ON_FAIL = "a";
+    public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
@@ -89,6 +90,7 @@ public class NsonProtocol {
     public static String TABLE_USAGE_PERIOD = "pd";
     public static String TIMEOUT = "t";
     public static String TOPO_SEQ_NUM = "ts";
+    public static String TRACE_AT_LOG_FILES = "tf";
     public static String TRACE_LEVEL = "tl";
     public static String TTL = "tt";
     public static String TYPE = "y";
@@ -116,6 +118,7 @@ public class NsonProtocol {
     public static String ERROR_CODE = "e";
     public static String EXCEPTION = "x";
     public static String NUM_DELETIONS = "nd";
+    public static String QUERY_BATCH_TRACES = "qts";
     public static String RETRY_HINT = "rh";
     public static String SUCCESS = "ss";
     public static String WM_FAILURE = "wf";
@@ -174,6 +177,7 @@ public class NsonProtocol {
 
     private static String[][] mapVals = new String[][] {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
+        {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
@@ -239,6 +243,7 @@ public class NsonProtocol {
         {TABLE_USAGE_PERIOD,"TABLE_USAGE_PERIOD"},
         {TIMEOUT,"TIMEOUT"},
         {TOPO_SEQ_NUM,"TOPO_SEQ_NUM"},
+        {TRACE_AT_LOG_FILES,"TRACE_AT_LOG_FILES"},
         {TRACE_LEVEL,"TRACE_LEVEL"},
         {TTL,"TTL"},
         {TYPE,"TYPE"},
@@ -262,6 +267,7 @@ public class NsonProtocol {
         {ERROR_CODE,"ERROR_CODE"},
         {EXCEPTION,"EXCEPTION"},
         {NUM_DELETIONS,"NUM_DELETIONS"},
+        {QUERY_BATCH_TRACES,"QUERY_BATCH_TRACES"},
         {RETRY_HINT,"RETRY_HINT"},
         {SUCCESS,"SUCCESS"},
         {WM_FAILURE,"WM_FAILURE"},

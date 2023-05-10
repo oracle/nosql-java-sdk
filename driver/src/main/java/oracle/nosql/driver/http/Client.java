@@ -426,6 +426,7 @@ public class Client {
              * QueryResult.
              */
             trace("QueryRequest has no QueryDriver and is not prepared", 2);
+            qreq.incBatchCounter();
         }
 
         int timeoutMs = kvRequest.getTimeoutInternal();
@@ -702,6 +703,11 @@ public class Client {
                     } else if (res instanceof WriteResult) {
                         ((WriteResult)res).setClient(this);
                     }
+                }
+
+                if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                    QueryRequest qreq = (QueryRequest)kvRequest;
+                    qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
                 }
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
@@ -1731,7 +1737,7 @@ public class Client {
 
         if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
             topology = topo;
-            trace("New topology: " + topo, 0);
+            trace("New topology: " + topo, 1);
         }
     }
 }
