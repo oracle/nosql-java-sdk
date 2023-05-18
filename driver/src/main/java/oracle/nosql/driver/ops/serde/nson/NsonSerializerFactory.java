@@ -835,9 +835,11 @@ public class NsonSerializerFactory implements SerializerFactory {
             startMap(ns, VIRTUAL_SCAN);
             writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
             writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
-            writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
-            writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
-            writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
+            if (vs.isFirstBatch()) {
+                writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
+                writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
+                writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
+            }
             endMap(ns, VIRTUAL_SCAN);
         }
 

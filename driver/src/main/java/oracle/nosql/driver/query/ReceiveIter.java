@@ -498,6 +498,10 @@ public class ReceiveIter extends PlanIter {
 
             state.theSortedScanners.add(
                 this.new RemoteScanner(rcb, state, true, vsid, vs));
+
+            if (rcb.getTraceLevel() >= 1) {
+                rcb.trace("ReceiveIter: added scanner for virtual scan:\n" + vs);
+            }
         }
 
         scanner.theVirtualScans = null;
@@ -642,8 +646,6 @@ public class ReceiveIter extends PlanIter {
 
         VirtualScan theVirtualScan;
 
-        boolean theHaveDoneVirtualScan;
-
         boolean theMoreRemoteResults;
 
         public RemoteScanner(
@@ -745,14 +747,17 @@ public class ReceiveIter extends PlanIter {
                 assert(reqCopy.hasDriver());
             }
 
-            if (theVirtualScan != null && !theHaveDoneVirtualScan) {
+            if (theVirtualScan != null) {
                 assert(theIsForShard);
                 assert(doesSort());
                 reqCopy.setVirtualScan(theVirtualScan);
-                theHaveDoneVirtualScan = true;
             }
 
             QueryResult result = execute(theRCB, origRequest, reqCopy);
+
+            if (theVirtualScan != null && theVirtualScan.isFirstBatch()) {
+                theVirtualScan.theFirstBatch = false;
+            }
 
             theResults = result.getResultsInternal();
             theContinuationKey = result.getContinuationKey();
@@ -784,14 +789,25 @@ public class ReceiveIter extends PlanIter {
             }
 
             if (theRCB.getTraceLevel() >= 1) {
-                theRCB.trace("RemoteScanner : got " + theResults.size() +
-                             " remote results. More remote resuls = " +
-                             theMoreRemoteResults + " reached limit = " +
-                             result.reachedLimit() + " read KB = " +
-                             result.getReadKB() + " read Units = " +
-                             result.getReadUnits() + " write KB = " +
-                             result.getWriteKB() + " memory consumption = " +
-                             theState.theMemoryConsumption);
+                StringBuilder sb = new StringBuilder("RemoteScanner : got ");
+                sb.append(theResults.size());
+                sb.append(" remote results. More remote resuls = ");
+                sb.append(theMoreRemoteResults);
+                sb.append(" reached limit = ").append(result.reachedLimit());
+                sb.append(" read KB = ").append(result.getReadKB());
+                sb.append(" read Units = ").append(result.getReadUnits());
+                sb.append(" write KB = ").append(result.getWriteKB());
+                sb.append(" memory consumption = ").append(theState.theMemoryConsumption);
+
+                if (theVirtualScans != null) {
+                    sb.append("\nVSM = [\n");
+                    for (VirtualScan vs : theVirtualScans) {
+                        sb.append(vs).append("\n");
+                    }
+                    sb.append("]\n");
+                }
+
+                theRCB.trace(sb.toString());
             }
         }
 

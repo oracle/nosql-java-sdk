@@ -16,6 +16,8 @@ public class VirtualScan {
     final private byte[] theSecResumeKey;
     final private boolean theMoveAfterResumeKey;
 
+    boolean theFirstBatch = true;
+
     public VirtualScan(
         int pid,
         int sid,
@@ -49,6 +51,10 @@ public class VirtualScan {
         return theMoveAfterResumeKey;
     }
 
+    public boolean isFirstBatch() {
+        return theFirstBatch;
+    }
+
     @Override
     public String toString() {
 
@@ -70,6 +76,8 @@ public class VirtualScan {
         }
 
         sb.append("theMoveAfterResumeKey = ").append(theMoveAfterResumeKey);
+        sb.append("\n");
+        sb.append("theFirstBatch = ").append(theFirstBatch);
         sb.append("\n");
 
         return sb.toString();

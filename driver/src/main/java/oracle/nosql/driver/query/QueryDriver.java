@@ -79,6 +79,10 @@ public class QueryDriver {
         return theRequest;
     }
 
+    public RuntimeControlBlock getRCB() {
+        return theRCB;
+    }
+
     public void setPrepCost(int cost) {
         thePrepCost = cost;
     }
