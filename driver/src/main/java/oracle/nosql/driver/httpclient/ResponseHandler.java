@@ -21,6 +21,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.ReferenceCountUtil;
+import javax.net.ssl.SSLException;
 
 /**
  * This class allows for asynchronous or synchronous request operation.
@@ -90,6 +91,10 @@ public class ResponseHandler implements Closeable {
 
         synchronized(this) {
             this.cause = th;
+            if (th instanceof SSLException) {
+                /* disconnect channel to re-create channel and engine */
+                channel.disconnect();
+            }
             latch.countDown();
         }
         logFine(logger, msg + ", cause: " + th);

@@ -647,21 +647,33 @@ public class SignatureProvider
         return provider;
     }
 
-    /*
+    /**
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider.
+     * This is for advanced use only; use of the create* methods is preferred.
      * The SignatureProvider that generates and caches request signature using
      * key id and private key supplied by {@link AuthenticationProfileProvider}.
+     *
+     * @param provider The provider to use
      */
-    protected SignatureProvider(AuthenticationProfileProvider provider) {
+    public SignatureProvider(AuthenticationProfileProvider provider) {
         this(provider, MAX_ENTRY_LIFE_TIME, DEFAULT_REFRESH_AHEAD);
     }
 
-    /*
+    /**
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider and refresh details.
+     * This is for advanced use only; use of the create* methods is preferred.
      * The constructor that is able to set refresh time before signature
-     * expire, currently this is hidden for simplicity.
+     * expires.
+     *
+     * @param profileProvider The provider to use
+     * @param durationSeconds amount of time to keep signature before refresh
+     * @param refreshAheadMs how soon before expiry to start a new refresh
      */
-    protected SignatureProvider(AuthenticationProfileProvider profileProvider,
+    public SignatureProvider(AuthenticationProfileProvider profileProvider,
                                 int durationSeconds,
-                                int refreshAhead) {
+                                int refreshAheadMs) {
         if (profileProvider instanceof RegionProvider) {
             this.region = ((RegionProvider) profileProvider).getRegion();
         }
@@ -675,7 +687,7 @@ public class SignatureProvider
                 MAX_ENTRY_LIFE_TIME + " seconds");
         }
 
-        this.refreshAheadMs = refreshAhead;
+        this.refreshAheadMs = refreshAheadMs;
         long durationMS = durationSeconds * 1000;
         if (durationMS > refreshAheadMs) {
             this.refreshIntervalMs = durationMS - refreshAheadMs;
