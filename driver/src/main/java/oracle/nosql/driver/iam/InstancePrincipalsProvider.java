@@ -129,7 +129,7 @@ public class InstancePrincipalsProvider
             "169.254.169.254";
 
         /* The default value for HTTP request timeouts in milliseconds */
-        private static final int DEFAULT_TIMEOUT_MS = 10_000;
+        private static final int DEFAULT_TIMEOUT_MS = 5_000;
 
         /* The default purpose value in federation requests against IAM */
         private static final String DEFAULT_PURPOSE = "DEFAULT";
