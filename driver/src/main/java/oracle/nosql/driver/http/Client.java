@@ -923,6 +923,17 @@ public class Client {
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
+        /*
+         * If the request timed out in a single iteration, and the
+         * timeout was fairly long, and there was no delay due to
+         * rate limiting, reset the session cookie so the next request
+         * may use a different server.
+         */
+        if (timeoutMs == thisIterationTimeoutMs &&
+            timeoutMs >= 2000 &&
+            rateDelayedMs == 0) {
+            setSessionCookieValue(null);
+        }
         throw new RequestTimeoutException(timeoutMs,
             requestClass + " timed out:" +
             (requestId.isEmpty() ? "" : " requestId=" + requestId) +

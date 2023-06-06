@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [5.4.11] 2023-06-06
+
+### Fixed
+- Changed internal IAM logic to close channel on SSL errors before doing internal retry
+
 ## [5.4.10] 2023-04-25
 
 ### Added
