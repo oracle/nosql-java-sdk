@@ -835,10 +835,17 @@ public class NsonSerializerFactory implements SerializerFactory {
             startMap(ns, VIRTUAL_SCAN);
             writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
             writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
+
             if (vs.isFirstBatch()) {
                 writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
                 writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
                 writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
+
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY, vs.descResumeKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_TABLES, vs.joinPathTables());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_KEY, vs.joinPathKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY, vs.joinPathSecKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED, vs.joinPathMatched());
             }
             endMap(ns, VIRTUAL_SCAN);
         }
@@ -1067,7 +1074,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
 
-            return new VirtualScan(pid, sid, primKey, secKey, moveAfter);
+            return new VirtualScan(pid, sid, primKey, secKey, moveAfter,
+                                   descResumeKey, joinPathTables, joinPathKey,
+                                   joinPathSecKey, joinPathMatched);
         }
 
         private static void readPhase1Results(byte[] arr, QueryResult result)
@@ -2060,6 +2069,22 @@ public class NsonSerializerFactory implements SerializerFactory {
                                             byte[] value) throws IOException {
             ns.startMapField(fieldName);
             ns.binaryValue(value);
+            ns.endMapField(fieldName);
+        }
+
+        public static void writeMapField(NsonSerializer ns,
+                                         String fieldName,
+                                         int[] value) throws IOException {
+            if (value == null || value.length == 0) {
+                return;
+            }
+            ns.startMapField(fieldName);
+            ns.startArray(0);
+            for (int i : value) {
+                ns.integerValue(i);
+                ns.incrSize(1);
+            }
+            ns.endArray(0);
             ns.endMapField(fieldName);
         }
 

@@ -16,6 +16,12 @@ public class VirtualScan {
     final private byte[] theSecResumeKey;
     final private boolean theMoveAfterResumeKey;
 
+    final private byte[] theDescResumeKey;
+    final private int[] theJoinPathTables;
+    final private byte[] theJoinPathKey;
+    final private byte[] theJoinPathSecKey;
+    final private boolean theJoinPathMatched;
+
     boolean theFirstBatch = true;
 
     public VirtualScan(
@@ -23,12 +29,22 @@ public class VirtualScan {
         int sid,
         byte[] primKey,
         byte[] secKey,
-        boolean moveAfterResumeKey) {
+        boolean moveAfterResumeKey,
+        byte[] descResumeKey,
+        int[] joinPathTables,
+        byte[] joinPathKey,
+        byte[] joinPathSecKey,
+        boolean joinPathMatched) {
         theSID = sid;
         thePID = pid;
         thePrimResumeKey = primKey;
         theSecResumeKey = secKey;
         theMoveAfterResumeKey = moveAfterResumeKey;
+        theDescResumeKey = descResumeKey;
+        theJoinPathTables = joinPathTables;
+        theJoinPathKey = joinPathKey;
+        theJoinPathSecKey = joinPathSecKey;
+        theJoinPathMatched = joinPathMatched;
     }
 
     public int sid() {
@@ -49,6 +65,26 @@ public class VirtualScan {
     
     public boolean moveAfterResumeKey() {
         return theMoveAfterResumeKey;
+    }
+
+    public byte[] descResumeKey() {
+        return theDescResumeKey;
+    }
+
+    public int[] joinPathTables() {
+        return theJoinPathTables;
+    }
+
+    public byte[] joinPathKey() {
+        return theJoinPathKey;
+    }
+
+    public byte[] joinPathSecKey() {
+        return theJoinPathSecKey;
+    }
+
+    public boolean joinPathMatched() {
+        return theJoinPathMatched;
     }
 
     public boolean isFirstBatch() {
@@ -77,6 +113,34 @@ public class VirtualScan {
 
         sb.append("theMoveAfterResumeKey = ").append(theMoveAfterResumeKey);
         sb.append("\n");
+
+        if (theDescResumeKey != null) {
+            sb.append("theDescResumeKey = ");
+            sb.append(PlanIter.printByteArray(theDescResumeKey));
+            sb.append("\n");
+        }
+
+        if (theJoinPathTables != null) {
+            sb.append("theJoinPathTables = ");
+            sb.append(PlanIter.printIntArray(theJoinPathTables));
+            sb.append("\n");
+        }
+
+        if (theJoinPathKey != null) {
+            sb.append("theJoinPathKey = ");
+            sb.append(PlanIter.printByteArray(theJoinPathKey));
+            sb.append("\n");
+        }
+
+        if (theJoinPathSecKey != null) {
+            sb.append("theJoinPathSecKey = ");
+            sb.append(PlanIter.printByteArray(theJoinPathSecKey));
+            sb.append("\n");
+        }
+
+        sb.append("theJoinPathMatched = ").append(theJoinPathMatched);
+        sb.append("\n");
+
         sb.append("theFirstBatch = ").append(theFirstBatch);
         sb.append("\n");
 
