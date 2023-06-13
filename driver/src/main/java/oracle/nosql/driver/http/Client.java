@@ -855,9 +855,8 @@ public class Client {
                 }
                 throw e;
             } catch (IOException ioe) {
-                /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
-                logInfo(logger, "Client execution IOException, name: " +
+                logFine(logger, "Client execution IOException, name: " +
                         name + ", message: " + ioe.getMessage());
                 /*
                  * An exception in the channel, e.g. the server may have

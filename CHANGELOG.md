@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Changed
+- Moved a couple internal log messages to FINE instead of INFO
+- Cleaned up messaging when can't connect to server
+- Corrected javadoc for logging properties parameters
+
 ## [5.4.11] 2023-06-06
 
 ### Fixed
