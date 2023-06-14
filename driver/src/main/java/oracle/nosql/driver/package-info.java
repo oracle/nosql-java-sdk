@@ -124,7 +124,7 @@ java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter
 java.util.logging.SimpleFormatter.format=%1$tF %1$tT %4$-7s %5$s %n
 
 # Level can be SEVERE, WARNING, INFO, FINE, ALL, OFF
-com.oracle.nosql.level=FINE
+oracle.nosql.level=FINE
 io.netty.level=FINE
  * </pre>
  *
