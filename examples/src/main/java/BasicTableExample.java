@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -33,7 +33,7 @@ import oracle.nosql.driver.values.MapValue;
  * Examples can be run against:
  *  1. the cloud service
  *  2. the cloud simulator (CloudSim)
- *  3. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  3. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *
  * To run:
@@ -139,9 +139,10 @@ public class BasicTableExample {
                 " \"audience_segment\": { " +
                 " \"sports_lover\":\"2020-05-10\", " +
                 " \"foodie\":\"2020-06-01\"}})";
-            QueryRequest queryRequest = new QueryRequest();
-            queryRequest.setStatement(insertQuery);
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement(insertQuery);
+                QueryIterableResult results =
                 handle.queryIterable(queryRequest)) {
                 System.out.println("Inserted row via query, result:");
                 for (MapValue qval : results) {
@@ -195,9 +196,10 @@ public class BasicTableExample {
             String query = "SELECT * from " + tableName +
                 " WHERE cookie_id = 456";
 
-            queryRequest = new QueryRequest();
-            queryRequest.setStatement(query);
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement(query);
+                QueryIterableResult results =
                      handle.queryIterable(queryRequest)) {
                 System.out.println("Query results for " + query + ": ");
                 for (MapValue qval : results) {

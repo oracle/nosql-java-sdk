@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -1710,7 +1710,7 @@ public class QueryTest extends ProxyTestBase {
         if (onprem == false) {
             assumeKVVersion("testLowThroughput", 21, 3, 1);
         }
-        final int numRows = 500;
+        final int numRows = 30;
         String name = "testThroughput";
         String createTableDdl =
             "CREATE TABLE " + name +
@@ -1719,7 +1719,7 @@ public class QueryTest extends ProxyTestBase {
         tableOperation(handle, createTableDdl, new TableLimits(2, 20000, 1));
 
         MapValue value = new MapValue()
-            .put("bin", new byte[10000])
+            .put("bin", new byte[3000])
             .put("json", "abc");
         PutRequest putReq = new PutRequest().setTableName(name);
 
@@ -1732,7 +1732,9 @@ public class QueryTest extends ProxyTestBase {
         }
 
         /*
-         * Ensure that this query completes
+         * Ensure that this query completes.
+         * 30 rows of 3K+ each = ~90KB.
+         * at 2RUs/sec, that's about 45 seconds.
          */
         try (QueryRequest queryReq = newQueryRequest()) {
             queryReq.setStatement("select * from " + name);
@@ -2394,7 +2396,8 @@ public class QueryTest extends ProxyTestBase {
         return MIN_QUERY_COST;
     }
 
-    private QueryRequest newQueryRequest() {
+    @SuppressWarnings("resource")
+	private QueryRequest newQueryRequest() {
         return new QueryRequest().setTraceLevel(traceLevel);
     }
 }

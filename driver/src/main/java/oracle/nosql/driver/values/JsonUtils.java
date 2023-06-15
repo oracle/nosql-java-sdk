@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -26,10 +26,10 @@ import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * @hidden
  * Internal use only
  *
  * A utility class for working with JSON and FieldValue instances.
+ * @hidden
  */
 public class JsonUtils {
 

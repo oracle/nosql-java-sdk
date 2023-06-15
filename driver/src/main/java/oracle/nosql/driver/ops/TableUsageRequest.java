@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -237,8 +237,8 @@ public class TableUsageRequest extends Request {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -257,7 +257,7 @@ public class TableUsageRequest extends Request {
      */
     @Override
     public void validate() {
-        if (tableName == null) {
+        if (tableName == null || tableName.isEmpty()) {
             throw new IllegalArgumentException(
                 "TableUsageRequest requires a table name");
         }

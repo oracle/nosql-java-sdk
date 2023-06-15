@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -43,7 +43,8 @@ public class StatsControlImpl
 
         if (profile != Profile.NONE) {
             if (config.getStatsEnableLog() &&
-                logger.getLevel().intValue() > Level.INFO.intValue()) {
+                ( logger.getLevel() == null ||
+                  logger.getLevel().intValue() > Level.INFO.intValue())) {
                 logger.setLevel(Level.INFO);
             }
             logger.log(Level.INFO, LOG_PREFIX +

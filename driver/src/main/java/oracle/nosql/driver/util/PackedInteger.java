@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -15,7 +15,7 @@ package oracle.nosql.driver.util;
  *
  * Static methods for reading and writing packed integers.
  */
-class PackedInteger {
+public class PackedInteger {
 
     /**
      * The maximum number of bytes needed to store an int value (5).

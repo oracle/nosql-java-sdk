@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -46,7 +46,7 @@ import oracle.nosql.driver.ops.WriteMultipleResult;
  * information to be used by the handle.
  * <p>
  * The same interface is available to both users of the Oracle NoSQL Database
- * Cloud Service and the on-premise Oracle NoSQL Database; however, some methods
+ * Cloud Service and the on-premises Oracle NoSQL Database; however, some methods
  * and/or parameters are specific to each environment. The documentation has notes
  * about whether a class, method, or parameter is environment-specific. Unless
  * otherwise noted they are applicable to both environments.
@@ -280,12 +280,12 @@ public interface NoSQLHandle extends AutoCloseable {
     /**
      * Queries a table based on the query statement specified in the
      * {@link QueryRequest}.
-     *
+     * <p>
      * Queries that include a full shard key will execute much more efficiently
      * than more distributed queries that must go to multiple shards.
      * <p>
      * Table- and system-style queries such as "CREATE TABLE ..." or "DROP TABLE .."
-     * are not supported by this interfaces. Those operations must be performed using
+     * are not supported by this interface. Those operations must be performed using
      * {@link #tableRequest} or {@link #systemRequest} as appropriate.
      * <p>
      * The amount of data read by a single query request is limited by a system
@@ -315,7 +315,7 @@ public interface NoSQLHandle extends AutoCloseable {
     /**
      * Queries a table based on the query statement specified in the
      * {@link QueryRequest} while returning an iterable result.
-     *
+     * <p>
      * Queries that include a full shard key will execute much more efficiently
      * than more distributed queries that must go to multiple shards.
      * <p>
@@ -325,7 +325,7 @@ public interface NoSQLHandle extends AutoCloseable {
      * and not this method.
      * <p>
      * Table- and system-style queries such as "CREATE TABLE ..." or "DROP TABLE .."
-     * are not supported by this interfaces. Those operations must be performed using
+     * are not supported by this interface. Those operations must be performed using
      * {@link #tableRequest} or {@link #systemRequest} as appropriate.
      * <p>
      * The results are returned through an iterator, if connected to the
@@ -338,10 +338,10 @@ public interface NoSQLHandle extends AutoCloseable {
      * is necessary to close the QueryIterableResult or use the
      * try-with-resources statement:
      * <pre>
-     *    QueryRequest qreq = new QueryRequest()
-     *        .setStatement("select * from MyTable");
-     *
-     *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+     *    try (
+     *        QueryRequest qreq = new QueryRequest()
+     *            .setStatement("select * from MyTable");
+     *        QueryIterableResult qir = handle.queryIterable(qreq)) {
      *        for( MapValue row : qir) {
      *            // do something with row
      *        }
@@ -428,7 +428,7 @@ public interface NoSQLHandle extends AutoCloseable {
                                int pollIntervalMs);
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Performs a system operation on the system, such as
      * administrative operations that don't affect a specific table. For
@@ -460,7 +460,7 @@ public interface NoSQLHandle extends AutoCloseable {
     SystemResult systemRequest(SystemRequest request);
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Checks the status of an operation previously performed using
      * {@link #systemRequest}.
@@ -482,7 +482,7 @@ public interface NoSQLHandle extends AutoCloseable {
      * state, provisioned throughput and capacity and schema. Dynamic
      * information such as usage is obtained using {@link #getTableUsage}.
      * Throughput, capacity and usage information is only available when using
-     * the Cloud Service and will be null or not defined on-premise.
+     * the Cloud Service and will be null or not defined on-premises.
      *
      * @param request the input parameters for the operation
      *
@@ -556,7 +556,7 @@ public interface NoSQLHandle extends AutoCloseable {
     GetIndexesResult getIndexes(GetIndexesRequest request);
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Returns the namespaces in a store as an array of String.
      *
@@ -565,8 +565,8 @@ public interface NoSQLHandle extends AutoCloseable {
     String[] listNamespaces();
 
     /**
-     * On-premise only.
-     *
+     * On-premises only.
+     * <p>
      * Returns the roles in a store as an array of String.
      *
      * @return the list of roles or null if none are found
@@ -574,7 +574,7 @@ public interface NoSQLHandle extends AutoCloseable {
     String[] listRoles();
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * Returns the users in a store as an array of {@link UserInfo}.
      *
@@ -583,7 +583,7 @@ public interface NoSQLHandle extends AutoCloseable {
     UserInfo[] listUsers();
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * A convenience method that performs a SystemRequest and waits for
      * completion of the operation. This is the same as calling {@link

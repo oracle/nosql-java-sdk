@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -41,6 +41,14 @@ public abstract class Request {
     protected String compartment;
 
     /**
+     * On-premises use only.
+     *
+     * Set the namespace to use for the operation. Note: if a namespace is
+     * also specified in the table name, that namespace will override this one.
+     */
+    protected String namespace;
+
+    /**
      *  @hidden
      */
     private boolean checkRequestSize = true;
@@ -53,7 +61,7 @@ public abstract class Request {
     /**
      * @hidden
      */
-    private long startTimeMs;
+    private long startNanos;
 
     /**
      * @hidden
@@ -65,6 +73,8 @@ public abstract class Request {
      */
     private RateLimiter writeRateLimiter;
     private int rateLimitDelayedMs;
+    private boolean preferThrottling;
+    private boolean drlOptIn;
 
     /**
      * @hidden
@@ -173,8 +183,6 @@ public abstract class Request {
      * Sets the table name to use for the operation.
      *
      * @param tableName the table name
-     *
-     * @return this
      */
     protected void setTableNameInternal(String tableName) {
         this.tableName = tableName;
@@ -187,6 +195,31 @@ public abstract class Request {
      */
     public String getTableName() {
         return tableName;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * Sets the namespace to use for the operation.
+     *
+     * @param namespace the namespace name
+     *
+     * @since 5.4.10
+     */
+    protected void setNamespaceInternal(String namespace) {
+        this.namespace = namespace;
+    }
+
+    /**
+     * Returns the namespace to use for the operation.
+     *
+     * Note: if a namespace is supplied in the table name for the operation,
+     * that namespace will override this one.
+     *
+     * @return the namespace, or null if not set
+     */
+    public String getNamespace() {
+        return namespace;
     }
 
     /**
@@ -404,19 +437,19 @@ public abstract class Request {
     /**
      * @hidden
      * internal use only
-     * @param ms start time of request processing
+     * @param nanos start nanos of request processing
      */
-    public void setStartTimeMs(long ms) {
-        startTimeMs = ms;
+    public void setStartNanos(long nanos) {
+        startNanos = nanos;
     }
 
     /**
      * @hidden
      * internal use only
-     * @return start time of request processing
+     * @return start nanos of request processing
      */
-    public long getStartTimeMs() {
-        return startTimeMs;
+    public long getStartNanos() {
+        return startNanos;
     }
 
     public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
@@ -464,6 +497,47 @@ public abstract class Request {
 
     /**
      * @hidden
+     * Cloud only
+     * If using DRL, return immediate throttling error if the
+     * table is currently over its configured throughput limit.
+     * Otherwise, allow DRL to delay request processing to match
+     * table limits (default).
+     * @param preferThrottling if throttling is preferred
+     */
+    public void setPreferThrottling(boolean preferThrottling) {
+        this.preferThrottling = preferThrottling;
+    }
+
+    /**
+     * @hidden
+     * @return true if throttling is preferred
+     */
+    public boolean getPreferThrottling() {
+        return preferThrottling;
+    }
+
+    /**
+     * @hidden
+     * Cloud only
+     * Opt-in to using Distributed Rate Limiting (DRL). This setting
+     * will eventually be deprecated, as all requests will eventually
+     * use DRL unconditionally in the cloud.
+     * @param drlOptIn opt in to using DRL in the cloud
+     */
+    public void setDRLOptIn(boolean drlOptIn) {
+        this.drlOptIn = drlOptIn;
+    }
+
+    /**
+     * @hidden
+     * @return true if opted in to using DRL in the cloud
+     */
+    public boolean getDRLOptIn() {
+        return drlOptIn;
+    }
+
+    /**
+     * @hidden
      * Copy internal fields to another Request object.
      * @param other the Request object to copy to.
      */
@@ -472,10 +546,13 @@ public abstract class Request {
         other.setCheckRequestSize(this.checkRequestSize);
         other.setCompartmentInternal(this.compartment);
         other.setTableNameInternal(this.tableName);
-        other.setStartTimeMs(this.startTimeMs);
+        other.setNamespaceInternal(this.namespace);
+        other.setStartNanos(this.startNanos);
         other.setRetryStats(this.retryStats);
         other.setReadRateLimiter(this.readRateLimiter);
         other.setWriteRateLimiter(this.writeRateLimiter);
         other.setRateLimitDelayedMs(this.rateLimitDelayedMs);
+        other.setPreferThrottling(this.preferThrottling);
+        other.setDRLOptIn(this.drlOptIn);
     }
 }

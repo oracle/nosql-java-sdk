@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -108,9 +108,11 @@ public class TableResult extends Result {
      * Cloud service only.
      * <p>
      * Returns the OCID of the table. This value will be null if used with
-     * the on-premise service.
+     * the on-premises service.
      *
      * @return the table OCID
+     *
+     * @since 5.4
      */
     public String getTableId() {
         return tableOcid;
@@ -122,26 +124,30 @@ public class TableResult extends Result {
      * Returns compartment id of the target table
      *
      * @return the compartment id if set
+     *
+     * @since 5.4
      */
     public String getCompartmentId() {
         return compartmentOrNamespace;
     }
 
     /**
-     * On-premise service only.
+     * On-premises service only.
      * <p>
      * Returns the namespace of the table, or null if it is not in a namespace.
      * Note that the tablename is prefixed with the namespace as well if it
      * is in a namespace.
      *
      * @return the namespace id if set
+     *
+     * @since 5.4
      */
     public String getNamespace() {
         return compartmentOrNamespace;
     }
 
     /**
-     * Returns the table name of the target table. If on-premise and the table
+     * Returns the table name of the target table. If on-premises and the table
      * is in a namespace the namespace is included as a prefix using the format
      * <em>namespace:tableName</em>
      *
@@ -155,6 +161,8 @@ public class TableResult extends Result {
      * Returns the JSON-formatted schema of the table if available and null if
      * not
      * @return the schema
+     *
+     * @since 5.4
      */
     public String getSchema() {
         return schema;
@@ -162,7 +170,7 @@ public class TableResult extends Result {
 
     /**
      * Returns the throughput and capacity limits for the table.
-     * Limits from an on-premise service will always be null.
+     * Limits from an on-premises service will always be null.
      *
      * @return the limits
      */
@@ -177,6 +185,8 @@ public class TableResult extends Result {
      * if available, or null otherwise.
      *
      * @return the FreeFormTags
+     *
+     * @since 5.4
      */
     public FreeFormTags getFreeFormTags() {
         return freeFormTags;
@@ -189,6 +199,8 @@ public class TableResult extends Result {
      * if available, or null otherwise.
      *
      * @return the DefinedTags
+     *
+     * @since 5.4
      */
     public DefinedTags getDefinedTags() {
         return definedTags;
@@ -204,6 +216,7 @@ public class TableResult extends Result {
      * optimistic concurrency control mechanism.
      *
      * @return the matchETag
+     *
      * @since 5.4
      */
     public String getMatchETag() {

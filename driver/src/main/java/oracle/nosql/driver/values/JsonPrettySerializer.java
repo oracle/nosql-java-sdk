@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,14 +10,13 @@ package oracle.nosql.driver.values;
 import com.fasterxml.jackson.core.io.CharTypes;
 
 /**
- * @hidden
- *
  * JsonPrettySerializer is a FieldValueEventHandler instance that creates a
  * JSON string value, pretty-printed. This class extends
  * {@link JsonSerializer} overriding a few methods for handling pretty
  * printing. The amount of indentation used for objects can be configured
  * by using the constructor that accepts an indentation argument,
  * {@link #JsonPrettySerializer(int, JsonOptions)}.
+ * @hidden
  */
 public class JsonPrettySerializer extends JsonSerializer {
 
@@ -88,9 +87,12 @@ public class JsonPrettySerializer extends JsonSerializer {
 
     @Override
     public void endMap(int size) {
-        if (size > 0) {
-            /* map entries have trailing "," */
-            sb.setLength(sb.length() - 1);
+        /*
+         * endMapField adds a comma, remove if if the map isn't empty
+         */
+        int len = sb.length() - 1;
+        if (len > 0 && sb.charAt(len) == ',') {
+            sb.setLength(len);
         }
         changeIndent(-incr);
         sb.append(CR).append(indent).append(END_OBJECT);
@@ -98,9 +100,15 @@ public class JsonPrettySerializer extends JsonSerializer {
 
     @Override
     public void endArray(int size) {
-        if (size > 0) {
-            /* array elements have trailing ", " */
-            sb.setLength(sb.length() - 2);
+        /*
+         * Remove trailing comma and space if they exist.
+         * Subtract 2 from the length because endArrayField adds a space
+         * after the comma, e.g. [a, b, c]. JsonSerializer packs the
+         * array values ([a,b,c]).
+         */
+        int len = sb.length() - 2;
+        if (len > 0 && sb.charAt(len) == ',') {
+            sb.setLength(len);
         }
         sb.append(END_ARRAY);
     }

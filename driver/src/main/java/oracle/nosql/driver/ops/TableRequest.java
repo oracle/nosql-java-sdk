@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -163,7 +163,7 @@ public class TableRequest extends Request {
      * 2 cases -- table creation statements and limits modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If limits are set for an on-premise service they are silently ignored.
+     * If limits are set for an on-premises service they are silently ignored.
      *
      * @param tableLimits the limits
      *
@@ -182,7 +182,7 @@ public class TableRequest extends Request {
      * modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If tags are set for an on-premise service they are silently ignored.
+     * If tags are set for an on-premises service they are silently ignored.
      *
      * @param definedTags the tags
      *
@@ -202,7 +202,7 @@ public class TableRequest extends Request {
      * modification operations.
      * It is not used for other DDL operations.
      * <p>
-     * If tags are set for an on-premise service they are silently ignored.
+     * If tags are set for an on-premises service they are silently ignored.
      *
      * @param freeFormTags the tags
      *
@@ -223,7 +223,7 @@ public class TableRequest extends Request {
      * control allowing an application to ensure no unexpected modifications
      * have been made to the table.
      * <p>
-     * If set for an on-premise service the ETag is silently ignored.
+     * If set for an on-premises service the ETag is silently ignored.
      *
      * @param etag the ETag
      *
@@ -237,8 +237,8 @@ public class TableRequest extends Request {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setTableRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -249,6 +249,27 @@ public class TableRequest extends Request {
      */
     public TableRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name for the request
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public TableRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 
@@ -265,7 +286,7 @@ public class TableRequest extends Request {
 
     @Override
     public  void validate() {
-        if (statement == null && tableName == null) {
+        if (statement == null && (tableName == null || tableName.isEmpty())) {
             throw new IllegalArgumentException(
                 "TableRequest requires statement or TableLimits and name");
         }

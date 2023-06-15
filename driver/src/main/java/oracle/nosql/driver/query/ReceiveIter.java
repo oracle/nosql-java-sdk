@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -623,7 +623,7 @@ public class ReceiveIter extends PlanIter {
             break;
         case NUMBER:
             NumberValue num = (NumberValue)val;
-            SerializationUtil.writeByteArray(out, num.getBytes());
+            SerializationUtil.writeString(out, num.getString());
             break;
         case STRING:
             SerializationUtil.writeString(out, val.getString());

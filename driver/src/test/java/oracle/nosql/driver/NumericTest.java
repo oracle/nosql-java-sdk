@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -334,7 +334,7 @@ public class NumericTest extends ProxyTestBase {
         JsonOptions optNumericAsNumber =
             new JsonOptions().setNumericAsNumber(true);
 
-        BigDecimal bd = new BigDecimal("123456789012345678901234567890");
+        BigDecimal bd = new BigDecimal("1.2345678901234567890123456789E29");
         runGetDeleteTest(tabName, bd, null, false);
         runGetDeleteTest(tabName, bd, optNumericAsNumber, true);
 

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -39,9 +39,9 @@ import oracle.nosql.driver.query.TopologyInfo;
  * <pre>
  *    NoSQLHandle handle = ...;
  *
- *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
- *
- *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+ *    try (
+ *        QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ *        QueryIterableResult qir = handle.queryIterable(qreq)) {
  *        for( MapValue row : qir) {
  *            // do something with row
  *        }
@@ -73,7 +73,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * of the rows read satisfied the query conditions).
  * <p>
  * If an application wishes to terminate query execution before retrieving all
- * of the query results, it should call {@link #close} in order to release any
+ * the query results, it should call {@link #close} in order to release any
  * local resources held by the query. This also allows the application to reuse
  * the QueryRequest instance to run the same query from the beginning or a
  * different query.
@@ -688,7 +688,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * Sets the durability to use for the operation.
-     * On-premise only. This setting only applies if the query modifies
+     * On-premises only. This setting only applies if the query modifies
      * a row using an INSERT, UPSERT, or DELETE statement. If the query is
      * read-only it is ignored.
      *
@@ -697,7 +697,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      *
      * @return this
      *
-     * @since 5.3.0
+     * @since 5.4.0
      */
     public QueryRequest setDurability(Durability durability) {
         setDurabilityInternal(durability);
@@ -715,8 +715,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -727,6 +727,27 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     public QueryRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name in the SQL statement
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public QueryRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 

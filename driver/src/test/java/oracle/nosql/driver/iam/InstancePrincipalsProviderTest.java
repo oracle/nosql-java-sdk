@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -44,6 +44,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 
+@SuppressWarnings("restriction")
 public class InstancePrincipalsProviderTest extends DriverTestBase {
     private static final FreePortLocator portLocator =
         new FreePortLocator("localhost", 4242, 14000);
@@ -390,39 +391,6 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
             provider.getKeyId();
         } catch (SecurityInfoNotReadyException iae) {
             assertThat(iae.getMessage(), "Error getting security token");
-        }
-    }
-
-    @Test
-    public void testValidateKey()
-        throws Exception {
-
-        EXPIRING_TOKEN = true;
-
-        CertificateSupplier leaf = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?cert.pem"),
-            getURLDetails(base + "/instance?key.pem"),
-            (char[]) null);
-
-        CertificateSupplier inter = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?intermediate.pem"),
-            null,
-            (char[]) null);
-
-        InstancePrincipalsProvider provider =
-            InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(base)
-            .setLeafCertificateSupplier(leaf)
-            .setIntermediateCertificateSuppliers(Collections.singleton(inter))
-            .setTenantId(tenantId)
-            .build();
-        provider.setMinTokenLifetime(REFRESH_WINDOW_SEC * 1000 + 100);
-        provider.prepare(new NoSQLHandleConfig("http://test"));
-        try {
-            provider.getKeyId();
-            fail("expected");
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "less lifetime");
         }
     }
 

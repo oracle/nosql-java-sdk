@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2020, 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -30,6 +30,7 @@ public class NsonProtocol {
     public static String CONTINUATION_KEY = "ck";
     public static String DATA = "d";
     public static String DEFINED_TAGS = "dt";
+    public static String DRL_OPTIN = "dro";
     public static String DURABILITY = "du";
     public static String END = "en";
     public static String ETAG = "et";
@@ -65,6 +66,7 @@ public class NsonProtocol {
     public static String OP_CODE = "o";
     public static String PATH = "pt";
     public static String PAYLOAD = "p";
+    public static String PREFER_THROTTLING = "pg";
     public static String PREPARE = "pp";
     public static String PREPARED_QUERY = "pq";
     public static String PREPARED_STATEMENT = "ps";
@@ -166,6 +168,7 @@ public class NsonProtocol {
         {CONTINUATION_KEY,"CONTINUATION_KEY"},
         {DATA,"DATA"},
         {DEFINED_TAGS,"DEFINED_TAGS"},
+        {DRL_OPTIN,"DRL_OPTIN"},
         {DURABILITY,"DURABILITY"},
         {END,"END"},
         {ETAG,"ETAG"},
@@ -201,6 +204,7 @@ public class NsonProtocol {
         {OP_CODE,"OP_CODE"},
         {PATH,"PATH"},
         {PAYLOAD,"PAYLOAD"},
+        {PREFER_THROTTLING,"PREFER_THROTTLING"},
         {PREPARE,"PREPARE"},
         {PREPARED_QUERY,"PREPARED_QUERY"},
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},

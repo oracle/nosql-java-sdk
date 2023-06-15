@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -31,7 +31,7 @@ import oracle.nosql.driver.values.MapValue;
  * Examples can be run against:
  *  1. the cloud service
  *  2. the cloud simulator (CloudSim)
- *  3. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  3. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *
  * To run:

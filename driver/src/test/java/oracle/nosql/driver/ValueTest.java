@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -34,6 +34,7 @@ import oracle.nosql.driver.values.DoubleValue;
 import oracle.nosql.driver.values.EmptyValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.FieldValue.Type;
+import oracle.nosql.driver.values.FieldValueCreator;
 import oracle.nosql.driver.values.FieldValueEventHandler;
 import oracle.nosql.driver.values.IntegerValue;
 import oracle.nosql.driver.values.JsonNullValue;
@@ -866,8 +867,7 @@ public class ValueTest extends DriverTestBase {
     public void testFieldCreator() throws Exception {
         boolean debug = false;
 
-        BinaryProtocol.FieldValueCreator creator =
-            new BinaryProtocol.FieldValueCreator();
+        FieldValueCreator creator = new FieldValueCreator();
 
         /*
          * This test just creates some values and ensures that they can
@@ -892,7 +892,7 @@ public class ValueTest extends DriverTestBase {
         /*
          * Nested array
          */
-        creator = new BinaryProtocol.FieldValueCreator();
+        creator = new FieldValueCreator();
         creator.startArray(8);
         creator.startArrayField(0);
         creator.startMap(3);
@@ -1160,8 +1160,7 @@ public class ValueTest extends DriverTestBase {
             /*
              * exercise event generation and construction here
              */
-            BinaryProtocol.FieldValueCreator creator =
-                new BinaryProtocol.FieldValueCreator();
+            FieldValueCreator creator = new FieldValueCreator();
             FieldValueEventHandler.generate(value, creator);
             assertEquals(value, creator.getCurrentValue());
         } catch (Exception e) {

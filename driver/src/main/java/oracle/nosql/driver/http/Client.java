@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -22,6 +22,7 @@ import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 import static oracle.nosql.driver.util.HttpConstants.COOKIE;
+import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
@@ -333,13 +334,15 @@ public class Client {
     /**
      * Execute the KV request and return the response. This is the top-level
      * method for request execution.
-     *
+     * <p>
      * This method handles exceptions to distinguish between what can be retried
-     * what what cannot, making sure that root cause exceptions are
+     * and what cannot, making sure that root cause exceptions are
      * kept. Examples:
-     *  o can't connect (host, port, etc)
-     *  o throttling exceptions
-     *  o general networking issues, IOException
+     * <ul>
+     *  <li>can't connect (host, port, etc)</li>
+     *  <li>throttling exceptions</li>
+     *  <li>general networking issues, IOException</li>
+     * </ul>
      *
      * RequestTimeoutException needs a cause, or at least needs to include the
      * message from the causing exception.
@@ -467,16 +470,16 @@ public class Client {
             }
         }
 
-        final long startTime = System.currentTimeMillis();
-        kvRequest.setStartTimeMs(startTime);
+        final long startNanos = System.nanoTime();
+        kvRequest.setStartNanos(startNanos);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
         String requestId = "";
         int thisIterationTimeoutMs = 0;
 
         do {
-            long thisTime = System.currentTimeMillis();
-            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
 
             /*
              * Check rate limiters before executing the request.
@@ -510,8 +513,12 @@ public class Client {
                 }
             }
 
+            /* update iteration timeout in case limiters slept for some time */
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
+
             /* ensure limiting didn't throw us over the timeout */
-            if (timeoutRequest(startTime, timeoutMs, exception)) {
+            if (thisIterationTimeoutMs <= 0) {
                 break;
             }
 
@@ -543,7 +550,6 @@ public class Client {
             ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
             ByteBuf buffer = null;
-            long networkLatency;
             try {
                 /*
                  * NOTE: the ResponseHandler will release the Channel
@@ -552,6 +558,14 @@ public class Client {
                  * operations in the loop.
                  */
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
+                /* update iteration timeout in case channel took some time */
+                thisIterationTimeoutMs =
+                    getIterationTimeoutMs(timeoutMs, startNanos);
+                /* ensure limiting didn't throw us over the timeout */
+                if (thisIterationTimeoutMs <= 0) {
+                    break;
+                }
+
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel,
@@ -566,10 +580,19 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
+                /*
+                 * Temporarily change the timeout in the request object so
+                 * the serialized timeout sent to the server is correct for
+                 * this iteration. After serializing the request, set the
+                 * timeout back to the overall request timeout so that other
+                 * processing (retry delays, etc) work correctly.
+                 */
+                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
                 serialVersionUsed = writeContent(buffer, kvRequest);
+                kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
-                 * If on-premise the authProvider will always be a
+                 * If on-premises the authProvider will always be a
                  * StoreAccessTokenProvider. If so, check against
                  * configurable limit. Otherwise check against internal
                  * hardcoded cloud limit.
@@ -617,12 +640,20 @@ public class Client {
                 }
                 authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
+                String namespace = kvRequest.getNamespace();
+                if (namespace == null) {
+                    namespace = config.getDefaultNamespace();
+                }
+                if (namespace != null) {
+                    headers.add(REQUEST_NAMESPACE_HEADER, namespace);
+                }
+
                 if (isLoggable(logger, Level.FINE) &&
                     !kvRequest.getIsRefresh()) {
                     logTrace(logger, "Request: " + requestClass +
                                      ", requestId=" + requestId);
                 }
-                networkLatency = System.currentTimeMillis();
+                long latencyNanos = System.nanoTime();
                 httpClient.runRequest(request, responseHandler, channel);
 
                 boolean isTimeout =
@@ -648,7 +679,9 @@ public class Client {
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
-                networkLatency = System.currentTimeMillis() - networkLatency;
+                long networkLatency =
+                    (System.nanoTime() - latencyNanos) / 1_000_000;
+
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -717,9 +750,12 @@ public class Client {
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
             } catch (InvalidAuthorizationException iae) {
-                /* allow a single retry on clock skew errors */
-                if (iae.getMessage().contains("clock skew") == false ||
-                    kvRequest.getNumRetries() > 0) {
+                /*
+                 * Allow a single retry for invalid/expired auth
+                 * This includes "clock skew" errors
+                 * This does not include permissions-related errors
+                 */
+                if (kvRequest.getNumRetries() > 0) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
@@ -795,8 +831,9 @@ public class Client {
             } catch (UnsupportedProtocolException upe) {
                 /* reduce protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
-                    exception = upe;
-                    logInfo(logger, "Got unsupported protocol error " +
+                    /* Don't set this exception: it's misleading */
+                    /* exception = upe; */
+                    logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
                     continue;
@@ -818,9 +855,8 @@ public class Client {
                 }
                 throw e;
             } catch (IOException ioe) {
-                /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
-                logInfo(logger, "Client execution IOException, name: " +
+                logFine(logger, "Client execution IOException, name: " +
                         name + ", message: " + ioe.getMessage());
                 /*
                  * An exception in the channel, e.g. the server may have
@@ -882,16 +918,40 @@ public class Client {
                     responseHandler.close();
                 }
             }
-        } while (! timeoutRequest(startTime, timeoutMs, exception));
+        } while (! timeoutRequest(startNanos, timeoutMs, exception));
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
+        /*
+         * If the request timed out in a single iteration, and the
+         * timeout was fairly long, and there was no delay due to
+         * rate limiting, reset the session cookie so the next request
+         * may use a different server.
+         */
+        if (timeoutMs == thisIterationTimeoutMs &&
+            timeoutMs >= 2000 &&
+            rateDelayedMs == 0) {
+            setSessionCookieValue(null);
+        }
         throw new RequestTimeoutException(timeoutMs,
-            requestClass + " timed out: requestId=" + requestId + " " +
+            requestClass + " timed out:" +
+            (requestId.isEmpty() ? "" : " requestId=" + requestId) +
             " nextRequestId=" + nextRequestId() +
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
+    }
+
+    /**
+     * Calculate the timeout for the next iteration.
+     * This is basically the given timeout minus the time
+     * elapsed since the start of the request processing.
+     * If this returns zero or negative, the request should be
+     * aborted with a timeout exception.
+     */
+    private int getIterationTimeoutMs(long timeoutMs, long startNanos) {
+        long diffNanos = System.nanoTime() - startNanos;
+        return ((int)timeoutMs - Math.toIntExact(diffNanos / 1_000_000));
     }
 
     /**
@@ -938,7 +998,7 @@ public class Client {
     }
 
     /**
-     * Comsume rate limiter units after successful operation.
+     * Consume rate limiter units after successful operation.
      * @return the number of milliseconds delayed due to rate limiting
      */
     private int consumeLimiterUnits(RateLimiter rl,
@@ -951,7 +1011,7 @@ public class Client {
         /*
          * The logic consumes units (and potentially delays) _after_ a
          * successful operation for a couple reasons:
-         * 1) We don't know the actual number of units an op uses unitl
+         * 1) We don't know the actual number of units an op uses until
          *    after the operation successfully finishes
          * 2) Delaying after the op keeps the application from immediately
          *    trying the next op and ending up waiting along with other
@@ -988,7 +1048,7 @@ public class Client {
         if (limits == null ||
             (limits.getReadUnits() <= 0 && limits.getWriteUnits() <= 0)) {
             rateLimiterMap.remove(tableName);
-            logInfo(logger, "removing rate limiting from table " + tableName);
+            logFine(logger, "removing rate limiting from table " + tableName);
             return false;
         }
 
@@ -1018,9 +1078,11 @@ public class Client {
         }
 
         rateLimiterMap.update(tableName, RUs, WUs, durationSeconds);
-        final String msg = String.format("Updated table '%s' to have " +
-            "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
-        logInfo(logger, msg);
+        if (isLoggable(logger, Level.FINE)) {
+            final String msg = String.format("Updated table '%s' to have " +
+                "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
+            logFine(logger, msg);
+        }
 
         return true;
     }
@@ -1028,18 +1090,18 @@ public class Client {
 
     /**
      * Determine if the request should be timed out.
-     * Check if the request exceed the timeout given.
+     * Check if the request exceeds the timeout given.
      *
-     * @param startTime when the request starts
-     * @param requestTimeout the default timeout of this request
+     * @param startNanos when the request starts
+     * @param requestTimeoutMs the timeout of this request in ms
      * @param exception the last exception
      *
-     * @return true the request need to be timed out.
+     * @return true if the request needs to be timed out.
      */
-    boolean timeoutRequest(long startTime,
-                           long requestTimeout,
+    boolean timeoutRequest(long startNanos,
+                           long requestTimeoutMs,
                            Throwable exception) {
-        return ((System.currentTimeMillis() - startTime) >= requestTimeout);
+        return (getIterationTimeoutMs(requestTimeoutMs, startNanos) <= 0);
     }
 
     /**
@@ -1095,7 +1157,7 @@ public class Client {
      *
      * @return the result of processing the successful request
      *
-     * @throws IOException if the stream could not be read for some reason
+     * @throws NoSQLException if the stream could not be read for some reason
      */
     Result processOKResponse(ByteInputStream in, Request kvRequest) {
         try {
@@ -1272,17 +1334,17 @@ public class Client {
             .setTimeout(1000);
         TableResult res = null;
         try {
-            logInfo(logger, "Starting GetTableRequest for table '" +
+            logFine(logger, "Starting GetTableRequest for table '" +
                 tableName + "'");
             res = (TableResult) this.execute(gtr);
         } catch (Exception e) {
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned exception: " + e.getMessage());
         }
 
         if (res == null) {
             /* table doesn't exist? other error? */
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned null");
             AtomicLong then = tableLimitUpdateMap.get(tableName);
             if (then != null) {
@@ -1292,11 +1354,11 @@ public class Client {
             return;
         }
 
-        logInfo(logger, "GetTableRequest completed for table '" +
+        logFine(logger, "GetTableRequest completed for table '" +
             tableName + "'");
         /* update/add rate limiters for table */
         if (updateRateLimiters(tableName, res.getTableLimits())) {
-            logInfo(logger, "background thread added limiters for table '" +
+            logFine(logger, "background thread added limiters for table '" +
                 tableName + "'");
         }
     }
@@ -1537,9 +1599,9 @@ public class Client {
     /**
      * Look for the compartment,table combination in the list. If
      * present, do nothing. If not, add that combination to the list.
-     * This is not particular efficient but it is not expected that a given
+     * This is not particularly efficient but it is not expected that a given
      * handle will be accessing a large number of tables.
-     *
+     * <p>
      * The operation type is not checked -- all 3 types of requests are created
      * no matter the access. This simplifies the logic and if a given type is
      * not given to this Principal it doesn't hurt.
@@ -1643,5 +1705,13 @@ public class Client {
         }
 
         return 0;
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setDefaultNamespace(String ns) {
+        config.setDefaultNamespace(ns);
     }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -11,13 +11,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 
-import oracle.nosql.driver.values.FieldValue;
-import oracle.nosql.driver.values.MapValue;
-import oracle.nosql.driver.query.Compare;
 import oracle.nosql.driver.query.PlanIterState.StateEnum;
-import oracle.nosql.driver.util.SizeOf;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.SerializationUtil;
+import oracle.nosql.driver.util.SizeOf;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.MapValue;
 
 /**
  * Sorts MapValues based on their values on a specified set of top-level

@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.7</version>
+  <version>5.4.11</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -43,10 +43,10 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-    <copyright>Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.</copyright>
+    <copyright>Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.85.Final</netty.version>
+    <netty.version>4.1.86.Final</netty.version>
     <jackson.version>2.13.2</jackson.version>
     <bouncy.version>1.70</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
@@ -57,7 +57,7 @@
   <profiles>
 
     <!-- test profiles used with the test target
-         Running tests requires a running on-premise service and httpproxy
+         Running tests requires a running on-premises service and httpproxy
          or a running cloud simulator. Required information:
             o endpoint
          Examples:
@@ -85,7 +85,7 @@
         <secure>false</secure>
         <onprem>false</onprem>
         <serverType>cloudsim</serverType>
-        <!-- exclude non-server tests and on-premise tests -->
+        <!-- exclude non-server tests and on-premises tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
@@ -216,6 +216,17 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.13.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- IAM unit tests only - Bouncycastle has changed
+         the packaging since 1.69, classes needed by test
+         has been moved to bcutil-jdk15on.
+    -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcutil-jdk15on</artifactId>
+      <version>${bouncy.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

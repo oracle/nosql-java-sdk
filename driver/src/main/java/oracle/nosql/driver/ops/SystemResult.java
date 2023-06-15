@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -12,7 +12,7 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
 
 /**
- * On-premise only.
+ * On-premises only.
  * <p>
  * SystemResult is returned from {@link NoSQLHandle#systemStatus} and
  * {@link NoSQLHandle#systemRequest} operations. It encapsulates the
@@ -48,7 +48,7 @@ public class SystemResult extends Result {
     private String resultString;
 
     /**
-     * On-premise only.
+     * On-premises only.
      * <p>
      * The current state of the operation
      */

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -129,7 +129,7 @@ public class InstancePrincipalsProvider
             "169.254.169.254";
 
         /* The default value for HTTP request timeouts in milliseconds */
-        private static final int DEFAULT_TIMEOUT_MS = 120_000;
+        private static final int DEFAULT_TIMEOUT_MS = 5_000;
 
         /* The default purpose value in federation requests against IAM */
         private static final String DEFAULT_PURPOSE = "DEFAULT";

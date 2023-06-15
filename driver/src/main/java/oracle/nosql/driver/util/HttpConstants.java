@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -45,6 +45,12 @@ public class HttpConstants {
      * A header for transferring the compartment id on an http request.
      */
     public static final String REQUEST_COMPARTMENT_ID = "x-nosql-compartment-id";
+
+    /**
+     * A header for transferring the default namespace on an http request.
+     * onprem use only.
+     */
+    public static final String REQUEST_NAMESPACE_HEADER = "x-nosql-default-ns";
 
     /**
      * Headers possibly set by the load balancer service to indicate original
@@ -150,7 +156,7 @@ public class HttpConstants {
                                                           "nosql/data");
 
     /**
-     * The base path to the on-premise security services. All users need
+     * The base path to the on-premises security services. All users need
      * a leading "/" so add it here.
      */
     public static final String KV_SECURITY_PATH = makePath("/" + NOSQL_VERSION,

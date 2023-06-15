@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -23,6 +23,7 @@ import java.nio.charset.Charset;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
@@ -42,7 +43,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  */
 public class HttpRequestUtil {
     private static final Charset utf8 = Charset.forName("UTF-8");
-    private static final int DEFAULT_DELAY_MS = 1000;
+    private static final int DEFAULT_DELAY_MS = 200;
 
     /**
      * Issue HTTP GET request using given HTTP client with retries and general
@@ -212,9 +213,10 @@ public class HttpRequestUtil {
                 logInfo(logger, "Client, doing retry: " + numRetries +
                         (exception != null ? ", exception: " + exception : ""));
             }
+            Channel channel = null;
             ResponseHandler responseHandler = null;
             try {
-                final Channel channel = httpClient.getChannel(timeoutMs);
+                channel = httpClient.getChannel(timeoutMs);
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel);
 
@@ -267,8 +269,17 @@ public class HttpRequestUtil {
                  * disconnected. Retry.
                  */
                 exception = ioe;
-                delay();
                 ++numRetries;
+                if (ioe instanceof SSLException) {
+                    /* disconnect the channel to force a new one */
+                    if (channel != null) {
+                        logFine(logger,
+                                "Client disconnecting channel due to: " + ioe);
+                        channel.disconnect();
+                    }
+                } else {
+                    delay();
+                }
                 continue;
             } catch (InterruptedException ie) {
                 throw new RuntimeException(

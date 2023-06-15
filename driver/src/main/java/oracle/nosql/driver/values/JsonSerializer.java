@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -12,10 +12,9 @@ import java.math.BigDecimal;
 import com.fasterxml.jackson.core.io.CharTypes;
 
 /**
- * @hidden
- *
  * JsonSerializer is a {@link FieldValueEventHandler} instance that creates
  * a JSON string value without pretty printing.
+ * @hidden
  */
 public class JsonSerializer implements FieldValueEventHandler {
 

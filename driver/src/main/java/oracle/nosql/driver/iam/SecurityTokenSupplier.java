@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -174,6 +174,18 @@ class SecurityTokenSupplier {
         }
         SecurityToken token = getSecurityTokenFromIAM();
         token.validate(minTokenLifetime);
+
+        /*
+         * Allow logging of token expiration details
+         */
+        long tokenLifetime = token.getExpiryMS() - token.getCreationTime();
+        logTrace(logger, "New security token: lifetime=" + tokenLifetime +
+                 ", expiry=" + token.getExpiryMS() + ", creation=" +
+                 token.getCreationTime());
+        if (tokenLifetime < minTokenLifetime) {
+            logTrace(logger, "token:\n" + token.getSecurityToken());
+        }
+
         return token.getSecurityToken();
     }
 
@@ -265,10 +277,17 @@ class SecurityTokenSupplier {
             return tokenClaims.get(key);
         }
 
+        long getCreationTime() {
+            return creationTime;
+        }
+
+        long getExpiryMS() {
+            return expiryMS;
+        }
+
         /*
-         * Validate the token, also check if the lifetime of token
-         * is longer than specified minimal lifetime, throws IAE
-         * if any validation fails.
+         * Validate the token.
+         * Throws IAE if any validation fails.
          */
         void validate(long minTokenLifetime) {
             if (tokenClaims == null) {
@@ -288,19 +307,9 @@ class SecurityTokenSupplier {
             }
 
             /*
-             * This is just a safety check, shouldn't happen in OCI environment,
-             * because security tokens always have more than one hour lifetime.
-             * It would only be thrown if short-living token being used or
-             * signature cache is misconfigured. To fix, must adjust the cache
-             * duration in both cases.
+             * Note: expiry check removed, as some tokens may have very short
+             * expirations.
              */
-            long tokenLifetime = expiryMS - creationTime;
-            if (tokenLifetime < minTokenLifetime) {
-                throw new IllegalArgumentException(
-                    "Security token has less lifetime than signature cache " +
-                    "duration, reduce signature cache duration less than " +
-                    tokenLifetime + " milliseconds, token:\n" + securityToken);
-            }
 
             /*
              * Next compare the public key inside the JWT is the same

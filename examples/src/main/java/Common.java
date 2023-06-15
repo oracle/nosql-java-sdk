@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -32,7 +32,7 @@ import oracle.nosql.driver.values.MapValue;
  * Examples can be run against:
  *  1. the cloud service
  *  2. the cloud simulator (CloudSim)
- *  3. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  3. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *
  * If running against the cloud service, the arguments are:
@@ -57,7 +57,7 @@ import oracle.nosql.driver.values.MapValue;
  *   java -cp .:../lib/nosqldriver.jar BasicTableExample \
  *                http://localhost:8080
  *
- * If running against the on-premise Oracle NoSQL Database:
+ * If running against the on-premises Oracle NoSQL Database:
  *   java Example <endpoint> -useKVProxy [-user <user>] [-password password]
  *
  * User and password are required when accessing a secure store.
@@ -81,7 +81,7 @@ import oracle.nosql.driver.values.MapValue;
  * ----------------
  * If you are running against the cloud service, you will need to
  * provide configFile. This step is not needed if you are running against
- * the Cloud Simulator or the on-premise proxy.
+ * the Cloud Simulator or the on-premises proxy.
  *
  * By default, with no -configFile argument, the example code will use
  * the default SignatureProvider constructor which uses the default user

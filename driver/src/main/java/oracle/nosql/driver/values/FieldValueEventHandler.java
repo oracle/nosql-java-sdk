@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * @hidden
  * FieldValueEventHandler is an event-driven interface that allows multiple
  * implementations of serializers and deserializers for a {@link FieldValue}.
  * The events correspond to the data model exposed by {@link FieldValue}.
@@ -84,8 +83,12 @@ import java.util.Map;
  *   endArrayField(1)
  *   endArray(2)
  * </pre>
+ * @hidden
  */
 public interface FieldValueEventHandler {
+
+    public static FieldValueEventHandler nullHandler =
+        new FieldValueEventHandler() {};
 
     /**
      * Start a MapValue. This method accepts the size of the map, but there
@@ -99,7 +102,7 @@ public interface FieldValueEventHandler {
      * handled by the implementation.
      * @throws IOException conditionally, based on implementation
      */
-    void startMap(int size) throws IOException;
+    default void startMap(int size) throws IOException {}
 
     /**
      * Start an ArrayValue. This method accepts the size of the array, but there
@@ -113,7 +116,7 @@ public interface FieldValueEventHandler {
      * handled by the implementation.
      * @throws IOException conditionally, based on implementation
      */
-    void startArray(int size) throws IOException;
+    default void startArray(int size) throws IOException {}
 
     /**
      * End a MapValue.
@@ -121,7 +124,7 @@ public interface FieldValueEventHandler {
      * @param size the number of entries in the map or -1 if not known.
      * @throws IOException conditionally, based on implementation
      */
-    void endMap(int size) throws IOException;
+    default void endMap(int size) throws IOException {}
 
     /**
      * End an ArrayValue.
@@ -129,7 +132,7 @@ public interface FieldValueEventHandler {
      * @param size the number of entries in the array or -1 if not known.
      * @throws IOException conditionally, based on implementation
      */
-    void endArray(int size) throws IOException;
+    default void endArray(int size) throws IOException {}
 
     /**
      * Start a field in a map.
@@ -139,14 +142,16 @@ public interface FieldValueEventHandler {
      * otherwise
      * @throws IOException conditionally, based on implementation
      */
-    boolean startMapField(String key) throws IOException;
+    default boolean startMapField(String key) throws IOException {
+        return false;
+    }
 
     /**
      * End a field in a map.
      * @param key the key of the field.
      * @throws IOException conditionally, based on implementation
      */
-    void endMapField(String key) throws IOException;
+    default void endMapField(String key) throws IOException {}
 
     /**
      * Start a field in an array. This can be ignored by most handlers but
@@ -167,7 +172,7 @@ public interface FieldValueEventHandler {
      * @param index the index of the field
      * @throws IOException conditionally, based on implementation
      */
-    void endArrayField(int index) throws IOException;
+    default void endArrayField(int index) throws IOException {}
 
     /**
      * A boolean value
@@ -175,7 +180,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void booleanValue(boolean value) throws IOException;
+    default void booleanValue(boolean value) throws IOException {}
 
     /**
      * A binary value
@@ -183,7 +188,7 @@ public interface FieldValueEventHandler {
      * @param byteArray the byte[] value
      * @throws IOException conditionally, based on implementation
      */
-    void binaryValue(byte[] byteArray) throws IOException;
+    default void binaryValue(byte[] byteArray) throws IOException {}
 
     /**
      * A binary value with offset and length
@@ -193,9 +198,9 @@ public interface FieldValueEventHandler {
      * @param length number of bytes total, starting at offset
      * @throws IOException conditionally, based on implementation
      */
-    void binaryValue(byte[] byteArray,
+    default void binaryValue(byte[] byteArray,
                      int offset,
-                     int length) throws IOException;
+                     int length) throws IOException {}
 
     /**
      * A String value
@@ -203,7 +208,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void stringValue(String value) throws IOException;
+    default void stringValue(String value) throws IOException {}
 
     /**
      * An integer value
@@ -211,7 +216,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void integerValue(int value) throws IOException;
+    default void integerValue(int value) throws IOException {}
 
     /**
      * A long value
@@ -219,7 +224,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void longValue(long value) throws IOException;
+    default void longValue(long value) throws IOException {}
 
     /**
      * A double value
@@ -227,7 +232,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void doubleValue(double value) throws IOException;
+    default void doubleValue(double value) throws IOException {}
 
     /**
      * A Number value.
@@ -235,7 +240,7 @@ public interface FieldValueEventHandler {
      * @param value the value
      * @throws IOException conditionally, based on implementation
      */
-    void numberValue(BigDecimal value) throws IOException;
+    default void numberValue(BigDecimal value) throws IOException {}
 
     /**
      * A Timestamp value
@@ -243,31 +248,31 @@ public interface FieldValueEventHandler {
      * @param timestamp the value
      * @throws IOException conditionally, based on implementation
      */
-    void timestampValue(TimestampValue timestamp) throws IOException;
+    default void timestampValue(TimestampValue timestamp) throws IOException {}
 
     /**
      * A JsonNullValue
      * @throws IOException conditionally, based on implementation
      */
-    void jsonNullValue() throws IOException;
+    default void jsonNullValue() throws IOException {}
 
     /**
      * A NullValue
      * @throws IOException conditionally, based on implementation
      */
-    void nullValue() throws IOException;
+    default void nullValue() throws IOException {}
 
     /**
      * An EmptyValue
      * @throws IOException conditionally, based on implementation
      */
-    void emptyValue() throws IOException;
+    default void emptyValue() throws IOException {}
 
     /**
      * Returns true if event generation should stop. Event generators need
      * to check this between operations that consume input streams so that,
      * for example, navigation through an NSON stream can stop at a specific
-     * location. See {@link FieldFinder#seek}
+     * location. See {@link PathFinder#seek}
      *
      * @return true if the event generation should stop
      */

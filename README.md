@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.7</version>
+  <version>5.4.11</version>
 </dependency>
 ```
 
@@ -86,9 +86,7 @@ There are 3 ways to authorize an application using the Oracle NoSQL Database Clo
 You will need an Oracle Cloud account and credentials to use this SDK. With this
 information, you'll set up a client configuration to tell your application how to
 find the cloud service, and how to properly authenticate.
-See [Acquring Credentials](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/nosql-cloud/csnsd&id=acquire-creds)
-for details of how to get credentials. This only needs to be done once for any
-user.
+See [Authentication to connect to Oracle NoSQL Database](https://docs.oracle.com/en/cloud/paas/nosql-cloud/dtddt/index.html) for details of credentials you will need to configure an application. This only needs to be done once for any user.
 
 You should have the following information in hand:
 
@@ -119,10 +117,10 @@ See the Quickstart example below for code details for using a Resource Principal
 
 ### Connecting to the Oracle NoSQL Database On-premise
 
-The on-premise configuration requires a running instance of Oracle NoSQL
+The on-premises configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.1/admin/proxy-and-driver.html)
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.3/admin/proxy-and-driver.html)
 for proxy configuration information.
 
 On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
@@ -131,7 +129,8 @@ See the Quickstart example below for code details for connecting on-premise.
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
 
 When you develop an application, you may wish to start with
-[Oracle NoSQL Database Cloud Simulator](https://docs.oracle.com/en/cloud/paas/nosql-cloud/csnsd/develop-oracle-nosql-cloud-simulator.html).
+[Oracle NoSQL Database Cloud Simulator](https://www.oracle.com/downloads/cloud/nosql-cloud-sdk-downloads.html).
+
 The Cloud Simulator simulates the cloud service and lets you write and test
 applications locally without accessing the Oracle NoSQL Database Cloud Service.
 You may run the Cloud Simulator on localhost.
@@ -149,7 +148,7 @@ Addional logging can be enabled using a java properties file. For full details, 
 
 The following is a quick start tutorial to run a simple program in all supported
 environments. It requires access to the Oracle NoSQL Database Cloud Service,
-a running on-premise Oracle NoSQL Database instance, or a running Oracle
+a running on-premises Oracle NoSQL Database instance, or a running Oracle
 NoSQL Cloud Simulator instance. As a standalone program it will run most easily
 using a download version of the Oracle NoSQL SDK for Java.
 
@@ -166,7 +165,7 @@ Using the cloud service on region us-ashburn-1
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloud -endpoint us-ashburn-1
 ```
-Using a non-secure on-premise service on endpoint http://localhost:8090
+Using a non-secure on-premises service on endpoint http://localhost:8090
 ```
 $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service onprem -endpoint http://localhost:8090
 ```
@@ -182,7 +181,7 @@ is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2022 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -225,7 +224,7 @@ import oracle.nosql.driver.values.MapValue;
  *
  * This program can be run against:
  *  1. the cloud service
- *  2. the on-premise proxy and Oracle NoSQL Database instance, secure or
+ *  2. the on-premises proxy and Oracle NoSQL Database instance, secure or
  *  not secure.
  *  3. the cloud simulator (CloudSim)
  *
@@ -438,15 +437,14 @@ public class Quickstart {
 
             /*
              * Perform a query using iterable and iterator
-             */
-            QueryRequest queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
-
-            /*
+             *
              * To ensure the query resources are closed properly, use
              * try-with-resources statement.
              */
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName);
+                QueryIterableResult results =
                     handle.queryIterable(queryRequest)) {
                 System.out.println("Query results:");
                 for (MapValue res : results) {
@@ -457,23 +455,25 @@ public class Quickstart {
             /*
              * Perform a query using partial results
              */
-            queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName) ) {
 
-            /*
-             * Because a query can return partial results execution must occur
-             * in a loop, accumulating or processing results
-             */
-            ArrayList<MapValue> results = new ArrayList<MapValue>();
-            do {
-                QueryResult queryResult = handle.query(queryRequest);
-                results.addAll(queryResult.getResults());
-            } while (!queryRequest.isDone());
-            System.out.println("Query results again:");
-            for (MapValue res : results) {
-                System.out.println("\t" + res);
+                /*
+                 * Because a query can return partial results execution must occur
+                 * in a loop, accumulating or processing results
+                 */
+                ArrayList<MapValue> results = new ArrayList<MapValue>();
+                do {
+                    QueryResult queryResult = handle.query(queryRequest);
+                    results.addAll(queryResult.getResults());
+                } while (!queryRequest.isDone());
+                System.out.println("Query results again:");
+                for (MapValue res : results) {
+                    System.out.println("\t" + res);
+                }
             }
-
+            
             /*
              * Drop the table
              */
@@ -512,7 +512,7 @@ $ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
   -Dexec.args="http://localhost:8080"
 ```
 
-Run BasicTableExample using an on-premise  instance on endpoint
+Run BasicTableExample using an on-premises instance on endpoint
 localhost:8090
 
 ```
@@ -559,7 +559,7 @@ The region argument will change depending on which region you use.
 
 #### Run using the Oracle NoSQL Database On-premise
 
-Running against the on-premise Oracle NoSQL Database on-premise requires
+Running against the on-premises Oracle NoSQL Database on-premises requires
 a running instance of the database and running proxy service. See above.
 
 Run against a not-secure proxy and store, with the proxy running on port 80:
@@ -591,7 +591,7 @@ started on a different host or port adjust the endpoint accordingly.
 
     $ java -cp .:../lib/nosqldriver.jar BasicTableExample localhost:8080
 
-## Licenses
+## License
 
 See the [LICENSE](LICENSE.txt) file.
 
@@ -601,7 +601,7 @@ party notices and licenses.
 ## Help
 
 * Open an issue in the [Issues](https://github.com/oracle/nosql-java-sdk/issues) page
-* Post your question on the [Oracle NoSQL Database Community](https://community.oracle.com/community/groundbreakers/database/nosql_database).
+* Post your question on the [Oracle NoSQL Database Community](https://forums.oracle.com/ords/apexds/domain/dev-community/category/nosql_database).
 * [Email to nosql\_sdk\_help\_grp@oracle.com](mailto:nosql_sdk_help_grp@oracle.com)
 
 When requesting help please be sure to include as much detail as possible,
