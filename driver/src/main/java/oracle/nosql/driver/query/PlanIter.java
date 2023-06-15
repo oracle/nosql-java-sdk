@@ -160,8 +160,8 @@ public abstract class PlanIter {
         FN_SUM(45),
         FN_MIN(47),
         FN_MAX(48),
-        FN_COLLECT(91),
-        FN_COLLECT_DISTINCT(92);
+        FN_ARRAY_COLLECT(91),
+        FN_ARRAY_COLLECT_DISTINCT(92);
 
         private static final FuncCode[] VALUES = values();
 

@@ -619,6 +619,7 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
+     * @hidden
      * Sorts the elements of the array according to the given comparator.
      *
      * @param comparator The Comparator to use for comparing the array

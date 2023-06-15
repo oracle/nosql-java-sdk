@@ -120,6 +120,7 @@ public class MapValue extends FieldValue
     }
 
     /**
+     * @hidden
      * Returns the set of keys in this map, sorted according to the
      * String.compareTo() method.
      *

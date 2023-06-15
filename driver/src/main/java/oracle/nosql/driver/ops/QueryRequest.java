@@ -146,6 +146,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
         internalReq.maxMemoryConsumption = maxMemoryConsumption;
+        internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
         internalReq.preparedStatement = preparedStatement;
@@ -466,6 +467,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * @hidden
      * Sets the maximum number of memory bytes that may be consumed by the
      * statement at a replication node. In general, queries do not consume
      * a lot of memory while executing at a replcation node and the value
@@ -478,11 +480,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * more requests to the replication nodes for additional results.
      * So, for queries that use array_collect, increasing the value of this
      * parameter will decrease the number of interactions between the driver
-     * and the replacation nodes at the expense of consuming the memory
+     * and the replication nodes at the expense of consuming the memory
      * consumption at the nodes.
      * <p> 
-     * The default value is 10MB, and for applacations running on the
-     * cloud, it can not be inreased beyond this default.
+     * The default value is 10MB, and for applications running on the
+     * cloud, it can not be increased beyond this default.
      *
      * @param maxBytes the value to use in bytes
      *
@@ -496,6 +498,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         return this;
     }
 
+    /**
+     * @hidden
+     */
     public long getMaxServerMemoryConsumption() {
         return maxServerMemoryConsumption;
     }

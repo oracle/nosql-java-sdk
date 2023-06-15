@@ -97,10 +97,10 @@ public class GroupIter extends PlanIter {
             case FN_MAX:
                 theValue = NullValue.getInstance();
                 break;
-            case FN_COLLECT:
+            case FN_ARRAY_COLLECT:
                 theValue = new ArrayValue();
                 break;
-            case FN_COLLECT_DISTINCT:
+            case FN_ARRAY_COLLECT_DISTINCT:
                 theValue = new HashSet<WrappedValue>();
                 break;
             default:
@@ -664,8 +664,8 @@ public class GroupIter extends PlanIter {
 
             aggrValue.theValue = val;
             return;
-        case FN_COLLECT:
-        case FN_COLLECT_DISTINCT:
+        case FN_ARRAY_COLLECT:
+        case FN_ARRAY_COLLECT_DISTINCT:
             aggrValue.collect(rcb, val, theCountMemory);
             return;
         default:
@@ -689,13 +689,13 @@ public class GroupIter extends PlanIter {
             return NullValue.getInstance();
         }
 
-        if (aggrKind == FuncCode.FN_COLLECT) {
+        if (aggrKind == FuncCode.FN_ARRAY_COLLECT) {
             ArrayValue collectArray = (ArrayValue)aggrValue.theValue;
             collectArray.getArrayInternal().sort(state.theComparator);
             return collectArray;
         }
 
-        if (aggrKind == FuncCode.FN_COLLECT_DISTINCT) {
+        if (aggrKind == FuncCode.FN_ARRAY_COLLECT_DISTINCT) {
             ArrayValue collectArray = new ArrayValue();
             HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)
                                                aggrValue.theValue;
