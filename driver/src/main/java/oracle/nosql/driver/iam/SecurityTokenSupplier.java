@@ -232,7 +232,7 @@ class SecurityTokenSupplier {
 
             return new SecurityToken(securityToken, keyPairSupplier);
         } catch (Exception e) {
-            throw new SecurityInfoNotReadyException(e.getMessage());
+            throw new SecurityInfoNotReadyException(e.getMessage(), e);
         }
     }
 

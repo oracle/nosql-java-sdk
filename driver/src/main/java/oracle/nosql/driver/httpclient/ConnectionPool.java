@@ -10,6 +10,7 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -263,6 +264,7 @@ class ConnectionPool {
             logFine(logger,
                     "Inactive channel on release, closing: " + channel);
             removeChannel(channel);
+            return;
         }
         updateStats(channel, false);
         queue.addFirst(channel);
@@ -270,10 +272,11 @@ class ConnectionPool {
     }
 
     /**
-     * Closes and removes a channel from the pool entirely. This channel
-     * must not exist in the queue at this time
+     * Close and remove channel from pool. It may or may not currently
+     * be in the queue.
      */
-    private void removeChannel(Channel channel) {
+    public void removeChannel(Channel channel) {
+        queue.remove(channel);
         stats.remove(channel);
         channel.close();
     }
@@ -329,6 +332,7 @@ class ConnectionPool {
             logFine(logger,
                     "Inactive channel found, closing: " + channel);
             removeChannel(channel);
+            promise.tryFailure(new IOException("inactive channel"));
             return true;
         }
         try {
@@ -371,7 +375,6 @@ class ConnectionPool {
             if (!ch.isActive()) {
                 logFine(logger,
                         "Channel being pruned due to server close: " + ch);
-                queue.remove(ch);
                 removeChannel(ch);
                 pruned++;
             }
