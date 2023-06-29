@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 - Moved a couple internal log messages to FINE instead of INFO
 - Cleaned up messaging when can't connect to server
+- Modified internal auth logic to avoid "inactive channel: retrying" messages
 
 ## [5.4.11] 2023-06-06
 

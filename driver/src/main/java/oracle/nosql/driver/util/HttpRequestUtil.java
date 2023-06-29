@@ -288,7 +288,10 @@ public class HttpRequestUtil {
                 throw new RuntimeException(
                     "Unable to execute request: ", ee);
             } catch (TimeoutException te) {
-                throw new RuntimeException("Timeout exception: ", te);
+                throw new RuntimeException("Timeout exception: host=" +
+                                           httpClient.getHost() + " port=" +
+                                           httpClient.getPort() + " uri=" +
+                                           uri, te);
             } catch (Throwable t) {
                 /*
                  * this is likely an exception from Netty, perhaps a bad

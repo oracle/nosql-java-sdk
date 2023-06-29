@@ -153,6 +153,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             logFine(client.getLogger(),
                     "HttpClient " + client.getName() +
                     ", channel " + ctx.channel() + " inactive");
+            client.removeChannel(ctx.channel());
             ctx.fireChannelInactive();
         }
 
