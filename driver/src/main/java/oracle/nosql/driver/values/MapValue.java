@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
- * MapValue represents a rowb in a NoSQL Database table. A top-level row is
+ * MapValue represents a row in a NoSQL Database table. A top-level row is
  * always a MapValue instance that contains {@link FieldValue} objects which
  * may be atomic types or embedded MapValue or {@link ArrayValue} instances,
  * creating a structured row.
