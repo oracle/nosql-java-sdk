@@ -27,8 +27,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.SslContext;
@@ -124,7 +124,7 @@ public class HttpClient {
     /*
      * May want boss and worker groups at some point
      */
-    final NioEventLoopGroup workerGroup;
+    final EpollEventLoopGroup workerGroup;
 
     /**
      * Creates a minimal HttpClient instance that is configured for
@@ -241,11 +241,11 @@ public class HttpClient {
             connectionPoolMinSize = 0; // no min size
         }
 
-        workerGroup = new NioEventLoopGroup(numThreads);
+        workerGroup = new EpollEventLoopGroup(numThreads);
         Bootstrap b = new Bootstrap();
 
         b.group(workerGroup);
-        b.channel(NioSocketChannel.class);
+        b.channel(EpollSocketChannel.class);
         b.option(ChannelOption.SO_KEEPALIVE, true);
         b.option(ChannelOption.TCP_NODELAY, true);
         b.remoteAddress(host, port);
