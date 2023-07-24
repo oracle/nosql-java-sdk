@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - On-premises only: added support for setting namespace on a per-request basis
-- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM)
+- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM, NAP, AVZ, AGA, VAP)
 
 ### Changed
 - Allow a space in addition to a "T" to separate date and time in String
