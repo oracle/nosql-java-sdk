@@ -4,6 +4,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unreleased
 
+### Added
+- Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
+
 ### Changed
 - Moved a couple internal log messages to FINE instead of INFO
 - Cleaned up messaging when can't connect to server
@@ -18,7 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - On-premises only: added support for setting namespace on a per-request basis
-- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM, NAP, AVZ, AGA, VAP)
+- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM)
 
 ### Changed
 - Allow a space in addition to a "T" to separate date and time in String
