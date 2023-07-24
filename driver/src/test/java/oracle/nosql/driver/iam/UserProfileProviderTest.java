@@ -9,7 +9,7 @@ package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static oracle.nosql.driver.iam.OCIConfigFileProvider.*;
+import static oracle.nosql.driver.iam.OCIConfigFileReader.*;
 
 import java.io.File;
 import java.io.PrintWriter;

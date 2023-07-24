@@ -142,7 +142,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          SessionTokenProviderTest.java
         </included.tests>
       </properties>
     </profile>

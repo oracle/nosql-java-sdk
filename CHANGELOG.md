@@ -4,6 +4,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unreleased
 
+### Added
+- Cloud only: added session token authentication support
+  - SignatureProvider.createWithSessionToken()
+  - SignatureProvider.createWithSessionToken(String profile)
+  - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
+- Cloud only: added support to read region from system environment variable
+ OCI_REGION if using user principal or session token authentication
+
 ### Changed
 - Moved a couple internal log messages to FINE instead of INFO
 - Cleaned up messaging when can't connect to server
