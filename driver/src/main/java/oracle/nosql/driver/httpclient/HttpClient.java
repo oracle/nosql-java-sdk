@@ -400,13 +400,6 @@ public class HttpClient {
                             "ms trying to acquire channel: retrying");
                 }
                 /* fall through */
-            } catch (ExecutionException ee) {
-                if (retries == 0) {
-                    logFine(logger, "ExecutionException trying to " +
-                            "aquire a channel: " + ee.getMessage() +
-                            ", retrying");
-                }
-                /* fall through */
             }
 
             /*
