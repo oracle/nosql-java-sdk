@@ -71,12 +71,17 @@ public class FuncCollectIter extends PlanIter {
 
         HashSet<WrappedValue> theValues;
 
+        long theMemoryConsumption;
+
+        RuntimeControlBlock theRCB;
+
         CollectIterState(RuntimeControlBlock rcb) {
 
             super();
             theComparator = new CompareFunction(rcb);
             theArray = new ArrayValue();
             theValues = new HashSet<WrappedValue>(128);
+            theRCB = rcb;
         }
 
         @Override
@@ -84,6 +89,8 @@ public class FuncCollectIter extends PlanIter {
             super.reset(iter);
             theArray = new ArrayValue();
             theValues.clear();
+            theRCB.decMemoryConsumption(theMemoryConsumption);
+            theMemoryConsumption = 0;
         }
 
         @Override
@@ -183,13 +190,16 @@ public class FuncCollectIter extends PlanIter {
             for (int i = 0; i < size; ++i) {
                 WrappedValue wval = new WrappedValue(arr.get(i));
                 state.theValues.add(wval);
-                rcb.incMemoryConsumption(wval.sizeof());
+                long sz = wval.sizeof();
+                rcb.incMemoryConsumption(sz);
+                state.theMemoryConsumption += sz;
             }
         } else {
             ArrayValue arr = (ArrayValue)val;
             state.theArray.addAll(arr.iterator());
-            rcb.incMemoryConsumption(arr.sizeof() + 
-                                     arr.size() * SizeOf.OBJECT_REF_OVERHEAD);
+            long sz = arr.sizeof() + arr.size() * SizeOf.OBJECT_REF_OVERHEAD;
+            rcb.incMemoryConsumption(sz);
+            state.theMemoryConsumption += sz;
         }
     }
 
