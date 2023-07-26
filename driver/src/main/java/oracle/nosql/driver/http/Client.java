@@ -880,13 +880,20 @@ public class Client {
                 throw new NoSQLException("Request interrupted: " +
                                          ie.getMessage());
             } catch (ExecutionException ee) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                logInfo(logger, "Unable to execute request: " +
-                        ee.getCause().getMessage());
-                /* is there a better exception? */
-                throw new NoSQLException(
-                    "Unable to execute request: " + ee.getCause().getMessage());
+                /*
+                 * This can happen if a channel is bad in HttpClient.getChannel.
+                 * This happens if the channel is shut down by the server side
+                 * or the server (proxy) is restarted, etc. Treat it like
+                 * IOException above, but retry without waiting
+                 */
+                String name = ee.getCause().getClass().getName();
+                logFine(logger, "Client ExecutionException, name: " +
+                        name + ", message: " + ee.getMessage() + ", retrying");
+
+                kvRequest.addRetryException(ee.getCause().getClass());
+                kvRequest.incrementRetries();
+                exception = ee.getCause();
+                continue;
             } catch (TimeoutException te) {
                 exception = te;
                 logInfo(logger, "Timeout exception: " + te);

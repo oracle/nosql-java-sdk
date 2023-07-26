@@ -47,7 +47,7 @@
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.94.Final</netty.version>
-    <jackson.version>2.13.2</jackson.version>
+    <jackson.version>2.15.2</jackson.version>
     <bouncy.version>1.70</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
@@ -370,10 +370,7 @@
           <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
-            <additionalOption>--frames</additionalOption>
           </additionalOptions>
-          <!-- below option makes the search bar work correctly -->
-          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs
