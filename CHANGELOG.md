@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
 - Cloud only: added support to read region from system environment variable
  OCI_REGION if using user principal or session token authentication
+- Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
 
 ### Changed
 - Moved a couple internal log messages to FINE instead of INFO
