@@ -358,7 +358,7 @@ public class Region {
             return OC24_EP_BASE.format(new Object[] { regionId });
         }
         throw new IllegalArgumentException(
-            "Unable to find endpoint for unknwon region" + regionId);
+            "Unable to find endpoint for unknown region" + regionId);
     }
 
     /**

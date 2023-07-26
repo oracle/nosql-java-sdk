@@ -648,6 +648,91 @@ public class SignatureProvider
     }
 
     /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the default profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithSessionToken() {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider());
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithSessionToken(String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(profile));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the specified location, the value of field
+     * <code>security_token_file</code>. The configuration file
+     * used is <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param configFilePath path of configuration file
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithSessionToken(String configFilePath, String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(configFilePath, profile));
+        return provider;
+    }
+
+    /*
      * Constructor for SignatureProvider given an
      * AuthenticationProfileProvider.
      * This is for advanced use only; use of the create* methods is preferred.
@@ -762,6 +847,8 @@ public class SignatureProvider
         if (provider instanceof UserAuthenticationProfileProvider) {
             return ((UserAuthenticationProfileProvider)this.provider)
                 .getTenantId();
+        } else if (provider instanceof SessionTokenProvider) {
+            return ((SessionTokenProvider) this.provider).getTenantId();
         }
         return null;
     }

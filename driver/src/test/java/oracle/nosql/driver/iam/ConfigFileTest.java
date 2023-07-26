@@ -233,6 +233,7 @@ public class ConfigFileTest extends DriverTestBase {
         hconfig = new NoSQLHandleConfig(Region.ME_JEDDAH_1, provider);
         assertEquals(hconfig.getServiceURL().toString(),
                      Region.ME_JEDDAH_1.endpoint() + ":443/");
+        assertNull(provider.getRegion());
 
         config = new File(getTestDir(), "mismatchregion_profile");
         try (PrintWriter writer = new PrintWriter(config)) {
