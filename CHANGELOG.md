@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [5.4.12] 2023-07-28
 
 ### Added
 - Cloud only: added session token authentication support
@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - SignatureProvider.createWithSessionToken(String profile)
   - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
 - Cloud only: added support to read region from system environment variable
- OCI_REGION if using user principal or session token authentication
+  OCI_REGION if using user principal or session token authentication
 - Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
 
 ### Changed
