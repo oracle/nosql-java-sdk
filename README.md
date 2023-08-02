@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.11</version>
+  <version>5.4.12</version>
 </dependency>
 ```
 
@@ -250,6 +250,7 @@ public class Quickstart {
     private final static boolean useUserPrincipal = true;
     private final static boolean useInstancePrincipal = false;
     private final static boolean useResourcePrincipal = false;
+    private final static boolean useSessionToken = false;
 
     private Quickstart(String[] args) {
         /*
@@ -327,6 +328,12 @@ public class Quickstart {
                        privateKeyFile, // File
                        passphrase);  // char[]
                     */
+                } else if (useSessionToken) {
+                    /*
+                     * There are additional constructors for Session Token,
+                     * see the javadoc
+                     */
+                    authProvider = SignatureProvider.createWithSessionToken();
                 } else {
                     if (compartment == null) {
                         throw new IllegalArgumentException(
@@ -473,7 +480,7 @@ public class Quickstart {
                     System.out.println("\t" + res);
                 }
             }
-            
+
             /*
              * Drop the table
              */

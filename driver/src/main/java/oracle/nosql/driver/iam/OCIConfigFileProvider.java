@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.iam;
 
+import static oracle.nosql.driver.iam.OCIConfigFileReader.*;
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.File;
@@ -40,21 +41,6 @@ import oracle.nosql.driver.iam.OCIConfigFileReader.OCIConfigFile;
  */
 class OCIConfigFileProvider
     implements UserAuthenticationProfileProvider, RegionProvider {
-
-    /**
-     * Default configuration file at <code>~/.oci/config</code>
-     */
-    public static final String DEFAULT_FILE_PATH =
-        System.getProperty("user.home") + File.separator +
-        ".oci" + File.separator + "config";
-    public static final String DEFAULT_PROFILE_NAME = "DEFAULT";
-
-    static final String FINGERPRINT_PROP = "fingerprint";
-    static final String TENANCY_PROP = "tenancy";
-    static final String USER_PROP = "user";
-    static final String KEY_FILE_PROP = "key_file";
-    static final String PASSPHRASE_PROP = "pass_phrase";
-    static final String REGION_PROP = "region";
 
     private final SimpleProfileProvider delegate;
 
@@ -127,10 +113,7 @@ class OCIConfigFileProvider
         }
 
         /* region is optional */
-        String regionValue = configFile.get(REGION_PROP);
-        if (regionValue != null) {
-            builder.region(Region.fromRegionId(regionValue));
-        }
+        builder.region(OCIConfigFileReader.getRegionFromConfigFile(configFile));
         this.delegate = builder.build();
 
     }
@@ -168,10 +151,5 @@ class OCIConfigFileProvider
     @Override
     public Region getRegion() {
         return this.delegate.getRegion();
-    }
-
-    private String missing(String propertyName) {
-        return "Required property " + propertyName +
-            " is missing from OCI configuration file";
     }
 }

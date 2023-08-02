@@ -2,11 +2,21 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [5.4.12] 2023-07-28
+
+### Added
+- Cloud only: added session token authentication support
+  - SignatureProvider.createWithSessionToken()
+  - SignatureProvider.createWithSessionToken(String profile)
+  - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
+- Cloud only: added support to read region from system environment variable
+  OCI_REGION if using user principal or session token authentication
+- Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
 
 ### Changed
 - Moved a couple internal log messages to FINE instead of INFO
 - Cleaned up messaging when can't connect to server
+- Modified internal auth logic to avoid "inactive channel: retrying" messages
 
 ## [5.4.11] 2023-06-06
 

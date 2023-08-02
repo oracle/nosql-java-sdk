@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.11</version>
+  <version>5.4.12</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -46,8 +46,8 @@
     <copyright>Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.86.Final</netty.version>
-    <jackson.version>2.13.2</jackson.version>
+    <netty.version>4.1.94.Final</netty.version>
+    <jackson.version>2.15.2</jackson.version>
     <bouncy.version>1.70</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
@@ -142,7 +142,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          SessionTokenProviderTest.java
         </included.tests>
       </properties>
     </profile>
@@ -369,10 +370,7 @@
           <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
-            <additionalOption>--frames</additionalOption>
           </additionalOptions>
-          <!-- below option makes the search bar work correctly -->
-          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs

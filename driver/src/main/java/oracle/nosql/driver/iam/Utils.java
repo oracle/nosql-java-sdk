@@ -115,6 +115,10 @@ class Utils {
         "https://auth.{0}.oraclecloud.eu");
     private final static MessageFormat OC20_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud20.com");
+    private final static MessageFormat OC22_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud22.com");
+    private final static MessageFormat OC24_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud24.com");
 
     static {
         /* OC1 */
@@ -154,9 +158,11 @@ class Utils {
         IAM_URI.put("gru", OC1_EP_BASE.format(new Object[] {"sa-saopaulo-1"}));
         IAM_URI.put("scl", OC1_EP_BASE.format(new Object[] {"sa-santiago-1"}));
         IAM_URI.put("vcp", OC1_EP_BASE.format(new Object[] {"sa-vinhedo-1"}));
+        IAM_URI.put("vap", OC1_EP_BASE.format(new Object[] {"sa-valparaiso-1"}));
 
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
+        IAM_URI.put("aga", OC1_EP_BASE.format(new Object[] {"us-saltlake-2"}));
         IAM_URI.put("sjc", OC1_EP_BASE.format(new Object[] {"us-sanjose-1"}));
         IAM_URI.put("ord", OC1_EP_BASE.format(new Object[] {"us-chicago-1"}));
 
@@ -211,6 +217,12 @@ class Utils {
 
         /* OC20 */
         IAM_URI.put("beg", OC20_EP_BASE.format(new Object[] {"eu-jovanovac-1"}));
+
+        /* OC22 */
+        IAM_URI.put("nap", OC22_EP_BASE.format(new Object[] {"eu-dcc-rome-1"}));
+
+        /* OC24 */
+        IAM_URI.put("avz", OC24_EP_BASE.format(new Object[] {"eu-dcc-zurich-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -251,6 +263,12 @@ class Utils {
             }
             if (Region.isOC20Region(regionIdOrCode)) {
                 return OC20_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC22Region(regionIdOrCode)) {
+                return OC22_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC24Region(regionIdOrCode)) {
+                return OC24_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 

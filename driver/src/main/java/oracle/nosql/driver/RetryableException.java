@@ -22,6 +22,13 @@ public class RetryableException extends NoSQLException {
         super(msg);
     }
 
+    /**
+     * @hidden
+     */
+    protected RetryableException(String msg, Throwable cause) {
+        super(msg, cause);
+    }
+
     @Override
     public boolean okToRetry() {
         return true;

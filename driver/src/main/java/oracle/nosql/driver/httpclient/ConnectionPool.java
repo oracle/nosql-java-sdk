@@ -10,6 +10,7 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -237,6 +238,12 @@ class ConnectionPool {
                         continue;
                     }
                 } else {
+                    /*
+                     * Note: run() may be executed some time after this method
+                     * returns a promise. So the caller may have to wait a
+                     * few milliseconds for the promise to be completed
+                     * (successfully or not).
+                     */
                     loop.execute(new Runnable() {
                             @Override
                             public void run() {
@@ -257,23 +264,32 @@ class ConnectionPool {
      * front of the queue. This class implements a LIFO algorithm to ensure
      * that the first, or first few channels on the queue remain active and
      * are not subject to inactivity timeouts from the server side.
+     * Note that inactive released channels will be closed and not
+     * re-added to the queue.
      */
     void release(Channel channel) {
         if (!channel.isActive()) {
             logFine(logger,
                     "Inactive channel on release, closing: " + channel);
             removeChannel(channel);
+        } else {
+            queue.addFirst(channel);
         }
         updateStats(channel, false);
-        queue.addFirst(channel);
         try { handler.channelReleased(channel); } catch (Exception e) {}
     }
 
     /**
-     * Closes and removes a channel from the pool entirely. This channel
-     * must not exist in the queue at this time
+     * Close and remove channel from pool.
+     * The channel may or may not currently be in the queue.
+     * This will normally only be called on channels that were acquired and
+     * found to be inactive or otherwise invalid, but it may also occasionally
+     * be called by an async netty callback when netty sees that a channel
+     * has been disconnected or become otherwise inactive. In the latter case,
+     * the channel is likely still in the queue and will be removed.
      */
-    private void removeChannel(Channel channel) {
+    public void removeChannel(Channel channel) {
+        queue.remove(channel);
         stats.remove(channel);
         channel.close();
     }
@@ -329,6 +345,7 @@ class ConnectionPool {
             logFine(logger,
                     "Inactive channel found, closing: " + channel);
             removeChannel(channel);
+            promise.tryFailure(new IOException("inactive channel"));
             return true;
         }
         try {
@@ -371,7 +388,6 @@ class ConnectionPool {
             if (!ch.isActive()) {
                 logFine(logger,
                         "Channel being pruned due to server close: " + ch);
-                queue.remove(ch);
                 removeChannel(ch);
                 pruned++;
             }
