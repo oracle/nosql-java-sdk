@@ -108,20 +108,24 @@ public class GroupIter extends PlanIter {
             }
         }
 
+        @SuppressWarnings("unchecked")
         long sizeof() {
             long sz = (SizeOf.OBJECT_OVERHEAD + SizeOf.OBJECT_REF_OVERHEAD + 1);
             if (theValue instanceof FieldValue) {
                 sz += ((FieldValue)theValue).sizeof();
             } else {
-                HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)theValue;
+                HashSet<WrappedValue> collectSet =
+                    (HashSet<WrappedValue>)theValue;
                 Iterator<WrappedValue> iter = collectSet.iterator();
                 while (iter.hasNext()) {
-                    sz += (SizeOf.HASHSET_ENTRY_OVERHEAD + iter.next().sizeof());
+                    sz +=
+                        (SizeOf.HASHSET_ENTRY_OVERHEAD + iter.next().sizeof());
                 }
             }
             return sz;
         }
 
+        @SuppressWarnings("unchecked")
         void collect(
             RuntimeControlBlock rcb,
             FieldValue val,
@@ -134,7 +138,8 @@ public class GroupIter extends PlanIter {
             boolean isDistinct = !(theValue instanceof FieldValue);
 
             if (isDistinct) {
-                HashSet<WrappedValue> collectSet = (HashSet<WrappedValue>)theValue;
+                HashSet<WrappedValue> collectSet =
+                    (HashSet<WrappedValue>)theValue;
                 ArrayValue arrval = (ArrayValue)val;
                 for (FieldValue elem : arrval) {
                     WrappedValue welem = new WrappedValue(elem);
@@ -146,7 +151,7 @@ public class GroupIter extends PlanIter {
                 }
             } else {
                 ArrayValue collectArray = (ArrayValue)theValue;
-                ArrayValue arrayVal = (ArrayValue)val; 
+                ArrayValue arrayVal = (ArrayValue)val;
                 collectArray.addAll(arrayVal.iterator());
                 if (countMemory) {
                     rcb.incMemoryConsumption(val.sizeof() +
@@ -675,6 +680,7 @@ public class GroupIter extends PlanIter {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private FieldValue getAggrValue(
         RuntimeControlBlock rcb,
         GroupIterState state,
