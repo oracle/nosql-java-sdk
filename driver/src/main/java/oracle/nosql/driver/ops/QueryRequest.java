@@ -468,23 +468,10 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     * Sets the maximum number of memory bytes that may be consumed by the
-     * statement at a replication node. In general, queries do not consume
-     * a lot of memory while executing at a replcation node and the value
-     * of this parameter has no effect. Currently, the only exception are
-     * queries that use the array_collect function. For such queries, if
-     * the maximum amount of memory is exceeded, execution of the query
-     * at the replication node will be terminated (without error) and the
-     * set of query results that have been computed so far will be sent
-     * to the driver. The driver will keep executing the query, sending 
-     * more requests to the replication nodes for additional results.
-     * So, for queries that use array_collect, increasing the value of this
-     * parameter will decrease the number of interactions between the driver
-     * and the replication nodes at the expense of consuming the memory
-     * consumption at the nodes.
-     * <p> 
-     * The default value is 10MB, and for applications running on the
-     * cloud, it can not be increased beyond this default.
+     * On-premises only.
+     *
+     * Sets the maximum number of memory bytes that may be consumed by an
+     * individual server node while servicing a query request.
      *
      * @param maxBytes the value to use in bytes
      *
