@@ -98,6 +98,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private long maxMemoryConsumption = 1024 * 1024 * 1024;
 
+    private long maxServerMemoryConsumption = 10 * 1024 * 1024;
+
     private MathContext mathContext = MathContext.DECIMAL32;
 
     private Consistency consistency;
@@ -144,6 +146,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
         internalReq.maxMemoryConsumption = maxMemoryConsumption;
+        internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
         internalReq.preparedStatement = preparedStatement;
@@ -430,9 +433,12 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * (which may be required due to the use of an index on an array or map)
      * and sorting. Such operations may consume a lot of memory as they need
      * to cache the full result set or a large subset of it at the client
-     * memory. The default value is 1GB.
+     * memory. If the maximum amount of memory is exceeded, a exception will
+     * be throw.
+     * <p>
+     * The default value is 1GB.
      *
-     * @param maxBytes the value to use in bytes
+     * @param maxBytes the amount of memory to use, in bytes
      *
      * @return this
      */
@@ -451,12 +457,39 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * array or map) and sorting (sorting by distance when a query contains
      * a geo_near() function). Such operations may consume a lot of memory
      * as they need to cache the full result set at the client memory.
-     * The default value is 100MB.
+     * <p>
+     * The default value is 1GB.
      *
      * @return the maximum number of memory bytes
      */
     public long getMaxMemoryConsumption() {
         return maxMemoryConsumption;
+    }
+
+    /**
+     * @hidden
+     * On-premises only.
+     *
+     * Sets the maximum number of memory bytes that may be consumed by an
+     * individual server node while servicing a query request.
+     *
+     * @param maxBytes the value to use in bytes
+     *
+     * @return this
+     */
+    public QueryRequest setMaxServerMemoryConsumption(long maxBytes) {
+        if (maxBytes < 0) {
+            throw new IllegalArgumentException("maxBytes must be >= 0");
+        }
+        maxServerMemoryConsumption = maxBytes;
+        return this;
+    }
+
+    /**
+     * @hidden
+     */
+    public long getMaxServerMemoryConsumption() {
+        return maxServerMemoryConsumption;
     }
 
     /**

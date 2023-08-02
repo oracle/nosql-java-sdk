@@ -123,7 +123,7 @@ public class FuncMinMaxIter extends PlanIter {
             return;
         }
 
-        int cmp = Compare.compareAtomics(rcb, state.theMinMax, val, true);
+        int cmp = Compare.compareAtomicsTotalOrder(rcb, state.theMinMax, val);
 
         if (rcb.getTraceLevel() >= 3) {
             rcb.trace("Compared values: \n" + state.theMinMax + "\n" + val +

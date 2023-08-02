@@ -17,6 +17,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 //import oracle.nosql.driver.NoSQLHandle;
@@ -118,6 +120,17 @@ public class MapValue extends FieldValue
      */
     public Set<Map.Entry<String, FieldValue>> entrySet() {
         return values.entrySet();
+    }
+
+    /**
+     * @hidden
+     * Returns the set of keys in this map, sorted according to the
+     * String.compareTo() method.
+     *
+     * @return the soerted set of keys
+     */
+    public SortedSet<String> sortedKeys() {
+        return new TreeSet<String>(values.keySet());
     }
 
     /**

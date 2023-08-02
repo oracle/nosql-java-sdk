@@ -176,6 +176,11 @@ public class RetryStats {
     }
 
     @Override
+    public int hashCode() {
+        return retries + delayMs;
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("retries=").append(retries)

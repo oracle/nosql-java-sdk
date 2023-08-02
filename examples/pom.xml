@@ -31,5 +31,21 @@
 
   <build>
     <finalName>${project.artifactId}</finalName>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <fork>true</fork>
+          <source>1.8</source>
+          <target>1.8</target>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
+          <compilerArgument>-Xlint:all</compilerArgument>
+          <!-- this is parameterized to allow it to be overridden -->
+          <executable>${javac}</executable>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>
