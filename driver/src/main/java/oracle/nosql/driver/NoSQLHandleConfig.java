@@ -777,7 +777,6 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     @Deprecated
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
-        int a = 1;
         return this;
     }
 
