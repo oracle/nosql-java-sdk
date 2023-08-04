@@ -15,6 +15,7 @@ import java.net.ProtocolException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLException;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -90,6 +91,10 @@ public class ResponseHandler implements Closeable {
 
         synchronized(this) {
             this.cause = th;
+            if (th instanceof SSLException) {
+                /* disconnect channel to re-create channel and engine */
+                channel.disconnect();
+            }
             latch.countDown();
         }
         logFine(logger, msg + ", cause: " + th);

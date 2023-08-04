@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.oracle.nosql.sdk</groupId>
-  <version>5.4.9</version>
+  <version>5.4.12</version>
   <artifactId>nosql-java-sdk-examples</artifactId>
   <name>Oracle NoSQL Database Java Examples</name>
   <description>Java examples for Oracle NoSQL Database</description>
@@ -25,11 +25,27 @@
     <dependency>
       <groupId>com.oracle.nosql.sdk</groupId>
       <artifactId>nosqldriver</artifactId>
-      <version>5.4.9</version>
+      <version>5.4.12</version>
     </dependency>
   </dependencies>
 
   <build>
     <finalName>${project.artifactId}</finalName>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <fork>true</fork>
+          <source>1.8</source>
+          <target>1.8</target>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
+          <compilerArgument>-Xlint:all</compilerArgument>
+          <!-- this is parameterized to allow it to be overridden -->
+          <executable>${javac}</executable>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>

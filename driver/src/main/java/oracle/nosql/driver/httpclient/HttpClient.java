@@ -282,11 +282,11 @@ public class HttpClient {
         return sslCtx;
     }
 
-    int getPort() {
+    public int getPort() {
         return port;
     }
 
-    String getHost() {
+    public String getHost() {
         return host;
     }
 
@@ -382,9 +382,7 @@ public class HttpClient {
             /* retry loop with at most (retryInterval) ms timeouts */
             long thisTimeoutMs = (timeoutMs - msDiff);
             if (thisTimeoutMs <= 0) {
-                String msg = "Timed out after " + msDiff +
-                             "ms (" + retries + " retries) trying " +
-                             "to acquire channel";
+                String msg = "Timed out trying to acquire channel";
                 logInfo(logger, "HttpClient " + name + " " + msg);
                 throw new TimeoutException(msg);
             }
@@ -397,7 +395,7 @@ public class HttpClient {
                 retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 if (retries == 0) {
-                    logInfo(logger, "Timed out after " +
+                    logFine(logger, "Timed out after " +
                             (System.currentTimeMillis() - startMs) +
                             "ms trying to acquire channel: retrying");
                 }
@@ -447,6 +445,15 @@ public class HttpClient {
          */
         pool.release(channel);
     }
+
+    /**
+     * Close and remove channel from client pool.
+     */
+    public void removeChannel(Channel channel) {
+        logFine(logger, "closing and removing channel " + channel);
+        pool.removeChannel(channel);
+    }
+
 
     /**
      * Sends an HttpRequest, setting up the ResponseHandler as the handler to

@@ -25,6 +25,11 @@ public class SortSpec {
 
     public final boolean theNullsFirst;
 
+    SortSpec() {
+        theIsDesc = false;
+        theNullsFirst = false;
+    }
+
     public SortSpec(ByteInputStream in) throws IOException {
         theIsDesc = in.readBoolean();
         theNullsFirst = in.readBoolean();

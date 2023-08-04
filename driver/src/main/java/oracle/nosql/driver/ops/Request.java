@@ -520,6 +520,7 @@ public abstract class Request {
      * table is currently over its configured throughput limit.
      * Otherwise, allow DRL to delay request processing to match
      * table limits (default).
+     * @param preferThrottling if throttling is preferred
      */
     public void setPreferThrottling(boolean preferThrottling) {
         this.preferThrottling = preferThrottling;
@@ -527,6 +528,7 @@ public abstract class Request {
 
     /**
      * @hidden
+     * @return true if throttling is preferred
      */
     public boolean getPreferThrottling() {
         return preferThrottling;
@@ -538,6 +540,7 @@ public abstract class Request {
      * Opt-in to using Distributed Rate Limiting (DRL). This setting
      * will eventually be deprecated, as all requests will eventually
      * use DRL unconditionally in the cloud.
+     * @param drlOptIn opt in to using DRL in the cloud
      */
     public void setDRLOptIn(boolean drlOptIn) {
         this.drlOptIn = drlOptIn;
@@ -545,6 +548,7 @@ public abstract class Request {
 
     /**
      * @hidden
+     * @return true if opted in to using DRL in the cloud
      */
     public boolean getDRLOptIn() {
         return drlOptIn;
