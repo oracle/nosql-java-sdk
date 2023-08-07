@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unpublished]
+
+### Added
+- added support for array_collect() and count(distinct) in queries. These
+  require server side support which is only available in Oracle NoSQL releases
+  23.3 and higher and will not be immediately available in the cloud service
+
 ## [5.4.12] 2023-07-28
 
 ### Added

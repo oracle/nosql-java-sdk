@@ -81,6 +81,7 @@ public class NsonProtocol {
     public static String RESOURCE = "ro";
     public static String RESOURCE_ID = "rd";
     public static String RETURN_ROW = "rr";
+    public static String SERVER_MEMORY_CONSUMPTION = "sm";
     public static String SHARD_ID = "si";
     public static String START = "sr";
     public static String STATEMENT = "st";
@@ -231,6 +232,7 @@ public class NsonProtocol {
         {RESOURCE,"RESOURCE"},
         {RESOURCE_ID,"RESOURCE_ID"},
         {RETURN_ROW,"RETURN_ROW"},
+        {SERVER_MEMORY_CONSUMPTION,"SERVER_MEMORY_CONSUMPTION"},
         {SHARD_ID,"SHARD_ID"},
         {START,"START"},
         {STATEMENT,"STATEMENT"},
