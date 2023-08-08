@@ -845,7 +845,7 @@ public class TableResult extends Result {
         }
 
         /**
-         * Returns the state of remote replica
+         * Returns the state of remote replication table
          *
          * @return the state
          *
@@ -901,7 +901,7 @@ public class TableResult extends Result {
 
         /**
          * @hidden
-         * @param state the state of remote replica table
+         * @param state the state of remote replication table
          * @return this
          * @since 5.4
          */

@@ -264,7 +264,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         return (GetIndexesResult) client.execute(request);
     }
 
-
     @Override
     public TableResult addReplica(AddReplicaRequest request) {
         checkClient();

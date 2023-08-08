@@ -194,7 +194,7 @@ public class ReplicaStatsRequest extends Request {
     public void validate() {
         if (tableName == null) {
             throw new IllegalArgumentException(
-                "AddReplicaRequest requires table name");
+                "ReplicaStatsRequest requires table name");
         }
     }
 

@@ -697,6 +697,5 @@ public interface NoSQLHandle extends AutoCloseable {
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.
      */
-    @Override
     void close();
 }

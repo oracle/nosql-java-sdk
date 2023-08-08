@@ -479,6 +479,7 @@ public class Client {
         final boolean signContent = needSignWithContent(kvRequest);
         String requestId = "";
         int thisIterationTimeoutMs = 0;
+
         do {
             thisIterationTimeoutMs =
                 getIterationTimeoutMs(timeoutMs, startNanos);
@@ -1083,8 +1084,8 @@ public class Client {
         int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
                                      .intValue();
 
-        double RUs = limits.getReadUnits();
-        double WUs = limits.getWriteUnits();
+        double RUs = (double)limits.getReadUnits();
+        double WUs = (double)limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();

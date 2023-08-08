@@ -57,7 +57,7 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Sets the read units for the table on new region
+     * Sets the read units of the table on new region
      *
      * @param readUnits the read units
      *
@@ -78,7 +78,7 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Sets the write units for the table on new region
+     * Sets the write units of the table on new region
      *
      * @param writeUnits the write units
      *
@@ -159,6 +159,6 @@ public class AddReplicaRequest extends Request {
 
     @Override
     public String getTypeName() {
-        return "Table";
+        return "AddReplica";
     }
 }

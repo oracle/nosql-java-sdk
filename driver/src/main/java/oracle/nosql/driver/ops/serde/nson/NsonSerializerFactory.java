@@ -834,7 +834,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapFieldNZ(ns, NUMBER_LIMIT, rq.getLimit());
             writeMapFieldNZ(ns, TRACE_LEVEL, rq.getTraceLevel());
 
-            writeMapField(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
             boolean isPrepared = rq.isPrepared();
             if (isPrepared) {
                 writeMapField(ns, IS_PREPARED, isPrepared);
@@ -1135,7 +1135,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
 
-            writeMapField(ns, QUERY_VERSION, QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
             writeMapField(ns, STATEMENT, rq.getStatement());
             if (rq.getQueryPlan()) {
                 writeMapField(ns, GET_QUERY_PLAN, true);
@@ -2231,7 +2231,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, fieldName, value);
             }
         }
-        
+
         protected static void writeLongMapField(NsonSerializer ns,
                                                 String fieldName,
                                                 long value) throws IOException {

@@ -798,7 +798,6 @@ public class SignatureProvider
                "Unable to find service host, use setServiceHost " +
                "to load from NoSQLHandleConfig");
         }
-
         SignatureDetails sigDetails = getSignatureDetails(request);
         if (sigDetails != null) {
             return sigDetails.getSignatureHeader();
@@ -909,7 +908,7 @@ public class SignatureProvider
         }
 
         /* creates and caches a signature as warm-up */
-        getSignatureDetailsForCache(null, false);
+        getSignatureDetailsForCache(false);
         return this;
     }
 
@@ -986,7 +985,7 @@ public class SignatureProvider
             }
         }
 
-        return getSignatureDetailsForCache(request, false);
+        return getSignatureDetailsForCache(false);
     }
 
     private SignatureDetails getSignatureWithContent(Request request,
@@ -996,16 +995,11 @@ public class SignatureProvider
     }
 
     synchronized SignatureDetails
-        getSignatureDetailsForCache(Request request, boolean isRefresh) {
+        getSignatureDetailsForCache(boolean isRefresh) {
         return getSignatureDetailsInternal(isRefresh,
                                            null /* request */,
                                            null /* headers */,
                                            null /* content */);
-    }
-
-    private String getDelegationToken(Request req) {
-        return (req != null && req.getOboToken() != null) ?
-               req.getOboToken() : delegationToken;
     }
 
     /* visible for testing */
@@ -1032,7 +1026,6 @@ public class SignatureProvider
             privateKeyProvider.reload(provider.getPrivateKey(),
                                       provider.getPassphraseCharacters());
         }
-
         String signature;
         try {
             signature = sign(signingContent(date, request, headers, content),
@@ -1083,6 +1076,11 @@ public class SignatureProvider
         return sigDetails;
     }
 
+    private String getDelegationToken(Request req) {
+        return (req != null && req.getOboToken() != null) ?
+               req.getOboToken() : delegationToken;
+    }
+
     private synchronized void setRefreshKey() {
         if (refreshSigDetails != null) {
             currentSigDetails = refreshSigDetails;
@@ -1090,10 +1088,10 @@ public class SignatureProvider
         }
     }
 
-    String signingContent(String date,
-                          Request request,
-                          HttpHeaders headers,
-                          byte[] content) {
+    private String signingContent(String date,
+                                  Request request,
+                                  HttpHeaders headers,
+                                  byte[] content) {
         StringBuilder sb = new StringBuilder();
         sb.append(REQUEST_TARGET).append(HEADER_DELIMITER)
           .append("post /").append(NOSQL_DATA_PATH).append("\n")
@@ -1183,7 +1181,7 @@ public class SignatureProvider
             Exception lastException;
             do {
                 try {
-                    getSignatureDetailsForCache(null, true);
+                    getSignatureDetailsForCache(true);
                     handleRefreshCallback(refreshAheadMs);
                     return;
                 } catch (SecurityInfoNotReadyException se) {

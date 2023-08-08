@@ -115,6 +115,6 @@ public class DropReplicaRequest extends Request {
 
     @Override
     public String getTypeName() {
-        return "Table";
+        return "DropReplica";
     }
 }

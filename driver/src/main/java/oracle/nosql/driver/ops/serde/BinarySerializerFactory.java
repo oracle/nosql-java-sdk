@@ -45,6 +45,7 @@ public class BinarySerializerFactory implements SerializerFactory {
         new ListTablesRequestSerializer();
     static final GetIndexesRequestSerializer getIndexesSerializer =
         new GetIndexesRequestSerializer();
+
     static final WriteMultipleRequestSerializer writeMultipleSerializer =
         new WriteMultipleRequestSerializer(new PutRequestSerializer(true),
                                            new DeleteRequestSerializer(true));
