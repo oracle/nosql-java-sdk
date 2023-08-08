@@ -872,9 +872,8 @@ public class Client {
                 }
                 throw e;
             } catch (IOException ioe) {
-                /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
-                logInfo(logger, "Client execution IOException, name: " +
+                logFine(logger, "Client execution IOException, name: " +
                         name + ", message: " + ioe.getMessage());
                 /*
                  * An exception in the channel, e.g. the server may have
@@ -898,13 +897,20 @@ public class Client {
                 throw new NoSQLException("Request interrupted: " +
                                          ie.getMessage());
             } catch (ExecutionException ee) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                logInfo(logger, "Unable to execute request: " +
-                        ee.getCause().getMessage());
-                /* is there a better exception? */
-                throw new NoSQLException(
-                    "Unable to execute request: " + ee.getCause().getMessage());
+                /*
+                 * This can happen if a channel is bad in HttpClient.getChannel.
+                 * This happens if the channel is shut down by the server side
+                 * or the server (proxy) is restarted, etc. Treat it like
+                 * IOException above, but retry without waiting
+                 */
+                String name = ee.getCause().getClass().getName();
+                logFine(logger, "Client ExecutionException, name: " +
+                        name + ", message: " + ee.getMessage() + ", retrying");
+
+                kvRequest.addRetryException(ee.getCause().getClass());
+                kvRequest.incrementRetries();
+                exception = ee.getCause();
+                continue;
             } catch (TimeoutException te) {
                 exception = te;
                 logInfo(logger, "Timeout exception: " + te);
@@ -940,8 +946,20 @@ public class Client {
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
+        /*
+         * If the request timed out in a single iteration, and the
+         * timeout was fairly long, and there was no delay due to
+         * rate limiting, reset the session cookie so the next request
+         * may use a different server.
+         */
+        if (timeoutMs == thisIterationTimeoutMs &&
+            timeoutMs >= 2000 &&
+            rateDelayedMs == 0) {
+            setSessionCookieValue(null);
+        }
         throw new RequestTimeoutException(timeoutMs,
-            requestClass + " timed out: requestId=" + requestId + " " +
+            requestClass + " timed out:" +
+            (requestId.isEmpty() ? "" : " requestId=" + requestId) +
             " nextRequestId=" + nextRequestId() +
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?

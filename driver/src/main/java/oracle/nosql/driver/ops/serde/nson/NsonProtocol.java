@@ -78,6 +78,7 @@ public class NsonProtocol {
     public static String RANGE_PATH = "rp";
     public static String READ_THROTTLE_COUNT = "rt";
     public static String RETURN_ROW = "rr";
+    public static String SERVER_MEMORY_CONSUMPTION = "sm";
     public static String SHARD_ID = "si";
     public static String START = "sr";
     public static String STATEMENT = "st";
@@ -231,6 +232,7 @@ public class NsonProtocol {
         {RANGE_PATH,"RANGE_PATH"},
         {READ_THROTTLE_COUNT,"READ_THROTTLE_COUNT"},
         {RETURN_ROW,"RETURN_ROW"},
+        {SERVER_MEMORY_CONSUMPTION,"SERVER_MEMORY_CONSUMPTION"},
         {SHARD_ID,"SHARD_ID"},
         {START,"START"},
         {STATEMENT,"STATEMENT"},

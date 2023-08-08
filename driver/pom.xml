@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.9</version>
+  <version>5.4.12</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -46,8 +46,8 @@
     <copyright>Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.86.Final</netty.version>
-    <jackson.version>2.13.2</jackson.version>
+    <netty.version>4.1.94.Final</netty.version>
+    <jackson.version>2.15.2</jackson.version>
     <bouncy.version>1.70</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
@@ -142,7 +142,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          SessionTokenProviderTest.java
         </included.tests>
       </properties>
     </profile>
@@ -236,15 +237,22 @@
     <plugins>
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.3.1</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.0</version>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
           <source>1.8</source>
           <target>1.8</target>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
+          <compilerArgument>-Xlint:all</compilerArgument>
           <!-- this is parameterized to allow it to be overridden -->
           <executable>${javac}</executable>
         </configuration>
@@ -252,7 +260,7 @@
       <plugin>
         <!-- test plugin -->
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M5</version>
+        <version>3.1.2</version>
         <configuration>
           <!-- uncomment below to write stdout to files
                in target/surefire-reports -->
@@ -274,7 +282,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.0</version>
         <configuration>
           <archive>
             <manifest>
@@ -300,7 +308,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>buildnumber-maven-plugin</artifactId>
-        <version>1.4</version>
+        <version>3.2.0</version>
         <executions>
           <execution>
             <phase>validate</phase>
@@ -369,10 +377,7 @@
           <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
-            <additionalOption>--frames</additionalOption>
           </additionalOptions>
-          <!-- below option makes the search bar work correctly -->
-          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs
@@ -422,7 +427,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
         <executions>
           <execution>
             <id>human-readable NSON string generation</id>

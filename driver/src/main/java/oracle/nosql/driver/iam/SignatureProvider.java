@@ -647,21 +647,118 @@ public class SignatureProvider
         return provider;
     }
 
-    /*
-     * The SignatureProvider that generates and caches request signature using
-     * key id and private key supplied by {@link AuthenticationProfileProvider}.
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the default profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @return SignatureProvider
      */
-    protected SignatureProvider(AuthenticationProfileProvider provider) {
-        this(provider, MAX_ENTRY_LIFE_TIME, DEFAULT_REFRESH_AHEAD);
+    public static SignatureProvider createWithSessionToken() {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider());
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithSessionToken(String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(profile));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the specified location, the value of field
+     * <code>security_token_file</code>. The configuration file
+     * used is <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param configFilePath path of configuration file
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithSessionToken(String configFilePath, String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(configFilePath, profile));
+        return provider;
     }
 
     /*
-     * The constructor that is able to set refresh time before signature
-     * expire, currently this is hidden for simplicity.
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider.
+     * This is for advanced use only; use of the create* methods is preferred.
+     * The SignatureProvider that generates and caches request signature using
+     * key id and private key supplied by {@link AuthenticationProfileProvider}.
+     *
+     * @param provider The provider to use
      */
-    protected SignatureProvider(AuthenticationProfileProvider profileProvider,
+    public SignatureProvider(AuthenticationProfileProvider provider) {
+        this(provider, MAX_ENTRY_LIFE_TIME, DEFAULT_REFRESH_AHEAD);
+    }
+
+    /**
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider and refresh details.
+     * This is for advanced use only; use of the create* methods is preferred.
+     * The constructor that is able to set refresh time before signature
+     * expires.
+     *
+     * @param profileProvider The provider to use
+     * @param durationSeconds amount of time to keep signature before refresh
+     * @param refreshAheadMs how soon before expiry to start a new refresh
+     */
+    public SignatureProvider(AuthenticationProfileProvider profileProvider,
                                 int durationSeconds,
-                                int refreshAhead) {
+                                int refreshAheadMs) {
         if (profileProvider instanceof RegionProvider) {
             this.region = ((RegionProvider) profileProvider).getRegion();
         }
@@ -675,7 +772,7 @@ public class SignatureProvider
                 MAX_ENTRY_LIFE_TIME + " seconds");
         }
 
-        this.refreshAheadMs = refreshAhead;
+        this.refreshAheadMs = refreshAheadMs;
         long durationMS = durationSeconds * 1000;
         if (durationMS > refreshAheadMs) {
             this.refreshIntervalMs = durationMS - refreshAheadMs;
@@ -750,6 +847,8 @@ public class SignatureProvider
         if (provider instanceof UserAuthenticationProfileProvider) {
             return ((UserAuthenticationProfileProvider)this.provider)
                 .getTenantId();
+        } else if (provider instanceof SessionTokenProvider) {
+            return ((SessionTokenProvider) this.provider).getTenantId();
         }
         return null;
     }

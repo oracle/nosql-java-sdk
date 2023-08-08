@@ -269,16 +269,13 @@ public class Compare {
                 double d = bd.doubleValue();
                 if (bd.compareTo(BigDecimal.valueOf(d)) == 0) {
                     code = Double.hashCode(d);
-                    System.out.println("DBL hash value for number " + v + " = " + code);
                     return code;
                 }
                 code = v.hashCode();
-                System.out.println("BD hash value for number " + v + " = " + code);
                 return code;
             }
 
             code = (int)(l ^ (l >>> 32));
-            System.out.println("INT hash value for number " + v + " = " + code);
             return code;
         }
         case STRING:
@@ -295,23 +292,15 @@ public class Compare {
     }
 
     /*
-     * Compare 2 atomic values.
+     * Implements a total order among atomic values. The following order is
+     * used among values that are not normally comparable with each other:
      *
-     * The method throws an exception if either of the 2 values is non-atomic
-     * or the values are not comparable. Otherwise, it retuns 0 if v0 == v1,
-     * 1 if v0 > v1, or -1 if v0 < v1.
-     *
-     * Whether the 2 values are comparable depends on the "forSort" parameter.
-     * If true, then values that would otherwise be considered non-comparable
-     * are asusmed to have the following order:
-     *
-     * numerics < timestamps < strings < booleans < empty < json null < null 
+     * numerics < timestamps < strings < booleans < binaries < empty < json null < null 
      */
-    static int compareAtomics(
+    static int compareAtomicsTotalOrder(
         RuntimeControlBlock rcb,
         FieldValue v0,
-        FieldValue v1,
-        boolean forSort) {
+        FieldValue v1) {
 
         if (rcb.getTraceLevel() >= 4) {
             rcb.trace("Comparing values: \n" + v0 + "\n" + v1);
@@ -323,30 +312,21 @@ public class Compare {
         switch (tc0) {
 
         case NULL:
-            if (forSort) {
-                if (tc1 == Type.NULL) {
-                    return 0;
-                } else {
-                    return 1;
-                }
+            if (tc1 == Type.NULL) {
+                return 0;
+            } else {
+                return 1;
             }
-            break;
         case JSON_NULL:
             if (tc1 == Type.JSON_NULL) {
                 return 0;
             }
-            if (forSort) {
-                return (tc1 == Type.NULL ? -1 : 1);
-            }
-            break;
+            return (tc1 == Type.NULL ? -1 : 1);
         case EMPTY:
             if (tc1 == Type.EMPTY) {
                 return 0;
             }
-            if (forSort) {
-                return (tc1 == Type.NULL || tc1 == Type.JSON_NULL ? -1 : 1);
-            }
-            break;
+            return (tc1 == Type.NULL || tc1 == Type.JSON_NULL ? -1 : 1);
         case INTEGER: {
             switch (tc1) {
             case INTEGER:
@@ -360,20 +340,9 @@ public class Compare {
                                       ((DoubleValue)v1).getValue());
             case NUMBER:
                 return -v1.compareTo(v0);
-            case STRING:
-            case BOOLEAN:
-            case TIMESTAMP:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case LONG: {
             switch (tc1) {
@@ -388,20 +357,9 @@ public class Compare {
                                       ((DoubleValue)v1).getValue());
             case NUMBER:
                 return -v1.compareTo(v0);
-            case STRING:
-            case BOOLEAN:
-            case TIMESTAMP:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case DOUBLE: {
             switch (tc1) {
@@ -416,20 +374,9 @@ public class Compare {
                                       ((DoubleValue)v1).getValue());
             case NUMBER:
                 return -v1.compareTo(v0);
-            case STRING:
-            case BOOLEAN:
-            case TIMESTAMP:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case NUMBER: {
             NumberValue number = (NumberValue) v0;
@@ -439,20 +386,9 @@ public class Compare {
             case DOUBLE:
             case NUMBER:
                 return number.compareTo(v1);
-            case STRING:
-            case BOOLEAN:
-            case TIMESTAMP:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case TIMESTAMP: {
             switch (tc1) {
@@ -462,23 +398,10 @@ public class Compare {
             case LONG:
             case DOUBLE:
             case NUMBER:
-                if (forSort) {
-                    return 1;
-                }
-                break;
-            case STRING:
-            case BOOLEAN:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
+                return 1;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case STRING: {
             switch (tc1) {
@@ -490,123 +413,204 @@ public class Compare {
             case DOUBLE:
             case NUMBER:
             case TIMESTAMP:
-                if (forSort) {
-                    return 1;
-                }
-                break;
-            case BOOLEAN:
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
+                return 1;
             default:
-                break;
+                return -1;
             }
-            break;
         }
         case BOOLEAN: {
             switch (tc1) {
-                case BOOLEAN:
-                    return ((BooleanValue)v0).compareTo(v1);
+            case BOOLEAN:
+                return ((BooleanValue)v0).compareTo(v1);
             case INTEGER:
             case LONG:
             case DOUBLE:
             case NUMBER:
             case STRING:
             case TIMESTAMP:
-                if (forSort) {
-                    return 1;
-                }
-                break;
-            case NULL:
-            case JSON_NULL:
-            case EMPTY:
-                if (forSort) {
-                    return -1;
-                }
-                break;
+                return 1;
             default:
-                break;
+                return -1;
             }
-            break;
+        }
+        case BINARY: {
+             switch (tc1) {
+                case BINARY:
+                    return ((BinaryValue)v0).compareTo(v1);
+             case INTEGER:
+             case LONG:
+             case DOUBLE:
+             case NUMBER:
+             case STRING:
+             case TIMESTAMP:
+             case BOOLEAN:
+                 return 1;
+             default:
+                 return -1;
+             }
         }
         default:
-            break;
+            throw new QueryStateException("Unexpected value type: " + tc0);
         }
-
-        throw new QueryStateException(
-            "Cannot compare value of type " + tc0 + " with value of type " + tc1);
     }
 
-    static int sortAtomics(
+    static int compareAtomicsTotalOrder(
         RuntimeControlBlock rcb,
         FieldValue v1,
         FieldValue v2,
-        int sortPos,
-        SortSpec[] sortSpecs) {
+        SortSpec sortSpec) {
 
-        if (v1.isNull()) {
+        int comp = compareAtomicsTotalOrder(rcb, v1, v2);
 
-            if (v2.isNull()) {
-                return 0;
+        comp = (sortSpec.theIsDesc ? -comp : comp);
+
+        if (!sortSpec.theIsDesc && sortSpec.theNullsFirst) {
+
+            if (v1.isSpecialValue() && !v2.isSpecialValue()) {
+                comp = -1;
             }
 
-            if (v2.isEMPTY() || v2.isJsonNull()) {
-                return (sortSpecs[sortPos].theIsDesc ? -1 : 1);
+            if (!v1.isSpecialValue() && v2.isSpecialValue()) {
+                comp = 1;
+            }
+        } else if (sortSpec.theIsDesc && !sortSpec.theNullsFirst) {
+
+            if (v1.isSpecialValue() && !v2.isSpecialValue()) {
+                comp = 1;
             }
 
-            return (sortSpecs[sortPos].theNullsFirst ? -1 : 1);
+            if (!v1.isSpecialValue() && v2.isSpecialValue()) {
+                comp = -1;
+            }
         }
 
-        if (v2.isNull()) {
+        return comp;
+    }
 
-            if (v1.isEMPTY() || v1.isJsonNull()) {
-                return (sortSpecs[sortPos].theIsDesc ? 1 : -1);
+    /*
+     * Implements a total order among all kinds of values
+     */
+    static int compareTotalOrder(
+        RuntimeControlBlock rcb,
+        FieldValue v1,
+        FieldValue v2,
+        SortSpec sortSpec) {
+
+        FieldValue.Type tc1 = v1.getType();
+        FieldValue.Type tc2 = v2.getType();
+
+        switch (tc1) {
+        case MAP:
+            switch (tc2) {
+            case MAP:
+                return compareMaps(rcb, (MapValue)v1, (MapValue)v2, sortSpec);
+            case ARRAY:
+                return (sortSpec.theIsDesc ? 1 : -1);
+            default:
+                return (sortSpec.theIsDesc ? -1 : 1);
             }
+        case ARRAY:
+            switch (tc2) {
+            case MAP:
+                return (sortSpec.theIsDesc ? -1 : 1);
+            case ARRAY:
+                return compareArrays(rcb, (ArrayValue)v1, (ArrayValue)v2,
+                                     sortSpec);
+            default:
+                return (sortSpec.theIsDesc ? -1 : 1);
+            }
+        default:
+            switch (tc2) {
+            case MAP:
+            case ARRAY:
+                return (sortSpec.theIsDesc ? 1 : -1);
+            default:
+                return compareAtomicsTotalOrder(rcb, v1, v2, sortSpec);
+            }
+        }
+    }
 
-            return (sortSpecs[sortPos].theNullsFirst ? 1 : -1);
+    static int compareMaps(
+        RuntimeControlBlock rcb,
+        MapValue v1,
+        MapValue v2,
+        SortSpec sortSpec) {
+
+        SortSpec innerSortSpec = sortSpec;
+        if (sortSpec.theIsDesc || sortSpec.theNullsFirst) {
+            innerSortSpec = new SortSpec();
         }
 
-        if (v1.isEMPTY()) {
+        Iterator<String> keysIter1 = v1.sortedKeys().iterator();
+        Iterator<String> keysIter2 = v2.sortedKeys().iterator();
 
-            if (v2.isEMPTY()) {
-                return 0;
+        int comp = 0;
+
+        while (keysIter1.hasNext() && keysIter2.hasNext()) {
+
+            String k1 = keysIter1.next();
+            String k2 = keysIter2.next();
+
+            comp = k1.compareTo(k2);
+
+            if (comp != 0) {
+                return (sortSpec.theIsDesc ? -comp : comp);
             }
 
-            if (v2.isJsonNull()) {
-                return (sortSpecs[sortPos].theIsDesc ? 1 : -1);
+            comp = compareTotalOrder(rcb, v1.get(k1), v2.get(k2),
+                                     innerSortSpec);
+
+            if (comp != 0) {
+                return (sortSpec.theIsDesc ? -comp : comp);
             }
-
-            return (sortSpecs[sortPos].theNullsFirst ? -1 : 1);
         }
 
-        if (v2.isEMPTY()) {
+        if (v1.size() == v2.size()) {
+            return 0;
+        }
 
-            if (v1.isJsonNull()) {
-                return (sortSpecs[sortPos].theIsDesc ? -1 : 1);
+        if (keysIter2.hasNext()) {
+            return (sortSpec.theIsDesc ? 1 : -1);
+        }
+
+        return (sortSpec.theIsDesc ? -1 : 1);
+    }
+
+    static int compareArrays(
+        RuntimeControlBlock rcb,
+        ArrayValue v1,
+        ArrayValue v2,
+        SortSpec sortSpec) {
+
+        SortSpec innerSortSpec = sortSpec;
+        if (sortSpec.theIsDesc || sortSpec.theNullsFirst) {
+            innerSortSpec = new SortSpec();
+        }
+
+        Iterator<FieldValue> iter1 = v1.iterator();
+        Iterator<FieldValue> iter2 = v2.iterator();
+
+        while (iter1.hasNext() && iter2.hasNext()) {
+
+            FieldValue e1 = iter1.next();
+            FieldValue e2 = iter2.next();
+
+            int comp = compareTotalOrder(rcb, e1, e2, innerSortSpec);
+
+            if (comp != 0) {
+                return (sortSpec.theIsDesc ? -comp : comp);
             }
-
-            return (sortSpecs[sortPos].theNullsFirst ? 1 : -1);
         }
 
-        if (v1.isJsonNull()) {
-
-            if (v2.isJsonNull()) {
-                return 0;
-            }
-
-            return (sortSpecs[sortPos].theNullsFirst ? -1 : 1);
+        if (v1.size() == v2.size()) {
+            return 0;
         }
 
-        if (v2.isJsonNull()) {
-            return (sortSpecs[sortPos].theNullsFirst ? 1 : -1);
+        if (iter2.hasNext()) {
+            return (sortSpec.theIsDesc ? 1 : -1);
         }
 
-        int comp = compareAtomics(rcb, v1, v2, true);
-        return (sortSpecs[sortPos].theIsDesc ? -comp : comp);
+        return (sortSpec.theIsDesc ? -1 : 1);
     }
 
     static int sortResults(
@@ -621,7 +625,7 @@ public class Compare {
             FieldValue v1 = r1.get(sortFields[i]);
             FieldValue v2 = r2.get(sortFields[i]);
 
-            int comp = sortAtomics(rcb, v1, v2, i, sortSpecs);
+            int comp = compareAtomicsTotalOrder(rcb, v1, v2, sortSpecs[i]);
 
             if (rcb.getTraceLevel() >= 4) {
                 rcb.trace("Sort-Compared " + v1 + " with " + v2 +

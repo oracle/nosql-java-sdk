@@ -812,7 +812,11 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getContinuationKey() != null) {
                 writeMapField(ns, CONTINUATION_KEY, rq.getContinuationKey());
             }
+
+            writeLongMapFieldNZ(ns, SERVER_MEMORY_CONSUMPTION,
+                                rq.getMaxServerMemoryConsumption());
             writeMathContext(ns, rq.getMathContext());
+
             if (rq.getShardId() != -1) { // default
                 writeMapField(ns, SHARD_ID, rq.getShardId());
             }
@@ -2042,6 +2046,22 @@ public class NsonSerializerFactory implements SerializerFactory {
                                               int value) throws IOException {
             if (value != 0) {
                 writeMapField(ns, fieldName, value);
+            }
+        }
+        
+        protected static void writeLongMapField(NsonSerializer ns,
+                                                String fieldName,
+                                                long value) throws IOException {
+            ns.startMapField(fieldName);
+            ns.longValue(value);
+            ns.endMapField(fieldName);
+        }
+
+        protected static void writeLongMapFieldNZ(NsonSerializer ns,
+                                                  String fieldName,
+                                                  long value) throws IOException {
+            if (value != 0) {
+                writeLongMapField(ns, fieldName, value);
             }
         }
 

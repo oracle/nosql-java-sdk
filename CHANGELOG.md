@@ -2,10 +2,39 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [Unpublished]
+
+### Added
+- added support for array_collect() and count(distinct) in queries. These
+  require server side support which is only available in Oracle NoSQL releases
+  23.3 and higher and will not be immediately available in the cloud service
+
+## [5.4.12] 2023-07-28
+
+### Added
+- Cloud only: added session token authentication support
+  - SignatureProvider.createWithSessionToken()
+  - SignatureProvider.createWithSessionToken(String profile)
+  - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
+- Cloud only: added support to read region from system environment variable
+  OCI_REGION if using user principal or session token authentication
+- Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
+
+### Changed
+- Moved a couple internal log messages to FINE instead of INFO
+- Cleaned up messaging when can't connect to server
+- Modified internal auth logic to avoid "inactive channel: retrying" messages
+
+## [5.4.11] 2023-06-06
+
+### Fixed
+- Changed internal IAM logic to close channel on SSL errors before doing internal retry
+
+## [5.4.10] 2023-04-25
 
 ### Added
 - On-premises only: added support for setting namespace on a per-request basis
+- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM)
 
 ### Changed
 - Allow a space in addition to a "T" to separate date and time in String

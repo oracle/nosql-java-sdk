@@ -57,6 +57,10 @@ public class Region {
     private static final Map<String, Region> OC14_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC16_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC17_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC19_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC20_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC22_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC24_REGIONS = new HashMap<>();
 
     /* OC1 */
     public static final Region AF_JOHANNESBURG_1 = new Region("af-johannesburg-1");
@@ -88,12 +92,14 @@ public class Region {
     public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
 
     public static final Region MX_QUERETARO_1 = new Region("mx-queretaro-1");
+    public static final Region MX_MONTERREY_1 = new Region("mx-monterrey-1");
 
     public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
 
     public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
+    public static final Region US_SALTLAKE_2 = new Region("us-saltlake-2");
     public static final Region US_CHICAGO_1 = new Region("us-chicago-1");
 
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
@@ -101,6 +107,7 @@ public class Region {
 
     public static final Region SA_SAOPAULO_1 = new Region("sa-saopaulo-1");
     public static final Region SA_SANTIAGO_1 = new Region("sa-santiago-1");
+    public static final Region SA_VALPARAISO_1 = new Region("sa-valparaiso-1");
     public static final Region SA_VINHEDO_1 = new Region("sa-vinhedo-1");
 
     /* OC2 */
@@ -143,6 +150,20 @@ public class Region {
     /* OC17 */
     public static final Region US_DCC_PHOENIX_1 = new Region("us-dcc-phoenix-1");
     public static final Region US_DCC_PHOENIX_2 = new Region("us-dcc-phoenix-2");
+    public static final Region US_DCC_PHOENIX_4 = new Region("us-dcc-phoenix-4");
+
+    /* OC19 */
+    public static final Region EU_FRANKFURT_2 = new Region("eu-frankfurt-2");
+    public static final Region EU_MADRID_2 = new Region("eu-madrid-2");
+
+    /* OC20 */
+    public static final Region EU_JOVANOVAC_1 = new Region("eu-jovanovac-1");
+
+    /* OC22 */
+    public static final Region EU_DCC_ROME_1 = new Region("eu-dcc-rome-1");
+
+    /* OC24 */
+    public static final Region EU_DCC_ZURICH_1 = new Region("eu-dcc-zurich-1");
 
     static {
         /* OC1 */
@@ -178,18 +199,21 @@ public class Region {
         OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
 
         OC1_REGIONS.put(MX_QUERETARO_1.getRegionId(), MX_QUERETARO_1);
+        OC1_REGIONS.put(MX_MONTERREY_1.getRegionId(), MX_MONTERREY_1);
 
         OC1_REGIONS.put(IL_JERUSALEM_1.getRegionId(), IL_JERUSALEM_1);
 
         /* LAD */
         OC1_REGIONS.put(SA_SAOPAULO_1.getRegionId(), SA_SAOPAULO_1);
         OC1_REGIONS.put(SA_SANTIAGO_1.getRegionId(), SA_SANTIAGO_1);
+        OC1_REGIONS.put(SA_VALPARAISO_1.getRegionId(), SA_VALPARAISO_1);
         OC1_REGIONS.put(SA_VINHEDO_1.getRegionId(), SA_VINHEDO_1);
 
         /* North America */
         OC1_REGIONS.put(US_ASHBURN_1.getRegionId(), US_ASHBURN_1);
         OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
         OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
+        OC1_REGIONS.put(US_SALTLAKE_2.getRegionId(), US_SALTLAKE_2);
         OC1_REGIONS.put(US_CHICAGO_1.getRegionId(), US_CHICAGO_1);
 
         OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
@@ -235,6 +259,20 @@ public class Region {
         /* OC17 */
         OC17_REGIONS.put(US_DCC_PHOENIX_1.getRegionId(), US_DCC_PHOENIX_1);
         OC17_REGIONS.put(US_DCC_PHOENIX_2.getRegionId(), US_DCC_PHOENIX_2);
+        OC17_REGIONS.put(US_DCC_PHOENIX_4.getRegionId(), US_DCC_PHOENIX_4);
+
+        /* OC19 */
+        OC19_REGIONS.put(EU_FRANKFURT_2.getRegionId(), EU_FRANKFURT_2);
+        OC19_REGIONS.put(EU_MADRID_2.getRegionId(), EU_MADRID_2);
+
+        /* OC20 */
+        OC20_REGIONS.put(EU_JOVANOVAC_1.getRegionId(), EU_JOVANOVAC_1);
+
+        /* OC22 */
+        OC22_REGIONS.put(EU_DCC_ROME_1.getRegionId(), EU_DCC_ROME_1);
+
+        /* OC24 */
+        OC24_REGIONS.put(EU_DCC_ZURICH_1.getRegionId(), EU_DCC_ZURICH_1);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -257,6 +295,14 @@ public class Region {
         "https://nosql.{0}.oci.oraclecloud16.com");
     private final static MessageFormat OC17_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud17.com");
+    private final static MessageFormat OC19_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud.eu");
+    private final static MessageFormat OC20_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud20.com");
+    private final static MessageFormat OC22_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud22.com");
+    private final static MessageFormat OC24_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud24.com");
 
     private String regionId;
 
@@ -299,8 +345,20 @@ public class Region {
         if (isOC17Region(regionId)) {
             return OC17_EP_BASE.format(new Object[] { regionId });
         }
+        if (isOC19Region(regionId)) {
+            return OC19_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC20Region(regionId)) {
+            return OC20_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC22Region(regionId)) {
+            return OC22_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC24Region(regionId)) {
+            return OC24_EP_BASE.format(new Object[] { regionId });
+        }
         throw new IllegalArgumentException(
-            "Unable to find endpoint for unknwon region" + regionId);
+            "Unable to find endpoint for unknown region" + regionId);
     }
 
     /**
@@ -343,6 +401,18 @@ public class Region {
         }
         if (region == null) {
             region = OC17_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC19_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC20_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC22_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC24_REGIONS.get(regionId);
         }
 
         return region;
@@ -460,6 +530,46 @@ public class Region {
     /**
      * @hidden
      * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC19Region(String regionId) {
+        return (OC19_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC20Region(String regionId) {
+        return (OC20_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC22Region(String regionId) {
+        return (OC22_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC24Region(String regionId) {
+        return (OC24_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
      * @return the regions
      */
     public static Collection<Region> getOC1Regions() {
@@ -545,6 +655,24 @@ public class Region {
      */
     public static Collection<Region> getOC17Regions() {
         return OC17_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
+    public static Collection<Region> getOC19Regions() {
+        return OC19_REGIONS.values();
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @return the regions
+     */
+    public static Collection<Region> getOC20Regions() {
+        return OC20_REGIONS.values();
     }
 
     /**

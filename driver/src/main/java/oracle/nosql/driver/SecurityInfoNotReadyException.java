@@ -21,4 +21,8 @@ public class SecurityInfoNotReadyException extends RetryableException {
     public SecurityInfoNotReadyException(String msg) {
         super(msg);
     }
+
+    public SecurityInfoNotReadyException(String msg, Throwable cause) {
+        super(msg, cause);
+    }
 }
