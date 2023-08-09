@@ -1931,7 +1931,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             /* payload */
             startMap(ns, PAYLOAD);
-            writeMapField(ns, REGION, req.getRegion());
+            writeMapField(ns, REGION, req.getReplicaName());
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object

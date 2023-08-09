@@ -21,7 +21,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  */
 public class DropReplicaRequest extends Request {
 
-    private String region;
+    private String replicaName;
 
     /**
      * Sets the table name to use for the operation.
@@ -36,24 +36,24 @@ public class DropReplicaRequest extends Request {
     }
 
     /**
-     * Sets the region name to be dropped
+     * Sets the replica name (region) to be dropped
      *
-     * @param region the region name
+     * @param replicaName the name of the replica
      *
      * @return this
      */
-    public DropReplicaRequest setRegion(String region) {
-        this.region = region;
+    public DropReplicaRequest setReplicaName(String replicaName) {
+        this.replicaName = replicaName;
         return this;
     }
 
     /**
-     * Returns the region name to be dropped
+     * Returns the replica name. This is the region name
      *
-     * @return the region name
+     * @return the replica name
      */
-    public String getRegion() {
-        return region;
+    public String getReplicaName() {
+        return replicaName;
     }
 
     /**
@@ -99,9 +99,9 @@ public class DropReplicaRequest extends Request {
 
     @Override
     public void validate() {
-        if (tableName == null || region == null) {
+        if (tableName == null || replicaName == null) {
             throw new IllegalArgumentException(
-                "DropReplicaRequest requires table name and region");
+                "DropReplicaRequest requires table name and replica name");
         }
     }
 

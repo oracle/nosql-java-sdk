@@ -1059,9 +1059,14 @@ public class SignatureProvider
                                          SINGATURE_VERSION);
         SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
 
-        if (request != null) {
+        /*
+         *  Don't cache the signature generated with content, which
+         *  needs to be associated with its request
+         */
+        if (content != null) {
             return sigDetails;
         }
+
         if (!isRefresh) {
             /*
              * if this is not a refresh, use the normal key and schedule a

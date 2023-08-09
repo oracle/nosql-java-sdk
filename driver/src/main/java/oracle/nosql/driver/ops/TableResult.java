@@ -838,7 +838,7 @@ public class TableResult extends Result {
 
         /**
          * @hidden
-         * @param replicaName the replicaName name
+         * @param replicaName the replica name
          * @return this
          */
         public Replica setReplicaName(String replicaName) {

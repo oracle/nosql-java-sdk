@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Map;
 
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.values.TimestampValue;
 
 /**
  * Cloud service only.
@@ -113,7 +114,25 @@ public class ReplicaStatsResult extends Result {
         }
 
         /**
+         * Returns the start time as an ISO 8601 formatted string.
+         *
+         * @return the time stamp string
+         */
+         public String getTimeString() {
+             return new TimestampValue(time).getString();
+         }
+
+        /**
          * Returns the replica lag in milliseconds
+         *
+         * The replica lag is a measure of how current this table is relative to
+         * the remote replica and indicates that this table has not yet received
+         * updates that happened within the lag period.
+         *
+         * For example, if the replica lag is 5,000 milliseconds(5 seconds),
+         * then this table will have all updates that occurred at the remote
+         * replica that are more than 5 seconds old. This table will not have
+         * seen any updates that occurred within the last 5 seconds.
          *
          * @return the replica lag
          */
