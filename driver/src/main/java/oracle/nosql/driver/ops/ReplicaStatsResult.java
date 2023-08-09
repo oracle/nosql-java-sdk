@@ -16,8 +16,10 @@ import oracle.nosql.driver.NoSQLHandle;
  * Cloud service only.
  * <p>
  * ReplicaStatsResult is returned from {@link NoSQLHandle#getReplicaStats}.
- * It encapsulates the replica states of the requested table.
+ * It contains replica statistics for the requested table.
  * @see NoSQLHandle#getReplicaStats
+ *
+ * @since 5.4.13
  */
 public class ReplicaStatsResult extends Result {
     private String tableName;
@@ -46,10 +48,11 @@ public class ReplicaStatsResult extends Result {
     }
 
     /**
-     * Returns a map of replica and its replica stats information collection
-     * based on the parameters of the {@link ReplicaStatsRequest} used.
+     * Returns replica statistics information based on the arguments of
+     * the {@link ReplicaStatsRequest} used for the request. It will contain
+     * stats for either one replica or all replicas.
      *
-     * @return a map of replica and its replica stats information collection
+     * @return a map of replica name to replica stats information collection
      */
     public Map<String, ReplicaStats[]> getStatsRecord() {
         return (statsRecords != null) ? statsRecords : Collections.emptyMap();
@@ -101,7 +104,7 @@ public class ReplicaStatsResult extends Result {
         public int replicaLag;
 
         /**
-         * Returns the time stamp in milliseconds
+         * Returns the time stamp in milliseconds since the Epoch
          *
          * @return the time stamp
          */

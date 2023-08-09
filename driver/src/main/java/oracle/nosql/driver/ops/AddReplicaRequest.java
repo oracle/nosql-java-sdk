@@ -15,16 +15,18 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 /**
  * Cloud service only.
  *
- * AddReplicaRequest is used to add new replica region on a table.
+ * AddReplicaRequest is used to add new replica (region) to a table.
+ *
+ * @since 5.4.13
  */
 public class AddReplicaRequest extends Request {
 
-    private String region;
+    private String replicaName;
     private int readUnits;
     private int writeUnits;
 
     /**
-     * Sets the table name to use for the operation.
+     * Sets the table name to replicate
      *
      * @param tableName the name
      *
@@ -36,28 +38,29 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Sets the new replica region to be added.
+     * Sets the replica name (region) to be added
      *
-     * @param region the name of region
+     * @param replicaName the name of the replica
      *
      * @return this
      */
-    public AddReplicaRequest setRegion(String region) {
-        this.region = region;
+    public AddReplicaRequest setReplicaName(String replicaName) {
+        this.replicaName = replicaName;
         return this;
     }
 
     /**
-     * Returns the new region name
+     * Returns the replica name. This is the region name
      *
-     * @return the region name
+     * @return the replica name
      */
-    public String getRegion() {
-        return region;
+    public String getReplicaName() {
+        return replicaName;
     }
 
     /**
-     * Sets the read units of the table on new region
+     * Sets the read units for the replica table. This defaults
+     * to the units on the existing table
      *
      * @param readUnits the read units
      *
@@ -69,7 +72,7 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Returns the read units of the table on new region
+     * Returns the read units set for the replica table or 0 if not set
      *
      * @return the read units
      */
@@ -78,7 +81,8 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Sets the write units of the table on new region
+     * Sets the write units for the replica table. This defaults
+     * to the units on the existing table
      *
      * @param writeUnits the write units
      *
@@ -90,7 +94,7 @@ public class AddReplicaRequest extends Request {
     }
 
     /**
-     * Returns the write units of the table on new region
+     * Returns the write units set for the replica table or 0 if not set
      *
      * @return the write units
      */
@@ -141,9 +145,9 @@ public class AddReplicaRequest extends Request {
 
     @Override
     public void validate() {
-        if (tableName == null || region == null) {
+        if (tableName == null || replicaName == null) {
             throw new IllegalArgumentException(
-                "AddReplicaRequest requires table name and region");
+                "AddReplicaRequest requires table name and replica mame");
         }
     }
 

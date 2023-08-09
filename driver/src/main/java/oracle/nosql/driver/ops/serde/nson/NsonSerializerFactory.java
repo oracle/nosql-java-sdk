@@ -24,8 +24,6 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
-import static oracle.nosql.driver.util.BinaryProtocol.FROZEN;
-import static oracle.nosql.driver.util.BinaryProtocol.MUTABLE;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
@@ -1832,7 +1830,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *   free form tags (string)
      *   defined tags (string)
      *   etag (string)
-     *   schemaState (int): 0-MUTABLE, 1-FROZEN
+     *   isFrozen (boolean)
      *   initialized (boolean)
      *   replicas (array(<replica>))
      *     <replica>:
@@ -1864,7 +1862,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
-            writeMapField(ns, REGION, req.getRegion());
+            writeMapField(ns, REGION, req.getReplicaName());
             writeMapFieldNZ(ns, READ_UNITS, req.getReadUnits());
             writeMapFieldNZ(ns, WRITE_UNITS, req.getWriteUnits());
             endMap(ns, PAYLOAD);
@@ -1901,7 +1899,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *   free form tags (string)
      *   defined tags (string)
      *   etag (string)
-     *   schemaState (int): 0-MUTABLE, 1-FROZEN
+     *   isFrozen (boolean)
      *   initialized (boolean)
      *   replicas (array(<replica>))
      *     <replica>:
@@ -2670,8 +2668,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setTableLimits(new TableLimits(
                                               ru, wu, sg,
                                               getCapacityMode(mode)));
-                } else if (name.equals(SCHEMA_STATE)) {
-                    result.setSchemaState(getSchemaState(Nson.readNsonInt(in)));
+                } else if (name.equals(SCHEMA_FROZEN)) {
+                    result.setIsFrozen(Nson.readNsonBoolean(in));
                 } else if (name.equals(INITIALIZED)) {
                     result.setLocalReplicaInitialized(Nson.readNsonBoolean(in));
                 } else if (name.equals(REPLICAS)) {
@@ -2681,18 +2679,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
             return result;
-        }
-
-        private static TableResult.SchemaState getSchemaState(int state) {
-            switch(state) {
-            case MUTABLE:
-                return TableResult.SchemaState.MUTABLE;
-            case FROZEN:
-                return TableResult.SchemaState.FROZEN;
-            default:
-                throw new IllegalStateException("Unknown schema state " +
-                                                state);
-            }
         }
 
         private static void readReplicas(ByteInputStream in, TableResult result)
@@ -2724,7 +2710,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(REGION)) {
-                    replica.setRegion(Nson.readNsonString(in));
+                    replica.setReplicaName(Nson.readNsonString(in));
                 } else if (name.equals(TABLE_OCID)) {
                     replica.setTableId(Nson.readNsonString(in));
                 } else if (name.equals(WRITE_UNITS)) {

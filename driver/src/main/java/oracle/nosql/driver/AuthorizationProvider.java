@@ -80,4 +80,14 @@ public interface AuthorizationProvider {
      */
     public default void flushCache() {
     }
+
+    /**
+     * Indicates whether or not the instance is used for the cloud
+     * service
+     *
+     * @return false by default
+     */
+    public default boolean forCloud() {
+        return false;
+    }
 }

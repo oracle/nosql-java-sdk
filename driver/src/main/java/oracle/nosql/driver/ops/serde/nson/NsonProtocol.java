@@ -120,7 +120,7 @@ public class NsonProtocol {
     /* table metadata */
     public static String INITIALIZED = "it";
     public static String REPLICAS = "rc";
-    public static String SCHEMA_STATE = "sh";
+    public static String SCHEMA_FROZEN = "sf";
     public static String TABLE_SCHEMA = "ac";
     public static String TABLE_STATE = "as";
 
@@ -265,7 +265,7 @@ public class NsonProtocol {
         {WM_SUCCESS,"WM_SUCCESS"},
         {INITIALIZED,"INITIALIZED"},
         {REPLICAS,"REPLICAS"},
-        {SCHEMA_STATE,"SCHEMA_STATE"},
+        {SCHEMA_FROZEN,"SCHEMA_FROZEN"},
         {TABLE_SCHEMA,"TABLE_SCHEMA"},
         {TABLE_STATE,"TABLE_STATE"},
         {SYSOP_RESULT,"SYSOP_RESULT"},

@@ -881,6 +881,11 @@ public class SignatureProvider
         return region;
     }
 
+    @Override
+    public boolean forCloud() {
+        return true;
+    }
+
     /**
      * @hidden
      * Internal use only.

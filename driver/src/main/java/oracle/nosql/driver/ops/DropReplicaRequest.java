@@ -16,6 +16,8 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  * Cloud service only.
  *
  * DropReplicaRequest is used to drop a replica region on a table.
+ *
+ * @since 5.4.13
  */
 public class DropReplicaRequest extends Request {
 

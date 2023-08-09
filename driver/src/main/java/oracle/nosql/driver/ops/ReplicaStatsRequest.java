@@ -18,9 +18,10 @@ import oracle.nosql.driver.values.TimestampValue;
  * Cloud service only.
  * <p>
  * Represents the argument of a {@link NoSQLHandle#getReplicaStats} operation
- * which returns stats information of all replicas of a multi-region table,
- * as returned in {@link ReplicaStatsResult}. This information includes a time
- * series of replica stats, as found in {@link ReplicaStatsResult.ReplicaStats}.
+ * which returns stats information for one, or all replicas of a replicated
+ * table, returned in {@link ReplicaStatsResult}. This information includes a
+ * time series of replica stats, as found in
+ * {@link ReplicaStatsResult.ReplicaStats}.
  * <p>
  * It is possible to return a range of stats records or, by default, only the
  * most recent stats records if startTime is not specified. Replica stats
@@ -28,6 +29,8 @@ import oracle.nosql.driver.values.TimestampValue;
  * Only records for time periods that have completed are returned so that a user
  * never sees changing data for a specific range.
  * @see NoSQLHandle#getReplicaStats
+ *
+ * @since 5.4.13
  */
 public class ReplicaStatsRequest extends Request {
 
@@ -49,7 +52,7 @@ public class ReplicaStatsRequest extends Request {
 
     /**
      * Sets the replica name to query the stats information. If not set,
-     * all replicas stats information are returned.
+     * information for all replicas is returned.
      *
      * @param replicaName the replica name
      *
@@ -61,7 +64,8 @@ public class ReplicaStatsRequest extends Request {
     }
 
     /**
-     * Gets the replica name to query the stats information.
+     * Gets the replica name to query the stats information or null if
+     * not set
      *
      * @return replica name
      */

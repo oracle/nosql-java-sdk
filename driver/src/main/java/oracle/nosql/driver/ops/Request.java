@@ -83,6 +83,7 @@ public abstract class Request {
 
     /**
      * @hidden
+     * This is only used by internal, cross-region requests
      */
     private String oboToken;
 

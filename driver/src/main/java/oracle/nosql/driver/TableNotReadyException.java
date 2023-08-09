@@ -10,8 +10,10 @@ package oracle.nosql.driver;
 /**
  * Cloud service only.
  * <p>
- * An exception that is thrown when the multi-region table is not ready for DML
- * operations before the initialization process complete.
+ * An exception thrown when an operation is attempted on a replicated table
+ * that is not yet fully initialized.
+ *
+ * @since 5.4.13
  */
 public class TableNotReadyException extends RetryableException {
 

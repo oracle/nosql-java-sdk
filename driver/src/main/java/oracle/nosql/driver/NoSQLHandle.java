@@ -627,7 +627,7 @@ public interface NoSQLHandle extends AutoCloseable {
     /**
      * Cloud service only.
      * <p>
-     * Add replica on a table.
+     * Add replica to a table.
      * <p>
      * This operation is implicitly asynchronous. The caller must poll using
      * methods on {@link TableResult} to determine when it has completed.
@@ -641,13 +641,15 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
+     *
+     * @since 5.4.13
      */
     TableResult addReplica(AddReplicaRequest request);
 
     /**
      * Cloud service only.
      * <p>
-     * Drop replica on a table.
+     * Drop replica from a table.
      * <p>
      * This operation is implicitly asynchronous. The caller must poll using
      * methods on {@link TableResult} to determine when it has completed.
@@ -661,13 +663,15 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for
      * any other reason
+     *
+     * @since 5.4.13
      */
     TableResult dropReplica(DropReplicaRequest request);
 
     /**
      * Cloud service only.
      * <p>
-     * Gets replica stats information
+     * Gets replica statistics information
      *
      * @param request the input parameters for the operation
      *
@@ -680,11 +684,14 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for any other
      * reason
+     *
+     * @since 5.4.13
      */
     ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request);
 
     /**
-     * Returns an object that allows control over how statistics are collected.
+     * Returns an object that allows control over how SDK statistics
+     * are collected.
      *
      * @return the StatsControl object
      *

@@ -49,7 +49,7 @@ public class TableResult extends Result {
     private DefinedTags definedTags;
     private String matchETag;
 
-    private SchemaState schemaState;
+    private boolean isFrozen;
     private boolean isLocalReplicaInitialized;
     private Replica[] replicas;
 
@@ -80,17 +80,6 @@ public class TableResult extends Result {
          * while the table is in this state.
          */
         UPDATING
-    }
-
-    public enum SchemaState {
-        /**
-         * The schema can be changed. The table is not eligible for replication.
-         */
-        MUTABLE,
-        /**
-         * The schema is immutable. The table is eligible for replication.
-         */
-        FROZEN
     }
 
     /**
@@ -251,40 +240,40 @@ public class TableResult extends Result {
     }
 
     /**
-     * Cloud service only.
+     * Returns whether or not the table's schema is frozen. The schema
+     * can only be frozen when using the cloud service and a frozen
+     * schema is required for replicating a table
      *
-     * Returns the schema state of the table.
+     * @return true if the schema is frozen
      *
-     * @return the schemaState
-     *
-     * @since 5.4
+     * @since 5.4.13
      */
-    public SchemaState getSchemaState() {
-        return schemaState;
+    public boolean isFrozen() {
+        return isFrozen;
     }
 
     /**
      * Cloud service only.
      *
-     * Returns true if the table is multi-region table.
+     * Returns true if the table is replicated.
      *
      * @return the flag
      *
-     * @since 5.4
+     * @since 5.4.13
      */
-    public boolean isMultiRegion() {
+    public boolean isReplicated() {
         return replicas != null;
     }
 
     /**
      * Cloud service only.
      *
-     * Returns true if the table is multi-region table and complete the
-     * initialization process, otherwise return false.
+     * Returns true if the table is a replica and its initialization process
+     * has been completed, otherwise return false.
      *
-     * @return the flag
+     * @return true if the table is a replica and it's been initialized
      *
-     * @since 5.4
+     * @since 5.4.13
      */
     public boolean isLocalReplicaInitialized() {
         return isLocalReplicaInitialized;
@@ -293,12 +282,12 @@ public class TableResult extends Result {
     /**
      * Cloud service only.
      *
-     * Returns a array of {@link Replica} if the table is multi-region table,
-     * or null if table is singleton table.
+     * Returns a array of {@link Replica} if the table is replicated,
+     * or null if table is not replicated.
      *
      * @return the remote Replicas
      *
-     * @since 5.4
+     * @since 5.4.13
      */
     public Replica[] getReplicas() {
         return replicas;
@@ -429,12 +418,12 @@ public class TableResult extends Result {
 
     /**
      * @hidden
-     * @param schemaState the SchemaState
+     * @param frozen true if frozen
      * @return this
-     * @since 5.4
+     * @since 5.4.13
      */
-    public TableResult setSchemaState(SchemaState schemaState) {
-        this.schemaState = schemaState;
+    public TableResult setIsFrozen(boolean frozen) {
+        this.isFrozen = isFrozen;
         return this;
     }
 
@@ -442,7 +431,7 @@ public class TableResult extends Result {
      * @hidden
      * @param initialized the flag
      * @return this
-     * @since 5.4
+     * @since 5.4.13
      */
     public TableResult setLocalReplicaInitialized(boolean initialized) {
         this.isLocalReplicaInitialized = initialized;
@@ -453,7 +442,7 @@ public class TableResult extends Result {
      * @hidden
      * @param replicas the Replica array
      * @return this
-     * @since 5.4
+     * @since 5.4.13
      */
     public TableResult setReplicas(Replica[] replicas) {
         this.replicas = replicas;
@@ -480,10 +469,10 @@ public class TableResult extends Result {
         if (matchETag != null) {
             sb.append("\nmatchETag=").append(matchETag);
         }
-        if (schemaState != null) {
-            sb.append("\nschemaState=").append(schemaState);
+        if (isFrozen) {
+            sb.append("\nisFrozen=").append(isFrozen);
         }
-        if (isMultiRegion()) {
+        if (isReplicated()) {
             sb.append("\nisLocalReplicaInitialized=")
               .append(isLocalReplicaInitialized);
             sb.append("\nreplicas=[");
@@ -770,7 +759,7 @@ public class TableResult extends Result {
                 schema = res.getSchema();
                 matchETag = res.getMatchETag();
                 ddl = res.getDdl();
-                schemaState = res.getSchemaState();
+                isFrozen = res.isFrozen();
                 isLocalReplicaInitialized = res.isLocalReplicaInitialized();
                 replicas = res.getReplicas();
             } catch (InterruptedException ie) {
@@ -787,10 +776,12 @@ public class TableResult extends Result {
     /**
      * Cloud service only.
      *
-     * The remote replica information
+     * Information representing a single remote replica
+     *
+     * @since 5.4.13
      */
     public static class Replica {
-        private String region;
+        private String replicaName;
         private String tableOcid;
         private int writeUnits;
         private CapacityMode mode;
@@ -800,33 +791,27 @@ public class TableResult extends Result {
         }
 
         /**
-         * Returns the region name of remote replica.
+         * Returns the name of the replica. This is the region name.
          *
-         * @return the region name
-         *
-         * @since 5.4
+         * @return the replica name
          */
-        public String getRegion() {
-            return region;
+        public String getReplicaName() {
+            return replicaName;
         }
 
         /**
-         * Returns the OCID of the table on remote replica.
+         * Returns the OCID of the replica table
          *
          * @return the table OCID
-         *
-         * @since 5.4
          */
         public String getTableId() {
             return tableOcid;
         }
 
         /**
-         * Returns the write units of the table on remote replica.
+         * Returns the write units of the replica table
          *
          * @return the write units
-         *
-         * @since 5.4
          */
         public int getWriteUnits() {
             return writeUnits;
@@ -834,22 +819,18 @@ public class TableResult extends Result {
 
 
         /**
-         * Returns the capacity mode of the table on remote replica.
+         * Returns the capacity mode of the replica table
          *
          * @return the capacity mode
-         *
-         * @since 5.4
          */
         public CapacityMode getMode() {
             return mode;
         }
 
         /**
-         * Returns the state of remote replication table
+         * Returns the operational state of replica table
          *
          * @return the state
-         *
-         * @since 5.4
          */
         public State getState() {
             return state;
@@ -857,12 +838,11 @@ public class TableResult extends Result {
 
         /**
          * @hidden
-         * @param region the region name
+         * @param replicaName the replicaName name
          * @return this
-         * @since 5.4
          */
-        public Replica setRegion(String region) {
-            this.region = region;
+        public Replica setReplicaName(String replicaName) {
+            this.replicaName = replicaName;
             return this;
         }
 
@@ -870,7 +850,6 @@ public class TableResult extends Result {
          * @hidden
          * @param tableOcid the OCID of remote replica table
          * @return this
-         * @since 5.4
          */
         public Replica setTableId(String tableOcid) {
             this.tableOcid = tableOcid;
@@ -881,7 +860,6 @@ public class TableResult extends Result {
          * @hidden
          * @param writeUnits the write units of remote replica table
          * @return this
-         * @since 5.4
          */
         public Replica setWriteUnits(int writeUnits) {
             this.writeUnits = writeUnits;
@@ -892,7 +870,6 @@ public class TableResult extends Result {
          * @hidden
          * @param mode the capacity mode of remote replica table
          * @return this
-         * @since 5.4
          */
         public Replica setCapacityMode(CapacityMode mode) {
             this.mode = mode;
@@ -903,7 +880,6 @@ public class TableResult extends Result {
          * @hidden
          * @param state the state of remote replication table
          * @return this
-         * @since 5.4
          */
         public Replica setState(State state) {
             this.state = state;
@@ -913,7 +889,7 @@ public class TableResult extends Result {
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            sb.append("Replica[region=").append(region);
+            sb.append("Replica[replicaName=").append(replicaName);
             sb.append(", state=").append(state);
             if (tableOcid != null) {
                 sb.append(", tableId=").append(tableOcid);
