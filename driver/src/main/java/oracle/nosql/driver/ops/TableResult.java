@@ -423,7 +423,7 @@ public class TableResult extends Result {
      * @since 5.4.13
      */
     public TableResult setIsFrozen(boolean frozen) {
-        this.isFrozen = isFrozen;
+        this.isFrozen = frozen;
         return this;
     }
 
