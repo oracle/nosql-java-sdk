@@ -91,48 +91,54 @@ public class ReplicaStatsResult extends Result {
     }
 
     /**
-     * ReplicaStats represents replica stats information, that includes the
-     * timestamp and the corresponding replicaLag information.
+     * ReplicaStats contains information about replica lag for a specific
+     * replica.
+     *
+     * Replica lag is a measure of how current this table is relative to
+     * the remote replica and indicates that this table has not yet received
+     * updates that happened within the lag period.
+     *
+     * For example, if the replica lag is 5,000 milliseconds(5 seconds),
+     * then this table will have all updates that occurred at the remote
+     * replica that are more than 5 seconds old. This table will not have
+     * seen any updates that occurred within the last 5 seconds.
+     *
+     * Replica lag is calculated based on how long it took for the the latest
+     * operation on the table to be replayed at the target replica
      */
     public static class ReplicaStats {
         /**
          * @hidden
          */
-        public long time;
+        public long collectionTimeMillis;
+
         /**
          * @hidden
          */
         public int replicaLag;
 
         /**
-         * Returns the time stamp in milliseconds since the Epoch
+         * Returns the time the replica lag collection was performed. The value
+         * is a time stamp in milliseconds since the Epoch
          *
-         * @return the time stamp
+         * @return the collection time
          */
-        public long getTime() {
-            return time;
+        public long getCollectionTime() {
+            return collectionTimeMillis;
         }
 
         /**
-         * Returns the start time as an ISO 8601 formatted string.
+         * Returns the collection time as an ISO 8601 formatted string
          *
-         * @return the time stamp string
+         * @return the collection time string
          */
-         public String getTimeString() {
-             return new TimestampValue(time).getString();
+         public String getCollectionTimeString() {
+             return new TimestampValue(collectionTimeMillis).getString();
          }
 
         /**
-         * Returns the replica lag in milliseconds
-         *
-         * The replica lag is a measure of how current this table is relative to
-         * the remote replica and indicates that this table has not yet received
-         * updates that happened within the lag period.
-         *
-         * For example, if the replica lag is 5,000 milliseconds(5 seconds),
-         * then this table will have all updates that occurred at the remote
-         * replica that are more than 5 seconds old. This table will not have
-         * seen any updates that occurred within the last 5 seconds.
+         * Returns the replica lag collected at the specified time in
+         * milliseconds
          *
          * @return the replica lag
          */

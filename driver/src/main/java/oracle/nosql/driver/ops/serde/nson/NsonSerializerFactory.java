@@ -2079,7 +2079,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(TIME)) {
-                    stats.time = Nson.readNsonLong(in);
+                    stats.collectionTimeMillis = Nson.readNsonLong(in);
                 } else if (name.equals(REPLICA_LAG)) {
                     stats.replicaLag = Nson.readNsonInt(in);
                 } else {
