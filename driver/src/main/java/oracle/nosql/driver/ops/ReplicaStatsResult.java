@@ -100,11 +100,13 @@ public class ReplicaStatsResult extends Result {
      *
      * For example, if the replica lag is 5,000 milliseconds(5 seconds),
      * then this table will have all updates that occurred at the remote
-     * replica that are more than 5 seconds old. This table will not have
-     * seen any updates that occurred within the last 5 seconds.
+     * replica that are more than 5 seconds old.
      *
-     * Replica lag is calculated based on how long it took for the the latest
-     * operation on the table to be replayed at the target replica
+     * Replica lag is calculated based on how long it took for the latest
+     * operation from the table at the remote replica to be replayed at this
+     * table. If there have been no application writes for the table at the
+     * remote replica, the service uses other mechanisms to calculate an
+     * approximation of the lag, and the lag statistic will still be available.
      */
     public static class ReplicaStats {
         /**
