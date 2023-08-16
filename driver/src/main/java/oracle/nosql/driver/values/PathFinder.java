@@ -9,6 +9,7 @@ package oracle.nosql.driver.values;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 
 import oracle.nosql.driver.Nson;
@@ -82,6 +83,14 @@ public class PathFinder implements FieldValueEventHandler {
 
     /* array of path arrays */
     private String[][] paths;
+
+    /*
+     * if any paths are set case-insensitive, they are here. These can only
+     * apply to single-component paths.
+     *
+     * If additional function is required in the future it gets more complex
+     */
+    private HashSet<String> caseInsensitivePaths;
 
     /* array of current indexes into each path */
     private int[] currentIndex;
@@ -300,6 +309,30 @@ public class PathFinder implements FieldValueEventHandler {
     }
 
     /**
+     * Sets the specified path as case-insensitive. The path must be
+     * a single component and must exist in paths.
+     * NOTE: it would not be difficult to extend this mechanism to
+     * multi-component paths as long as they do not embed "."
+     * @param fieldName the field name to use
+     */
+    public void setCaseInsensitive(String fieldName) {
+        for (String[] path : paths) {
+            if (path[0].equalsIgnoreCase(fieldName) &&
+                path.length == 1) {
+                if (caseInsensitivePaths == null) {
+                    caseInsensitivePaths = new HashSet<String>();
+                }
+                /* use lower-case */
+                caseInsensitivePaths.add(fieldName.toLowerCase());
+                return;
+            }
+        }
+        /* failure to find the path is an error */
+        throw new IllegalArgumentException("Cannot find field in PathFinder " +
+                                           "paths: " + fieldName);
+    }
+
+    /**
      * Stops generation of events. This method might be called by a
      * {@link PathFinderCallback} method to end processing of the stream.
      */
@@ -368,42 +401,54 @@ public class PathFinder implements FieldValueEventHandler {
             int thisIndex = currentIndex[i];
             /* thisPath is the path being checked on this loop iteration */
             String[] thisPath = paths[i];
-            if (thisIndex + 1 == depth &&
-                key.equals(thisPath[thisIndex])) {
-                thisIndex++;
+            if (thisIndex + 1 == depth) {
+                String curField = thisPath[thisIndex];
+                boolean equals = isCaseInsensitive(curField) ?
+                    key.equalsIgnoreCase(curField) :
+                    key.equals(curField);
+                if (equals) {
+                    thisIndex++;
 
-                /*
-                 * are we at the target? check:
-                 *  o have all path components been matched (thisIndex)?
-                 *  o is the target depth correct?
-                 */
-                if (thisIndex == thisPath.length &&
-                    thisIndex == depth) {
                     /*
-                     * if a callback has been set, call it, saving and
-                     * restoring the current byte offset in the stream
+                     * are we at the target? check:
+                     *  o have all path components been matched (thisIndex)?
+                     *  o is the target depth correct?
                      */
-                    if (cb != null) {
-                        int savedOffset = bis.getOffset();
-                        skipping = cb.found(this, paths[i]);
-                        bis.setOffset(savedOffset);
-                        if (skipping) {
-                            return true;
+                    if (thisIndex == thisPath.length &&
+                        thisIndex == depth) {
+                        /*
+                         * if a callback has been set, call it, saving and
+                         * restoring the current byte offset in the stream
+                         */
+                        if (cb != null) {
+                            int savedOffset = bis.getOffset();
+                            skipping = cb.found(this, paths[i]);
+                            bis.setOffset(savedOffset);
+                            if (skipping) {
+                                return true;
+                            }
                         }
+                    } else {
+                        /*
+                         * The path is a partial match. Advance the index of the
+                         * last matched key for this path
+                         */
+                        currentIndex[i]++;
                     }
-                } else {
-                    /*
-                     * The path is a partial match. Advance the index of the
-                     * last matched key for this path
-                     */
-                    currentIndex[i]++;
                 }
-
             }
         }
         handler.startMapField(key);
 
         return false; /* don't skip */
+    }
+
+    private boolean isCaseInsensitive(String fieldName) {
+        if (caseInsensitivePaths != null &&
+            caseInsensitivePaths.contains(fieldName.toLowerCase())) {
+            return true;
+        }
+        return false;
     }
 
     @Override
