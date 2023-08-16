@@ -21,7 +21,6 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
-//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**

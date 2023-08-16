@@ -10,6 +10,7 @@ package oracle.nosql.driver.values;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.Reader;
 import java.util.Iterator;
 
 import com.fasterxml.jackson.core.JsonParser;
@@ -81,6 +82,18 @@ public class JsonReader implements Iterable<MapValue>, AutoCloseable {
     }
 
     /**
+     * Creates an iterator over JSON objects provided by the
+     * Reader. The caller is responsible for closing the Reader
+     * if necessary.
+     *
+     * @param input the Reader to use
+     * @param options if desired, this can be null
+     */
+    public JsonReader(Reader input, JsonOptions options) {
+        iterator = new MapValueJsonIterator(input, options);
+    }
+
+    /**
      * Returns an Iterator&lt;MapValue&gt; over the source provided.
      * This method can only be called once for a given instance of JsonReader.
      * An additional call will result in IllegalArgumentException being thrown.
@@ -103,6 +116,16 @@ public class JsonReader implements Iterable<MapValue>, AutoCloseable {
         iterator.close();
     }
 
+    /**
+     * Returns the byte offset into the JSON being processed if available or
+     * -1 if not
+     * @return the offset or -1 if not available in the underlying data
+     * being parsed
+     */
+    public long getLocationOffset() {
+        return iterator.getLocationOffset();
+    }
+
     static class MapValueJsonIterator implements Iterator<MapValue>,
                                                  AutoCloseable {
         final JsonParser parser;
@@ -122,6 +145,15 @@ public class JsonReader implements Iterable<MapValue>, AutoCloseable {
         public MapValueJsonIterator(InputStream input, JsonOptions options) {
             this.options = options;
             parser = JsonUtils.createParserWithOptions(input, options);
+        }
+
+        public MapValueJsonIterator(Reader input, JsonOptions options) {
+            this.options = options;
+            parser = JsonUtils.createParserWithOptions(input, options);
+        }
+
+        public long getLocationOffset() {
+            return parser.getCurrentLocation().getByteOffset();
         }
 
         @Override
