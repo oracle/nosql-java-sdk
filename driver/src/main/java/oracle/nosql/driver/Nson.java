@@ -237,7 +237,6 @@ public class Nson {
     static public void writeTimestamp(ByteOutputStream out,
                                       TimestampValue value)
         throws IOException {
-        /* TODO, temporary */
         writeString(out, value.getString());
     }
 
