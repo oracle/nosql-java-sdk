@@ -97,7 +97,11 @@ public class ReplicaStatsRequest extends Request {
      *
      * @param startTime the string of a Timestamp in ISO 8601 format
      * "uuuu-MM-dd['T'HH:mm:ss[.f..f]]".
+     *
      * @return this
+     *
+     * @throws IllegalArgumentException if the startTime string is not in valid
+     * format.
      */
     public ReplicaStatsRequest setStartTime(String startTime) {
         this.startTime = new TimestampValue(startTime).getLong();

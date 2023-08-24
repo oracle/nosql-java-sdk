@@ -42,7 +42,6 @@ public class ReplicaStatsResult extends Result {
      * replica stats records.
      *
      * @return the next start time
-     * @since 5.4
      */
     public long getNextStartTime() {
         return nextStartTime;

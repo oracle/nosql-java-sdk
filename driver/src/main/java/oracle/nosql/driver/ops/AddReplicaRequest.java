@@ -147,7 +147,7 @@ public class AddReplicaRequest extends Request {
     public void validate() {
         if (tableName == null || replicaName == null) {
             throw new IllegalArgumentException(
-                "AddReplicaRequest requires table name and replica mame");
+                "AddReplicaRequest requires table name and replica name");
         }
     }
 
