@@ -92,15 +92,15 @@ public class ReplicaStatsResult extends Result {
     /**
      * ReplicaStats contains information about replica lag for a specific
      * replica.
-     *
+     * <p>
      * Replica lag is a measure of how current this table is relative to
      * the remote replica and indicates that this table has not yet received
      * updates that happened within the lag period.
-     *
+     * <p>
      * For example, if the replica lag is 5,000 milliseconds(5 seconds),
      * then this table will have all updates that occurred at the remote
      * replica that are more than 5 seconds old.
-     *
+     * <p>
      * Replica lag is calculated based on how long it took for the latest
      * operation from the table at the remote replica to be replayed at this
      * table. If there have been no application writes for the table at the

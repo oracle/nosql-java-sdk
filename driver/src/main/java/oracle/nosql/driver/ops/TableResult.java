@@ -823,7 +823,7 @@ public class TableResult extends Result {
          *
          * @return the capacity mode
          */
-        public CapacityMode getMode() {
+        public CapacityMode getCapacityMode() {
             return mode;
         }
 
