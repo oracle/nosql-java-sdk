@@ -366,9 +366,8 @@
                May need to post-process the doc to remove the package and link.
           -->
           <excludePackageNames>
-            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde.nson
+            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde;oracle.nosql.driver.ops.serde.nson
           </excludePackageNames>
-          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
           <show>public</show>
           <header>
             <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
