@@ -18,10 +18,21 @@ public class SecurityInfoNotReadyException extends RetryableException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * @hidden
+     * Simple constructor
+     * @param msg the message
+     */
     public SecurityInfoNotReadyException(String msg) {
         super(msg);
     }
 
+    /**
+     * @hidden
+     * Constructor with cause
+     * @param msg the message
+     * @param cause the cause
+     */
     public SecurityInfoNotReadyException(String msg, Throwable cause) {
         super(msg, cause);
     }

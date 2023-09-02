@@ -452,6 +452,10 @@ public abstract class Request {
         return startNanos;
     }
 
+    /**
+     * Sets a delay used in rate limiting
+     * @param rateLimitDelayedMs delay in ms
+     */
     public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
         this.rateLimitDelayedMs = rateLimitDelayedMs;
     }

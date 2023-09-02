@@ -355,6 +355,8 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.2.0</version>
         <configuration>
+          <quiet>true</quiet>
+          <!-- consider this: <doclint>-missing</doclint> -->
           <source>8</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>

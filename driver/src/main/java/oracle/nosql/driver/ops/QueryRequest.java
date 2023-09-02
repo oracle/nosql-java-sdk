@@ -128,6 +128,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     private int shardId = -1;
 
+    /**
+     * Default constructor for QueryRequest
+     */
     public QueryRequest() {
     }
 
@@ -487,6 +490,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return max server memory consumption
      */
     public long getMaxServerMemoryConsumption() {
         return maxServerMemoryConsumption;

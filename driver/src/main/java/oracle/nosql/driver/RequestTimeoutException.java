@@ -18,6 +18,7 @@ public class RequestTimeoutException extends NoSQLException {
     private volatile int timeoutMs;
 
     /**
+     * @hidden
      * Internal use only.
      *
      * @param msg the message string for the timeout
@@ -27,6 +28,7 @@ public class RequestTimeoutException extends NoSQLException {
     }
 
     /**
+     * @hidden
      * Internal use only.
      *
      * @param timeoutMs the timeout that was in effect, in milliseconds
@@ -38,6 +40,7 @@ public class RequestTimeoutException extends NoSQLException {
     }
 
     /**
+     * @hidden
      * Internal use only.
      *
      * @param timeoutMs the timeout that was in effect, in milliseconds

@@ -58,6 +58,12 @@ public class InstancePrincipalsProvider
     protected final DefaultSessionKeySupplier sessionKeySupplier;
     private final Region region;
 
+    /**
+     * Constructor that accepts token and key pair suppliers and region
+     * @param tokenSupplier the SecurityTokenSupplier
+     * @param keyPairSupplier the SessionKeyPairSupplier
+     * @param region the region
+     */
     public InstancePrincipalsProvider(SecurityTokenSupplier tokenSupplier,
                                       SessionKeyPairSupplier keyPairSupplier,
                                       Region region) {
@@ -104,6 +110,10 @@ public class InstancePrincipalsProvider
         tokenSupplier.setMinTokenLifetime(lifetimeMS);
     }
 
+    /**
+     * Creates a new builder for InstancePrincipalsProvider
+     * @return the builder
+     */
     public static InstancePrincipalsProviderBuilder builder() {
         return new InstancePrincipalsProviderBuilder();
     }
@@ -249,15 +259,28 @@ public class InstancePrincipalsProvider
             return this;
         }
 
+        /**
+         * Returns the region if set
+         * @return the region or null if not set
+         */
         public Region getRegion() {
             return region;
         }
 
+        /**
+         * Sets a region
+         * @param r the region
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setRegion(Region r) {
             this.region = r;
             return this;
         }
 
+        /**
+         * Builds the InstancePrincipalsProvider instance
+         * @return the instance
+         */
         public InstancePrincipalsProvider build() {
             if (logger == null) {
                 logger = Logger.getLogger(getClass().getName());
