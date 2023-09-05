@@ -128,6 +128,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     private int shardId = -1;
 
+    private boolean inTestMode;
+
     public QueryRequest() {
     }
 
@@ -152,6 +154,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
+        internalReq.inTestMode = inTestMode;
         return internalReq;
     }
 
@@ -813,5 +816,19 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     @Override
     public boolean shouldRetry() {
         return false;
+    }
+
+    /**
+     * @hidden
+     */
+    public void setInTestMode(boolean v) {
+        inTestMode = v;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean inTestMode() {
+        return inTestMode;
     }
 }
