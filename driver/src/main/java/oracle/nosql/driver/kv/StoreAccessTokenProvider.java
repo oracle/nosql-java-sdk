@@ -418,7 +418,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * @return this
      */
     public StoreAccessTokenProvider setSslHandshakeTimeout(int timeoutMs) {
-        this.sslHandshakeTimeoutMs = timeout;
+        this.sslHandshakeTimeoutMs = timeoutMs;
         return this;
     }
 
