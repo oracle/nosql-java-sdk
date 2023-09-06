@@ -453,6 +453,7 @@ public abstract class Request {
     }
 
     /**
+     * @hidden
      * Sets a delay used in rate limiting
      * @param rateLimitDelayedMs delay in ms
      */
