@@ -697,7 +697,9 @@ public class GroupIter extends PlanIter {
 
         if (aggrKind == FuncCode.FN_ARRAY_COLLECT) {
             ArrayValue collectArray = (ArrayValue)aggrValue.theValue;
-            collectArray.getArrayInternal().sort(state.theComparator);
+            if (rcb.getRequest().inTestMode()) {
+                collectArray.getArrayInternal().sort(state.theComparator);
+            }
             return collectArray;
         }
 
@@ -709,7 +711,10 @@ public class GroupIter extends PlanIter {
             while (iter.hasNext()) {
                 collectArray.add(iter.next().theValue);
             }
-            collectArray.getArrayInternal().sort(state.theComparator);
+
+            if (rcb.getRequest().inTestMode()) {
+                collectArray.getArrayInternal().sort(state.theComparator);
+            }
             return collectArray;
         }
 
