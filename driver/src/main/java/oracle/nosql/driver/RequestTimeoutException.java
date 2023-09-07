@@ -15,6 +15,9 @@ public class RequestTimeoutException extends NoSQLException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * @hidden
+     */
     private volatile int timeoutMs;
 
     /**

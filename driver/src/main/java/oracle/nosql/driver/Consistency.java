@@ -47,7 +47,9 @@ public class Consistency {
     /*
      * Convenient static instances
      */
+    /** constant for ABSOLUTE Consistency */
     public static Consistency ABSOLUTE = new Consistency(Type.ABSOLUTE);
+    /** constant for EVENTUAL Consistency */
     public static Consistency EVENTUAL = new Consistency(Type.EVENTUAL);
 
     /**

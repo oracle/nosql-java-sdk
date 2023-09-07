@@ -184,6 +184,12 @@ public class InstancePrincipalsProvider
             return federationEndpoint;
         }
 
+
+        /**
+         * @hidden
+         * @param federationEndpoint the endpoint
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setFederationEndpoint(String federationEndpoint) {
 
@@ -195,6 +201,11 @@ public class InstancePrincipalsProvider
             return leafCertificateSupplier;
         }
 
+        /**
+         * @hidden
+         * @param supplier the supplier
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setLeafCertificateSupplier(CertificateSupplier supplier) {
 
@@ -206,6 +217,11 @@ public class InstancePrincipalsProvider
             return tenantId;
         }
 
+        /**
+         * @hidden
+         * @param tenantId the tenant
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setTenantId(String tenantId) {
             this.tenantId = tenantId;
             return this;
@@ -215,6 +231,11 @@ public class InstancePrincipalsProvider
             return purpose;
         }
 
+        /**
+         * @hidden
+         * @param purpose the purpose
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setPurpose(String purpose) {
             this.purpose = purpose;
             return this;
@@ -224,6 +245,11 @@ public class InstancePrincipalsProvider
             return sessSupplier;
         }
 
+        /**
+         * @hidden
+         * @param sessSupplier the supplier
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setSessionKeyPairSupplier(SessionKeyPairSupplier sessSupplier) {
             this.sessSupplier = sessSupplier;
@@ -234,6 +260,11 @@ public class InstancePrincipalsProvider
             return timeout;
         }
 
+        /**
+         * @hidden
+         * @param timeout the timeout
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setTimeout(int timeout) {
             this.timeout = timeout;
             return this;
@@ -243,6 +274,11 @@ public class InstancePrincipalsProvider
             return logger;
         }
 
+        /**
+         * @hidden
+         * @param logger the logger
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setLogger(Logger logger) {
             this.logger = logger;
             return this;
@@ -252,6 +288,11 @@ public class InstancePrincipalsProvider
             return intermediateCertificateSuppliers;
         }
 
+        /**
+         * @hidden
+         * @param suppliers suppliers
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setIntermediateCertificateSuppliers(
                 Set<CertificateSupplier> suppliers) {

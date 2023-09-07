@@ -63,106 +63,169 @@ public class Region {
     private static final Map<String, Region> OC24_REGIONS = new HashMap<>();
 
     /* OC1 */
+    /** JNB */
     public static final Region AF_JOHANNESBURG_1 = new Region("af-johannesburg-1");
-
+    /** YNY */
     public static final Region AP_CHUNCHEON_1 = new Region("ap-chuncheon-1");
+    /** HYD */
     public static final Region AP_HYDERABAD_1 = new Region("ap-hyderabad-1");
+    /** MEL */
     public static final Region AP_MELBOURNE_1 = new Region("ap-melbourne-1");
+    /** BOM */
     public static final Region AP_MUMBAI_1 = new Region("ap-mumbai-1");
+    /** KIX */
     public static final Region AP_OSAKA_1 = new Region("ap-osaka-1");
+    /** ICN */
     public static final Region AP_SINGAPORE_1 = new Region("ap-singapore-1");
+    /** SIN */
     public static final Region AP_SEOUL_1 = new Region("ap-seoul-1");
+    /** SYD */
     public static final Region AP_SYDNEY_1 = new Region("ap-sydney-1");
+    /** NRT */
     public static final Region AP_TOKYO_1 = new Region("ap-tokyo-1");
 
+    /** CWL */
     public static final Region UK_CARDIFF_1 = new Region("uk-cardiff-1");
+    /** LHR */
     public static final Region UK_LONDON_1 = new Region("uk-london-1");
 
+    /** AMS */
     public static final Region EU_AMSTERDAM_1 = new Region("eu-amsterdam-1");
+    /** FRA */
     public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
+    /** MAD */
     public static final Region EU_MADRID_1 = new Region("eu-madrid-1");
+    /** MRS */
     public static final Region EU_MARSEILLE_1 = new Region("eu-marseille-1");
+    /** LIN */
     public static final Region EU_MILAN_1 = new Region("eu-milan-1");
+    /** CDG */
     public static final Region EU_PARIS_1 = new Region("eu-paris-1");
+    /** ARN */
     public static final Region EU_STOCKHOLM_1 = new Region("eu-stockholm-1");
+    /** ZRH */
     public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
 
+    /** AUH */
     public static final Region ME_ABUDHABI_1 = new Region("me-abudhabi-1");
+    /** DXB */
     public static final Region ME_DUBAI_1 = new Region("me-dubai-1");
+    /** JED */
     public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
 
+    /** QRO */
     public static final Region MX_QUERETARO_1 = new Region("mx-queretaro-1");
+    /** MTY */
     public static final Region MX_MONTERREY_1 = new Region("mx-monterrey-1");
 
+    /** MTZ */
     public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
 
+    /** IAD */
     public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
+    /** PHX */
     public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
+    /** SJC */
     public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
+    /** AGA */
     public static final Region US_SALTLAKE_2 = new Region("us-saltlake-2");
+    /** ORD */
     public static final Region US_CHICAGO_1 = new Region("us-chicago-1");
 
+    /** YUL */
     public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
+    /** YYZ */
     public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
 
+    /** GRU */
     public static final Region SA_SAOPAULO_1 = new Region("sa-saopaulo-1");
+    /** SCL */
     public static final Region SA_SANTIAGO_1 = new Region("sa-santiago-1");
+    /** VAP */
     public static final Region SA_VALPARAISO_1 = new Region("sa-valparaiso-1");
+    /** VCP */
     public static final Region SA_VINHEDO_1 = new Region("sa-vinhedo-1");
 
     /* OC2 */
+    /** LFI */
     public static final Region US_LANGLEY_1 = new Region("us-langley-1");
+    /** LUF */
     public static final Region US_LUKE_1 = new Region("us-luke-1");
 
     /* OC3 */
+    /** RIC */
     public static final Region US_GOV_ASHBURN_1 = new Region("us-gov-ashburn-1");
+    /** PIA */
     public static final Region US_GOV_CHICAGO_1 = new Region("us-gov-chicago-1");
+    /** TUS */
     public static final Region US_GOV_PHOENIX_1 = new Region("us-gov-phoenix-1");
 
     /* OC4 */
+    /** LTN */
     public static final Region UK_GOV_LONDON_1 = new Region("uk-gov-london-1");
+    /** BRS */
     public static final Region UK_GOV_CARDIFF_1 = new Region("uk-gov-cardiff-1");
 
     /* OC5 */
+    /** TIW */
     public static final Region US_TACOMA_1 = new Region("us-tacoma-1");
 
     /* OC8 */
+    /** NJA */
     public static final Region AP_CHIYODA_1 = new Region("ap-chiyoda-1");
+    /** UKB */
     public static final Region AP_IBARAKI_1 = new Region("ap-ibaraki-1");
 
     /* OC9 */
+    /** MCT */
     public static final Region ME_DCC_MUSCAT_1 = new Region("me-dcc-muscat-1");
 
     /* OC10 */
+    /** WGA */
     public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
 
     /* OC14 */
+    /** ORK */
     public static final Region AP_DCC_DUBLIN_1 = new Region("eu-dcc-dublin-1");
+    /** SNN */
     public static final Region AP_DCC_DUBLIN_2 = new Region("eu-dcc-dublin-2");
+    /** BGY */
     public static final Region AP_DCC_MILAN_1 = new Region("eu-dcc-milan-1");
+    /** MXP */
     public static final Region AP_DCC_MILAN_2 = new Region("eu-dcc-milan-2");
+    /** DUS */
     public static final Region AP_DCC_RATING_1 = new Region("eu-dcc-rating-1");
+    /** DTM */
     public static final Region AP_DCC_RATING_2 = new Region("eu-dcc-rating-2");
 
     /* OC16 */
+    /** SGU */
     public static final Region US_WESTJORDAN_1 = new Region("us-westjordan-1");
 
     /* OC17 */
+    /** IFP */
     public static final Region US_DCC_PHOENIX_1 = new Region("us-dcc-phoenix-1");
+    /** GCN */
     public static final Region US_DCC_PHOENIX_2 = new Region("us-dcc-phoenix-2");
+    /** YUM */
     public static final Region US_DCC_PHOENIX_4 = new Region("us-dcc-phoenix-4");
 
     /* OC19 */
+    /** STR */
     public static final Region EU_FRANKFURT_2 = new Region("eu-frankfurt-2");
+    /** VLL */
     public static final Region EU_MADRID_2 = new Region("eu-madrid-2");
 
     /* OC20 */
+    /** BEG */
     public static final Region EU_JOVANOVAC_1 = new Region("eu-jovanovac-1");
 
     /* OC22 */
+    /** NAP */
     public static final Region EU_DCC_ROME_1 = new Region("eu-dcc-rome-1");
 
     /* OC24 */
+    /** AVZ */
     public static final Region EU_DCC_ZURICH_1 = new Region("eu-dcc-zurich-1");
 
     static {
