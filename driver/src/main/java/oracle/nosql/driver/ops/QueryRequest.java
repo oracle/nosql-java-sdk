@@ -130,6 +130,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private boolean inTestMode;
 
+    /**
+     * Default constructor for QueryRequest
+     */
     public QueryRequest() {
     }
 
@@ -490,6 +493,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return max server memory consumption
      */
     public long getMaxServerMemoryConsumption() {
         return maxServerMemoryConsumption;

@@ -52,6 +52,7 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
 
     /**
      * @hidden
+     * @return the internal array
      */
     public ArrayList<FieldValue> getArrayInternal() {
         return array;

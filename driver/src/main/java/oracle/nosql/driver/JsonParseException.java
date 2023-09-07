@@ -20,6 +20,9 @@ public class JsonParseException extends NoSQLException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * @hidden
+     */
     private JsonLocation location;
 
     /**

@@ -157,7 +157,7 @@ import oracle.nosql.driver.values.TimestampValue;
  */
 public class Nson {
 
-    /**
+    /*
      * Data types
      */
     public static final int TYPE_ARRAY = 0;
@@ -281,6 +281,11 @@ public class Nson {
         return array;
     }
 
+    /**
+     * Returns the serialized (as NSON) size of a FieldValue
+     * @param value the value
+     * @return the size in bytes
+     */
     public static int getSerializedSize(FieldValue value) {
 
         try (ByteOutputStream out =
@@ -294,8 +299,11 @@ public class Nson {
         }
     }
 
-    /*
-     * Serialize a generic FieldValue into the output stream
+    /**
+     * Serializes a generic FieldValue into the output stream
+     * @param out the output stream
+     * @param value the value
+     * @throws IOException if there is a problem
      */
     public static void writeFieldValue(ByteOutputStream out,
                                        FieldValue value)
@@ -305,11 +313,26 @@ public class Nson {
         FieldValueEventHandler.generate(value, ns);
     }
 
+    /**
+     * Serializes a byte array into the NSON output stream
+     * @param out the output stream
+     * @param array the byte array
+     * @throws IOException if there is a problem
+     */
     public static void writeByteArray(ByteOutputStream out,
                                       byte[] array) throws IOException {
         SerializationUtil.writeByteArray(out, array);
     }
 
+    /**
+     * Serializes a byte array into the NSON output stream using a specified
+     * offset and length into the byte array
+     * @param out the output stream
+     * @param array the byte array
+     * @param offset the byte offset into the array to use to start
+     * @param length the number of bytes to serialize, 0 means no limit
+     * @throws IOException if there is a problem
+     */
     public static void writeByteArray(ByteOutputStream out,
                                       byte[] array,
                                       int offset,
@@ -682,9 +705,12 @@ public class Nson {
         }
     }
 
-    /*
+    /**
      * Read the protocol input stream and send events to a handler that
      * creates a FieldValue.
+     * @param in the input stream
+     * @return the value
+     * @throws IOException if there is a problem
      */
     public static FieldValue readFieldValue(ByteInputStream in)
         throws IOException {

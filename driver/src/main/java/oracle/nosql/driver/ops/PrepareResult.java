@@ -21,6 +21,9 @@ public class PrepareResult extends Result {
 
     private PreparedStatement preparedStatement;
 
+    /**
+     * Default constructor for PrepareResult
+     */
     public PrepareResult() {}
 
     /**

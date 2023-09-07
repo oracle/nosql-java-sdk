@@ -626,7 +626,7 @@ public class MapValue extends FieldValue
         return size;
     }
 
-    /*
+    /**
      * @hidden
      * Called from a sorting ReceiveIter
      */

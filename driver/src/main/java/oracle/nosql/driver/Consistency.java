@@ -30,12 +30,26 @@ package oracle.nosql.driver;
 public class Consistency {
     final private Type type;
 
+    /**
+     * Consistency types
+     */
     public enum Type {
+        /**
+         * EVENTUAL consistency will read from any node in the cluster
+         */
         EVENTUAL,
+        /**
+         * ABSOLUTE consistency reads only from the leader node
+         */
         ABSOLUTE
     }
 
+    /*
+     * Convenient static instances
+     */
+    /** constant for ABSOLUTE Consistency */
     public static Consistency ABSOLUTE = new Consistency(Type.ABSOLUTE);
+    /** constant for EVENTUAL Consistency */
     public static Consistency EVENTUAL = new Consistency(Type.EVENTUAL);
 
     /**

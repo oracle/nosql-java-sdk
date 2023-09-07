@@ -112,9 +112,6 @@ public abstract class FieldValue implements Comparable<FieldValue> {
         EMPTY;
     }
 
-    public FieldValue() {
-    }
-
     /**
      * Returns the type of the object
      *
