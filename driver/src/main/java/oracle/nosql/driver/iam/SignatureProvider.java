@@ -740,7 +740,7 @@ public class SignatureProvider
         return provider;
     }
 
-    /*
+    /**
      * Constructor for SignatureProvider given an
      * AuthenticationProfileProvider.
      * This is for advanced use only; use of the create* methods is preferred.

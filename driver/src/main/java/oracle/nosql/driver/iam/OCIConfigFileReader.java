@@ -48,6 +48,9 @@ public class OCIConfigFileReader {
     public static final String DEFAULT_FILE_PATH =
         System.getProperty("user.home") + File.separator +
             ".oci" + File.separator + "config";
+    /**
+     * Default profile in config file
+     */
     public static final String DEFAULT_PROFILE_NAME = "DEFAULT";
 
     static final String FINGERPRINT_PROP = "fingerprint";

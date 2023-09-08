@@ -31,6 +31,9 @@ public class PrepareRequest extends Request {
     private boolean getQueryPlan;
     private boolean getQuerySchema;
 
+    /**
+     * Default constructor for PrepareRequest
+     */
     public PrepareRequest() {}
 
     /**

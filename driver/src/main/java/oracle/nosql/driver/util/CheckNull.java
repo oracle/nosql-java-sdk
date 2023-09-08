@@ -10,6 +10,7 @@ package oracle.nosql.driver.util;
 import java.util.Objects;
 
 /**
+ * @hidden
  * Wrapper for calls to Objects.requireNonNull
  */
 public class CheckNull {

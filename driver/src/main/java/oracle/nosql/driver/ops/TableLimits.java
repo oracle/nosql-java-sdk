@@ -44,7 +44,9 @@ public class TableLimits {
      * @since 5.3.0
      */
     public enum CapacityMode {
+        /** provisioned mode */
         PROVISIONED,
+        /** on-demand mode */
         ON_DEMAND;
     }
 

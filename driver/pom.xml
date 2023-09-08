@@ -241,7 +241,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>3.3.1</version>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -291,7 +291,8 @@
               <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
               <addBuildEnvironmentEntries>true</addBuildEnvironmentEntries>
               <addClasspath>true</addClasspath>
-              <!--  drop version from dependent jar files in manifest class path -->
+              <!--  drop version from dependent jar files in manifest class path
+              -->
               <classpathLayoutType>custom</classpathLayoutType>
               <customClasspathLayout>
                 $${artifact.artifactId}.$${artifact.extension}
@@ -327,17 +328,13 @@
       </plugin>
       <plugin>
         <artifactId>maven-install-plugin</artifactId>
-        <version>3.0.0-M1</version>
-      </plugin>
-      <plugin>
-        <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.1</version>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -353,12 +350,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.5.0</version>
         <configuration>
+          <quiet>true</quiet>
+          <!-- consider this: <doclint>-missing</doclint> -->
           <source>8</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>
-          <detectJavaApiLink>true</detectJavaApiLink>
           <!-- exclude these packages.
                TODO: the this list should include
                oracle.nosql.driver.ops.serde. The problem is that if added
@@ -366,9 +364,8 @@
                May need to post-process the doc to remove the package and link.
           -->
           <excludePackageNames>
-            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde.nson
+            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde;oracle.nosql.driver.ops.serde.nson
           </excludePackageNames>
-          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
           <show>public</show>
           <header>
             <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
@@ -399,6 +396,8 @@
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
+          <!-- suppress warning about long paths in tarball -->
+          <tarLongFileMode>gnu</tarLongFileMode>
           <!--
               Drop the version on the name of the tar.gz and zip files generated.
               Add it to the archive name when released.
@@ -407,7 +406,7 @@
           <!-- assembly id is "sdk," don't append it to the archive names -->
           <appendAssemblyId>false</appendAssemblyId>
           <!-- don't deploy at this time -->
-          <attach>false</attach>
+          <attach>true</attach>
           <descriptors>
             <descriptor>src/main/assembly/sdk.xml</descriptor>
           </descriptors>

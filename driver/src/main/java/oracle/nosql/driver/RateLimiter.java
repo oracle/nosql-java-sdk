@@ -120,7 +120,7 @@ public interface RateLimiter {
 
     /**
      * Consumes a number of units, blocking until the units are available.
-     * <p>
+     *
      * @param units the number of units to consume. This can be a negative
      *        value to "give back" units.
      * @return the amount of time blocked in milliseconds. If not blocked,

@@ -375,10 +375,21 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Returns the endpoint of the authenticating entity
+     * @return the endpoint
+     */
     public String getEndpoint() {
         return endpoint;
     }
 
+    /**
+     * Sets the endpoint of the authenticating entity
+     * @param endpoint the endpoint
+     * @return this
+     * @throws IllegalArgumentException if the endpoint is not correctly
+     * formatted
+     */
     public StoreAccessTokenProvider setEndpoint(String endpoint) {
         this.endpoint = endpoint;
         URL url = NoSQLHandleConfig.createURL(endpoint, "");
@@ -391,13 +402,23 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Sets the SSL context
+     * @param sslCtx the context
+     * @return this
+     */
     public StoreAccessTokenProvider setSslContext(SslContext sslCtx) {
         this.sslContext = sslCtx;
         return this;
     }
 
-    public StoreAccessTokenProvider setSslHandshakeTimeout(int timeout) {
-        this.sslHandshakeTimeoutMs = timeout;
+    /**
+     * Sets the SSL handshake timeout in milliseconds
+     * @param timeoutMs the timeout in milliseconds
+     * @return this
+     */
+    public StoreAccessTokenProvider setSslHandshakeTimeout(int timeoutMs) {
+        this.sslHandshakeTimeoutMs = timeoutMs;
         return this;
     }
 
