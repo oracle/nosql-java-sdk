@@ -9,6 +9,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   require server side support which is only available in Oracle NoSQL releases
   23.3 and higher and will not be immediately available in the cloud service
 
+- Cloud only: added support for replica (multi-region) tables
+  - Added new methods to NoSQLHandle
+    - NoSQLHandle.addReplica()
+    - NoSQLHandle.dropReplica()
+    - NoSQLHandle.getReplicaStats()
+  - Added new requests and result
+    - AddReplicaRequest
+    - DropReplicaRequest
+    - ReplicaStatsRequest, ReplicaStatsResult
+  - Added new information to TableResult
+    - isFrozen()
+    - isReplicated()
+    - isLocalReplicaInitialized()
+    - getReplicas()
+
 ## [5.4.12] 2023-07-28
 
 ### Added

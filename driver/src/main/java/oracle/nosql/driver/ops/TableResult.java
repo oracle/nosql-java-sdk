@@ -12,6 +12,7 @@ import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.ops.TableLimits.CapacityMode;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
@@ -47,6 +48,10 @@ public class TableResult extends Result {
     private FreeFormTags freeFormTags;
     private DefinedTags definedTags;
     private String matchETag;
+
+    private boolean isFrozen;
+    private boolean isLocalReplicaInitialized;
+    private Replica[] replicas;
 
     /**
      * The current state of the table
@@ -235,6 +240,60 @@ public class TableResult extends Result {
     }
 
     /**
+     * Returns whether or not the table's schema is frozen. The schema
+     * can only be frozen when using the cloud service and a frozen
+     * schema is required for replicating a table
+     *
+     * @return true if the schema is frozen
+     *
+     * @since 5.4.13
+     */
+    public boolean isFrozen() {
+        return isFrozen;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns true if the table is replicated.
+     *
+     * @return the flag
+     *
+     * @since 5.4.13
+     */
+    public boolean isReplicated() {
+        return replicas != null;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns true if the table is a replica and its initialization process
+     * has been completed, otherwise return false.
+     *
+     * @return true if the table is a replica and it's been initialized
+     *
+     * @since 5.4.13
+     */
+    public boolean isLocalReplicaInitialized() {
+        return isLocalReplicaInitialized;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Returns a array of {@link Replica} if the table is replicated,
+     * or null if table is not replicated.
+     *
+     * @return the remote Replicas
+     *
+     * @since 5.4.13
+     */
+    public Replica[] getReplicas() {
+        return replicas;
+    }
+
+    /**
      * @hidden
      * @param operationId the operation id
      * @return this
@@ -357,6 +416,39 @@ public class TableResult extends Result {
         return this;
     }
 
+    /**
+     * @hidden
+     * @param frozen true if frozen
+     * @return this
+     * @since 5.4.13
+     */
+    public TableResult setIsFrozen(boolean frozen) {
+        this.isFrozen = frozen;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param initialized the flag
+     * @return this
+     * @since 5.4.13
+     */
+    public TableResult setLocalReplicaInitialized(boolean initialized) {
+        this.isLocalReplicaInitialized = initialized;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @param replicas the Replica array
+     * @return this
+     * @since 5.4.13
+     */
+    public TableResult setReplicas(Replica[] replicas) {
+        this.replicas = replicas;
+        return this;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -376,6 +468,24 @@ public class TableResult extends Result {
         }
         if (matchETag != null) {
             sb.append("\nmatchETag=").append(matchETag);
+        }
+        if (isFrozen) {
+            sb.append("\nisFrozen=").append(isFrozen);
+        }
+        if (isReplicated()) {
+            sb.append("\nisLocalReplicaInitialized=")
+              .append(isLocalReplicaInitialized);
+            sb.append("\nreplicas=[");
+            boolean first = true;
+            for (Replica rep : replicas) {
+                if (first) {
+                    first = false;
+                } else {
+                    sb.append(", ");
+                }
+                sb.append(rep.toString());
+            }
+            sb.append("]");
         }
         return sb.toString();
     }
@@ -649,6 +759,9 @@ public class TableResult extends Result {
                 schema = res.getSchema();
                 matchETag = res.getMatchETag();
                 ddl = res.getDdl();
+                isFrozen = res.isFrozen();
+                isLocalReplicaInitialized = res.isLocalReplicaInitialized();
+                replicas = res.getReplicas();
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());
@@ -658,5 +771,137 @@ public class TableResult extends Result {
 
     private boolean isTerminal() {
         return state == State.ACTIVE || state == State.DROPPED;
+    }
+
+    /**
+     * Cloud service only.
+     *
+     * Information representing a single remote replica
+     *
+     * @since 5.4.13
+     */
+    public static class Replica {
+        private String replicaName;
+        private String tableOcid;
+        private int writeUnits;
+        private CapacityMode mode;
+        private State state;
+
+        public Replica() {
+        }
+
+        /**
+         * Returns the name of the replica. This is the region name.
+         *
+         * @return the replica name
+         */
+        public String getReplicaName() {
+            return replicaName;
+        }
+
+        /**
+         * Returns the OCID of the replica table
+         *
+         * @return the table OCID
+         */
+        public String getTableId() {
+            return tableOcid;
+        }
+
+        /**
+         * Returns the write units of the replica table
+         *
+         * @return the write units
+         */
+        public int getWriteUnits() {
+            return writeUnits;
+        }
+
+
+        /**
+         * Returns the capacity mode of the replica table
+         *
+         * @return the capacity mode
+         */
+        public CapacityMode getCapacityMode() {
+            return mode;
+        }
+
+        /**
+         * Returns the operational state of replica table
+         *
+         * @return the state
+         */
+        public State getState() {
+            return state;
+        }
+
+        /**
+         * @hidden
+         * @param replicaName the replica name
+         * @return this
+         */
+        public Replica setReplicaName(String replicaName) {
+            this.replicaName = replicaName;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param tableOcid the OCID of remote replica table
+         * @return this
+         */
+        public Replica setTableId(String tableOcid) {
+            this.tableOcid = tableOcid;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param writeUnits the write units of remote replica table
+         * @return this
+         */
+        public Replica setWriteUnits(int writeUnits) {
+            this.writeUnits = writeUnits;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param mode the capacity mode of remote replica table
+         * @return this
+         */
+        public Replica setCapacityMode(CapacityMode mode) {
+            this.mode = mode;
+            return this;
+        }
+
+        /**
+         * @hidden
+         * @param state the state of remote replication table
+         * @return this
+         */
+        public Replica setState(State state) {
+            this.state = state;
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Replica[replicaName=").append(replicaName);
+            sb.append(", state=").append(state);
+            if (tableOcid != null) {
+                sb.append(", tableId=").append(tableOcid);
+            }
+            if (writeUnits > 0) {
+                sb.append(", writeUnits=").append(writeUnits);
+            }
+            if (mode != null) {
+                sb.append(", mode=").append(mode);
+            }
+            sb.append("]");
+            return sb.toString();
+        }
     }
 }

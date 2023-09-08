@@ -81,6 +81,12 @@ public abstract class Request {
      */
     private boolean isRefresh;
 
+    /**
+     * @hidden
+     * This is only used by internal, cross-region requests
+     */
+    private String oboToken;
+
     protected Request() {}
 
     /**
@@ -539,6 +545,24 @@ public abstract class Request {
      */
     public boolean getDRLOptIn() {
         return drlOptIn;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * @param token the on-behalf-of token
+     */
+    public void setOboTokenInternal(String token) {
+        oboToken = token;
+    }
+
+    /**
+     * @hidden
+     * internal use only
+     * @return the on-behalf-of token
+     */
+    public String getOboToken() {
+        return oboToken;
     }
 
     /**
