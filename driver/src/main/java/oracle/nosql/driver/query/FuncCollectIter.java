@@ -220,7 +220,9 @@ public class FuncCollectIter extends PlanIter {
             res = state.theArray;
         }
 
-        res.sort(state.theComparator);
+        if (rcb.getRequest().inTestMode()) {
+            res.sort(state.theComparator);
+        }
 
         if (rcb.getTraceLevel() >= 3) {
             rcb.trace("Collected values " + res);

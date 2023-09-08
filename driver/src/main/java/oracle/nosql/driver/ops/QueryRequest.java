@@ -144,6 +144,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private int batchCounter;
 
+    private boolean inTestMode;
+
+    /**
+     * Default constructor for QueryRequest
+     */
     public QueryRequest() {
     }
 
@@ -172,6 +177,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.isInternal = true;
         internalReq.driver = driver;
         internalReq.topoSeqNum = topoSeqNum;
+        internalReq.inTestMode = inTestMode;
         return internalReq;
     }
 
@@ -351,7 +357,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     /**
      * @hidden
      * If the logFileTracing parameter is set to true, log records produced
-     * during query execution tracing will be written to the log files. 
+     * during query execution tracing will be written to the log files.
      * Otherwise, they are shipped by the servers to the driver, where they
      * can be displayed via the {@link #printTrace} method.
      *
@@ -604,6 +610,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return max server memory consumption
      */
     public long getMaxServerMemoryConsumption() {
         return maxServerMemoryConsumption;
@@ -931,5 +938,19 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     @Override
     public boolean shouldRetry() {
         return false;
+    }
+
+    /**
+     * @hidden
+     */
+    public void setInTestMode(boolean v) {
+        inTestMode = v;
+    }
+
+    /**
+     * @hidden
+     */
+    public boolean inTestMode() {
+        return inTestMode;
     }
 }

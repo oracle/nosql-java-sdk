@@ -19,6 +19,11 @@ public class TableBusyException extends RetryableException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * @hidden
+     * Simple constructor
+     * @param msg the message to use for the exception
+     */
     public TableBusyException(String msg) {
         super(msg);
     }

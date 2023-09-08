@@ -343,6 +343,9 @@ public class WriteMultipleRequest extends DurableRequest {
             return abortIfUnsuccessful;
         }
 
+        /**
+         * @return the request
+         */
         public WriteRequest getRequest() {
             return request;
         }

@@ -199,9 +199,10 @@ public class GetResult extends Result {
         return getJsonValue();
     }
 
-    /*
+    /**
      * @hidden
      * for internal use
+     * @param client the Client
      */
     public void setClient(Client client) {
         this.client = client;

@@ -15,7 +15,7 @@ import oracle.nosql.driver.values.MapValue;
 /**
  * <p>This interface allows user to control the collection of driver
  * statistics at runtime.</p><p>
- * 
+ *
  * The statistics data is collected for an interval of time. At the end of the
  * interval, the stats data is logged in a specified JSON format that can be
  * filtered and parsed. After the logging, the counters are cleared and
@@ -91,17 +91,21 @@ import oracle.nosql.driver.values.MapValue;
  */
 public interface StatsControl {
 
+    /** prefix in log entries */
     String LOG_PREFIX = "Client stats|";
 
     /**
-     * The following semantics are attached to the Profile:
-     *  - NONE: no stats are logged.
-     *  - REGULAR: per request: counters, errors, latencies, delays, retries
-     *  - MORE: stats above with 95th and 99th percentile latencies.
-     *  - ALL: stats above with per query information
+     * A Profile that determines what stats are logged
      */
     enum Profile {
-        NONE, REGULAR, MORE, ALL;
+        /** No stats are logged */
+        NONE,
+        /** per request: counters, errors, latencies, delays, retries */
+        REGULAR,
+        /** stats above with 95th and 99th percentile latencies */
+        MORE,
+        /** all other stats, plus per query information */
+        ALL;
     }
 
     /**

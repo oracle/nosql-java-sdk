@@ -72,7 +72,9 @@ import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -481,6 +483,12 @@ public class Client {
         kvRequest.setStartNanos(startNanos);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
+        /*
+         * boolean that indicates whether content must be signed. Cross
+         * region operations must include content when signing. See comment
+         * on the method
+         */
+        final boolean signContent = requireContentSigned(kvRequest);
         String requestId = "";
         int thisIterationTimeoutMs = 0;
 
@@ -649,7 +657,14 @@ public class Client {
                     kvRequest.setCompartmentInternal(
                         config.getDefaultCompartment());
                 }
-                authProvider.setRequiredHeaders(authString, kvRequest, headers);
+
+                /*
+                 * Get request body bytes if the request needed to be signed
+                 * with content
+                 */
+                byte[] content = signContent ? getBodyBytes(buffer) : null;
+                authProvider.setRequiredHeaders(authString, kvRequest, headers,
+                                                content);
 
                 String namespace = kvRequest.getNamespace();
                 if (namespace == null) {
@@ -1729,6 +1744,59 @@ public class Client {
         }
 
         return 0;
+    }
+
+    /*
+     * Cloud service only.
+     *
+     * The request content needs to be signed for cross-region requests
+     * under these conditions:
+     * 1. a request is being made by a client that will become a cross-region
+     * request such as add/drop replica
+     * 2. a client table request such as add/drop index or alter table that
+     * operates on a multi-region table. In this case the operation is
+     * automatically applied remotely so it's implicitly a cross-region
+     * operation
+     * 3. internal use calls that use an OBO token to make the actual
+     * cross region call from with the NoSQL cloud service. In this case
+     * the OBO token is non-null in the request
+     *
+     * In cases (1) and (2) the signing is required so that the service can
+     * acquire an OBO token for the operation. In case (3) the OBO token
+     * that's been acquired by the service is used for the actual
+     * cross region operation.
+     */
+    private boolean requireContentSigned(Request request) {
+        /*
+         * if this client is not using the cloud no signing is required
+         */
+        if (!authProvider.forCloud()) {
+            return false;
+        }
+
+        /*
+         * See comment above for the logic. TableRequest is always signed
+         * because in the client it's not known if the operation is on a
+         * multi-region table or not. This is a small bit of overhead and
+         * is ignored if the table is not multi-region
+         */
+        return request instanceof AddReplicaRequest ||
+               request instanceof DropReplicaRequest ||
+               request instanceof TableRequest ||
+               request.getOboToken() != null;
+    }
+
+    /*
+     * Returns the request content bytes
+     */
+    private byte[] getBodyBytes(ByteBuf buffer) {
+        if (buffer.hasArray()) {
+            return buffer.array();
+        }
+
+        byte[] bytes = new byte[buffer.readableBytes()];
+        buffer.getBytes(buffer.readerIndex(), bytes);
+        return bytes;
     }
 
     /**

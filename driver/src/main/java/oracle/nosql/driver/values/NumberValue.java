@@ -136,7 +136,7 @@ public class NumberValue extends FieldValue {
     @Override
     public boolean equals(Object other) {
         if (other instanceof NumberValue) {
-            return (value.compareTo(((NumberValue) other).value) == 0);
+            return value.equals(((NumberValue) other).value);
         }
         return false;
     }

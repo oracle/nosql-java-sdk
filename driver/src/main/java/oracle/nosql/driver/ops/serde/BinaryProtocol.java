@@ -53,6 +53,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.TABLE_DEPLOYMENT_LIMIT_EXC
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_EXISTS;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
+import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_READY;
 import static oracle.nosql.driver.util.BinaryProtocol.TENANT_DEPLOYMENT_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_DAYS;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_HOURS;
@@ -93,6 +94,7 @@ import oracle.nosql.driver.SystemException;
 import oracle.nosql.driver.TableExistsException;
 import oracle.nosql.driver.TableLimitException;
 import oracle.nosql.driver.TableNotFoundException;
+import oracle.nosql.driver.TableNotReadyException;
 import oracle.nosql.driver.TableSizeException;
 import oracle.nosql.driver.TimeToLive;
 import oracle.nosql.driver.UnauthorizedException;
@@ -273,8 +275,8 @@ public class BinaryProtocol extends Nson {
     /*
      * Writes fields from Request
      */
-    static void serializeRequest(Request rq,
-                                 ByteOutputStream out)
+    protected static void serializeRequest(Request rq,
+                                           ByteOutputStream out)
         throws IOException {
 
         writeTimeout(out, rq.getTimeoutInternal());
@@ -477,6 +479,8 @@ public class BinaryProtocol extends Nson {
             return new ResourceNotFoundException(msg);
         case OPERATION_NOT_SUPPORTED:
             return new OperationNotSupportedException(msg);
+        case TABLE_NOT_READY:
+            return new TableNotReadyException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);

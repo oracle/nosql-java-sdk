@@ -21,7 +21,6 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 
-//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
@@ -627,7 +626,7 @@ public class MapValue extends FieldValue
         return size;
     }
 
-    /*
+    /**
      * @hidden
      * Called from a sorting ReceiveIter
      */

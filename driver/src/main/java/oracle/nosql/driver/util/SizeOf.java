@@ -122,7 +122,8 @@ public class SizeOf {
                 is64 = Integer.parseInt(overrideArch) == 64;
             }
         } catch (NumberFormatException NFE) {
-            NFE.printStackTrace(System.err);
+            /* shouldn't happen; need to catch NFE, so re-throw IAE */
+            throw new IllegalArgumentException(NFE.getMessage());
         }
 
         final Boolean checkCompressedOops = true;

@@ -63,20 +63,43 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Statistics configuration, optional.
      */
+    /**
+     * Java property string for acquiring a non-default stats profile
+     */
     public static final String STATS_PROFILE_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.profile";
+    /**
+     * Java property string for acquiring a non-default stats interval
+     */
     public static final String STATS_INTERVAL_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.interval";
+    /**
+     * Java property string for acquiring a non-default stats print mode
+     */
     public static final String STATS_PRETTY_PRINT_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    /**
+     * Java property string for acquiring a non-default stats log enabling
+     */
     public static final String STATS_ENABLE_LOG_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
 
-    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
+    /**
+     * Statistics logging interval in seconds. Default 600 sec, ie. 10 min.
+     */
     public static final int DEFAULT_STATS_INTERVAL = 600;
+    /**
+     * Default profile for stats
+     */
     public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
         StatsControl.Profile.NONE;
+    /**
+     * Default printing mode for stats
+     */
     public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    /**
+     * Default enabling of log for stats
+     */
     public static final boolean DEFAULT_ENABLE_LOG = true;
 
 

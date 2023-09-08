@@ -130,6 +130,10 @@ public class RetryStats {
         exceptionMap.clear();
     }
 
+    /**
+     * Returns the map of exceptions that have been retried
+     * @return the map
+     */
     public Map<Class<? extends Throwable>, Integer> getExceptionMap() {
         return exceptionMap;
     }

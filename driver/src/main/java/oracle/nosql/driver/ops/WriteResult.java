@@ -88,9 +88,10 @@ public class WriteResult extends Result {
         return this;
     }
 
-    /*
+    /**
      * @hidden
      * for internal use
+     * @param client the client
      */
     public void setClient(Client client) {
         this.client = client;

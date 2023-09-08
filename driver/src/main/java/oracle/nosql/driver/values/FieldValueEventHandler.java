@@ -87,6 +87,10 @@ import java.util.Map;
  */
 public interface FieldValueEventHandler {
 
+    /**
+     * A no-op event handler for cases where a non-null
+     * handler is useful
+     */
     public static FieldValueEventHandler nullHandler =
         new FieldValueEventHandler() {};
 

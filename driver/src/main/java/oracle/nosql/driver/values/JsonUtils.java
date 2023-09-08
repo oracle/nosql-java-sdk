@@ -40,16 +40,43 @@ public class JsonUtils {
      */
     private static final String HEX = "0123456789ABCDEF";
 
+    /**
+     * Compares 2 JSON strings for equality. Order is not relevant as it is not
+     * relevant in JSON
+     *
+     * @param s1 a JSON string
+     * @param s2 a JSON string
+     *
+     * @return true if the strings hold equivalent JSON, otherwise false
+     */
     public static boolean jsonEquals(String s1, String s2) {
         return jsonEquals(s1, s2, null);
     }
 
+    /**
+     * Compares 2 JSON strings for equality. Order is not relevant as it is not
+     * relevant in JSON
+     *
+     * @param s1 a JSON string
+     * @param s2 a JSON string
+     * @param options JSON parsing options
+     *
+     * @return true if the strings hold equivalent JSON, otherwise false
+     */
     public static boolean jsonEquals(String s1, String s2, JsonOptions options) {
         FieldValue v1 = createValueFromJson(s1, options);
         FieldValue v2 = createValueFromJson(s2, options);
         return v1.equals(v2);
     }
 
+    /**
+     * Creates a FieldValue instance from JSON
+     *
+     * @param jsonInput a JSON string
+     * @param options JSON parsing options
+     *
+     * @return a FieldValue instance constructed from the JSON input
+     */
     public static FieldValue createValueFromJson(String jsonInput,
                                                  JsonOptions options) {
         requireNonNull(jsonInput,
@@ -62,6 +89,14 @@ public class JsonUtils {
         }
     }
 
+    /**
+     * Creates a FieldValue instance from JSON
+     *
+     * @param jsonInput the input stream that supplies JSON
+     * @param options JSON parsing options
+     *
+     * @return a FieldValue instance constructed from the JSON input
+     */
     public static FieldValue createValueFromJson(InputStream jsonInput,
                                                  JsonOptions options) {
 
@@ -74,6 +109,14 @@ public class JsonUtils {
         }
     }
 
+    /**
+     * Creates a FieldValue instance from JSON
+     *
+     * @param jsonInput a Reader supplying JSON
+     * @param options JSON parsing options
+     *
+     * @return a FieldValue instance constructed from the JSON input
+     */
     public static FieldValue createValueFromJson(Reader jsonInput,
                                                  JsonOptions options) {
         requireNonNull(jsonInput,
@@ -320,6 +363,16 @@ public class JsonUtils {
         return array;
     }
 
+    /**
+     * Returns a BigDecimal value based on the current JSON parser
+     * position, which must be a numeric.
+     *
+     * @param parser the JSON parser
+     * @return the value of the numeric token at the current position
+     *
+     * @throws IOException if there is an IO error while parsing
+     * @throws JsonParseException if the token cannot be turned into BigDecimal
+     */
     public static BigDecimal jsonParserGetDecimalValue(JsonParser parser)
         throws IOException {
 
@@ -381,6 +434,13 @@ public class JsonUtils {
      * turned into byte[]
      */
 
+    /**
+     * Creates NSON in the output stream from JSON in the input string
+     *
+     * @param bos the NSON output stream
+     * @param jsonInput a JSON string
+     * @param options JSON parsing options
+     */
     public static void createNsonFromJson(ByteOutputStream bos,
                                           String jsonInput,
                                           JsonOptions options) {
@@ -396,6 +456,13 @@ public class JsonUtils {
         }
     }
 
+    /**
+     * Creates NSON in the output stream from JSON in the input stream
+     *
+     * @param bos the NSON output stream
+     * @param jsonInput the JSON input stream
+     * @param options JSON parsing options
+     */
     public static void createNsonFromJson(ByteOutputStream bos,
                                           InputStream jsonInput,
                                           JsonOptions options) {
@@ -411,6 +478,13 @@ public class JsonUtils {
         }
     }
 
+    /**
+     * Creates NSON in the output stream from JSON in the Reader
+     *
+     * @param bos the NSON output stream
+     * @param jsonInput a Reader that reads JSON
+     * @param options JSON parsing options
+     */
     public static void createNsonFromJson(ByteOutputStream bos,
                                           Reader jsonInput,
                                           JsonOptions options) {

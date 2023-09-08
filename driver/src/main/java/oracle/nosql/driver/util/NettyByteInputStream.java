@@ -15,6 +15,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 
+/**
+ * A ByteInputStream based on Netty's ByteBufInputStream
+ */
 public class NettyByteInputStream extends ByteBufInputStream
     implements ByteInputStream {
 
