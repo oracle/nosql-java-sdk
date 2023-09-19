@@ -576,7 +576,12 @@ public class OnPremiseTest extends ProxyTestBase {
         /* test ListTables with no namespace: should return all */
         listTables = new ListTablesRequest();
         lres = handle.listTables(listTables);
-        assertTrue(lres.getTables().length > 2);
+        /* 23.3.19 upwards should return just the tables in the def namespace */
+        if (checkKVVersion(23, 3, 18)) {
+            assertTrue(lres.getTables().length == 2);
+        } else {
+            assertTrue(lres.getTables().length > 2);
+        }
 
         /* test ListTables with explicit namespace */
         listTables = new ListTablesRequest().setNamespace("mydns");
