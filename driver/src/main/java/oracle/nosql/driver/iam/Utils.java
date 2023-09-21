@@ -119,6 +119,10 @@ class Utils {
         "https://auth.{0}.oraclecloud22.com");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud24.com");
+    private final static MessageFormat OC27_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud27.com");
+    private final static MessageFormat OC28_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud28.com");
 
     static {
         /* OC1 */
@@ -155,6 +159,7 @@ class Utils {
 
         IAM_URI.put("mtz", OC1_EP_BASE.format(new Object[] {"il-jerusalem-1"}));
 
+        IAM_URI.put("bog", OC1_EP_BASE.format(new Object[] {"sa-bogota-1"}));
         IAM_URI.put("gru", OC1_EP_BASE.format(new Object[] {"sa-saopaulo-1"}));
         IAM_URI.put("scl", OC1_EP_BASE.format(new Object[] {"sa-santiago-1"}));
         IAM_URI.put("vcp", OC1_EP_BASE.format(new Object[] {"sa-vinhedo-1"}));
@@ -223,6 +228,12 @@ class Utils {
 
         /* OC24 */
         IAM_URI.put("avz", OC24_EP_BASE.format(new Object[] {"eu-dcc-zurich-1"}));
+
+        /* OC27 */
+        IAM_URI.put("ozz", OC27_EP_BASE.format(new Object[] {"us-dcc-swjordan-1"}));
+
+        /* OC28 */
+        IAM_URI.put("drs", OC28_EP_BASE.format(new Object[] {"us-dcc-swjordan-2"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -269,6 +280,12 @@ class Utils {
             }
             if (Region.isOC24Region(regionIdOrCode)) {
                 return OC24_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC27Region(regionIdOrCode)) {
+                return OC27_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC28Region(regionIdOrCode)) {
+                return OC28_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 
