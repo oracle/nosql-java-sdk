@@ -108,7 +108,6 @@ public class PreparedStatement {
      * @param sqlText the query
      * @param queryPlan the query plan
      * @param querySchema the query schema
-     * @param ti the topo info
      * @param proxyStatement proxy statement
      * @param driverPlan the portion of the query plan executed on driver
      * @param numIterators num iterators in plan
