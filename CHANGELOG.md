@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
     - isReplicated()
     - isLocalReplicaInitialized()
     - getReplicas()
+- Cloud only: added new OCI regions (BOG, OZZ, DRS)
 
 ## [5.4.12] 2023-07-28
 
