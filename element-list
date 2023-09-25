@@ -2,5 +2,4 @@ oracle.nosql.driver
 oracle.nosql.driver.iam
 oracle.nosql.driver.kv
 oracle.nosql.driver.ops
-oracle.nosql.driver.ops.serde
 oracle.nosql.driver.values
