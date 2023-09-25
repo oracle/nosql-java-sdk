@@ -116,7 +116,7 @@ class Utils {
     private final static MessageFormat OC20_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud20.com");
     private final static MessageFormat OC22_EP_BASE = new MessageFormat(
-        "https://auth.{0}.oraclecloud22.com");
+        "https://auth.{0}.psn-pco.it");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud24.com");
     private final static MessageFormat OC27_EP_BASE = new MessageFormat(
