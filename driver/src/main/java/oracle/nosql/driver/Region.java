@@ -382,7 +382,7 @@ public class Region {
     private final static MessageFormat OC20_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud20.com");
     private final static MessageFormat OC22_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud22.com");
+        "https://nosql.{0}.oci.psn-pco.it");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud24.com");
     private final static MessageFormat OC27_EP_BASE = new MessageFormat(
