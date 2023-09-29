@@ -126,8 +126,11 @@ public class NsonProtocol {
     public static String EXCEPTION = "x";
     public static String NUM_DELETIONS = "nd";
     public static String QUERY_BATCH_TRACES = "qts";
+    public static String PROXY_TOPO_SEQNUM = "pn";
     public static String RETRY_HINT = "rh";
+    public static String SHARD_IDS = "sa";
     public static String SUCCESS = "ss";
+    public static String TOPOLOGY_INFO = "tp";
     public static String WM_FAILURE = "wf";
     public static String WM_FAIL_INDEX = "wi";
     public static String WM_FAIL_RESULT = "wr";
@@ -172,16 +175,13 @@ public class NsonProtocol {
     public static String MATH_CONTEXT_PRECISION = "cp";
     public static String NOT_TARGET_TABLES = "nt";
     public static String NUM_RESULTS = "nr";
-    public static String PROXY_TOPO_SEQNUM = "pn";
     public static String QUERY_OPERATION = "qo";
     public static String QUERY_PLAN_STRING = "qs";
     public static String QUERY_RESULTS = "qr";
     public static String QUERY_RESULT_SCHEMA = "qc";
-    public static String REACHED_LIMIT = "re";
-    public static String SHARD_IDS = "sa";
+    public static String REACHED_LIMIT = "re";;
     public static String SORT_PHASE1_RESULTS = "p1";
     public static String TABLE_ACCESS_INFO = "ai";
-    public static String TOPOLOGY_INFO = "tp";
 
     /* replica stats response fields */
     public static String NEXT_START_TIME = "ni";
@@ -289,8 +289,11 @@ public class NsonProtocol {
         {EXCEPTION,"EXCEPTION"},
         {NUM_DELETIONS,"NUM_DELETIONS"},
         {QUERY_BATCH_TRACES,"QUERY_BATCH_TRACES"},
+        {PROXY_TOPO_SEQNUM,"PROXY_TOPO_SEQNUM"},
         {RETRY_HINT,"RETRY_HINT"},
+        {SHARD_IDS,"SHARD_IDS"},
         {SUCCESS,"SUCCESS"},
+        {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
         {WM_FAILURE,"WM_FAILURE"},
         {WM_FAIL_INDEX,"WM_FAIL_INDEX"},
         {WM_FAIL_RESULT,"WM_FAIL_RESULT"},
@@ -323,16 +326,13 @@ public class NsonProtocol {
         {MATH_CONTEXT_PRECISION,"MATH_CONTEXT_PRECISION"},
         {NOT_TARGET_TABLES,"NOT_TARGET_TABLES"},
         {NUM_RESULTS,"NUM_RESULTS"},
-        {PROXY_TOPO_SEQNUM,"PROXY_TOPO_SEQNUM"},
         {QUERY_OPERATION,"QUERY_OPERATION"},
         {QUERY_PLAN_STRING,"QUERY_PLAN_STRING"},
         {QUERY_RESULTS,"QUERY_RESULTS"},
         {QUERY_RESULT_SCHEMA,"QUERY_RESULT_SCHEMA"},
         {REACHED_LIMIT,"REACHED_LIMIT"},
-        {SHARD_IDS,"SHARD_IDS"},
         {SORT_PHASE1_RESULTS,"SORT_PHASE1_RESULTS"},
         {TABLE_ACCESS_INFO,"TABLE_ACCESS_INFO"},
-        {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
         {NEXT_START_TIME,"NEXT_START_TIME"},
         {REPLICA_STATS,"REPLICA_STATS"},
         {REPLICA_LAG,"REPLICA_LAG"},

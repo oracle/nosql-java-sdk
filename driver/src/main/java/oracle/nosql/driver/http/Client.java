@@ -384,6 +384,9 @@ public class Client {
         if (kvRequest.isQueryRequest()) {
 
             QueryRequest qreq = (QueryRequest)kvRequest;
+
+            /* Set the topo seq num in the request, if it has not been set
+             * already */
             kvRequest.setTopoSeqNum(getTopoSeqNum());
 
             statsControl.observeQuery(qreq);
@@ -594,6 +597,9 @@ public class Client {
                  * writeContent().
                  */
                 kvRequest.setCheckRequestSize(false);
+
+                /* Set the topo seq num in the request, if it has not been set
+                 * already */
                 if (!(kvRequest instanceof QueryRequest) ||
                     kvRequest.isQueryRequest()) {
                     kvRequest.setTopoSeqNum(getTopoSeqNum());

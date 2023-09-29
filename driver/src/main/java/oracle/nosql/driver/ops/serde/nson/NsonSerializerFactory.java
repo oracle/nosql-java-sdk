@@ -494,6 +494,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readConsumedCapacity(in, result);
                 } else if (name.equals(ROW)) {
                     readRow(in, result);
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -569,6 +571,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setSuccess(Nson.readNsonBoolean(in));
                 } else if (name.equals(RETURN_INFO)) {
                     readReturnInfo(in, result);
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -656,6 +660,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setNumDeletions(Nson.readNsonInt(in));
                 } else if (name.equals(CONTINUATION_KEY)) {
                     result.setContinuationKey(Nson.readNsonBinary(in));
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -739,6 +745,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readReturnInfo(in, result);
                 } else if (name.equals(GENERATED)) {
                     result.setGeneratedValue(Nson.readFieldValue(in));
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -861,9 +869,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getShardId() != -1) { // default
                 writeMapField(ns, SHARD_ID, rq.getShardId());
             }
-            if (rq.topoSeqNum() != -1) { // default
-                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
-            }
             if (rq.getQueryName() != null) {
                 writeMapField(ns, QUERY_NAME, rq.getQueryName());
             }
@@ -920,7 +925,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Deserialize either a QueryResult or a PrepareResult.
          * Either qreq/qres are given, or preq/pres are given.
          */
-        public static void deserializePrepareOrQuery(
+        private static void deserializePrepareOrQuery(
             QueryRequest qreq,
             QueryResult qres,
             PrepareRequest preq,
@@ -943,8 +948,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             String namespace = null;
             String querySchema = null;
             byte operation = 0;
-            int proxyTopoSeqNum = 1;
-            int[] shardIds = null;
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
             TreeMap<String, String> queryTraces = null;
@@ -958,7 +961,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     handleErrorCode(walker);
 
                 } else if (name.equals(CONSUMED)) {
-                    readConsumedCapacity(in, (qres!=null)?qres:pres);
+                    readConsumedCapacity(in, (qres != null ? qres : pres));
 
                 } else if (name.equals(QUERY_RESULTS) && qres != null) {
                     qres.setResults(readQueryResults(in));
@@ -980,12 +983,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(REACHED_LIMIT) && qres != null) {
                     qres.setReachedLimit(Nson.readNsonBoolean(in));
 
-                } else if (name.equals(PROXY_TOPO_SEQNUM)) {
-                    proxyTopoSeqNum = Nson.readNsonInt(in);
-
-                } else if (name.equals(SHARD_IDS)) {
-                    shardIds = readNsonIntArray(in);
-
                 } else if (name.equals(TABLE_NAME)) {
                     tableName = Nson.readNsonString(in);
 
@@ -1000,6 +997,9 @@ public class NsonSerializerFactory implements SerializerFactory {
 
                 } else if (name.equals(QUERY_OPERATION)) {
                     operation = (byte)Nson.readNsonInt(in);
+
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, (qres != null ? qres : pres));
 
                 } else if (name.equals(VIRTUAL_SCANS)) {
                     readType(in, Nson.TYPE_ARRAY);
@@ -1026,19 +1026,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
 
-            TopologyInfo ti = null;
-            if (proxyTopoSeqNum >= 0) {
-                ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
-            }
-
             if (qres != null) {
                 qres.setContinuationKey(contKey);
                 qreq.setContKey(qres.getContinuationKey());
                 qres.setVirtualScans(virtualScans);
-                qres.setTopology(ti);
                 qres.setQueryTraces(queryTraces);
-            } else {
-                pres.setTopology(ti);
             }
 
             if (isPreparedRequest) {
@@ -1185,24 +1177,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             return results;
         }
 
-        // TODO: move this to Nson
-        private static int[] readNsonIntArray(ByteInputStream bis)
-            throws IOException {
-            int t = bis.readByte();
-            if (t != Nson.TYPE_ARRAY) {
-                throw new IllegalArgumentException(
-                    "Bad type in integer array: "+
-                    Nson.typeString(t) + ", should be ARRAY");
-            }
-            bis.readInt(); /* length of array in bytes */
-            int numElements = bis.readInt(); /* number of array elements */
-            int[] arr = new int[numElements];
-            for (int i = 0; i < numElements; i++) {
-                 arr[i] = Nson.readNsonInt(bis);
-            }
-            return arr;
-        }
-
         /*
          * Bind variables:
          * "variables": [
@@ -1261,9 +1235,6 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getQuerySchema()) {
                 writeMapField(ns, GET_QUERY_SCHEMA, true);
             }
-           if (rq.topoSeqNum() != -1) { // default
-                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
-            }
 
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
@@ -1295,7 +1266,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *      opcode
      *      abortIfUnsuccessful boolean
      *      the delete or write payload, without durability
-     *
+/     *
      * WriteMultiple result:
      *  consumed capacity
      *  # use existence of fields as success/fail
@@ -1447,6 +1418,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                             skipUnknownField(fw, name);
                         }
                     }
+                } else if (name.equals(TOPOLOGY_INFO)) {
+                    readTopologyInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -2238,6 +2211,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Header
          *  version (int)
          *  operation (int)
+         *  sequence number of cached topology, if available
          *  timeout (int)
          *  tableName if available
          *   it is helpful to have the tableName available as early as possible
@@ -2254,6 +2228,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, TABLE_NAME, rq.getTableName());
             }
             writeMapField(ns, OP_CODE, op);
+            if (rq.topoSeqNum() != -1) { // default
+                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
+            }
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
             if (rq.getPreferThrottling()) {
                 writeMapField(ns, PREFER_THROTTLING, true);
@@ -2612,6 +2589,57 @@ public class NsonSerializerFactory implements SerializerFactory {
                     skipUnknownField(walker, name);
                 }
             }
+        }
+
+        /*
+         * "topology_info" : {
+         *    "PROXY_TOPO_SEQNUM" : int
+         *    "SHARD_IDS" : [ int, ... ]
+         * } 
+         */
+        static void readTopologyInfo(ByteInputStream in,
+                                             Result result)
+            throws IOException {
+
+            int proxyTopoSeqNum = 1;
+            int[] shardIds = null;
+            MapWalker walker = new MapWalker(in);
+
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(PROXY_TOPO_SEQNUM)) {
+                    proxyTopoSeqNum = Nson.readNsonInt(in);
+                } else if (name.equals(SHARD_IDS)) {
+                    shardIds = readNsonIntArray(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+
+            TopologyInfo ti = null;
+            if (proxyTopoSeqNum >= 0) {
+                ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
+                result.setTopology(ti);
+            }
+        }
+
+        // TODO: move this to Nson
+        static int[] readNsonIntArray(ByteInputStream bis)
+            throws IOException {
+            int t = bis.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalArgumentException(
+                    "Bad type in integer array: "+
+                    Nson.typeString(t) + ", should be ARRAY");
+            }
+            bis.readInt(); /* length of array in bytes */
+            int numElements = bis.readInt(); /* number of array elements */
+            int[] arr = new int[numElements];
+            for (int i = 0; i < numElements; i++) {
+                arr[i] = Nson.readNsonInt(bis);
+            }
+            return arr;
         }
 
         /**
