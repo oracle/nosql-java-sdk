@@ -2228,9 +2228,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, TABLE_NAME, rq.getTableName());
             }
             writeMapField(ns, OP_CODE, op);
-            if (rq.topoSeqNum() != -1) { // default
-                writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
-            }
+            writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
             if (rq.getPreferThrottling()) {
                 writeMapField(ns, PREFER_THROTTLING, true);
