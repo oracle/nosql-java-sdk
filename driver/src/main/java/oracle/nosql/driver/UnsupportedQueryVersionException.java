@@ -11,7 +11,7 @@ package oracle.nosql.driver;
  * This exception is thrown if the server does not support the current
  * query protocol version.
  *
- * @since 5.3.0
+ * @since 5.4.14
  */
 public class UnsupportedQueryVersionException extends NoSQLException {
 
