@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.QueryRequest;
@@ -37,6 +38,23 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
                           short serialVersion,
                           ByteOutputStream out)
         throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in query request serializer");
+    }
+
+    @Override
+    public void serialize(Request request,
+                          short serialVersion,
+                          short queryVersion,
+                          ByteOutputStream out)
+        throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         QueryRequest queryRq = (QueryRequest) request;
 
@@ -50,7 +68,7 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         out.writeBoolean(queryRq.isPrepared());
 
         /* the following 7 fields were added in V2 */
-        out.writeShort(QueryDriver.QUERY_VERSION);
+        out.writeShort(queryVersion);
         out.writeByte((byte)queryRq.getTraceLevel());
         writeInt(out, queryRq.getMaxWriteKB());
         SerializationUtil.writeMathContext(queryRq.getMathContext(), out);
@@ -79,7 +97,7 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
             writeString(out, queryRq.getStatement());
         }
 
-        writeString(out, queryRq.getQueryName());
+        /* binary protocol does not support query V4 or higher */
     }
 
     @Override
@@ -87,6 +105,23 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
          Request request,
          ByteInputStream in,
          short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in query request deserializer");
+    }
+
+    @Override
+    public QueryResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion,
+         short queryVersion) throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         QueryRequest qreq = (QueryRequest) request;
         PreparedStatement prep = qreq.getPreparedStatement();

@@ -67,6 +67,7 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
@@ -79,6 +80,7 @@ import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
@@ -91,6 +93,7 @@ import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
+import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
@@ -180,6 +183,9 @@ public class Client {
     private ExecutorService threadPool;
 
     private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
+
+    /* separate version for query compatibility */
+    private volatile short queryVersion = QueryDriver.QUERY_VERSION;
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
@@ -567,6 +573,7 @@ public class Client {
 
             ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
+            short queryVersionUsed = queryVersion;
             ByteBuf buffer = null;
             try {
                 /*
@@ -613,7 +620,8 @@ public class Client {
                  * processing (retry delays, etc) work correctly.
                  */
                 kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
-                serialVersionUsed = writeContent(buffer, kvRequest);
+                serialVersionUsed = writeContent(buffer, kvRequest,
+                    queryVersionUsed);
                 kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
@@ -707,7 +715,9 @@ public class Client {
                 Result res = processResponse(responseHandler.getStatus(),
                                        responseHandler.getHeaders(),
                                        wireContent,
-                                       kvRequest);
+                                       kvRequest,
+                                       serialVersionUsed,
+                                       queryVersionUsed);
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
@@ -866,8 +876,17 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = re;
                 continue;
+            } catch (UnsupportedQueryVersionException uqve) {
+                /* decrement query version and try again */
+                if (decrementQueryVersion(queryVersionUsed) == true) {
+                    logFine(logger, "Got unsupported query version error " +
+                            "from server: decrementing query version to " +
+                            queryVersion + " and trying again.");
+                    continue;
+                }
+                throw uqve;
             } catch (UnsupportedProtocolException upe) {
-                /* reduce protocol version and try again */
+                /* decrement protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
                     /* Don't set this exception: it's misleading */
                     /* exception = upe; */
@@ -1156,16 +1175,25 @@ public class Client {
      *
      * @throws IOException
      */
-    private short writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest,
+                               short queryVersion)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = serialVersion;
         SerializerFactory factory = chooseFactory(kvRequest);
         factory.writeSerialVersion(versionUsed, bos);
-        kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                      versionUsed,
-                                                      bos);
+        if (kvRequest instanceof QueryRequest ||
+            kvRequest instanceof PrepareRequest) {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          queryVersion,
+                                                          bos);
+        } else {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          bos);
+        }
         return versionUsed;
     }
 
@@ -1180,7 +1208,9 @@ public class Client {
     final Result processResponse(HttpResponseStatus status,
                                  HttpHeaders headers,
                                  ByteBuf content,
-                                 Request kvRequest) {
+                                 Request kvRequest,
+                                 short serialVersionUsed,
+                                 short queryVersionUsed) {
 
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
@@ -1193,7 +1223,8 @@ public class Client {
         setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
-            return processOKResponse(bis, kvRequest);
+            return processOKResponse(bis, kvRequest, serialVersionUsed,
+                                     queryVersionUsed);
         }
     }
 
@@ -1204,17 +1235,26 @@ public class Client {
      *
      * @throws NoSQLException if the stream could not be read for some reason
      */
-    Result processOKResponse(ByteInputStream in, Request kvRequest) {
+    Result processOKResponse(ByteInputStream in, Request kvRequest,
+                             short serialVersionUsed, short queryVersionUsed) {
         try {
             SerializerFactory factory = chooseFactory(kvRequest);
             int code = factory.readErrorCode(in);
             /* note: this will always be zero in V4 */
             if (code == 0) {
-                Result res =
-                    kvRequest.createDeserializer(factory).
-                    deserialize(kvRequest,
-                                in,
-                                serialVersion);
+                Result res;
+                Serializer ser = kvRequest.createDeserializer(factory);
+                if (kvRequest instanceof QueryRequest ||
+                    kvRequest instanceof PrepareRequest) {
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed,
+                                          queryVersionUsed);
+                } else {
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed);
+                }
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1549,6 +1589,24 @@ public class Client {
         }
         if (serialVersion == V3) {
             serialVersion = V2;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     *
+     * Try to decrement the query protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number.
+     */
+    private synchronized boolean decrementQueryVersion(short versionUsed) {
+        if (queryVersion != versionUsed) {
+            return true;
+        }
+        if (queryVersion == QueryDriver.QUERY_V4) {
+            queryVersion = QueryDriver.QUERY_V3;
             return true;
         }
         return false;

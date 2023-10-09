@@ -814,6 +814,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                               short serialVersion,
                               ByteOutputStream out)
             throws IOException {
+                throw new IllegalArgumentException("Missing query version " +
+                          "in query request serializer");
+            }
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              short queryVersion,
+                              ByteOutputStream out)
+            throws IOException {
 
             QueryRequest rq = (QueryRequest) request;
 
@@ -846,7 +856,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, BATCH_COUNTER, rq.getBatchCounter());
             }
 
-            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, (int)queryVersion);
             boolean isPrepared = rq.isPrepared();
             if (isPrepared) {
                 writeMapField(ns, IS_PREPARED, isPrepared);
@@ -869,12 +879,16 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getShardId() != -1) { // default
                 writeMapField(ns, SHARD_ID, rq.getShardId());
             }
-            if (rq.getQueryName() != null) {
-                writeMapField(ns, QUERY_NAME, rq.getQueryName());
+
+            if (queryVersion >= QueryDriver.QUERY_V4) {
+                if (rq.getQueryName() != null) {
+                    writeMapField(ns, QUERY_NAME, rq.getQueryName());
+                }
+                if (rq.getVirtualScan() != null) {
+                    writeVirtualScan(ns, rq.getVirtualScan());
+                }
             }
-            if (rq.getVirtualScan() != null) {
-                writeVirtualScan(ns, rq.getVirtualScan());
-            }
+
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
         }
@@ -911,12 +925,21 @@ public class NsonSerializerFactory implements SerializerFactory {
         public Result deserialize(Request request,
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in query request deserializer");
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion,
+                                  short queryVersion) throws IOException {
 
             QueryRequest qreq = (QueryRequest) request;
             QueryResult result = new QueryResult(qreq);
 
             deserializePrepareOrQuery(qreq, result, null, null,
-                                      in, serialVersion);
+                                      in, serialVersion, queryVersion);
             return result;
         }
 
@@ -931,7 +954,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             PrepareRequest preq,
             PrepareResult pres,
             ByteInputStream in,
-            short serialVersion) throws IOException {
+            short serialVersion,
+            short queryVersion) throws IOException {
 
             PreparedStatement prep = null;
             if (qreq != null ) {
@@ -948,6 +972,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             String namespace = null;
             String querySchema = null;
             byte operation = 0;
+            int proxyTopoSeqNum = -1; /* QUERY_V3 and earlier */
+            int[] shardIds = null; /* QUERY_V3 and earlier */
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
             TreeMap<String, String> queryTraces = null;
@@ -1001,6 +1027,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, (qres != null ? qres : pres));
 
+                /* QUERY_V3 and earlier return topo differently */
+                } else if (name.equals(PROXY_TOPO_SEQNUM)) {
+                    proxyTopoSeqNum = Nson.readNsonInt(in);
+
+                } else if (name.equals(SHARD_IDS)) {
+                    shardIds = readNsonIntArray(in);
+
+                /* added in QUERY_V4 */
                 } else if (name.equals(VIRTUAL_SCANS)) {
                     readType(in, Nson.TYPE_ARRAY);
                     in.readInt(); /* length of array in bytes */
@@ -1010,11 +1044,12 @@ public class NsonSerializerFactory implements SerializerFactory {
                         virtualScans[i] = readVirtualScan(in);
                     }
 
+                /* added in QUERY_V4 */
                 } else if (name.equals(QUERY_BATCH_TRACES)) {
                     readType(in, Nson.TYPE_ARRAY);
                     in.readInt(); /* length of array in bytes */
                     int numTraces = in.readInt() / 2; /* number of array elements */
-                    queryTraces = new TreeMap();
+                    queryTraces = new TreeMap<String,String>();
                     for (int i = 0; i < numTraces; ++i) {
                         String batchName = Nson.readNsonString(in);
                         String batchTrace = Nson.readNsonString(in);
@@ -1024,6 +1059,12 @@ public class NsonSerializerFactory implements SerializerFactory {
                     // log/warn
                     walker.skip();
                 }
+            }
+
+            /* QUERY_V3 and earlier return topo differently */
+            Result res = (qres != null) ? qres : pres;
+            if (res.getTopology() == null && proxyTopoSeqNum >= 0) {
+                res.setTopology(new TopologyInfo(proxyTopoSeqNum, shardIds));
             }
 
             if (qres != null) {
@@ -1211,6 +1252,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                               short serialVersion,
                               ByteOutputStream out)
             throws IOException {
+                throw new IllegalArgumentException("Missing query version " +
+                          "in prepare request serializer");
+            }
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              short queryVersion,
+                              ByteOutputStream out)
+            throws IOException {
 
             PrepareRequest rq = (PrepareRequest) request;
 
@@ -1227,7 +1278,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
 
-            writeMapField(ns, QUERY_VERSION, (int)QueryDriver.QUERY_VERSION);
+            writeMapField(ns, QUERY_VERSION, (int)queryVersion);
             writeMapField(ns, STATEMENT, rq.getStatement());
             if (rq.getQueryPlan()) {
                 writeMapField(ns, GET_QUERY_PLAN, true);
@@ -1244,13 +1295,21 @@ public class NsonSerializerFactory implements SerializerFactory {
         public Result deserialize(Request request,
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in prepare request deserializer");
+        }
 
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion,
+                                  short queryVersion) throws IOException {
             PrepareRequest prepRq = (PrepareRequest) request;
             PrepareResult result = new PrepareResult();
 
             QueryRequestSerializer.deserializePrepareOrQuery(
                                    null, null, prepRq, result,
-                                   in, serialVersion);
+                                   in, serialVersion, queryVersion);
             return result;
         }
     }
@@ -2593,7 +2652,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          * "topology_info" : {
          *    "PROXY_TOPO_SEQNUM" : int
          *    "SHARD_IDS" : [ int, ... ]
-         * } 
+         * }
          */
         static void readTopologyInfo(ByteInputStream in,
                                              Result result)

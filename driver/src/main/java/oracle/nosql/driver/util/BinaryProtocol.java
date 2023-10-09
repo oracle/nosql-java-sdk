@@ -30,11 +30,6 @@ public final class BinaryProtocol {
     public static final short DEFAULT_SERIAL_VERSION = V4;
 
     /**
-     * Serial version of the sub-protocol related to queries
-     */
-    public static final short QUERY_VERSION = 2;
-
-    /**
      * Operation codes
      */
     public static enum OpCode {
@@ -191,6 +186,7 @@ public final class BinaryProtocol {
     public static final int UNSUPPORTED_PROTOCOL = 24;
     /* added in V4 */
     public static final int TABLE_NOT_READY = 26;
+    public static final int UNSUPPORTED_QUERY_VERSION = 27;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

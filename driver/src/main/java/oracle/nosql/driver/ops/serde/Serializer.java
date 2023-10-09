@@ -33,4 +33,28 @@ public interface Serializer {
     Result deserialize(Request request,
                        ByteInputStream in,
                        short serialVersion) throws IOException;
+
+    /*
+     * The interface to serialize a query request. Same as above but
+     * with an added query version parameter.
+     */
+    default void serialize(Request request,
+                           short serialVersion,
+                           short queryVersion,
+                           ByteOutputStream out) throws IOException {
+        throw new IllegalArgumentException("Query serialization not " +
+            "supported for " + request.getClass().getName());
+    }
+
+    /*
+     * Deserialize a query response. Same as above but with an
+     * added query version parameter.
+     */
+    default Result deserialize(Request request,
+                               ByteInputStream in,
+                               short serialVersion,
+                               short queryVersion) throws IOException {
+        throw new IllegalArgumentException("Query deserialization not " +
+            "supported for " + request.getClass().getName());
+    }
 }
