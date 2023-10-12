@@ -8,6 +8,8 @@
 package oracle.nosql.driver;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.net.URL;
@@ -92,6 +94,17 @@ public class HandleConfigTest {
         } catch(IllegalArgumentException expected) {
             // expect a failure
         }
+    }
+
+    @Test
+    public void testSdkVersion() {
+        final String version = NoSQLHandleConfig.getLibraryVersion();
+        assertNotNull("SDK version should be non-null", version);
+        /* check that version string has three dot-separated parts */
+        String[] arr = version.split("\\.", -1);
+        assertTrue("SDK version \"" + version +
+                   "\" should have at least three dot-separated parts",
+                   arr.length > 2);
     }
 
     private void expectIllegalArg(String endpoint) {

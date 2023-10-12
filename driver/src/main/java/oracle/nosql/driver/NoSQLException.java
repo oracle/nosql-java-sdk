@@ -21,7 +21,7 @@ public class NoSQLException extends RuntimeException {
      * @param msg the message
      */
     public /*protected*/ NoSQLException(String msg) {
-        super(msg);
+        super(msg + " (" + SDKVersion.VERSION + ")");
     }
 
     /**
@@ -31,7 +31,7 @@ public class NoSQLException extends RuntimeException {
      * @param cause the cause
      */
     public /*protected*/ NoSQLException(String msg, Throwable cause) {
-        super(msg, cause);
+        super(msg + " (" + SDKVersion.VERSION + ")", cause);
     }
 
     /**
