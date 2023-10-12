@@ -429,6 +429,16 @@
         <version>3.1.0</version>
         <executions>
           <execution>
+            <id>Generate SDK Version strings</id>
+            <phase>generate-sources</phase>
+            <configuration>
+              <executable>${basedir}/scripts/generate_version_strings.sh</executable>
+            </configuration>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+          <execution>
             <id>human-readable NSON string generation</id>
             <phase>generate-sources</phase>
             <configuration>

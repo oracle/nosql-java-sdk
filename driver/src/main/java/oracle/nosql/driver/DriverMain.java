@@ -72,7 +72,7 @@ public class DriverMain {
      * by maven.
      */
     private static String findVersion() {
-        return  NoSQLHandleConfig.class.getPackage().getImplementationVersion();
+        return SDKVersion.VERSION;
     }
 
     /**
