@@ -30,7 +30,13 @@ head -$lastline $SDK_VERSION_FILE > /tmp/sdkversion.$$
 
 # add SDKVersion class 
 cat << EOT >> /tmp/sdkversion.$$
+/**
+ * Public class to manage SDK version information
+ */
 public class SDKVersion {
+    /**
+     * The full X.Y.Z version of the current SDK
+     */
     public static final String VERSION = "$sdk_version";
 }
 EOT
