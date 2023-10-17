@@ -503,6 +503,7 @@ public abstract class Request {
 
     /**
      * @hidden
+     * @return the topo sequence number
      */
     public int topoSeqNum() {
         return topoSeqNum;
@@ -510,6 +511,7 @@ public abstract class Request {
 
     /**
      * @hidden
+     * @param n the topo sequence number
      */
     public void setTopoSeqNum(int n) {
         if (topoSeqNum < 0) {

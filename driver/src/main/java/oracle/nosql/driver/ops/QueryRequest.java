@@ -294,6 +294,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @param vs the virtual scan
      */
     public void setVirtualScan(VirtualScan vs) {
         virtualScan = vs;
@@ -301,6 +302,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return the virtual scan
      */
     public VirtualScan getVirtualScan() {
         return virtualScan;
@@ -361,7 +363,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Otherwise, they are shipped by the servers to the driver, where they
      * can be displayed via the {@link #printTrace} method.
      *
-     * @param value
+     * @param value tracing log files setting
      * @return this
      */
     public QueryRequest setLogFileTracing(boolean value) {
@@ -371,6 +373,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return if log file tracing is enabled
      */
     public boolean getLogFileTracing() {
         return logFileTracing;
@@ -378,6 +381,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @param traces the query traces to add
      */
     public void addQueryTraces(Map<String, String> traces) {
 
@@ -393,6 +397,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @param out the stream to print to
      */
     public void printTrace(PrintStream out) {
 
@@ -423,10 +428,18 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         out.println(sb.toString());
     }
 
+    /**
+     * @hidden
+     * @return the current batch counter
+     */
     public int getBatchCounter() {
         return batchCounter;
     }
 
+    /**
+     * @hidden
+     * Increment the current batch counter
+     */
     public void incBatchCounter() {
         ++batchCounter;
     }
@@ -942,6 +955,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @param v the test mode
      */
     public void setInTestMode(boolean v) {
         inTestMode = v;
@@ -949,6 +963,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return the current test mode
      */
     public boolean inTestMode() {
         return inTestMode;

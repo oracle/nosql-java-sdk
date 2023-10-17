@@ -292,6 +292,7 @@ public class QueryResult extends Result {
 
     /**
      * @hidden
+     * @return the array of virtual scans
      */
     public VirtualScan[] getVirtualScans() {
         return virtualScans;
@@ -299,6 +300,7 @@ public class QueryResult extends Result {
 
     /**
      * @hidden
+     * @param vs the array of virtual scans
      */
     public void setVirtualScans(VirtualScan[] vs) {
         virtualScans = vs;
@@ -306,6 +308,7 @@ public class QueryResult extends Result {
 
     /**
      * @hidden
+     * @param traces the traces to set
      */
     public void setQueryTraces(Map<String, String> traces) {
         queryTraces = traces;
@@ -313,6 +316,7 @@ public class QueryResult extends Result {
 
     /**
      * @hidden
+     * @return the traces set
      */
     public Map<String, String> getQueryTraces() {
         return queryTraces;

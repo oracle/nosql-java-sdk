@@ -19,6 +19,10 @@ public class TableNotReadyException extends RetryableException {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * @hidden
+     * @param msg the exception message
+     */
     public TableNotReadyException(String msg) {
         super(msg);
     }

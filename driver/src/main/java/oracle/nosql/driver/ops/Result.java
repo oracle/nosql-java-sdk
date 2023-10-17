@@ -150,6 +150,7 @@ public class Result {
 
     /**
      * @hidden
+     * @return the current topology info
      */
     public TopologyInfo getTopology() {
         return topology;
@@ -157,6 +158,7 @@ public class Result {
 
     /**
      * @hidden
+     * @param ti the current topology info
      */
     public void setTopology(TopologyInfo ti) {
         topology = ti;
