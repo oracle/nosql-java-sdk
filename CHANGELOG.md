@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unpublished]
+## [5.4.13] 2023-09-25
 
 ### Added
 - added support for array_collect() and count(distinct) in queries. These
@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
     - isReplicated()
     - isLocalReplicaInitialized()
     - getReplicas()
+- Cloud only: added new OCI regions (BOG, OZZ, DRS)
 
 ## [5.4.12] 2023-07-28
 

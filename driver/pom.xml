@@ -48,7 +48,7 @@
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.94.Final</netty.version>
     <jackson.version>2.15.2</jackson.version>
-    <bouncy.version>1.70</bouncy.version>
+    <bouncy.version>1.76</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -190,7 +190,7 @@
     <!-- Bouncycastle - request signing in cloud -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
+      <artifactId>bcprov-jdk18on</artifactId>
       <version>${bouncy.version}</version>
       <exclusions>
         <exclusion>
@@ -202,7 +202,7 @@
 
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk15on</artifactId>
+      <artifactId>bcpkix-jdk18on</artifactId>
       <version>${bouncy.version}</version>
       <exclusions>
         <exclusion>
@@ -222,11 +222,11 @@
 
     <!-- IAM unit tests only - Bouncycastle has changed
          the packaging since 1.69, classes needed by test
-         has been moved to bcutil-jdk15on.
+         has been moved to bcutil-jdk18on.
     -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcutil-jdk15on</artifactId>
+      <artifactId>bcutil-jdk18on</artifactId>
       <version>${bouncy.version}</version>
       <scope>test</scope>
     </dependency>
@@ -428,6 +428,16 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.1.0</version>
         <executions>
+          <execution>
+            <id>Generate SDK Version strings</id>
+            <phase>generate-sources</phase>
+            <configuration>
+              <executable>${basedir}/scripts/generate_version_strings.sh</executable>
+            </configuration>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
           <execution>
             <id>human-readable NSON string generation</id>
             <phase>generate-sources</phase>

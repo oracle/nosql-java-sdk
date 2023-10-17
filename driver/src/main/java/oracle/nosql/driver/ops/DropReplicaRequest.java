@@ -97,6 +97,17 @@ public class DropReplicaRequest extends Request {
         return this;
     }
 
+    /*
+     * use the default request timeout if not set.
+     */
+    @Override
+    public DropReplicaRequest setDefaults(NoSQLHandleConfig config) {
+        if (timeoutMs == 0) {
+            timeoutMs = config.getDefaultTableRequestTimeout();
+        }
+        return this;
+    }
+
     @Override
     public void validate() {
         if (tableName == null || replicaName == null) {
