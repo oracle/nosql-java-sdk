@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+## Added
+- Added SDK version number in exception messages
+
+## Changed
+- Modified internal query processing to better support elasticity operations
+
+
 ## [5.4.13] 2023-09-25
 
 ### Added
