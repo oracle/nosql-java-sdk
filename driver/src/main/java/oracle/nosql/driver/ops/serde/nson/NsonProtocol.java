@@ -86,6 +86,7 @@ public class NsonProtocol {
     public static String START = "sr";
     public static String STATEMENT = "st";
     public static String STORAGE_THROTTLE_COUNT = "sl";
+    public static String SYSTEM = "sy";
     public static String TABLES = "tb";
     public static String TABLE_DDL = "td";
     public static String TABLE_NAME = "n";
@@ -237,6 +238,7 @@ public class NsonProtocol {
         {START,"START"},
         {STATEMENT,"STATEMENT"},
         {STORAGE_THROTTLE_COUNT,"STORAGE_THROTTLE_COUNT"},
+        {SYSTEM,"SYSTEM"},
         {TABLES,"TABLES"},
         {TABLE_DDL,"TABLE_DDL"},
         {TABLE_NAME,"TABLE_NAME"},

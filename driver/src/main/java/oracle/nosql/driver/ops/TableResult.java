@@ -787,6 +787,9 @@ public class TableResult extends Result {
         private CapacityMode mode;
         private State state;
 
+        /**
+         * @hidden
+         */
         public Replica() {
         }
 
