@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.ops.PreparedStatement;
+import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
@@ -36,6 +38,23 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
                           short serialVersion,
                           ByteOutputStream out)
         throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in query request serializer");
+    }
+
+    @Override
+    public void serialize(Request request,
+                          short serialVersion,
+                          short queryVersion,
+                          ByteOutputStream out)
+        throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         QueryRequest queryRq = (QueryRequest) request;
 
@@ -49,11 +68,11 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         out.writeBoolean(queryRq.isPrepared());
 
         /* the following 7 fields were added in V2 */
-        out.writeShort(QueryDriver.QUERY_VERSION);
+        out.writeShort(queryVersion);
         out.writeByte((byte)queryRq.getTraceLevel());
         writeInt(out, queryRq.getMaxWriteKB());
         SerializationUtil.writeMathContext(queryRq.getMathContext(), out);
-        writeInt(out, queryRq.topologySeqNum());
+        writeInt(out, queryRq.topoSeqNum());
         writeInt(out, queryRq.getShardId());
         out.writeBoolean(queryRq.isPrepared() && queryRq.isSimpleQuery());
 
@@ -77,6 +96,8 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         } else {
             writeString(out, queryRq.getStatement());
         }
+
+        /* binary protocol does not support query V4 or higher */
     }
 
     @Override
@@ -84,6 +105,23 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
          Request request,
          ByteInputStream in,
          short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in query request deserializer");
+    }
+
+    @Override
+    public QueryResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion,
+         short queryVersion) throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         QueryRequest qreq = (QueryRequest) request;
         PreparedStatement prep = qreq.getPreparedStatement();
@@ -125,11 +163,16 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
          * results, so that the preparation does not need to be done during each
          * query batch.
          */
+        PrepareResult prepResult = null;
+
         if (!isPrepared) {
+
+            prepResult = new PrepareResult();
 
             prep = PrepareRequestSerializer.
                    deserializeInternal(qreq.getStatement(),
                                        false,
+                                       prepResult,
                                        in,
                                        serialVersion);
 
@@ -140,18 +183,14 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
             if (!isPrepared) {
                 assert(numRows == 0);
                 QueryDriver driver = new QueryDriver(qreq);
-                driver.setTopologyInfo(prep.topologyInfo());
                 driver.setPrepCost(result.getReadKB());
                 result.setComputed(false);
+                result.setTopology(prepResult.getTopology());
             } else {
                 /* In this case, the QueryRequest is an "internal" one */
                 result.setReachedLimit(in.readBoolean());
                 TopologyInfo ti = BinaryProtocol.readTopologyInfo(in);
-                QueryDriver driver = qreq.getDriver();
-                if (ti != null) {
-                    prep.setTopologyInfo(ti);
-                    driver.setTopologyInfo(ti);
-                }
+                result.setTopology(ti);
             }
         }
 

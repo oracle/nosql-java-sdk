@@ -7,8 +7,11 @@
 
 package oracle.nosql.driver.ops;
 
+import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.Map;
+import java.util.TreeMap;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
@@ -19,6 +22,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
+import oracle.nosql.driver.query.VirtualScan;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -110,6 +114,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private byte[] continuationKey;
 
+    private VirtualScan virtualScan;
+
     /*
      * The QueryDriver, for advanced queries only.
      */
@@ -127,6 +133,16 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * do sorting.
      */
     private int shardId = -1;
+
+    private String queryName;
+
+    private boolean logFileTracing = true;
+
+    private String driverQueryTrace;
+
+    private Map<String, String> serverQueryTraces;
+
+    private int batchCounter;
 
     private boolean inTestMode;
 
@@ -147,6 +163,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         super.copyTo(internalReq);
 
         internalReq.traceLevel = traceLevel;
+        internalReq.logFileTracing = logFileTracing;
+        internalReq.queryName = queryName;
+        internalReq.batchCounter = batchCounter;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
@@ -157,6 +176,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
+        internalReq.topoSeqNum = topoSeqNum;
         internalReq.inTestMode = inTestMode;
         return internalReq;
     }
@@ -172,6 +192,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
+        driverQueryTrace = null;
+        batchCounter = 0;
         return internalReq;
     }
 
@@ -226,26 +248,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     * @return TopologyInfo
-     */
-    public TopologyInfo topologyInfo() {
-        return (preparedStatement == null ?
-                null :
-                preparedStatement.topologyInfo());
-    }
-
-    /**
-     * @hidden
-     * @return topology seq num
-     */
-    public int topologySeqNum() {
-        return (preparedStatement == null ?
-                -1 :
-                preparedStatement.topologySeqNum());
-    }
-
-    /**
-     * @hidden
      */
     @Override
     public boolean isQueryRequest() {
@@ -292,11 +294,18 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     *
-     * @return trace level
+     * @param vs the virtual scan
      */
-    public int getTraceLevel() {
-        return traceLevel;
+    public void setVirtualScan(VirtualScan vs) {
+        virtualScan = vs;
+    }
+
+    /**
+     * @hidden
+     * @return the virtual scan
+     */
+    public VirtualScan getVirtualScan() {
+        return virtualScan;
     }
 
     /**
@@ -312,6 +321,127 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         }
         traceLevel = level;
         return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * @return trace level
+     */
+    public int getTraceLevel() {
+        return traceLevel;
+    }
+
+    /**
+     * @hidden
+     * Set a symbolic name for this query. This name will appear in query logs
+     * if query tracing has been turned on.
+     *
+     * @param name the query name
+     *
+     * @return this
+     */
+    public QueryRequest setQueryName(String name) {
+        queryName = name;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * Returns the query name
+     *
+     * @return the query name, or null if it has not been set
+     */
+    public String getQueryName() {
+        return queryName;
+    }
+
+    /**
+     * @hidden
+     * If the logFileTracing parameter is set to true, log records produced
+     * during query execution tracing will be written to the log files.
+     * Otherwise, they are shipped by the servers to the driver, where they
+     * can be displayed via the {@link #printTrace} method.
+     *
+     * @param value tracing log files setting
+     * @return this
+     */
+    public QueryRequest setLogFileTracing(boolean value) {
+        logFileTracing = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @return if log file tracing is enabled
+     */
+    public boolean getLogFileTracing() {
+        return logFileTracing;
+    }
+
+    /**
+     * @hidden
+     * @param traces the query traces to add
+     */
+    public void addQueryTraces(Map<String, String> traces) {
+
+        if (traces == null) {
+            return;
+        }
+
+        if (serverQueryTraces == null) {
+            serverQueryTraces = new TreeMap<String, String>();
+        }
+        serverQueryTraces.putAll(traces);
+    }
+
+    /**
+     * @hidden
+     * @param out the stream to print to
+     */
+    public void printTrace(PrintStream out) {
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("\n\n---------------------------------\n");
+        sb.append("CLIENT : " + queryName);
+        sb.append("\n---------------------------------\n\n");
+        if (driver != null) {
+            sb.append(driver.getQueryTrace());
+        } else if (driverQueryTrace != null) {
+            sb.append(driverQueryTrace);
+        }
+        sb.append("\n");
+
+        if (serverQueryTraces != null) {
+            for (Map.Entry<String, String> entry : serverQueryTraces.entrySet()) {
+                sb.append("\n\n-------------------------------------------\n");
+                sb.append(queryName);
+                sb.append(": ");
+                sb.append(entry.getKey());
+                sb.append("\n-------------------------------------------\n\n");
+                sb.append(entry.getValue());
+                sb.append("\n");
+            }
+        }
+
+        out.println(sb.toString());
+    }
+
+    /**
+     * @hidden
+     * @return the current batch counter
+     */
+    public int getBatchCounter() {
+        return batchCounter;
+    }
+
+    /**
+     * @hidden
+     * Increment the current batch counter
+     */
+    public void incBatchCounter() {
+        ++batchCounter;
     }
 
     /**
@@ -641,6 +771,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         this.continuationKey = continuationKey;
 
         if (driver != null && !isInternal && continuationKey == null) {
+            driverQueryTrace = driver.getQueryTrace();
             driver.close();
             driver = null;
         }
@@ -824,6 +955,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @param v the test mode
      */
     public void setInTestMode(boolean v) {
         inTestMode = v;
@@ -831,6 +963,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
+     * @return the current test mode
      */
     public boolean inTestMode() {
         return inTestMode;

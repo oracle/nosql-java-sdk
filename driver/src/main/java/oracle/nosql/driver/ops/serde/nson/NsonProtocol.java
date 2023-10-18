@@ -24,6 +24,7 @@ public class NsonProtocol {
      * format
      */
     public static String ABORT_ON_FAIL = "a";
+    public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
@@ -72,6 +73,7 @@ public class NsonProtocol {
     public static String PREPARED_QUERY = "pq";
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
+    public static String QUERY_NAME = "qn";
     public static String QUERY_VERSION = "qv";
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
@@ -94,12 +96,25 @@ public class NsonProtocol {
     public static String TABLE_USAGE_PERIOD = "pd";
     public static String TIMEOUT = "t";
     public static String TOPO_SEQ_NUM = "ts";
+    public static String TRACE_AT_LOG_FILES = "tf";
     public static String TRACE_LEVEL = "tl";
     public static String TTL = "tt";
     public static String TYPE = "y";
     public static String UPDATE_TTL = "ut";
     public static String VALUE = "l";
     public static String VERSION = "v";
+    public static String VIRTUAL_SCAN = "vs";
+    public static String VIRTUAL_SCANS = "vssa";
+    public static String VIRTUAL_SCAN_SID = "vssid";
+    public static String VIRTUAL_SCAN_PID = "vspid";
+    public static String VIRTUAL_SCAN_PRIM_KEY = "vspk";
+    public static String VIRTUAL_SCAN_SEC_KEY = "vssk";
+    public static String VIRTUAL_SCAN_MOVE_AFTER = "vsma";
+    public static String VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY = "vsjdrk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_TABLES = "vsjpt";
+    public static String VIRTUAL_SCAN_JOIN_PATH_KEY = "vsjpk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_SEC_KEY = "vsjpsk";
+    public static String VIRTUAL_SCAN_JOIN_PATH_MATCHED = "vsjpm";
     public static String WRITE_MULTIPLE = "wm";
     public static String WRITE_THROTTLE_COUNT = "wt";
     public static String WRITE_UNITS = "wu";
@@ -110,8 +125,12 @@ public class NsonProtocol {
     public static String ERROR_CODE = "e";
     public static String EXCEPTION = "x";
     public static String NUM_DELETIONS = "nd";
+    public static String QUERY_BATCH_TRACES = "qts";
+    public static String PROXY_TOPO_SEQNUM = "pn";
     public static String RETRY_HINT = "rh";
+    public static String SHARD_IDS = "sa";
     public static String SUCCESS = "ss";
+    public static String TOPOLOGY_INFO = "tp";
     public static String WM_FAILURE = "wf";
     public static String WM_FAIL_INDEX = "wi";
     public static String WM_FAIL_RESULT = "wr";
@@ -156,16 +175,13 @@ public class NsonProtocol {
     public static String MATH_CONTEXT_PRECISION = "cp";
     public static String NOT_TARGET_TABLES = "nt";
     public static String NUM_RESULTS = "nr";
-    public static String PROXY_TOPO_SEQNUM = "pn";
     public static String QUERY_OPERATION = "qo";
     public static String QUERY_PLAN_STRING = "qs";
     public static String QUERY_RESULTS = "qr";
     public static String QUERY_RESULT_SCHEMA = "qc";
-    public static String REACHED_LIMIT = "re";
-    public static String SHARD_IDS = "sa";
+    public static String REACHED_LIMIT = "re";;
     public static String SORT_PHASE1_RESULTS = "p1";
     public static String TABLE_ACCESS_INFO = "ai";
-    public static String TOPOLOGY_INFO = "tp";
 
     /* replica stats response fields */
     public static String NEXT_START_TIME = "ni";
@@ -175,6 +191,7 @@ public class NsonProtocol {
 
     private static String[][] mapVals = new String[][] {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
+        {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
@@ -223,6 +240,7 @@ public class NsonProtocol {
         {PREPARED_QUERY,"PREPARED_QUERY"},
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
+        {QUERY_NAME,"QUERY_NAME"},
         {QUERY_VERSION,"QUERY_VERSION"},
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
@@ -245,20 +263,37 @@ public class NsonProtocol {
         {TABLE_USAGE_PERIOD,"TABLE_USAGE_PERIOD"},
         {TIMEOUT,"TIMEOUT"},
         {TOPO_SEQ_NUM,"TOPO_SEQ_NUM"},
+        {TRACE_AT_LOG_FILES,"TRACE_AT_LOG_FILES"},
         {TRACE_LEVEL,"TRACE_LEVEL"},
         {TTL,"TTL"},
         {TYPE,"TYPE"},
         {UPDATE_TTL,"UPDATE_TTL"},
         {VALUE,"VALUE"},
         {VERSION,"VERSION"},
+        {VIRTUAL_SCAN,"VIRTUAL_SCAN"},
+        {VIRTUAL_SCANS,"VIRTUAL_SCANS"},
+        {VIRTUAL_SCAN_SID,"VIRTUAL_SCAN_SID"},
+        {VIRTUAL_SCAN_PID,"VIRTUAL_SCAN_PID"},
+        {VIRTUAL_SCAN_PRIM_KEY,"VIRTUAL_SCAN_PRIM_KEY"},
+        {VIRTUAL_SCAN_SEC_KEY,"VIRTUAL_SCAN_SEC_KEY"},
+        {VIRTUAL_SCAN_MOVE_AFTER,"VIRTUAL_SCAN_MOVE_AFTER"},
+        {VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY,"VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_TABLES,"VIRTUAL_SCAN_JOIN_PATH_TABLES"},
+        {VIRTUAL_SCAN_JOIN_PATH_KEY,"VIRTUAL_SCAN_JOIN_PATH_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_SEC_KEY,"VIRTUAL_SCAN_JOIN_PATH_SEC_KEY"},
+        {VIRTUAL_SCAN_JOIN_PATH_MATCHED,"VIRTUAL_SCAN_JOIN_PATH_MATCHED"},
         {WRITE_MULTIPLE,"WRITE_MULTIPLE"},
         {WRITE_THROTTLE_COUNT,"WRITE_THROTTLE_COUNT"},
         {WRITE_UNITS,"WRITE_UNITS"},
         {ERROR_CODE,"ERROR_CODE"},
         {EXCEPTION,"EXCEPTION"},
         {NUM_DELETIONS,"NUM_DELETIONS"},
+        {QUERY_BATCH_TRACES,"QUERY_BATCH_TRACES"},
+        {PROXY_TOPO_SEQNUM,"PROXY_TOPO_SEQNUM"},
         {RETRY_HINT,"RETRY_HINT"},
+        {SHARD_IDS,"SHARD_IDS"},
         {SUCCESS,"SUCCESS"},
+        {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
         {WM_FAILURE,"WM_FAILURE"},
         {WM_FAIL_INDEX,"WM_FAIL_INDEX"},
         {WM_FAIL_RESULT,"WM_FAIL_RESULT"},
@@ -291,16 +326,13 @@ public class NsonProtocol {
         {MATH_CONTEXT_PRECISION,"MATH_CONTEXT_PRECISION"},
         {NOT_TARGET_TABLES,"NOT_TARGET_TABLES"},
         {NUM_RESULTS,"NUM_RESULTS"},
-        {PROXY_TOPO_SEQNUM,"PROXY_TOPO_SEQNUM"},
         {QUERY_OPERATION,"QUERY_OPERATION"},
         {QUERY_PLAN_STRING,"QUERY_PLAN_STRING"},
         {QUERY_RESULTS,"QUERY_RESULTS"},
         {QUERY_RESULT_SCHEMA,"QUERY_RESULT_SCHEMA"},
         {REACHED_LIMIT,"REACHED_LIMIT"},
-        {SHARD_IDS,"SHARD_IDS"},
         {SORT_PHASE1_RESULTS,"SORT_PHASE1_RESULTS"},
         {TABLE_ACCESS_INFO,"TABLE_ACCESS_INFO"},
-        {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
         {NEXT_START_TIME,"NEXT_START_TIME"},
         {REPLICA_STATS,"REPLICA_STATS"},
         {REPLICA_LAG,"REPLICA_LAG"},

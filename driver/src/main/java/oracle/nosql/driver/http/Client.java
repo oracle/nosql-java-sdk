@@ -67,6 +67,7 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
@@ -79,6 +80,7 @@ import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
@@ -91,9 +93,11 @@ import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
+import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -180,6 +184,9 @@ public class Client {
 
     private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
 
+    /* separate version for query compatibility */
+    private volatile short queryVersion = QueryDriver.QUERY_VERSION;
+
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
 
@@ -206,6 +213,8 @@ public class Client {
 
     /* for keeping track of SDKs usage */
     private String userAgent;
+
+    private volatile TopologyInfo topology;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -376,8 +385,15 @@ public class Client {
         kvRequest.setRetryStats(null);
         kvRequest.setRateLimitDelayedMs(0);
 
+        /* kvRequest.isQueryRequest() returns true if kvRequest is a
+         * non-internal QueryRequest */
         if (kvRequest.isQueryRequest()) {
+
             QueryRequest qreq = (QueryRequest)kvRequest;
+
+            /* Set the topo seq num in the request, if it has not been set
+             * already */
+            kvRequest.setTopoSeqNum(getTopoSeqNum());
 
             statsControl.observeQuery(qreq);
 
@@ -406,7 +422,6 @@ public class Client {
                 trace("QueryRequest has no QueryDriver, but is prepared", 2);
                 QueryDriver driver = new QueryDriver(qreq);
                 driver.setClient(this);
-                driver.setTopologyInfo(qreq.topologyInfo());
                 return new QueryResult(qreq, false);
             }
 
@@ -422,6 +437,7 @@ public class Client {
              * QueryResult.
              */
             trace("QueryRequest has no QueryDriver and is not prepared", 2);
+            qreq.incBatchCounter();
         }
 
         int timeoutMs = kvRequest.getTimeoutInternal();
@@ -557,6 +573,7 @@ public class Client {
 
             ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
+            short queryVersionUsed = queryVersion;
             ByteBuf buffer = null;
             try {
                 /*
@@ -588,6 +605,13 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
+                /* Set the topo seq num in the request, if it has not been set
+                 * already */
+                if (!(kvRequest instanceof QueryRequest) ||
+                    kvRequest.isQueryRequest()) {
+                    kvRequest.setTopoSeqNum(getTopoSeqNum());
+                }
+
                 /*
                  * Temporarily change the timeout in the request object so
                  * the serialized timeout sent to the server is correct for
@@ -596,7 +620,8 @@ public class Client {
                  * processing (retry delays, etc) work correctly.
                  */
                 kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
-                serialVersionUsed = writeContent(buffer, kvRequest);
+                serialVersionUsed = writeContent(buffer, kvRequest,
+                    queryVersionUsed);
                 kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
@@ -690,13 +715,16 @@ public class Client {
                 Result res = processResponse(responseHandler.getStatus(),
                                        responseHandler.getHeaders(),
                                        wireContent,
-                                       kvRequest);
+                                       kvRequest,
+                                       serialVersionUsed,
+                                       queryVersionUsed);
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
                 long networkLatency =
                     (System.nanoTime() - latencyNanos) / 1_000_000;
 
+                setTopology(res.getTopology());
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -706,6 +734,11 @@ public class Client {
                     } else if (res instanceof WriteResult) {
                         ((WriteResult)res).setClient(this);
                     }
+                }
+
+                if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                    QueryRequest qreq = (QueryRequest)kvRequest;
+                    qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
                 }
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
@@ -843,8 +876,17 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = re;
                 continue;
+            } catch (UnsupportedQueryVersionException uqve) {
+                /* decrement query version and try again */
+                if (decrementQueryVersion(queryVersionUsed) == true) {
+                    logFine(logger, "Got unsupported query version error " +
+                            "from server: decrementing query version to " +
+                            queryVersion + " and trying again.");
+                    continue;
+                }
+                throw uqve;
             } catch (UnsupportedProtocolException upe) {
-                /* reduce protocol version and try again */
+                /* decrement protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
                     /* Don't set this exception: it's misleading */
                     /* exception = upe; */
@@ -1133,16 +1175,25 @@ public class Client {
      *
      * @throws IOException
      */
-    private short writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest,
+                               short queryVersion)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = serialVersion;
         SerializerFactory factory = chooseFactory(kvRequest);
         factory.writeSerialVersion(versionUsed, bos);
-        kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                      versionUsed,
-                                                      bos);
+        if (kvRequest instanceof QueryRequest ||
+            kvRequest instanceof PrepareRequest) {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          queryVersion,
+                                                          bos);
+        } else {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          bos);
+        }
         return versionUsed;
     }
 
@@ -1157,7 +1208,9 @@ public class Client {
     final Result processResponse(HttpResponseStatus status,
                                  HttpHeaders headers,
                                  ByteBuf content,
-                                 Request kvRequest) {
+                                 Request kvRequest,
+                                 short serialVersionUsed,
+                                 short queryVersionUsed) {
 
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
@@ -1170,7 +1223,8 @@ public class Client {
         setSessionCookie(headers);
 
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
-            return processOKResponse(bis, kvRequest);
+            return processOKResponse(bis, kvRequest, serialVersionUsed,
+                                     queryVersionUsed);
         }
     }
 
@@ -1181,17 +1235,26 @@ public class Client {
      *
      * @throws NoSQLException if the stream could not be read for some reason
      */
-    Result processOKResponse(ByteInputStream in, Request kvRequest) {
+    Result processOKResponse(ByteInputStream in, Request kvRequest,
+                             short serialVersionUsed, short queryVersionUsed) {
         try {
             SerializerFactory factory = chooseFactory(kvRequest);
             int code = factory.readErrorCode(in);
             /* note: this will always be zero in V4 */
             if (code == 0) {
-                Result res =
-                    kvRequest.createDeserializer(factory).
-                    deserialize(kvRequest,
-                                in,
-                                serialVersion);
+                Result res;
+                Serializer ser = kvRequest.createDeserializer(factory);
+                if (kvRequest instanceof QueryRequest ||
+                    kvRequest instanceof PrepareRequest) {
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed,
+                                          queryVersionUsed);
+                } else {
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed);
+                }
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1533,6 +1596,24 @@ public class Client {
 
     /**
      * @hidden
+     *
+     * Try to decrement the query protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number.
+     */
+    private synchronized boolean decrementQueryVersion(short versionUsed) {
+        if (queryVersion != versionUsed) {
+            return true;
+        }
+        if (queryVersion == QueryDriver.QUERY_V4) {
+            queryVersion = QueryDriver.QUERY_V3;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
      * For testing use
      */
     public short getSerialVersion() {
@@ -1788,5 +1869,25 @@ public class Client {
      */
     public void setDefaultNamespace(String ns) {
         config.setDefaultNamespace(ns);
+    }
+
+    public TopologyInfo getTopology() {
+        return topology;
+    }
+
+    private synchronized int getTopoSeqNum() {
+        return (topology == null ? -1 : topology.getSeqNum());
+    }
+
+    private synchronized void setTopology(TopologyInfo topo) {
+
+        if (topo == null) {
+            return;
+        }
+
+        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+            topology = topo;
+            trace("New topology: " + topo, 1);
+        }
     }
 }

@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
+import oracle.nosql.driver.query.TopologyInfo;
+
 /**
  * Result is a base class for result classes for all supported operations.
  * All state and methods are maintained by extending classes.
@@ -36,6 +38,7 @@ public class Result {
      */
     private RetryStats retryStats;
 
+    private TopologyInfo topology;
 
     protected Result() {}
 
@@ -145,4 +148,19 @@ public class Result {
         retryStats = rs;
     }
 
+    /**
+     * @hidden
+     * @return the current topology info
+     */
+    public TopologyInfo getTopology() {
+        return topology;
+    }
+
+    /**
+     * @hidden
+     * @param ti the current topology info
+     */
+    public void setTopology(TopologyInfo ti) {
+        topology = ti;
+    }
 }

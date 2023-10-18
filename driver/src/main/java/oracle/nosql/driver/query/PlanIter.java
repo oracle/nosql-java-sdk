@@ -471,4 +471,27 @@ public abstract class PlanIter {
 
         return sb.toString();
     }
+
+    public static String printIntArray(int[] ints) {
+
+        if (ints == null) {
+            return "null";
+        }
+
+        StringBuffer sb = new StringBuffer();
+
+        sb.append("[ ");
+
+        for (int i =0; i < ints.length; ++i) {
+            int v = ints[i];
+            sb.append(v);
+            if (i < ints.length - 1) {
+                sb.append(", ");
+            }
+        }
+
+        sb.append(" ]");
+
+        return sb.toString();
+    }
 }

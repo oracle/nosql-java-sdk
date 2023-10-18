@@ -58,16 +58,16 @@ public class PrepareRequestSerializer extends BinaryProtocol
         PreparedStatement prepStmt =
             deserializeInternal(prepRq.getStatement(),
                                 prepRq.getQueryPlan(),
+                                result,
                                 in,
                                 serialVersion);
-
-        result.setPreparedStatement(prepStmt);
         return result;
     }
 
     static PreparedStatement deserializeInternal(
         String sqlText,
         boolean getQueryPlan,
+        PrepareResult result,
         ByteInputStream in,
         short serialVersion)  throws IOException {
 
@@ -123,17 +123,22 @@ public class PrepareRequestSerializer extends BinaryProtocol
             ti = BinaryProtocol.readTopologyInfo(in);
         }
 
-        return new PreparedStatement(sqlText,
-                                     queryPlan,
-                                     null, // query schema
-                                     ti,
-                                     proxyStatement,
-                                     driverPlan,
-                                     numIterators,
-                                     numRegisters,
-                                     externalVars,
-                                     namespace,
-                                     tableName,
-                                     operation);
+        PreparedStatement prep =
+            new PreparedStatement(sqlText,
+                                  queryPlan,
+                                  null, // query schema
+                                  proxyStatement,
+                                  driverPlan,
+                                  numIterators,
+                                  numRegisters,
+                                  externalVars,
+                                  namespace,
+                                  tableName,
+                                  operation);
+
+        result.setPreparedStatement(prep);
+        result.setTopology(ti);
+
+        return prep;
     }
 }

@@ -81,6 +81,8 @@ public abstract class Request {
      */
     private boolean isRefresh;
 
+    protected int topoSeqNum = -1;
+
     /**
      * @hidden
      * This is only used by internal, cross-region requests
@@ -497,6 +499,24 @@ public abstract class Request {
      */
     public boolean getIsRefresh() {
         return isRefresh;
+    }
+
+    /**
+     * @hidden
+     * @return the topo sequence number
+     */
+    public int topoSeqNum() {
+        return topoSeqNum;
+    }
+
+    /**
+     * @hidden
+     * @param n the topo sequence number
+     */
+    public void setTopoSeqNum(int n) {
+        if (topoSeqNum < 0) {
+            topoSeqNum = n;
+        }
     }
 
     /**

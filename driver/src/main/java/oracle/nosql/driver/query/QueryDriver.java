@@ -32,7 +32,10 @@ public class QueryDriver {
 
     public static short QUERY_V3 = 3;
 
-    public static short QUERY_VERSION = QUERY_V3;
+    /* added query name in QueryRequest */
+    public static short QUERY_V4 = 4;
+
+    public static short QUERY_VERSION = QUERY_V4;
 
     private static final int BATCH_SIZE = 100;
 
@@ -43,8 +46,6 @@ public class QueryDriver {
     private final QueryRequest theRequest;
 
     private byte[] theContinuationKey;
-
-    private TopologyInfo theTopologyInfo;
 
     private int thePrepCost;
 
@@ -78,20 +79,8 @@ public class QueryDriver {
         return theRequest;
     }
 
-    public void setTopologyInfo(TopologyInfo ti) {
-        theTopologyInfo = ti;
-    }
-
-    TopologyInfo getTopologyInfo() {
-        return theTopologyInfo;
-    }
-
-    int numShards() {
-        return theTopologyInfo.numShards();
-    }
-
-    int getShardId(int i) {
-        return theTopologyInfo.getShardId(i);
+    public RuntimeControlBlock getRCB() {
+        return theRCB;
     }
 
     public void setPrepCost(int cost) {
@@ -247,5 +236,9 @@ public class QueryDriver {
             theResults.clear();
             theResults = null;
         }
+    }
+
+    public String getQueryTrace() {
+        return theRCB.getQueryTrace();
     }
 }

@@ -8,10 +8,12 @@
 package oracle.nosql.driver.ops;
 
 import java.util.List;
+import java.util.Map;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.VirtualScan;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -80,6 +82,10 @@ public class QueryResult extends Result {
     private int[] numResultsPerPid;
 
     private byte[][] continuationKeys;
+
+    private VirtualScan[] virtualScans;
+
+    private Map<String, String> queryTraces;
 
     /**
      * @hidden
@@ -282,6 +288,38 @@ public class QueryResult extends Result {
     public QueryResult setContinuationKey(byte[] continuationKey) {
         this.continuationKey = continuationKey;
         return this;
+    }
+
+    /**
+     * @hidden
+     * @return the array of virtual scans
+     */
+    public VirtualScan[] getVirtualScans() {
+        return virtualScans;
+    }
+
+    /**
+     * @hidden
+     * @param vs the array of virtual scans
+     */
+    public void setVirtualScans(VirtualScan[] vs) {
+        virtualScans = vs;
+    }
+
+    /**
+     * @hidden
+     * @param traces the traces to set
+     */
+    public void setQueryTraces(Map<String, String> traces) {
+        queryTraces = traces;
+    }
+
+    /**
+     * @hidden
+     * @return the traces set
+     */
+    public Map<String, String> getQueryTraces() {
+        return queryTraces;
     }
 
     /* from Result */

@@ -32,6 +32,10 @@ public class TopologyInfo {
         return theShardIds[i];
     }
 
+    int getLastShardId() {
+        return theShardIds[theShardIds.length-1];
+    }
+   
     int[] getShardIds() {
         return theShardIds;
     }
@@ -53,5 +57,19 @@ public class TopologyInfo {
     @Override
     public int hashCode() {
         return theSeqNum;
+    }
+
+    @Override
+    public String toString() {
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("seqNum = ").append(theSeqNum);
+        sb.append(" shards ids = [ ");
+        for (int sid : theShardIds) {
+            sb.append(sid).append(" ");
+        }
+        sb.append("]");
+
+        return sb.toString();
     }
 }
