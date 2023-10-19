@@ -963,8 +963,8 @@ public class WriteMultipleTest extends ProxyTestBase {
         final long DAY_IN_MILLIS = 24 * HOUR_IN_MILLIS;
 
         if (ttl == null || ttl.getValue() == 0) {
-            assertTrue("Expiration time should be " + origExTime + ": " +
-                       actExTime, actExTime == origExTime);
+            assertEquals("Expiration time should be " + origExTime + ": " +
+                    actExTime, actExTime, origExTime);
         } else {
             assertTrue("Expiration time should be greater than 0",
                        actExTime > 0);
