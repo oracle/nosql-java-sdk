@@ -136,7 +136,7 @@ public abstract class PlanIter {
                     return kind;
                 }
             }
-            System.out.println("Unexpected iterator kind: " + kvcode);
+            //System.out.println("Unexpected iterator kind: " + kvcode);
             return null;
         }
     }

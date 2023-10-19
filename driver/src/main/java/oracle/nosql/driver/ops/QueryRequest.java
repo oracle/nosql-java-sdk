@@ -136,7 +136,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private String queryName;
 
-    private boolean logFileTracing = true;
+    private boolean logFileTracing;
 
     private String driverQueryTrace;
 
