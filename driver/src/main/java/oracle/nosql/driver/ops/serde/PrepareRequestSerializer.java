@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
@@ -29,27 +30,60 @@ import oracle.nosql.driver.util.ByteOutputStream;
  */
 public class PrepareRequestSerializer extends BinaryProtocol
                                       implements Serializer {
-
     @Override
     public void serialize(Request request,
                           short serialVersion,
                           ByteOutputStream out)
         throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in prepare request serializer");
+    }
+
+    @Override
+    public void serialize(Request request,
+                          short serialVersion,
+                          short queryVersion,
+                          ByteOutputStream out)
+        throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         PrepareRequest prepRq = (PrepareRequest) request;
 
         writeOpCode(out, OpCode.PREPARE);
         serializeRequest(prepRq, out);
         writeString(out, prepRq.getStatement());
-        out.writeShort(QueryDriver.QUERY_VERSION);
+        out.writeShort(queryVersion);
         out.writeBoolean(prepRq.getQueryPlan());
     }
 
     @Override
-    public PrepareResult deserialize(Request request,
-                                     ByteInputStream in,
-                                     short serialVersion)
-        throws IOException {
+    public PrepareResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in prepare request deserializer");
+    }
+
+    @Override
+    public PrepareResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion,
+         short queryVersion) throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         PrepareRequest prepRq = (PrepareRequest) request;
         PrepareResult result = new PrepareResult();
