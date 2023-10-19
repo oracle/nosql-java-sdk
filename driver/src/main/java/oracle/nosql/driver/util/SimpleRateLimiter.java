@@ -9,7 +9,6 @@ package oracle.nosql.driver.util;
 
 import oracle.nosql.driver.RateLimiter;
 
-import java.lang.IllegalArgumentException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 
