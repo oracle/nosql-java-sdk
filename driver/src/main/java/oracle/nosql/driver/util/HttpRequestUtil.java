@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
@@ -42,7 +43,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  * Utility to issue HTTP request using {@link HttpClient}.
  */
 public class HttpRequestUtil {
-    private static final Charset utf8 = Charset.forName("UTF-8");
+    private static final Charset utf8 = StandardCharsets.UTF_8;
     private static final int DEFAULT_DELAY_MS = 200;
 
     /**
