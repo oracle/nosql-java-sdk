@@ -781,8 +781,7 @@ public class Client {
                 return res;
 
             } catch (AuthenticationException rae) {
-                if (authProvider != null &&
-                    authProvider instanceof StoreAccessTokenProvider) {
+                if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
                     satp.bootstrapLogin();
