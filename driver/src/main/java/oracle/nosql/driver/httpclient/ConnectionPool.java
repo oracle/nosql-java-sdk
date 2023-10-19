@@ -244,12 +244,7 @@ class ConnectionPool {
                      * few milliseconds for the promise to be completed
                      * (successfully or not).
                      */
-                    loop.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                checkChannel(channel, promise);
-                            }
-                        });
+                    loop.execute(() -> checkChannel(channel, promise));
                 }
                 break;
             }
