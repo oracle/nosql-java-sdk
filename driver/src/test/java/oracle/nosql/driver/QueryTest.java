@@ -1140,10 +1140,10 @@ public class QueryTest extends ProxyTestBase {
         verbose("Finished: total=" + total + ", pass=" + passed +
                 ", timeouts=" + timeouts + ", exceptions=" + exceptions +
                 ", nullResults=" + nullResults);
-        assertTrue("Unexpected number of exceptions. Expected zero, got " +
-                   exceptions, exceptions == 0);
-        assertTrue("Unexpected number of null results. Expected zero, got " +
-                   nullResults, nullResults == 0);
+        assertEquals("Unexpected number of exceptions. Expected zero, got " +
+                exceptions, 0, exceptions);
+        assertEquals("Unexpected number of null results. Expected zero, got " +
+                nullResults, 0, nullResults);
         assertTrue("Expected last request to pass, but it failed", lastPassed);
     }
 
@@ -2338,8 +2338,8 @@ public class QueryTest extends ProxyTestBase {
             }
             while (!queryReq.isDone());
 
-            assertTrue("Wrong number of rows returned, expect " + expNumRows +
-                ", but get " + numRows, numRows == expNumRows);
+            assertEquals("Wrong number of rows returned, expect " + expNumRows +
+                    ", but get " + numRows, numRows, expNumRows);
         }
     }
 

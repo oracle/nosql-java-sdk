@@ -158,18 +158,11 @@ public class SortIter extends PlanIter {
             }
 
             state.theResults.sort(
-                new Comparator<MapValue>() {
-
-                    @Override
-                    public int compare(MapValue v1, MapValue v2) {
-
-                        return Compare.sortResults(rcb,
-                                                   v1,
-                                                   v2,
-                                                   theSortFields,
-                                                   theSortSpecs);
-                    }
-                });
+                    (v1, v2) -> Compare.sortResults(rcb,
+                                               v1,
+                                               v2,
+                                               theSortFields,
+                                               theSortSpecs));
 
             state.setState(StateEnum.RUNNING);
         }

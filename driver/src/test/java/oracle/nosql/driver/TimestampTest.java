@@ -11,6 +11,7 @@ import static oracle.nosql.driver.util.TimestampUtil.createTimestamp;
 import static oracle.nosql.driver.util.TimestampUtil.getNanoSeconds;
 import static oracle.nosql.driver.util.TimestampUtil.getSeconds;
 import static oracle.nosql.driver.util.TimestampUtil.parseString;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -148,34 +149,34 @@ public class TimestampTest extends ProxyTestBase {
         assertReadKB(getRes);
 
         Timestamp val = value.get("ts0").getTimestamp();
-        assertTrue("Wrong value of ts0", val.compareTo(roundUp(ts, 0)) == 0);
+        assertEquals("Wrong value of ts0", 0, val.compareTo(roundUp(ts, 0)));
 
         val = value.get("ts1").getTimestamp();
-        assertTrue("Wrong value of ts1", val.compareTo(roundUp(ts, 1)) == 0);
+        assertEquals("Wrong value of ts1", 0, val.compareTo(roundUp(ts, 1)));
 
         val = value.get("ts2").getTimestamp();
-        assertTrue("Wrong value of ts2", val.compareTo(roundUp(ts, 2)) == 0);
+        assertEquals("Wrong value of ts2", 0, val.compareTo(roundUp(ts, 2)));
 
         val = value.get("ts3").getTimestamp();
-        assertTrue("Wrong value of ts3", val.compareTo(roundUp(ts, 3)) == 0);
+        assertEquals("Wrong value of ts3", 0, val.compareTo(roundUp(ts, 3)));
 
         val = value.get("ts4").getTimestamp();
-        assertTrue("Wrong value of ts4", val.compareTo(roundUp(ts, 4)) == 0);
+        assertEquals("Wrong value of ts4", 0, val.compareTo(roundUp(ts, 4)));
 
         val = value.get("ts5").getTimestamp();
-        assertTrue("Wrong value of ts5", val.compareTo(roundUp(ts, 5)) == 0);
+        assertEquals("Wrong value of ts5", 0, val.compareTo(roundUp(ts, 5)));
 
         val = value.get("ts6").getTimestamp();
-        assertTrue("Wrong value of ts6", val.compareTo(roundUp(ts, 6)) == 0);
+        assertEquals("Wrong value of ts6", 0, val.compareTo(roundUp(ts, 6)));
 
         val = value.get("ts7").getTimestamp();
-        assertTrue("Wrong value of ts7", val.compareTo(roundUp(ts, 7)) == 0);
+        assertEquals("Wrong value of ts7", 0, val.compareTo(roundUp(ts, 7)));
 
         val = value.get("ts8").getTimestamp();
-        assertTrue("Wrong value of ts8", val.compareTo(roundUp(ts, 8)) == 0);
+        assertEquals("Wrong value of ts8", 0, val.compareTo(roundUp(ts, 8)));
 
         val = value.get("ts9").getTimestamp();
-        assertTrue("Wrong value of ts9", val.compareTo(roundUp(ts, 9)) == 0);
+        assertEquals("Wrong value of ts9", 0, val.compareTo(roundUp(ts, 9)));
 
         /* Delete the row */
         DeleteRequest delRequest = new DeleteRequest()

@@ -14,7 +14,7 @@ import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
@@ -385,7 +385,7 @@ class SecurityTokenSupplier {
             }
             String[] jwt = splitJWT(token);
             String claimJson = new String(Base64.getUrlDecoder().decode(jwt[1]),
-                                          Charset.forName("UTF-8"));
+                    StandardCharsets.UTF_8);
 
             try {
                 JsonParser parser = createParser(claimJson);

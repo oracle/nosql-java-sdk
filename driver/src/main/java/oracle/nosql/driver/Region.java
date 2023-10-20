@@ -8,7 +8,6 @@
 package oracle.nosql.driver;
 
 import java.text.MessageFormat;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 

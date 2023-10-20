@@ -8,6 +8,7 @@
 package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.BinaryProtocol.WRITE_KB_LIMIT;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -214,7 +215,7 @@ public class MultiDeleteTest extends ProxyTestBase {
             }
         }
 
-        assertTrue(nDeleted == expNumDeleted);
+        assertEquals(nDeleted, expNumDeleted);
     }
 
     /**

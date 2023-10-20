@@ -492,16 +492,13 @@ public class HttpClient {
          * another thread.
          */
         channel.writeAndFlush(request).
-            addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) {
-                        if (!future.isSuccess()) {
-                            /* handleException logs this exception */
-                            handler.handleException("HttpClient: send failed",
-                                                    future.cause());
-                        }
-                    }
-                });
+            addListener((ChannelFutureListener) future -> {
+                if (!future.isSuccess()) {
+                    /* handleException logs this exception */
+                    handler.handleException("HttpClient: send failed",
+                                            future.cause());
+                }
+            });
     }
 
     /**
