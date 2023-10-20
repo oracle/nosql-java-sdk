@@ -14,7 +14,6 @@ import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
