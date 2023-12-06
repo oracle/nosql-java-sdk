@@ -60,6 +60,8 @@ public class Region {
     private static final Map<String, Region> OC20_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC22_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC24_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC25_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC26_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC27_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC28_REGIONS = new HashMap<>();
 
@@ -231,6 +233,14 @@ public class Region {
     /** AVZ */
     public static final Region EU_DCC_ZURICH_1 = new Region("eu-dcc-zurich-1");
 
+    /* OC25 */
+    /** TYO */
+    public static final Region AP_DCC_TOKYO_1 = new Region("ap-dcc-tokyo-1");
+
+    /* OC26 */
+    /** AHU */
+    public static final Region ME_ABUDHABI_3 = new Region("me-abudhabi-3");
+
     /* OC27 */
     /** OZZ */
     public static final Region US_DCC_SWJORDAN_1 = new Region("us-dcc-swjordan-1");
@@ -349,6 +359,12 @@ public class Region {
         /* OC24 */
         OC24_REGIONS.put(EU_DCC_ZURICH_1.getRegionId(), EU_DCC_ZURICH_1);
 
+        /* OC25 */
+        OC25_REGIONS.put(AP_DCC_TOKYO_1.getRegionId(), AP_DCC_TOKYO_1);
+
+        /* OC26 */
+        OC26_REGIONS.put(ME_ABUDHABI_3.getRegionId(), ME_ABUDHABI_3);
+
         /* OC27 */
         OC27_REGIONS.put(US_DCC_SWJORDAN_1.getRegionId(), US_DCC_SWJORDAN_1);
 
@@ -384,6 +400,10 @@ public class Region {
         "https://nosql.{0}.oci.psn-pco.it");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud24.com");
+    private final static MessageFormat OC25_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.nricloud.jp");
+    private final static MessageFormat OC26_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.oraclecloud26.com");
     private final static MessageFormat OC27_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud27.com");
     private final static MessageFormat OC28_EP_BASE = new MessageFormat(
@@ -441,6 +461,12 @@ public class Region {
         }
         if (isOC24Region(regionId)) {
             return OC24_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC25Region(regionId)) {
+            return OC25_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC26Region(regionId)) {
+            return OC26_EP_BASE.format(new Object[] { regionId });
         }
         if (isOC27Region(regionId)) {
             return OC27_EP_BASE.format(new Object[] { regionId });
@@ -504,6 +530,12 @@ public class Region {
         }
         if (region == null) {
             region = OC24_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC25_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC26_REGIONS.get(regionId);
         }
         if (region == null) {
             region = OC27_REGIONS.get(regionId);
@@ -662,6 +694,26 @@ public class Region {
      */
     public static boolean isOC24Region(String regionId) {
         return (OC24_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC25Region(String regionId) {
+        return (OC25_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC26Region(String regionId) {
+        return (OC26_REGIONS.get(regionId) != null);
     }
 
     /**
