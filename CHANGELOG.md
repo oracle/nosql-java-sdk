@@ -2,12 +2,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Added
+- Cloud only: added new OCI regions (TYO, AHU)
+
 ## [5.4.14] 20230-11-17
 
-## Added
+### Added
 - Added SDK version number in exception messages
 
-## Changed
+### Changed
 - Modified internal query processing to better support elasticity operations
 - Update netty dependency to 4.1.101.Final
 
