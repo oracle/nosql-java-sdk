@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Unreleased
 
 ### Added
-- Cloud only: added new OCI regions (TYO, AHU)
+- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH)
 
 ## [5.4.14] 20230-11-17
 

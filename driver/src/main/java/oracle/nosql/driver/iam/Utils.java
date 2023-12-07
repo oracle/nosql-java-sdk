@@ -107,6 +107,8 @@ class Utils {
         "https://auth.{0}.oraclecloud10.com");
     private final static MessageFormat OC14_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud14.com");
+    private final static MessageFormat OC15_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud15.com");
     private final static MessageFormat OC16_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud16.com");
     private final static MessageFormat OC17_EP_BASE = new MessageFormat(
@@ -115,6 +117,8 @@ class Utils {
         "https://auth.{0}.oraclecloud.eu");
     private final static MessageFormat OC20_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud20.com");
+    private final static MessageFormat OC21_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud21.com");
     private final static MessageFormat OC22_EP_BASE = new MessageFormat(
         "https://auth.{0}.psn-pco.it");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
@@ -212,6 +216,9 @@ class Utils {
         IAM_URI.put("dus", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-1"}));
         IAM_URI.put("dtm", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-2"}));
 
+        /* OC15 */
+        IAM_URI.put("dac", OC15_EP_BASE.format(new Object[] {"ap-dcc-gazipur-1"}));
+
         /* OC16 */
         IAM_URI.put("sgu", OC16_EP_BASE.format(new Object[] {"us-westjordan-1"}));
 
@@ -226,6 +233,9 @@ class Utils {
 
         /* OC20 */
         IAM_URI.put("beg", OC20_EP_BASE.format(new Object[] {"eu-jovanovac-1"}));
+
+        /* OC21 */
+        IAM_URI.put("doh", OC21_EP_BASE.format(new Object[] {"me-dcc-doha-1"}));
 
         /* OC22 */
         IAM_URI.put("nap", OC22_EP_BASE.format(new Object[] {"eu-dcc-rome-1"}));
@@ -273,6 +283,9 @@ class Utils {
             if (Region.isOC14Region(regionIdOrCode)) {
                 return OC14_EP_BASE.format(new Object[] {regionIdOrCode});
             }
+            if (Region.isOC15Region(regionIdOrCode)) {
+                return OC15_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
             if (Region.isOC16Region(regionIdOrCode)) {
                 return OC16_EP_BASE.format(new Object[] {regionIdOrCode});
             }
@@ -284,6 +297,9 @@ class Utils {
             }
             if (Region.isOC20Region(regionIdOrCode)) {
                 return OC20_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC21Region(regionIdOrCode)) {
+                return OC21_EP_BASE.format(new Object[] {regionIdOrCode});
             }
             if (Region.isOC22Region(regionIdOrCode)) {
                 return OC22_EP_BASE.format(new Object[] {regionIdOrCode});
