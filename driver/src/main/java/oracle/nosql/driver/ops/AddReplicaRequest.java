@@ -24,6 +24,7 @@ public class AddReplicaRequest extends Request {
     private String replicaName;
     private int readUnits;
     private int writeUnits;
+    private String matchETag;
 
     /**
      * Sets the table name to replicate
@@ -100,6 +101,33 @@ public class AddReplicaRequest extends Request {
      */
     public int getWriteUnits() {
         return writeUnits;
+    }
+
+    /**
+     * Sets an ETag in the request that must be matched for the operation
+     * to proceed. The ETag must be non-null and have been returned in a
+     * previous {@link TableResult}. This is a form of optimistic concurrency
+     * control allowing an application to ensure no unexpected modifications
+     * have been made to the table.
+     *
+     * @param etag the ETag
+     *
+     * @return this
+     * @since 5.4.15
+     */
+    public AddReplicaRequest setMatchEtag(String etag) {
+        this.matchETag = etag;
+        return this;
+    }
+
+    /**
+     * Returns the matchEtag, or null if not set
+     *
+     * @return the ETag
+     * @since 5.4.15
+     */
+    public String getMatchETag() {
+        return matchETag;
     }
 
     /**

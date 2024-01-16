@@ -22,6 +22,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 public class DropReplicaRequest extends Request {
 
     private String replicaName;
+    private String matchETag;
 
     /**
      * Sets the table name to use for the operation.
@@ -54,6 +55,33 @@ public class DropReplicaRequest extends Request {
      */
     public String getReplicaName() {
         return replicaName;
+    }
+
+    /**
+     * Sets an ETag in the request that must be matched for the operation
+     * to proceed. The ETag must be non-null and have been returned in a
+     * previous {@link TableResult}. This is a form of optimistic concurrency
+     * control allowing an application to ensure no unexpected modifications
+     * have been made to the table.
+     *
+     * @param etag the ETag
+     *
+     * @return this
+     * @since 5.4.15
+     */
+    public DropReplicaRequest setMatchEtag(String etag) {
+        this.matchETag = etag;
+        return this;
+    }
+
+    /**
+     * Returns the matchEtag, or null if not set
+     *
+     * @return the ETag
+     * @since 5.4.15
+     */
+    public String getMatchETag() {
+        return matchETag;
     }
 
     /**
