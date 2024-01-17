@@ -132,7 +132,7 @@ public class ReplicaStatsRequest extends Request {
     }
 
     /**
-     * Sets the limit to the number of replica stats records desired. The
+     * Sets the limit to the number of replica stats records per region, the
      * default value is 1000.
      *
      * @param limit the numeric limit

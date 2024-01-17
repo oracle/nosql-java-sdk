@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - Cloud only: added new OCI regions (TYO, AHU, DAC, DOH)
+- Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
 
 ## [5.4.14] 20230-11-17
 

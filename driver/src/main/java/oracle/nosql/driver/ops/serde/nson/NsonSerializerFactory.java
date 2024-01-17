@@ -341,6 +341,8 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name (if needed)
      *    statement (DDL)
      *    limits (if required -- create/alter)
+     *    tags
+     *    etag (string)
      *
      * Table result (all optional):
      *  table name (string)
@@ -374,7 +376,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, STATEMENT, rq.getStatement());
             writeLimits(ns, rq.getTableLimits());
             writeTags(ns, rq);
-            writeMapField(ns, ETAG, rq.getMatchETag());
+            if (rq.getMatchETag() != null) {
+                writeMapField(ns, ETAG, rq.getMatchETag());
+            }
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -1971,6 +1975,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *   region (string) -- required
      *   readUnits (int)
      *   writeUnits (int)
+     *   etag (string)
      *
      * Table result (all optional):
      *   compartment ocid (string)
@@ -2020,6 +2025,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, REGION, req.getReplicaName());
             writeMapFieldNZ(ns, READ_UNITS, req.getReadUnits());
             writeMapFieldNZ(ns, WRITE_UNITS, req.getWriteUnits());
+            if (req.getMatchETag() != null) {
+                writeMapField(ns, ETAG, req.getMatchETag());
+            }
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -2040,6 +2048,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  Payload:
      *    tableName (in header) -- required
      *    region (string) -- required
+     *    etag (string)
      *
      * Table result (all optional):
      *   compartment ocid (string)
@@ -2087,6 +2096,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             /* payload */
             startMap(ns, PAYLOAD);
             writeMapField(ns, REGION, req.getReplicaName());
+            if (req.getMatchETag() != null) {
+                writeMapField(ns, ETAG, req.getMatchETag());
+            }
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
