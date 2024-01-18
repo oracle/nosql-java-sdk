@@ -24,6 +24,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
+import static oracle.nosql.driver.util.BinaryProtocol.ETAG_MISMATCH;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.EVOLUTION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_ARGUMENT;
@@ -489,6 +490,8 @@ public class BinaryProtocol extends Nson {
             return new OperationNotSupportedException(msg);
         case TABLE_NOT_READY:
             return new TableNotReadyException(msg);
+        case ETAG_MISMATCH:
+            return new IllegalArgumentException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);
