@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -298,13 +298,13 @@ class ConnectionPool {
     void close() {
         logFine(logger, "Closing pool, stats " + getStats());
         /* TODO: do this cleanly */
-        validatePool();
+        validatePool("close1");
         Channel ch = queue.pollFirst();
         while (ch != null) {
             removeChannel(ch);
             ch = queue.pollFirst();
         }
-        validatePool();
+        validatePool("close2");
     }
 
     /**
@@ -422,7 +422,7 @@ class ConnectionPool {
             }
         }
 
-        validatePool();
+        validatePool("pruneChannels");
         return pruned;
     }
 
@@ -494,20 +494,20 @@ class ConnectionPool {
                 break;
             }
         }
-        validatePool();
+        validatePool("doKeepAlive");
 
         return numSent;
     }
 
-    private void validatePool() {
+    private void validatePool(final String caller) {
         /*
          * Some sanity checking. Stats size should include all channels in the
          * pool -- acquired plus not-acquired
          */
         if ((queue.size() + acquiredChannelCount) != stats.size()) {
             logInfo(logger,
-                    "Pool count discrepancy: Queue size, acquired count, " +
-                    "stats size :" + queue.size() + ", " +
+                    "Pool count discrepancy, called from " + caller +
+                    " : Queue size, acquired count, stats size :" + queue.size() + ", " +
                     acquiredChannelCount + ", " + stats.size());
         }
     }

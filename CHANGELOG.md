@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Cloud only: added new OCI regions (TYO, AHU, DAC, DOH)
 - Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
 
-## [5.4.14] 20230-11-17
+## [5.4.14] 2023-11-17
 
 ### Added
 - Added SDK version number in exception messages
