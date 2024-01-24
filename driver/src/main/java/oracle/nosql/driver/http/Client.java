@@ -1842,6 +1842,9 @@ public class Client {
          * because in the client it's not known if the operation is on a
          * multi-region table or not. This is a small bit of overhead and
          * is ignored if the table is not multi-region
+         *
+         * The Request.oboToken is not required by non Java SDKs, remove
+         * request.getOboToken() != null if there is no Request.oboToken
          */
         return request instanceof AddReplicaRequest ||
                request instanceof DropReplicaRequest ||

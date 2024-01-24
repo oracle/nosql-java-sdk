@@ -1086,6 +1086,14 @@ public class SignatureProvider
         return sigDetails;
     }
 
+    /*
+     * Since Request.oboToken is not required by non Java SDKs, if there
+     * is no Request.oboToken, simplify this method as following:
+     *
+     * private String getDelegationToken(Request req) {
+     *     return delegationToken;
+     * }
+     */
     private String getDelegationToken(Request req) {
         return (req != null && req.getOboToken() != null) ?
                req.getOboToken() : delegationToken;

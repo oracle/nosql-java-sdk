@@ -85,7 +85,8 @@ public abstract class Request {
 
     /**
      * @hidden
-     * This is only used by internal, cross-region requests
+     * This is only required by Java SDK for internal cross-region request, not
+     * by other drivers.
      */
     private String oboToken;
 
@@ -569,7 +570,9 @@ public abstract class Request {
 
     /**
      * @hidden
-     * internal use only
+     * This is only required by Java SDK for internal cross-region request, not
+     * by other drivers.
+     *
      * @param token the on-behalf-of token
      */
     public void setOboTokenInternal(String token) {
@@ -578,7 +581,9 @@ public abstract class Request {
 
     /**
      * @hidden
-     * internal use only
+     * This is only required by Java SDK for internal cross-region request, not
+     * by other drivers.
+     *
      * @return the on-behalf-of token
      */
     public String getOboToken() {
