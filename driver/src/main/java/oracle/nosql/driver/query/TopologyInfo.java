@@ -16,6 +16,9 @@ public class TopologyInfo {
     private int[] theShardIds;
 
     public TopologyInfo(int seqNum, int[] shardIds) {
+        if (shardIds == null) {
+            throw new IllegalArgumentException("TopologyInfo shardIds must not be null");
+        }
         theSeqNum = seqNum;
         theShardIds = shardIds;
     }
