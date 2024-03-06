@@ -66,6 +66,7 @@ public class Region {
     private static final Map<String, Region> OC26_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC27_REGIONS = new HashMap<>();
     private static final Map<String, Region> OC28_REGIONS = new HashMap<>();
+    private static final Map<String, Region> OC31_REGIONS = new HashMap<>();
 
     /* OC1 */
     /** JNB */
@@ -259,6 +260,10 @@ public class Region {
     /** DRS */
     public static final Region US_DCC_SWJORDAN_2 = new Region("us-dcc-swjordan-2");
 
+    /* OC31 */
+    /** IZQ */
+    public static final Region AP_HOBSONVILLE_1 = new Region("ap-hobsonville-1");
+
     static {
         /* OC1 */
         /* AF */
@@ -386,6 +391,9 @@ public class Region {
 
         /* OC28 */
         OC28_REGIONS.put(US_DCC_SWJORDAN_2.getRegionId(), US_DCC_SWJORDAN_2);
+
+        /* OC31 */
+        OC31_REGIONS.put(AP_HOBSONVILLE_1.getRegionId(), AP_HOBSONVILLE_1);
     }
 
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -428,6 +436,8 @@ public class Region {
         "https://nosql.{0}.oci.oraclecloud27.com");
     private final static MessageFormat OC28_EP_BASE = new MessageFormat(
         "https://nosql.{0}.oci.oraclecloud28.com");
+    private final static MessageFormat OC31_EP_BASE = new MessageFormat(
+        "https://nosql.{0}.oci.sovereigncloud.nz");
 
     private String regionId;
 
@@ -499,6 +509,9 @@ public class Region {
         }
         if (isOC28Region(regionId)) {
             return OC28_EP_BASE.format(new Object[] { regionId });
+        }
+        if (isOC31Region(regionId)) {
+            return OC31_EP_BASE.format(new Object[] { regionId });
         }
         throw new IllegalArgumentException(
             "Unable to find endpoint for unknown region" + regionId);
@@ -574,6 +587,9 @@ public class Region {
         }
         if (region == null) {
             region = OC28_REGIONS.get(regionId);
+        }
+        if (region == null) {
+            region = OC31_REGIONS.get(regionId);
         }
 
         return region;
@@ -786,6 +802,16 @@ public class Region {
      */
     public static boolean isOC28Region(String regionId) {
         return (OC28_REGIONS.get(regionId) != null);
+    }
+
+    /**
+     * @hidden
+     * Internal use only
+     * @param regionId the region id
+     * @return the value
+     */
+    public static boolean isOC31Region(String regionId) {
+        return (OC31_REGIONS.get(regionId) != null);
     }
 
     /**

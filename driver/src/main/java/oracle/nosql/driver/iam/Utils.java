@@ -131,6 +131,8 @@ class Utils {
         "https://auth.{0}.oraclecloud27.com");
     private final static MessageFormat OC28_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud28.com");
+    private final static MessageFormat OC31_EP_BASE = new MessageFormat(
+        "https://auth.{0}.sovereigncloud.nz");
 
     static {
         /* OC1 */
@@ -254,6 +256,9 @@ class Utils {
 
         /* OC28 */
         IAM_URI.put("drs", OC28_EP_BASE.format(new Object[] {"us-dcc-swjordan-2"}));
+
+        /* OC31 */
+        IAM_URI.put("izq", OC31_EP_BASE.format(new Object[] {"ap-hobsonville-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -318,6 +323,9 @@ class Utils {
             }
             if (Region.isOC28Region(regionIdOrCode)) {
                 return OC28_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC31Region(regionIdOrCode)) {
+                return OC31_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 
