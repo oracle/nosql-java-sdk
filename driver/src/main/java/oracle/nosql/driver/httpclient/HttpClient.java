@@ -366,7 +366,16 @@ public class HttpClient {
      */
     public void shutdown() {
         pool.close();
-        workerGroup.shutdownGracefully().syncUninterruptibly();
+        /*
+         * 0 means no quiet period, waiting for more tasks
+         * 5000ms is total time to wait for shutdown (should never take this
+         * long
+         *
+         * See doc:
+         * https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully--
+         */
+        workerGroup.shutdownGracefully(0, 5000, TimeUnit.MILLISECONDS).
+            syncUninterruptibly();
     }
 
     public Channel getChannel(int timeoutMs)

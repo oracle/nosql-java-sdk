@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ)
 - Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
 
+### Fixed
+- Changed handle close to not use the Netty "quiet period" when shutting down
+  the worker group. This makes handle close much faster as well as making it
+  faster to acquire authentication information in the cloud service when using a
+  method that uses an HTTP request such as Instance Principal authentication
+
 ## [5.4.14] 2023-11-17
 
 ### Added
