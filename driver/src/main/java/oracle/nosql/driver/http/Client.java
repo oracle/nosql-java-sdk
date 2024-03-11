@@ -33,11 +33,14 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -1245,6 +1248,9 @@ public class Client {
                 Serializer ser = kvRequest.createDeserializer(factory);
                 if (kvRequest instanceof QueryRequest ||
                     kvRequest instanceof PrepareRequest) {
+                    prepareResponseTestHook(kvRequest, in,
+                                            serialVersionUsed,
+                                            queryVersionUsed);
                     res = ser.deserialize(kvRequest,
                                           in,
                                           serialVersionUsed,
@@ -1891,5 +1897,64 @@ public class Client {
             topology = topo;
             trace("New topology: " + topo, 1);
         }
+    }
+
+    /*
+     * @hidden
+     * Test hook for collecting prepare responses
+     */
+    private void prepareResponseTestHook(Request kvReq,
+                                     ByteInputStream in,
+                                     short serialVersion,
+                                     short queryVersion) throws IOException {
+        if (!(kvReq instanceof PrepareRequest) ||
+            !(in instanceof NettyByteInputStream)) {
+            return;
+        }
+        String prepareFilename = System.getProperty("test.preparefilename");
+        if (prepareFilename == null) {
+            return;
+        }
+        int offset = in.getOffset();
+        try {
+            PrepareRequest pReq = (PrepareRequest) kvReq;
+            NettyByteInputStream nis = (NettyByteInputStream) in;
+            ByteBuf buf = nis.buffer();
+            int numBytes = buf.readableBytes();
+            byte[] bytes = new byte[numBytes];
+            for (int x = 0; x < numBytes; x++) {
+                bytes[x] = in.readByte();
+            }
+            try (DataOutputStream dos = new DataOutputStream(
+                    new FileOutputStream(prepareFilename))) {
+                logFine(logger, "Serializing prepare response to " +
+                    prepareFilename);
+                dos.write(bytes, 0, numBytes);
+            } catch (Exception e) {
+                System.err.println("Error writing serialized " +
+                        "prepared result: " + e);
+            }
+            /* write statement, etc to properties file */
+            Properties props = new Properties();
+            props.setProperty("statement", pReq.getStatement());
+            props.setProperty("getplan",
+                    String.valueOf(pReq.getQueryPlan()));
+            props.setProperty("serialversion",
+                    String.valueOf(serialVersion));
+            props.setProperty("queryversion",
+                    String.valueOf(queryVersion));
+            String fName = prepareFilename + ".props";
+            try (FileOutputStream fos = new FileOutputStream(fName)) {
+                logFine(logger, "Writing property file " + fName);
+                props.store(fos, "");
+            } catch (Exception e) {
+                System.err.println("Error writing serialized " +
+                        "prepared result: " + e);
+            }
+        } catch (IOException e) {
+            System.err.println("Error writing serialized " +
+                    "prepared result: " + e);
+        }
+        in.setOffset(offset);
     }
 }
