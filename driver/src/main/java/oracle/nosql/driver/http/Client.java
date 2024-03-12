@@ -219,6 +219,9 @@ public class Client {
 
     private volatile TopologyInfo topology;
 
+    /* for internal testing */
+    private final String prepareFilename;
+
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -303,6 +306,9 @@ public class Client {
         } else {
             this.userAgent = HttpConstants.userAgent;
         }
+
+        /* for internal testing */
+        prepareFilename = System.getProperty("test.preparefilename");
     }
 
     /**
@@ -1907,12 +1913,9 @@ public class Client {
                                      ByteInputStream in,
                                      short serialVersion,
                                      short queryVersion) throws IOException {
-        if (!(kvReq instanceof PrepareRequest) ||
+        if (prepareFilename == null ||
+            !(kvReq instanceof PrepareRequest) ||
             !(in instanceof NettyByteInputStream)) {
-            return;
-        }
-        String prepareFilename = System.getProperty("test.preparefilename");
-        if (prepareFilename == null) {
             return;
         }
         int offset = in.getOffset();
