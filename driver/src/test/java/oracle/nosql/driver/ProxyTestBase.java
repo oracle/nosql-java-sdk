@@ -650,6 +650,10 @@ public class ProxyTestBase {
         if (arr == null || arr.length != 3) {
             return -1;
         }
+        int off = arr[2].indexOf("-SNAPSHOT");
+        if (off > 0) {
+            arr[2] = arr[2].substring(0, off);
+        }
         try {
             return (Integer.parseInt(arr[0]) * 1000000) +
                    (Integer.parseInt(arr[1]) * 1000) +
