@@ -300,12 +300,10 @@ class ConnectionPool {
         /* TODO: do this cleanly */
         validatePool("close1");
         Channel ch = queue.pollFirst();
-        System.out.println("GMF: CP.close 1: " + java.time.Instant.now());
         while (ch != null) {
             removeChannel(ch);
             ch = queue.pollFirst();
         }
-        System.out.println("GMF: CP.close 2: " + java.time.Instant.now());
         validatePool("close2");
     }
 
