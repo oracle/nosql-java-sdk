@@ -93,7 +93,7 @@ abstract class ResourcePrincipalTokenSupplier {
 
             logTrace(logger, "Getting security token from file.");
             SecurityToken token = getSecurityTokenFromFile();
-            token.validate(minTokenLifetime);
+            token.validate(minTokenLifetime, logger);
             securityToken = token;
             return securityToken.getSecurityToken();
         }
@@ -132,16 +132,19 @@ abstract class ResourcePrincipalTokenSupplier {
         extends ResourcePrincipalTokenSupplier {
 
         private final SecurityToken securityToken;
+        private final Logger logger;
 
         FixedSecurityTokenSupplier(SessionKeyPairSupplier sessionKeySupplier,
-                                   String sessionToken) {
+                                   String sessionToken,
+                                   Logger logger) {
             this.securityToken = new SecurityToken(sessionToken,
                                                    sessionKeySupplier);
+            this.logger = logger;
         }
 
         @Override
         public String getSecurityToken() {
-            securityToken.validate(minTokenLifetime);
+            securityToken.validate(minTokenLifetime, logger);
             return securityToken.getSecurityToken();
         }
 

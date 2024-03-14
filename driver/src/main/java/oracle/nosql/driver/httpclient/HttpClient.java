@@ -111,6 +111,9 @@ public class HttpClient {
     private final SslContext sslCtx;
     private final int handshakeTimeoutMs;
 
+    /* Enable endpoint identification by default if using SSL */
+    private boolean enableEndpointIdentification = true;
+
     private final Logger logger;
 
     /*
@@ -282,6 +285,14 @@ public class HttpClient {
         return sslCtx;
     }
 
+    public boolean isEndpointIdentificationEnabled() {
+        return enableEndpointIdentification;
+    }
+
+    public void disableEndpointIdentification() {
+        this.enableEndpointIdentification = false;
+    }
+
     public int getPort() {
         return port;
     }
@@ -365,6 +376,7 @@ public class HttpClient {
      * Cleanly shut down the client.
      */
     public void shutdown() {
+        System.out.println("GMF: HC.shutdown, before close: " + java.time.Instant.now());
         pool.close();
         /*
          * 0 means no quiet period, waiting for more tasks

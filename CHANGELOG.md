@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 - Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ)
 - Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
+- Cloud only: added OKE workload identity authentication support
+ - SignatureProvider.createWithOkeWorkloadIdentity()
+ - SignatureProvider.createWithOkeWorkloadIdentity(String serviceAccountToken, Logger logger)
+ - SignatureProvider.createWithOkeWorkloadIdentity(File serviceAccountTokenFile, Logger logger)
 
 ### Fixed
 - Changed handle close to not use the Netty "quiet period" when shutting down

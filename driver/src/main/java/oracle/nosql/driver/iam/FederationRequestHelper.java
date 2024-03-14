@@ -69,7 +69,7 @@ class FederationRequestHelper {
                     response.getOutput()));
         }
         logTrace(logger, "Federation response " + response.getOutput());
-        return parseResponse(response.getOutput());
+        return parseTokenResponse(response.getOutput());
     }
 
     /*
@@ -167,31 +167,5 @@ class FederationRequestHelper {
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {
         return String.format("%s/fed-x509-sha256/%s",
                              tenantId, Utils.getFingerPrint(pair));
-    }
-
-    /*
-     * Response:
-     * { "token": "...."}
-     */
-    private static String parseResponse(String response) {
-        try {
-            JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
-                parser.nextToken();
-            }
-            while (parser.getCurrentToken() != null) {
-                String field = findField(response, parser, "token");
-                if (field != null) {
-                    parser.nextToken();
-                    return parser.getText();
-                }
-            }
-            throw new IllegalStateException(
-                "Unable to find security token in " + response);
-        } catch (IOException ioe) {
-            throw new IllegalStateException(
-                "Error parsing security token " + response +
-                " " + ioe.getMessage());
-        }
     }
 }

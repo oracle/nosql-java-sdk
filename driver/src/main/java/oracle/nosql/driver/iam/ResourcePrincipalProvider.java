@@ -139,8 +139,8 @@ class ResourcePrincipalProvider
             tokenSupplier = new FileSecurityTokenSupplier(
                             sessKeySupplier, rpst, logger);
         } else {
-            tokenSupplier = new FixedSecurityTokenSupplier(sessKeySupplier,
-                                                           rpst);
+            tokenSupplier = new FixedSecurityTokenSupplier(
+                sessKeySupplier, rpst, logger);
         }
 
         String rpRegion = System.getenv(OCI_RESOURCE_PRINCIPAL_REGION);
