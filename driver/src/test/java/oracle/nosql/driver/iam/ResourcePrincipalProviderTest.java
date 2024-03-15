@@ -146,7 +146,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
             keyFile.toAbsolutePath().toString(), null);
         ResourcePrincipalTokenSupplier supplier =
-            new FixedSecurityTokenSupplier(keySupplier, token);
+            new FixedSecurityTokenSupplier(keySupplier, token, null);
         assertEquals(supplier.getSecurityToken(), token);
         assertEquals(supplier.getStringClaim(
                      ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
@@ -182,7 +182,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
             keyFile.toAbsolutePath().toString(), null);
         ResourcePrincipalTokenSupplier tokenSupplier =
-            new FixedSecurityTokenSupplier(keySupplier, token);
+            new FixedSecurityTokenSupplier(keySupplier, token, null);
         ResourcePrincipalProvider rpProvider =
             new ResourcePrincipalProvider(tokenSupplier,
                                           keySupplier,

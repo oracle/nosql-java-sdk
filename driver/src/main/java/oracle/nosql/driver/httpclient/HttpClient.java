@@ -111,6 +111,9 @@ public class HttpClient {
     private final SslContext sslCtx;
     private final int handshakeTimeoutMs;
 
+    /* Enable endpoint identification by default if using SSL */
+    private boolean enableEndpointIdentification = true;
+
     private final Logger logger;
 
     /*
@@ -280,6 +283,14 @@ public class HttpClient {
 
     SslContext getSslContext() {
         return sslCtx;
+    }
+
+    public boolean isEndpointIdentificationEnabled() {
+        return enableEndpointIdentification;
+    }
+
+    public void disableEndpointIdentification() {
+        this.enableEndpointIdentification = false;
     }
 
     public int getPort() {
