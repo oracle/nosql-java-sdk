@@ -20,10 +20,11 @@ import java.util.Date;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import oracle.nosql.driver.httpclient.HttpClient;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import oracle.nosql.driver.httpclient.HttpResponse;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
-import oracle.nosql.driver.util.HttpRequestUtil;
-import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -42,7 +43,7 @@ class FederationRequestHelper {
     private static final String APP_JSON = "application/json";
     private static final String DEFAULT_FINGERPRINT = "SHA256";
 
-    static String getSecurityToken(HttpClient client,
+    static String getSecurityToken(ReactorHttpClient client,
                                    URI endpoint,
                                    int timeoutMs,
                                    String tenantId,
@@ -53,23 +54,25 @@ class FederationRequestHelper {
         ByteBuffer buf = StandardCharsets.UTF_8.encode(charBuf);
         byte[] payloadByte = new byte[buf.remaining()];
         buf.get(payloadByte);
+        ByteBuf payload = Unpooled.wrappedBuffer(payloadByte);
 
-        HttpResponse response = HttpRequestUtil.doPostRequest(
-            client, endpoint.toString(),
-            headers(tenantId, endpoint, payloadByte, pair, logger),
-            payloadByte, timeoutMs, logger);
+        HttpResponse response = client.postRequest(
+            endpoint.toString(),
+            headers(tenantId, endpoint, payload.array(), pair, logger),
+                 payload /*,timeoutMs, logger*/).block();
 
         int responseCode = response.getStatusCode();
+        String responseBody = response.getBodyAsStringSync();
         if (responseCode > 299) {
             throw new IllegalStateException(
                 String.format(
                     "Error getting security token from IAM, " +
                     "status code %d, response \n%s",
                     response.getStatusCode(),
-                    response.getOutput()));
+                    responseBody));
         }
-        logTrace(logger, "Federation response " + response.getOutput());
-        return parseResponse(response.getOutput());
+        logTrace(logger, "Federation response " + responseBody);
+        return parseResponse(responseBody);
     }
 
     /*

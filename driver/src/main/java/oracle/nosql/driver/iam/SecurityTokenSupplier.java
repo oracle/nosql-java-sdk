@@ -32,6 +32,7 @@ import javax.security.auth.Refreshable;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.iam.SignatureProvider.ResourcePrincipalClaimKeys;
 
 import com.fasterxml.jackson.core.JsonParser;
@@ -53,7 +54,7 @@ class SecurityTokenSupplier {
     private String tenantId;
     private int timeoutMS;
     private URI federationURL;
-    private HttpClient federationClient;
+    private ReactorHttpClient federationClient;
     private final CertificateSupplier leafCertSupplier;
     private final Set<CertificateSupplier> intermediateCertificateSuppliers;
     private final SessionKeyPairSupplier keyPairSupplier;
@@ -95,7 +96,7 @@ class SecurityTokenSupplier {
 
     void close() {
         if (federationClient != null) {
-            federationClient.shutdown();
+            //federationClient.shutdown();
         }
     }
 
@@ -108,7 +109,7 @@ class SecurityTokenSupplier {
         }
     }
 
-    private static HttpClient buildHttpClient(URI endpoint,
+    private static ReactorHttpClient buildHttpClient(URI endpoint,
                                               SslContext sslCtx,
                                               int sslHandshakeTimeout,
                                               Logger logger) {
@@ -119,8 +120,8 @@ class SecurityTokenSupplier {
                  endpoint.toString());
         }
         if (scheme.equalsIgnoreCase("http")) {
-            return HttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
-                                                  null, 0, "FederationClient", logger);
+            return ReactorHttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
+                                                  null, 0, "FederationClient");
         }
 
         if (sslCtx == null) {
@@ -132,9 +133,9 @@ class SecurityTokenSupplier {
             }
         }
 
-        return HttpClient.createMinimalClient(endpoint.getHost(), 443,
+        return ReactorHttpClient.createMinimalClient(endpoint.getHost(), 443,
                               sslCtx, sslHandshakeTimeout,
-                              "FederationClient", logger);
+                              "FederationClient");
     }
 
     private synchronized String refreshAndGetTokenInternal() {

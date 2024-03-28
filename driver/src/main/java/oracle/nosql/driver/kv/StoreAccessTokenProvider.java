@@ -22,10 +22,9 @@ import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
-import oracle.nosql.driver.httpclient.HttpClient;
+import oracle.nosql.driver.httpclient.HttpResponse;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.ops.Request;
-import oracle.nosql.driver.util.HttpRequestUtil;
-import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
 
@@ -238,7 +237,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             /*
              * Send request to server for login token
              */
-            HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
+            oracle.nosql.driver.httpclient.HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
                                                 LOGIN_SERVICE);
 
             /*
@@ -246,7 +245,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              */
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 throw new InvalidAuthorizationException(
-                    "Fail to login to service: " + response.getOutput());
+                    "Fail to login to service: " + response.getBodyAsStringSync());
             }
 
             if (isClosed) {
@@ -257,7 +256,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              * Generate the authentication string using login token
              */
             authString.set(BEARER_PREFIX +
-                           parseJsonResult(response.getOutput()));
+                           parseJsonResult(response.getBodyAsStringSync()));
 
             /*
              * Schedule login token renew thread
@@ -333,7 +332,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
-                                ": " + response.getOutput());
+                                ": " + response.getBodyAsString());
                 }
             }
         } catch (Exception e) {
@@ -495,27 +494,29 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * Send HTTPS request to login/renew/logout service location with proper
      * authentication information.
      */
-    private HttpResponse sendRequest(String authHeader,
-                                     String serviceName) throws Exception {
-        HttpClient client = null;
+    private oracle.nosql.driver.httpclient.HttpResponse sendRequest(String authHeader,
+                                                                    String serviceName) throws Exception {
+        ReactorHttpClient client = null;
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
             headers.set(AUTHORIZATION, authHeader);
-            client = HttpClient.createMinimalClient
+            client = ReactorHttpClient.createMinimalClient
                 (loginHost,
                  loginPort,
                  (isSecure && !disableSSLHook) ? sslContext : null,
                  sslHandshakeTimeoutMs,
-                 serviceName,
-                 logger);
-            return HttpRequestUtil.doGetRequest(
-                client,
+                 serviceName);
+                 //logger);
+            return client.getRequest(
+                //client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
                 .toString(),
-                headers, HTTP_TIMEOUT_MS, logger);
+                headers).block();
+                //HTTP_TIMEOUT_MS,
+                //logger);
         } finally {
             if (client != null) {
-                client.shutdown();
+                //client.shutdown();
             }
         }
     }
@@ -558,9 +559,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
 
             try {
                 final String oldAuth = authString.get();
-                HttpResponse response = sendRequest(oldAuth,
+                oracle.nosql.driver.httpclient.HttpResponse response = sendRequest(oldAuth,
                                                     RENEW_SERVICE);
-                final String token = parseJsonResult(response.getOutput());
+                final String token = parseJsonResult(response.getBodyAsStringSync());
                 if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                     throw new InvalidAuthorizationException(token);
                 }

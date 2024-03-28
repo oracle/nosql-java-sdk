@@ -26,14 +26,13 @@ import java.util.logging.Logger;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
-import oracle.nosql.driver.httpclient.HttpClient;
+import oracle.nosql.driver.httpclient.HttpResponse;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
-import oracle.nosql.driver.util.HttpRequestUtil;
-import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -355,33 +354,31 @@ public class InstancePrincipalsProvider
 
             String instanceMDURL = getInstanceMetadaURL();
             logTrace(logger, "Detecting IAM endpoint using " + instanceMDURL);
-            HttpClient client = null;
+            ReactorHttpClient client = null;
             try {
-                client = HttpClient.createMinimalClient(METADATA_SERVICE_HOST,
+                client = ReactorHttpClient.createMinimalClient(METADATA_SERVICE_HOST,
                                                         80,
                                                         null,
                                                         0,
-                                                        "InstanceMDClient",
-                                                        logger);
+                                                        "InstanceMDClient");
 
-                HttpResponse response = HttpRequestUtil.doGetRequest
-                    (client, instanceMDURL, headers(), timeout, logger);
+                HttpResponse response = client.getRequest(instanceMDURL, headers()).block();
 
                 int status = response.getStatusCode();
+                String responseBody = response.getBodyAsStringSync();
                 if (status == 404) {
                     logTrace(logger, "Falling back to v1 metadata URL, " +
                              "resource not found from v2");
                     this.baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
                     instanceMDURL = getInstanceMetadaURL();
-                    response = HttpRequestUtil.doGetRequest
-                        (client, instanceMDURL, headers(), timeout, logger);
+                    response = client.getRequest(instanceMDURL, headers()).block();
                     if (response.getStatusCode() != 200) {
                         throw new IllegalStateException(
                             String.format("Unable to get federation URL from" +
                             "instance metadata " + METADATA_SERVICE_BASE_URL +
                             " or fallback to " + FALLBACK_METADATA_SERVICE_URL +
                             ", status code: %d, output: %s",
-                            response.getOutput()));
+                            responseBody));
                     }
                 } else if (status != 200) {
                     throw new IllegalStateException(
@@ -389,11 +386,11 @@ public class InstancePrincipalsProvider
                         "instance metadata " + METADATA_SERVICE_BASE_URL +
                         ", status code: %d, output: %s",
                         response.getStatusCode(),
-                        response.getOutput()));
+                        responseBody));
                 }
 
-                logTrace(logger, "Instance metadata " + response.getOutput());
-                String insRegion = findRegion(response.getOutput());
+                logTrace(logger, "Instance metadata " + responseBody);
+                String insRegion = findRegion(responseBody);
                 logTrace(logger, "Instance region " + insRegion);
 
                 federationEndpoint = getIAMURL(insRegion);
@@ -404,7 +401,7 @@ public class InstancePrincipalsProvider
                 }
             } finally {
                 if (client != null) {
-                    client.shutdown();
+                    //client.shutdown();
                 }
             }
         }
