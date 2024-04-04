@@ -77,7 +77,6 @@ public class ReactorHttpClient {
     }
 
     public Mono<HttpResponse> postRequest(String uri, HttpHeaders headers, ByteBuf body) {
-        logger.info("sending post request for request " + headers.get(REQUEST_ID_HEADER));
         return sendRequest(uri, headers, HttpMethod.POST, body);
     }
 

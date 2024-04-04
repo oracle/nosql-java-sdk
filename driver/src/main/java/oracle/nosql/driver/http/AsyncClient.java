@@ -86,11 +86,10 @@ public class AsyncClient {
      */
     private static final int SEC_ERROR_DELAY_MS = 100;
 
-
-    private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
+    private AtomicInteger serialVersion = new AtomicInteger(DEFAULT_SERIAL_VERSION);
 
     /* separate version for query compatibility */
-    private volatile short queryVersion = QueryDriver.QUERY_VERSION;
+    private AtomicInteger queryVersion = new AtomicInteger(QueryDriver.QUERY_VERSION);
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
@@ -107,12 +106,12 @@ public class AsyncClient {
      * for session persistence, if used. This has the
      * full "session=xxxxx" key/value pair.
      */
-    private volatile String sessionCookie;
+    private final AtomicReference<String> sessionCookie = new AtomicReference<>("");
     /* note this must end with '=' */
     private final String SESSION_COOKIE_FIELD = "session=";
 
     /* for keeping track of SDKs usage */
-    private String userAgent;
+    private final String userAgent;
 
     private volatile TopologyInfo topology;
 
@@ -123,7 +122,7 @@ public class AsyncClient {
         this.config = config;
         this.url = config.getServiceURL();
 
-        logger.fine( "Driver service URL:" + url.toString());
+        logger.fine("Driver service URL:" + url.toString());
 
         final String protocol = config.getServiceURL().getProtocol();
         if (!("http".equalsIgnoreCase(protocol) ||
@@ -167,8 +166,7 @@ public class AsyncClient {
         } else {
             this.userAgent = HttpConstants.userAgent;
         }
-
-        oneTimeMessages = new HashSet<String>();
+        oneTimeMessages = new HashSet<>();
     }
 
     public void shutdown() {
@@ -176,10 +174,7 @@ public class AsyncClient {
         //TODO
     }
 
-    public Mono<Result> execute(Request kvRequest) {
-        requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
-
-        logger.log(Level.INFO, "sending execute request");
+    private void initAndValidateRequest(Request kvRequest) {
         /*
          * Before execution, call Request object to assign default values
          * from config object if they are not overridden. This allows code
@@ -197,10 +192,10 @@ public class AsyncClient {
 
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
-        kvRequest.setRateLimitDelayedMs(0);
 
-        int timeoutMs = kvRequest.getTimeoutInternal();
-        Throwable exception = null;
+        // TODO
+        //kvRequest.setRateLimitDelayedMs(0);
+
         /*
          * If the request doesn't set an explicit compartment, use
          * the config default if provided.
@@ -209,103 +204,196 @@ public class AsyncClient {
             kvRequest.setCompartmentInternal(
                     config.getDefaultCompartment());
         }
+    }
+
+    public Mono<Result> execute(Request kvRequest) {
+        requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
+
+        logger.log(Level.INFO, "sending execute request");
+        initAndValidateRequest(kvRequest);
+
+        Throwable exception = null;
 
         return Mono.defer(() -> {
             ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
+            final int timeoutMs = kvRequest.getTimeoutInternal();
+            final long startNanos = System.nanoTime();
+            final boolean signContent = requireContentSigned(kvRequest);
+            final String requestClass = kvRequest.getClass().getSimpleName();
+            final AtomicInteger serialVersionUsed =
+                    new AtomicInteger(serialVersion.get());
+            final AtomicInteger queryVersionUsed =
+                    new AtomicInteger(queryVersion.get());
+            AtomicReference<String> requestId = new AtomicReference<>("");
 
+            // Inner mono which can be retried.
             return Mono.defer(() -> {
-                        logger.info("Inside execute core part");
-                        buffer.retain();
-                        if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
-                            if (((DurableRequest) kvRequest).getDurability() != null) {
-                                oneTimeMessage("The requested feature is not supported " +
-                                        "by the connected server: Durability");
-                            }
-                        }
+                logger.fine("Inside execute core part");
+                buffer.retain();
 
-                        if (serialVersion < 3 && kvRequest instanceof TableRequest) {
-                            TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
-                            if (limits != null &&
-                                    limits.getMode() == TableLimits.CapacityMode.ON_DEMAND) {
-                                oneTimeMessage("The requested feature is not supported " +
-                                        "by the connected server: on demand " +
-                                        "capacity table");
-                            }
-                        }
+                serialVersionUsed.set(serialVersion.get());
+                queryVersionUsed.set(queryVersion.get());
 
-                        short serialVersionUsed = serialVersion;
-                        short queryVersionUsed = queryVersion;
+                if (serialVersion.get() < 3 && kvRequest instanceof DurableRequest) {
+                    if (((DurableRequest) kvRequest).getDurability() != null) {
+                        oneTimeMessage("The requested feature is not " +
+                                "supported " + "by the connected server: Durability");
+                    }
+                }
 
-                        logger.fine("serialVersionUsed= " + serialVersionUsed);
-                        logger.fine("queryVersionUsed= " + queryVersionUsed);
+                if (serialVersion.get() < 3 && kvRequest instanceof TableRequest) {
+                    TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
+                    if (limits != null && limits.getMode() ==
+                            TableLimits.CapacityMode.ON_DEMAND) {
+                        oneTimeMessage("The requested feature is not " +
+                                "supported " + "by the connected server:" +
+                                " on demand " + "capacity table");
+                    }
+                }
+
+                logger.fine("serialVersionUsed= " + serialVersionUsed);
+                logger.fine("queryVersionUsed= " + queryVersionUsed);
 
 
+                /*
+                 * we expressly check size limit below based on onprem versus
+                 * cloud. Set the request to not check size limit inside
+                 * writeContent().
+                 */
+                kvRequest.setCheckRequestSize(false);
+
+                /*
+                 * Temporarily change the timeout in the request object so
+                 * the serialized timeout sent to the server is correct for
+                 * this iteration. After serializing the request, set the
+                 * timeout back to the overall request timeout so that other
+                 * processing (retry delays, etc) work correctly.
+                 */
+                // TODO what is the use of this?
+                //kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
+
+                try {
+                    buffer.clear();
+                    serialVersionUsed.set(writeContent(buffer, kvRequest,
+                            (short) queryVersionUsed.get()));
+                } catch (IOException e) {
+                    return Mono.error(e);
+                }
+
+                /*
+                 * If on-premises the authProvider will always be a
+                 * StoreAccessTokenProvider. If so, check against
+                 * configurable limit. Otherwise check against internal
+                 * hardcoded cloud limit.
+                 */
+                //TODO Handle this
+                /*
+                if (authProvider instanceof StoreAccessTokenProvider) {
+                    if (buffer.readableBytes() >
+                            httpClient.getMaxContentLength()) {
+                        throw new RequestSizeLimitException("The request " +
+                                "size of " + buffer.readableBytes() +
+                                " exceeded the limit of " +
+                                httpClient.getMaxContentLength());
+                    }
+                } else {
+                    kvRequest.setCheckRequestSize(true);
+                    BinaryProtocol.checkRequestSizeLimit(
+                            kvRequest, buffer.readableBytes());
+                }
+               */
+
+                final HttpHeaders requestHeader = getHeader(kvRequest,
+                        buffer);
+                requestId.set(requestHeader.get(REQUEST_ID_HEADER));
+                logger.fine("Request: " + requestClass +
+                        ", requestId=" + requestId);
+
+                // Submit http request to reactor netty
+                Mono<HttpResponse> responseMono = httpClient
+                        .postRequest(kvRequestURI, requestHeader, buffer);
+
+                // TODO handle this
+                //long latencyNanos = System.nanoTime();
+
+                return responseMono.doOnNext(response ->
+                    logger.fine("Response: " + requestClass +
+                            ", status=" +
+                            response.getStatus() +
+                            ", requestId=" + requestId)
+                ).flatMap(httpResponse -> {
+                    HttpHeaders responseHeaders = httpResponse.getHeaders();
+                    HttpResponseStatus responseStatus = httpResponse.getStatus();
+                    Mono<ByteBuf> body = httpResponse.getBody();
+                    return body.map(content -> {
+                        Result res = processResponse(responseStatus,
+                                responseHeaders,
+                                content,
+                                kvRequest,
+                                (short) serialVersionUsed.get(),
+                                (short) queryVersionUsed.get());
+
+                        //TODO what to do for below
                         /*
-                         * we expressly check size limit below based on onprem versus
-                         * cloud. Set the request to not check size limit inside
-                         * writeContent().
+                        rateDelayedMs += getRateDelayedFromHeader(
+                                responseHandler.getHeaders());
+                        int resSize = wireContent.readerIndex();
+                        long networkLatency =
+                                (System.nanoTime() - latencyNanos) / 1_000_000;
+                        setTopology(res.getTopology());
                          */
-                        kvRequest.setCheckRequestSize(false);
 
-                        try {
-                            buffer.clear();
-                            serialVersionUsed = writeContent(buffer, kvRequest,
-                                    queryVersionUsed);
-                        } catch (IOException e) {
-                            //TODO what to do
-                            throw new RuntimeException(e);
-                        }
-
-                        /*
-                         * If on-premises the authProvider will always be a
-                         * StoreAccessTokenProvider. If so, check against
-                         * configurable limit. Otherwise check against internal
-                         * hardcoded cloud limit.
-                         */
-                        //TODO HANDLE THIS
-
-                        HttpHeaders requestHeader = getHeader(kvRequest, buffer);
-
-
-                        short finalSerialVersionUsed = serialVersionUsed;
-
-                        // Submit http request to reactor netty
-                        Mono<HttpResponse> responseMono = httpClient.postRequest(kvRequestURI, requestHeader, buffer);
-                        return responseMono.flatMap(httpResponse -> {
-                            HttpHeaders responseHeaders = httpResponse.getHeaders();
-                            HttpResponseStatus responseStatus = httpResponse.getStatus();
-                            Mono<ByteBuf> body = httpResponse.getBody();
-                            return body.map(content -> {
-                                Result res = processResponse(responseStatus, responseHeaders, content, kvRequest, finalSerialVersionUsed, queryVersionUsed);
-                                setTopology(res.getTopology());
-                                return res;
-                            });
-                        });
-                    }).doOnError(error -> logger.info("Error occurred for " +
-                            "request " + error))
-                    .retryWhen(
-                            RetrySpec.max(1)
-                                    .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
-                                            decrementQueryVersion(queryVersion))
-                    ).retryWhen(RetrySpec.max(1)
-                            .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
-                                    decrementSerialVersion(serialVersion))
-                    ).retryWhen(RetrySpec.max(1)
-                            .filter(throwable -> throwable instanceof AuthenticationException)
-                    ).retryWhen(RetrySpec.max(1)
-                            .filter(throwable -> throwable instanceof InvalidAuthorizationException)
-                    ).retryWhen(RetrySpec.max(10)
-                            .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
-                    ).retryWhen(Retry.backoff(2, Duration.ofMillis(1000))
-                            .filter(throwable -> throwable instanceof RetryableException)
-                    ).doFinally(signalType -> {
-                                logger.fine("buffer refCount is " + buffer.refCnt());
-                                if(buffer.refCnt() > 0) {
-                                    buffer.release(buffer.refCnt());
-                                }
+                        // TODO is this required
+                        /*if (serialVersionUsed < 3) {
+                         *//* so we can emit a one-time message if the app *//*
+                         *//* tries to access modificationTime *//*
+                            if (res instanceof GetResult) {
+                                ((GetResult)res).setClient(this);
+                            } else if (res instanceof WriteResult) {
+                                ((WriteResult)res).setClient(this);
                             }
-                    );
-        }).timeout(Duration.ofMillis(50000));
+                        }*/
+
+                        //TODO is below required
+                        /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                            QueryRequest qreq = (QueryRequest)kvRequest;
+                            qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
+                        }*/
+                        return res;
+                    });
+                });
+            }).doOnError(error ->
+                logger.info("Error occured for request :" + requestClass +
+                        ", requestId=" + requestId.get() + error)
+            ).retryWhen(RetrySpec.max(10)
+                .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
+                    decrementQueryVersion((short) queryVersionUsed.get()))
+                .doBeforeRetry(retrySignal -> {
+                    logRetries(retrySignal.totalRetries() + 1,
+                            retrySignal.failure());
+                })
+            ).retryWhen(RetrySpec.max(10)
+                .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
+                    decrementSerialVersion((short) serialVersionUsed.get()))
+            ).retryWhen(RetrySpec.max(1)
+                .filter(throwable -> throwable instanceof AuthenticationException)
+            ).retryWhen(RetrySpec.max(1)
+                .filter(throwable -> throwable instanceof InvalidAuthorizationException)
+            ).retryWhen(RetrySpec.max(10)
+                .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
+            ).retryWhen(Retry.backoff(2, Duration.ofMillis(1000))
+                .filter(throwable -> throwable instanceof RetryableException)
+            ).doFinally(signalType -> {
+                logger.fine("buffer refCount is " + buffer.refCnt());
+                if (buffer.refCnt() > 0) {
+                    buffer.release(buffer.refCnt());
+                }
+            });
+        }).timeout(Duration.ofMillis(kvRequest.getTimeoutInternal()));
+        /* End-to-End timeout for this request. When timeout occurs Mono
+           will be cancelled by the framework and resources will be released
+         */
+        //TODO Map timeout to RequestTimeoutException
     }
 
     private short writeContent(ByteBuf content, Request kvRequest,
@@ -313,7 +401,7 @@ public class AsyncClient {
             throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        final short versionUsed = serialVersion;
+        final short versionUsed = (short) serialVersion.get();
         SerializerFactory factory = chooseFactory(kvRequest);
         factory.writeSerialVersion(versionUsed, bos);
         if (kvRequest instanceof QueryRequest ||
@@ -331,7 +419,7 @@ public class AsyncClient {
     }
 
     private SerializerFactory chooseFactory(Request rq) {
-        if (serialVersion == 4) {
+        if (serialVersion.get() == 4) {
             return v4factory;
         } else {
             return v3factory; /* works for v2 also */
@@ -344,7 +432,6 @@ public class AsyncClient {
                                  Request kvRequest,
                                  short serialVersionUsed,
                                  short queryVersionUsed) {
-        logger.info("processing response for request " + responseHeaders.get(REQUEST_ID_HEADER));
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, responseBody);
 
@@ -457,22 +544,13 @@ public class AsyncClient {
          */
         String v = headers.get("Set-Cookie");
         /* note SESSION_COOKIE_FIELD has appended '=' */
-        if (v == null || v.startsWith(SESSION_COOKIE_FIELD) == false) {
+        if (v == null || !v.startsWith(SESSION_COOKIE_FIELD)) {
             return;
         }
         int semi = v.indexOf(";");
-        if (semi < 0) {
-            setSessionCookieValue(v);
-        } else {
-            setSessionCookieValue(v.substring(0, semi));
-        }
-        /*if (isLoggable(logger, Level.TRACE)) {
-            logTrace(logger, "Set session cookie to \"" + sessionCookie + "\"");
-        }*/
-    }
-
-    private synchronized void setSessionCookieValue(String pVal) {
-        sessionCookie = pVal;
+        v = (semi < 0) ? v : v.substring(0, semi);
+        sessionCookie.set(v);
+        logger.fine("Set session cookie to \"" + sessionCookie + "\"");
     }
 
     /*
@@ -522,7 +600,7 @@ public class AsyncClient {
         if (!oneTimeMessages.add(msg)) {
             return;
         }
-        //logWarning(logger, msg);
+        logger.warning(msg);
     }
 
     private String getUserAgent() {
@@ -575,8 +653,7 @@ public class AsyncClient {
      * Map a specific error status to a specific exception.
      */
     private RuntimeException handleResponseErrorCode(int code, String msg) {
-        RuntimeException exc = BinaryProtocol.mapException(code, msg);
-        throw exc;
+        throw BinaryProtocol.mapException(code, msg);
     }
 
     private String readString(ByteInputStream in) throws IOException {
@@ -707,6 +784,7 @@ public class AsyncClient {
          */
         final boolean signContent = requireContentSigned(kvRequest);
 
+        //TODO check below line is having any blocking call
         final String authString = authProvider.getAuthorizationString(kvRequest);
         authProvider.validateAuthString(authString);
 
@@ -719,7 +797,7 @@ public class AsyncClient {
                 .add(REQUEST_ID_HEADER, Long.toString(maxRequestId.getAndIncrement()))
                 .setInt(CONTENT_LENGTH, buffer.readableBytes());
 
-        if (sessionCookie != null) {
+        if (sessionCookie.get() != null) {
             headers.add(COOKIE, sessionCookie);
         }
         String serdeVersion = getSerdeVersion(kvRequest);
@@ -732,6 +810,7 @@ public class AsyncClient {
         }
 
         byte[] content = signContent ? getBodyBytes(buffer) : null;
+        //TODO check below line is having any blocking call
         authProvider.setRequiredHeaders(authString, kvRequest, headers, content);
 
         String namespace = kvRequest.getNamespace();
@@ -759,29 +838,35 @@ public class AsyncClient {
         }
     }
 
-    private synchronized boolean decrementQueryVersion(short versionUsed) {
-        if (queryVersion != versionUsed) {
-            return true;
+    /**
+     * @hidden
+     *
+     * Try to decrement the query protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number which is V3.
+     */
+    private boolean decrementQueryVersion(short versionUsed) {
+        //TODO check whether V3 is lowest version supported
+        if(versionUsed == QueryDriver.QUERY_V3) {
+            return false;
         }
-        if (queryVersion == QueryDriver.QUERY_V4) {
-            queryVersion = QueryDriver.QUERY_V3;
-            return true;
-        }
-        return false;
+        queryVersion.compareAndSet(versionUsed, versionUsed-1);
+        return true;
     }
 
-    private synchronized boolean decrementSerialVersion(short versionUsed) {
-        if (serialVersion != versionUsed) {
-            return true;
+    private boolean decrementSerialVersion(short versionUsed) {
+        //TODO check whether V2 is lowest version supported
+        if(versionUsed == V2) {
+            return false;
         }
-        if (serialVersion == V4) {
-            serialVersion = V3;
-            return true;
+        serialVersion.compareAndSet(versionUsed, versionUsed-1);
+        return true;
+    }
+    private void logRetries(long numRetries, Throwable exception) {
+        Level level = Level.FINE;
+        if (logger != null) {
+            logger.log(level, "Client, doing retry: " + numRetries +
+                    (exception != null ? ", exception: " + exception : ""));
         }
-        if (serialVersion == V3) {
-            serialVersion = V2;
-            return true;
-        }
-        return false;
     }
 }
