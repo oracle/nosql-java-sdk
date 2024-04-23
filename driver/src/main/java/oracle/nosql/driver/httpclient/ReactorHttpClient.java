@@ -35,6 +35,7 @@ public class ReactorHttpClient {
                 .builder(this.host + ":" + this.port + "-" + "pool")
                 .maxConnections(connectionPoolConfig.getMaxConnections())
                 .pendingAcquireTimeout(Duration.ofSeconds(connectionPoolConfig.getPendingAcquireTimeout()))
+                .pendingAcquireMaxCount(connectionPoolConfig.getMaxPendingAcquires())
                 .maxIdleTime(Duration.ofSeconds(connectionPoolConfig.getMaxIdleTime()))
                 .build();
 

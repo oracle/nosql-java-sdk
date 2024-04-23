@@ -7,11 +7,33 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.ssl.SslContext;
-import oracle.nosql.driver.*;
+import io.netty.util.IllegalReferenceCountException;
+import oracle.nosql.driver.AuthorizationProvider;
+import oracle.nosql.driver.InvalidAuthorizationException;
+import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.RetryableException;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
+import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.httpclient.HttpResponse;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.kv.AuthenticationException;
-import oracle.nosql.driver.ops.*;
+import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
+import oracle.nosql.driver.ops.DropReplicaRequest;
+import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PrepareRequest;
+import oracle.nosql.driver.ops.QueryRequest;
+import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.TableLimits;
+import oracle.nosql.driver.ops.TableRequest;
+import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.Serializer;
@@ -19,7 +41,11 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
-import oracle.nosql.driver.util.*;
+import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.HttpConstants;
+import oracle.nosql.driver.util.NettyByteInputStream;
+import oracle.nosql.driver.util.NettyByteOutputStream;
+import oracle.nosql.driver.util.SerializationUtil;
 import oracle.nosql.driver.values.MapValue;
 import org.reactivestreams.Subscription;
 import reactor.core.publisher.BaseSubscriber;
@@ -142,27 +168,30 @@ public class AsyncClient {
         if (useSSL) {
             sslCtx = config.getSslContext();
             if (sslCtx == null) {
-                throw new IllegalArgumentException(
-                        "Unable to configure https: " +
-                                "SslContext is missing from config");
+                throw new IllegalArgumentException("Unable to configure https: "
+                    + "SslContext is missing from config");
             }
         } else {
             sslCtx = null;
         }
 
-        httpClient = ReactorHttpClient.builder().host(host).port(url.getPort()).sslContext(sslCtx).build();
+        httpClient = ReactorHttpClient
+            .builder()
+            .host(host)
+            .port(url.getPort())
+            .sslContext(sslCtx)
+            .build();
 
         authProvider = config.getAuthorizationProvider();
         if (authProvider == null) {
             throw new IllegalArgumentException(
-                    "Must configure AuthorizationProvider to use HttpClient");
+                "Must configure AuthorizationProvider to use HttpClient");
         }
 
         String extensionUserAgent = config.getExtensionUserAgent();
         if (extensionUserAgent != null) {
             userAgent = HttpConstants.userAgent +
-                    " " +
-                    extensionUserAgent;
+                " " + extensionUserAgent;
         } else {
             this.userAgent = HttpConstants.userAgent;
         }
@@ -201,14 +230,35 @@ public class AsyncClient {
          * the config default if provided.
          */
         if (kvRequest.getCompartment() == null) {
-            kvRequest.setCompartmentInternal(
-                    config.getDefaultCompartment());
+            kvRequest.setCompartmentInternal(config.getDefaultCompartment());
         }
     }
 
+    /*private Mono<HttpResponse> getHttpMono(AtomicInteger serialVersionUsed,
+                                           Request kvRequest,
+                                           AtomicReference<String> requestId
+                                           ) {
+        try {
+            buffer.clear();
+            serialVersionUsed.set(writeContent(buffer, kvRequest,
+                    (short) queryVersionUsed.get()));
+            logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "buffer refCount after serialize " + buffer.refCnt()));
+        } catch (IOException e) {
+            return Mono.error(e);
+        }
+        final HttpHeaders requestHeader = getHeader(kvRequest,buffer);
+        requestHeader.add(REQUEST_ID_HEADER, requestId);
+        logger.fine(getLogMessage(requestId.get(), requestClass,
+                "Sending request to Server"));
+
+        // Submit http request to reactor netty
+        Mono<HttpResponse> responseMono = httpClient
+                .postRequest(kvRequestURI, requestHeader, buffer);
+    }*/
+
     public Mono<Result> execute(Request kvRequest) {
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
-
         logger.log(Level.INFO, "sending execute request");
         initAndValidateRequest(kvRequest);
 
@@ -228,8 +278,12 @@ public class AsyncClient {
 
             // Inner mono which can be retried.
             return Mono.defer(() -> {
-                logger.fine("Inside execute core part");
+                requestId.set(Long.toString(maxRequestId.getAndIncrement()));
+                logger.fine(getLogMessage(requestId.get(),requestClass,
+                                "Inside execute core part"));
                 buffer.retain();
+                logger.fine(getLogMessage(requestId.get(), requestClass,
+                        "buffer refCount is " + buffer.refCnt()));
 
                 serialVersionUsed.set(serialVersion.get());
                 queryVersionUsed.set(queryVersion.get());
@@ -237,7 +291,7 @@ public class AsyncClient {
                 if (serialVersion.get() < 3 && kvRequest instanceof DurableRequest) {
                     if (((DurableRequest) kvRequest).getDurability() != null) {
                         oneTimeMessage("The requested feature is not " +
-                                "supported " + "by the connected server: Durability");
+                            "supported " + "by the connected server: Durability");
                     }
                 }
 
@@ -246,13 +300,16 @@ public class AsyncClient {
                     if (limits != null && limits.getMode() ==
                             TableLimits.CapacityMode.ON_DEMAND) {
                         oneTimeMessage("The requested feature is not " +
-                                "supported " + "by the connected server:" +
-                                " on demand " + "capacity table");
+                            "supported " + "by the connected server:" +
+                            " on demand " + "capacity table");
                     }
                 }
 
-                logger.fine("serialVersionUsed= " + serialVersionUsed);
-                logger.fine("queryVersionUsed= " + queryVersionUsed);
+                logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "serialVersionUsed= " + serialVersionUsed));
+
+                logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "queryVersionUsed= " + queryVersionUsed));
 
 
                 /*
@@ -275,7 +332,9 @@ public class AsyncClient {
                 try {
                     buffer.clear();
                     serialVersionUsed.set(writeContent(buffer, kvRequest,
-                            (short) queryVersionUsed.get()));
+                        (short) queryVersionUsed.get()));
+                    logger.fine(getLogMessage(requestId.get(), requestClass,
+                        "buffer refCount after serialize " + buffer.refCnt()));
                 } catch (IOException e) {
                     return Mono.error(e);
                 }
@@ -303,80 +362,106 @@ public class AsyncClient {
                 }
                */
 
-                final HttpHeaders requestHeader = getHeader(kvRequest,
-                        buffer);
-                requestId.set(requestHeader.get(REQUEST_ID_HEADER));
-                logger.fine("Request: " + requestClass +
-                        ", requestId=" + requestId);
+                final HttpHeaders requestHeader = getHeader(kvRequest,buffer);
+                requestHeader.add(REQUEST_ID_HEADER, requestId);
+                logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "Sending request to Server"));
 
                 // Submit http request to reactor netty
                 Mono<HttpResponse> responseMono = httpClient
-                        .postRequest(kvRequestURI, requestHeader, buffer);
+                    .postRequest(kvRequestURI, requestHeader, buffer);
+                return responseMono.doOnNext(response -> {
+                    logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "Response: status=" + response.getStatus()));
 
-                // TODO handle this
-                //long latencyNanos = System.nanoTime();
-
-                return responseMono.doOnNext(response ->
-                    logger.fine("Response: " + requestClass +
-                            ", status=" +
-                            response.getStatus() +
-                            ", requestId=" + requestId)
-                ).flatMap(httpResponse -> {
+                    logger.fine(getLogMessage(requestId.get(), requestClass,
+                    "buffer refCount after response " +
+                     "from server: " + buffer.refCnt()));
+                }).doOnCancel(() -> {
+                    logger.fine(getLogMessage(requestId.get(), requestClass,
+                        "Request cancelled"));
+                }).flatMap(httpResponse -> {
                     HttpHeaders responseHeaders = httpResponse.getHeaders();
                     HttpResponseStatus responseStatus = httpResponse.getStatus();
                     Mono<ByteBuf> body = httpResponse.getBody();
-                    return body.map(content -> {
-                        Result res = processResponse(responseStatus,
+                    Mono<Result> resultMono = body.handle((content,sink) -> {
+                        logger.fine(getLogMessage(requestId.get(),
+                                requestClass, "processing response"));
+                        try {
+                            Result res = processResponse(responseStatus,
                                 responseHeaders,
                                 content,
                                 kvRequest,
                                 (short) serialVersionUsed.get(),
                                 (short) queryVersionUsed.get());
+                            sink.next(res);
 
-                        //TODO what to do for below
-                        /*
-                        rateDelayedMs += getRateDelayedFromHeader(
+                            //TODO what to do for below
+                            /*
+                            rateDelayedMs += getRateDelayedFromHeader(
                                 responseHandler.getHeaders());
-                        int resSize = wireContent.readerIndex();
-                        long networkLatency =
+                            int resSize = wireContent.readerIndex();
+                            long networkLatency =
                                 (System.nanoTime() - latencyNanos) / 1_000_000;
-                        setTopology(res.getTopology());
-                         */
+                            setTopology(res.getTopology());
+                            */
 
-                        // TODO is this required
-                        /*if (serialVersionUsed < 3) {
-                         *//* so we can emit a one-time message if the app *//*
-                         *//* tries to access modificationTime *//*
+                            // TODO is this required
+                            /*if (serialVersionUsed < 3) {
+                             *//* so we can emit a one-time message if the app *//*
+                             *//* tries to access modificationTime *//*
                             if (res instanceof GetResult) {
                                 ((GetResult)res).setClient(this);
                             } else if (res instanceof WriteResult) {
                                 ((WriteResult)res).setClient(this);
                             }
-                        }*/
+                            }*/
 
-                        //TODO is below required
-                        /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
-                            QueryRequest qreq = (QueryRequest)kvRequest;
-                            qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
-                        }*/
-                        return res;
+                            //TODO is below required
+                            /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                                QueryRequest qreq = (QueryRequest)kvRequest;
+                                qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
+                            }*/
+                            //return res;
+                        } catch (IllegalReferenceCountException e) {
+                            logger.fine(getLogMessage(requestId.get(),
+                                requestClass,
+                                "Illegal refCount, request might be " +
+                                        "cancelled")
+                            );
+                            sink.complete();
+                        } catch (Throwable t) {
+                            sink.error(t);
+                        }
                     });
+                    return resultMono;
                 });
-            }).doOnError(error ->
-                logger.info("Error occured for request :" + requestClass +
-                        ", requestId=" + requestId.get() + error)
-            ).retryWhen(RetrySpec.max(10)
+            }).doOnError(error -> {
+                logger.info(getLogMessage(requestId.get(), requestClass,
+                    "Error occurred " + error.getClass().getName() +
+                        ": " + error.getMessage()));
+                error.printStackTrace();
+            })
+            .retryWhen(RetrySpec.max(10)
                 .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
                     decrementQueryVersion((short) queryVersionUsed.get()))
                 .doBeforeRetry(retrySignal -> {
-                    logRetries(retrySignal.totalRetries() + 1,
-                            retrySignal.failure());
+                    logRetries(requestId.get(),requestClass,
+                        retrySignal.totalRetries() + 1,
+                        retrySignal.failure());
                 })
             ).retryWhen(RetrySpec.max(10)
                 .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
                     decrementSerialVersion((short) serialVersionUsed.get()))
             ).retryWhen(RetrySpec.max(1)
                 .filter(throwable -> throwable instanceof AuthenticationException)
+                .doBeforeRetry(retrySignal -> {
+                    if (authProvider instanceof StoreAccessTokenProvider) {
+                        final StoreAccessTokenProvider satp =
+                            (StoreAccessTokenProvider) authProvider;
+                        satp.bootstrapLogin();
+                    }
+                })
             ).retryWhen(RetrySpec.max(1)
                 .filter(throwable -> throwable instanceof InvalidAuthorizationException)
             ).retryWhen(RetrySpec.max(10)
@@ -384,12 +469,18 @@ public class AsyncClient {
             ).retryWhen(Retry.backoff(2, Duration.ofMillis(1000))
                 .filter(throwable -> throwable instanceof RetryableException)
             ).doFinally(signalType -> {
-                logger.fine("buffer refCount is " + buffer.refCnt());
-                if (buffer.refCnt() > 0) {
-                    buffer.release(buffer.refCnt());
+                int refCount = buffer.refCnt();
+                logger.fine(getLogMessage(requestId.get(), requestClass,
+                        signalType + " signal: " +
+                        "buffer refCount is " + refCount));
+                if(!buffer.release(refCount)) {
+                    logger.warning(getLogMessage(requestId.get(),
+                        requestClass, "Buffer is not releases"));
                 }
-            });
-        }).timeout(Duration.ofMillis(kvRequest.getTimeoutInternal()));
+            }).doOnCancel(() -> logger.fine("Inner mono cancelled for " +
+                "request " + requestId));
+        }).timeout(Duration.ofMillis(kvRequest.getTimeoutInternal()))
+            .doOnCancel(() -> logger.fine("Outer mono cancelled"));
         /* End-to-End timeout for this request. When timeout occurs Mono
            will be cancelled by the framework and resources will be released
          */
@@ -397,9 +488,7 @@ public class AsyncClient {
     }
 
     private short writeContent(ByteBuf content, Request kvRequest,
-                               short queryVersion)
-            throws IOException {
-
+                               short queryVersion) throws IOException {
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = (short) serialVersion.get();
         SerializerFactory factory = chooseFactory(kvRequest);
@@ -407,13 +496,13 @@ public class AsyncClient {
         if (kvRequest instanceof QueryRequest ||
                 kvRequest instanceof PrepareRequest) {
             kvRequest.createSerializer(factory).serialize(kvRequest,
-                    versionUsed,
-                    queryVersion,
-                    bos);
+                versionUsed,
+                queryVersion,
+                bos);
         } else {
             kvRequest.createSerializer(factory).serialize(kvRequest,
-                    versionUsed,
-                    bos);
+                versionUsed,
+                bos);
         }
         return versionUsed;
     }
@@ -437,14 +526,14 @@ public class AsyncClient {
 
             /* TODO: Generate and handle bad status other than 400 */
             throw new IllegalStateException("Unexpected http response status:" +
-                    status);
+                status);
         }
 
         setSessionCookie(responseHeaders);
 
         try (ByteInputStream bis = new NettyByteInputStream(responseBody)) {
             return processOKResponse(bis, kvRequest, serialVersionUsed,
-                    queryVersionUsed);
+                queryVersionUsed);
         }
     }
 
@@ -743,7 +832,7 @@ public class AsyncClient {
             AtomicReference<Subscription> innerSubscription = new AtomicReference<>();
 
             emitter.onRequest(n -> {
-                logger.info(n + " request recived");
+                logger.fine(n + " request received");
                 if (innerSubscription.get() == null) {
                     innerPublisher.subscribe(new BaseSubscriber<Mono<Result>>() {
                         @Override
@@ -794,24 +883,19 @@ public class AsyncClient {
                 .set(ACCEPT, "application/octet-stream")
                 .set(USER_AGENT, getUserAgent())
                 .set(HttpHeaderNames.HOST, host)
-                .add(REQUEST_ID_HEADER, Long.toString(maxRequestId.getAndIncrement()))
                 .setInt(CONTENT_LENGTH, buffer.readableBytes());
 
-        if (sessionCookie.get() != null) {
-            headers.add(COOKIE, sessionCookie);
-        }
-        String serdeVersion = getSerdeVersion(kvRequest);
-        if (serdeVersion != null) {
-            headers.add("x-nosql-serde-version", serdeVersion);
-        }
+            if (sessionCookie.get() != null) {
+                headers.add(COOKIE, sessionCookie);
+            }
+            String serdeVersion = getSerdeVersion(kvRequest);
+            if (serdeVersion != null) {
+                headers.add("x-nosql-serde-version", serdeVersion);
+            }
 
-        if (kvRequest.getCompartment() == null) {
-            kvRequest.setCompartmentInternal(config.getDefaultCompartment());
-        }
-
-        byte[] content = signContent ? getBodyBytes(buffer) : null;
-        //TODO check below line is having any blocking call
-        authProvider.setRequiredHeaders(authString, kvRequest, headers, content);
+            byte[] content = signContent ? getBodyBytes(buffer) : null;
+            //TODO check below line is having any blocking call
+            authProvider.setRequiredHeaders(authString, kvRequest, headers, content);
 
         String namespace = kvRequest.getNamespace();
         if (namespace == null) {
@@ -862,11 +946,16 @@ public class AsyncClient {
         serialVersion.compareAndSet(versionUsed, versionUsed-1);
         return true;
     }
-    private void logRetries(long numRetries, Throwable exception) {
-        Level level = Level.FINE;
-        if (logger != null) {
-            logger.log(level, "Client, doing retry: " + numRetries +
-                    (exception != null ? ", exception: " + exception : ""));
-        }
+    private void logRetries(String requestId,
+                            String requeatClass,
+                            long numRetries,
+                            Throwable exception) {
+        logger.fine(getLogMessage(requestId, requeatClass,
+            "Doing retry: " + numRetries +
+                (exception != null ? ", exception: " + exception : "")));
+    }
+
+    private String getLogMessage(String requestId, String request, String msg) {
+        return "[Request " + requestId + "] " + request + "- " + msg;
     }
 }
