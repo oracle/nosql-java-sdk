@@ -593,20 +593,22 @@ public abstract class Request {
     /**
      * @hidden
      * Copy internal fields to another Request object.
+     * Use direct member assignment to avoid value checks that only apply
+     * to user-based assignments.
      * @param other the Request object to copy to.
      */
     public void copyTo(Request other) {
-        other.setTimeoutInternal(this.timeoutMs);
-        other.setCheckRequestSize(this.checkRequestSize);
-        other.setCompartmentInternal(this.compartment);
-        other.setTableNameInternal(this.tableName);
-        other.setNamespaceInternal(this.namespace);
-        other.setStartNanos(this.startNanos);
-        other.setRetryStats(this.retryStats);
-        other.setReadRateLimiter(this.readRateLimiter);
-        other.setWriteRateLimiter(this.writeRateLimiter);
-        other.setRateLimitDelayedMs(this.rateLimitDelayedMs);
-        other.setPreferThrottling(this.preferThrottling);
-        other.setDRLOptIn(this.drlOptIn);
+        other.timeoutMs = this.timeoutMs;
+        other.checkRequestSize = this.checkRequestSize;
+        other.compartment = this.compartment;
+        other.tableName = this.tableName;
+        other.namespace = this.namespace;
+        other.startNanos = this.startNanos;
+        other.retryStats = this.retryStats;
+        other.readRateLimiter = this.readRateLimiter;
+        other.writeRateLimiter = this.writeRateLimiter;
+        other.rateLimitDelayedMs = this.rateLimitDelayedMs;
+        other.preferThrottling = this.preferThrottling;
+        other.drlOptIn = this.drlOptIn;
     }
 }
