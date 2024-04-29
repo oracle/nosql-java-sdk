@@ -533,20 +533,18 @@ public class ReceiveIter extends PlanIter {
 
     private BinaryValue createBinaryPrimKey(MapValue result) {
 
-        final ByteOutputStream bos =
-            NettyByteOutputStream.createNettyByteOutputStream();
-        try {
+        try (ByteOutputStream bos =
+             NettyByteOutputStream.createNettyByteOutputStream()) {
             for (int i = 0; i < thePrimKeyFields.length; ++i) {
                 FieldValue fval = result.get(thePrimKeyFields[i]);
                 writeValue(bos, fval, i);
             }
+            return new BinaryValue(bos.array());
         } catch (IOException e) {
             throw new QueryStateException(
                 "Failed to create binary prim key due to IOException:\n" +
                 e.getMessage());
         }
-
-        return new BinaryValue(bos.array());
     }
 
     private void writeValue(ByteOutputStream out, FieldValue val, int i)
@@ -737,7 +735,7 @@ public class ReceiveIter extends PlanIter {
             }
 
             if (theRCB.getTraceLevel() >= 1) {
-                theRCB.trace("RemoteScanner : executing remote batch " + 
+                theRCB.trace("RemoteScanner : executing remote batch " +
                              origRequest.getBatchCounter() + ". spid = " +
                              theShardOrPartId);
                 if (theVirtualScan != null) {
