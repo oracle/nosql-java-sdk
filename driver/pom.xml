@@ -48,7 +48,7 @@
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.108.Final</netty.version>
     <jackson.version>2.15.2</jackson.version>
-    <bouncy.version>1.76</bouncy.version>
+    <bouncy.version>1.78</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
