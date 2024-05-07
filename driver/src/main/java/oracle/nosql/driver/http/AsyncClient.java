@@ -47,10 +47,9 @@ import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.SerializationUtil;
 import oracle.nosql.driver.values.MapValue;
-import org.reactivestreams.Subscription;
-import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetrySpec;
 
@@ -265,6 +264,27 @@ public class AsyncClient {
         Throwable exception = null;
 
         return Mono.defer(() -> {
+            /* kvRequest.isQueryRequest() returns true if kvRequest is a
+             * non-internal QueryRequest
+             */
+            if (kvRequest.isQueryRequest()) {
+                QueryRequest qreq = (QueryRequest)kvRequest;
+                /* Set the topo seq num in the request, if it has not been set
+                 * already */
+                kvRequest.setTopoSeqNum(getTopoSeqNum());
+                if (qreq.hasDriver()) {
+                    logger.fine("QueryRequest has QueryDriver");
+                    return Mono.just(new QueryResult(qreq, false));
+                }
+                if (qreq.isPrepared() && !qreq.isSimpleQuery()) {
+                    logger.fine("QueryRequest has no QueryDriver, but is prepared");
+                    QueryDriver driver = new QueryDriver(qreq);
+                    driver.setClient(this);
+                    return Mono.just(new QueryResult(qreq, false));
+                }
+                logger.fine("QueryRequest has no QueryDriver and is not prepared");
+            }
+
             ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
             final int timeoutMs = kvRequest.getTimeoutInternal();
             final long startNanos = System.nanoTime();
@@ -274,11 +294,12 @@ public class AsyncClient {
                     new AtomicInteger(serialVersion.get());
             final AtomicInteger queryVersionUsed =
                     new AtomicInteger(queryVersion.get());
-            AtomicReference<String> requestId = new AtomicReference<>("");
+            AtomicReference<String> requestId = new AtomicReference<>
+                    (Long.toString(maxRequestId.getAndIncrement()));
 
             // Inner mono which can be retried.
             return Mono.defer(() -> {
-                requestId.set(Long.toString(maxRequestId.getAndIncrement()));
+                //requestId.set(Long.toString(maxRequestId.getAndIncrement()));
                 logger.fine(getLogMessage(requestId.get(),requestClass,
                                 "Inside execute core part"));
                 buffer.retain();
@@ -440,7 +461,7 @@ public class AsyncClient {
                 logger.info(getLogMessage(requestId.get(), requestClass,
                     "Error occurred " + error.getClass().getName() +
                         ": " + error.getMessage()));
-                error.printStackTrace();
+                //error.printStackTrace();
             })
             .retryWhen(RetrySpec.max(10)
                 .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
@@ -564,12 +585,12 @@ public class AsyncClient {
                             serialVersionUsed);
                 }
 
-                /*if (kvRequest.isQueryRequest()) {
+                if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
                     if (!qreq.isSimpleQuery()) {
                         qreq.getDriver().setClient(this);
                     }
-                }*/
+                }
                 return res;
             }
             /*
@@ -782,87 +803,30 @@ public class AsyncClient {
                 );*/
     }
 
-    Flux<Result> executeQuery(Request kvRequest) {
-        requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
-
+    Flux<QueryResult> executeQuery(QueryRequest queryRequest) {
+        requireNonNull(queryRequest, "NoSQLHandle: request must be non-null");
         logger.log(Level.INFO, "sending query request");
-        /*
-         * Before execution, call Request object to assign default values
-         * from config object if they are not overridden. This allows code
-         * to assume that all potentially defaulted parameters (timeouts, etc)
-         * are explicit when they are sent on the wire.
+        initAndValidateRequest(queryRequest);
+
+        /**
+         * Below code executes the query which return Mono<QueryResult> and
+         * recursively expands to produce Flux<QueryResult>. For complex
+         * quires QueryDriver is used to get the results, which is blocking
+         * because of this results of the execute() are published on
+         * blockable BoundedElastic threads. This async code is same as
+         * below sync code.
+         *
+         *   do {
+         *     qureyResult = execute(queryRequest)
+         *   } while(qureyResult.getContinuationKey != null)
          */
-        kvRequest.setDefaults(config);
-
-        /*
-         * Validate the request, checking for required state, etc. If this
-         * fails for a given Request instance it will throw
-         * IllegalArgumentException.
-         */
-        kvRequest.validate();
-
-        /* clear any retry stats that may exist on this request object */
-        kvRequest.setRetryStats(null);
-        kvRequest.setRateLimitDelayedMs(0);
-
-        int timeoutMs = kvRequest.getTimeoutInternal();
-        Throwable exception = null;
-
-        QueryRequest queryRequest = (QueryRequest) kvRequest;
-
-        return Flux.<Result>create(emitter -> {
-            Flux<Mono<Result>> innerPublisher = Flux.generate(
-                    () -> queryRequest,
-                    (state, sink) -> {
-                        logger.info("Generate called ");
-                        if (!state.isPrepared() || !state.isDone()) {
-                            Mono<Result> nextPage = execute(state).doOnNext(result -> {
-                                QueryResult result1 = (QueryResult) result;
-                                state.setContKey(result1.getContinuationKey());
-                            });
-                            sink.next(nextPage);
-                        } else {
-                            sink.complete();
-                        }
-                        return state;
-                    }
-            );
-            innerPublisher.doOnCancel(() -> logger.info("InnerPublisher " +
-                    "cancelled"));
-            AtomicReference<Subscription> innerSubscription = new AtomicReference<>();
-
-            emitter.onRequest(n -> {
-                logger.fine(n + " request received");
-                if (innerSubscription.get() == null) {
-                    innerPublisher.subscribe(new BaseSubscriber<Mono<Result>>() {
-                        @Override
-                        protected void hookOnSubscribe(Subscription subscription) {
-                            innerSubscription.set(subscription);
-                        }
-
-                        @Override
-                        protected void hookOnNext(Mono<Result> value) {
-                            value.subscribe(emitter::next, emitter::error);
-                        }
-
-                        @Override
-                        protected void hookOnError(Throwable throwable) {
-                            emitter.error(throwable);
-                        }
-
-                        @Override
-                        protected void hookOnComplete() {
-                            emitter.complete();
-                        }
-                    });
-                }
-                innerSubscription.get().request(n);
-            });
-            emitter.onCancel(() -> logger.info("cancelling create flux"));
-            emitter.onDispose(() -> innerSubscription.get().cancel());
-
-        }).limitRate(1);
-        //return generate.concatMap(resultMono -> resultMono);
+        Mono<QueryResult> baseMono = execute(queryRequest)
+                .cast(QueryResult.class)
+                .publishOn(Schedulers.boundedElastic());
+        Flux<QueryResult> recurseFlux =
+                baseMono.expand(result -> result.getContinuationKey() == null ?
+                        Mono.empty() : baseMono);
+        return recurseFlux;
     }
 
     private HttpHeaders getHeader(Request kvRequest, ByteBuf buffer) {
@@ -957,5 +921,9 @@ public class AsyncClient {
 
     private String getLogMessage(String requestId, String request, String msg) {
         return "[Request " + requestId + "] " + request + "- " + msg;
+    }
+
+    public TopologyInfo getTopology() {
+        return topology;
     }
 }

@@ -73,47 +73,17 @@ public class AsyncTest {
                 "\"pinto\", \"age\": 45})";
         QueryRequest queryRequest =
                 new QueryRequest().setStatement(insertQuery);
-        Publisher<QueryResult> queryResultPublisher =
-                asyncHandle.query(queryRequest);
-        queryResultPublisher.subscribe(new BaseSubscriber<QueryResult>() {
-            @Override
-            protected void hookOnSubscribe(Subscription subscription) {
-                super.hookOnSubscribe(subscription);
-            }
-
-            @Override
-            protected void hookOnNext(QueryResult result) {
-                System.out.println("Inserted row via query, result:");
-                for (MapValue qval : result.getResults()) {
-                    System.out.println("\t" + qval.toString());
-                }
-            }
-
-            @Override
-            protected void hookOnComplete() {
-                super.hookOnComplete();
-            }
-
-            @Override
-            protected void hookOnError(Throwable throwable) {
-                System.out.println("Inserting row with query failed :" +
-                        throwable.getMessage());
-                throwable.printStackTrace();
-            }
-
-            @Override
-            protected void hookFinally(SignalType type) {
-                queryRequest.close();
-            }
-        });
+        Mono.from(asyncHandle.query(queryRequest)).subscribe(result ->
+                System.out.println("Insert success"),
+                error -> System.out.println("Insert failure. Error: " + error.getMessage()));
 
         // query table
         String query = "SELECT * from " + tableName;
         QueryRequest queryRequest1 =
                 new QueryRequest().setStatement(query).setMaxReadKB(500);
-        Publisher<QueryResult> queryPublisher = asyncHandle.query(queryRequest);
+        Publisher<QueryResult> queryPublisher = asyncHandle.query(queryRequest1);
 
-        Flux.from(queryResultPublisher).subscribe(new BaseSubscriber<QueryResult>() {
+        Flux.from(queryPublisher).subscribe(new BaseSubscriber<QueryResult>() {
             Subscription subscription;
             AtomicInteger count = new AtomicInteger();
             @Override

@@ -135,11 +135,11 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
 
     @Override
     public Publisher<QueryResult> query(QueryRequest request) {
-        return client.executeQuery(request).cast(QueryResult.class).log();
+        return client.executeQuery(request);
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         client.shutdown();
     }
 }

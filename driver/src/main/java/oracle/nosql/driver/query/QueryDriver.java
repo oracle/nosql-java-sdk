@@ -13,6 +13,7 @@ import java.util.concurrent.TimeoutException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryableException;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
@@ -41,7 +42,7 @@ public class QueryDriver {
 
     private static final byte[] DUMMY_CONT_KEY = new byte[1];
 
-    private Client theClient;
+    private AsyncClient theClient;
 
     private final QueryRequest theRequest;
 
@@ -67,11 +68,11 @@ public class QueryDriver {
         theBatchSize = (req.getLimit() > 0 ? req.getLimit() : BATCH_SIZE);
     }
 
-    public void setClient(Client client) {
+    public void setClient(AsyncClient client) {
         theClient = client;
     }
 
-    Client getClient() {
+    AsyncClient getClient() {
         return theClient;
     }
 

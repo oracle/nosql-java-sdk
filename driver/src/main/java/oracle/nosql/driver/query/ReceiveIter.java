@@ -414,72 +414,72 @@ public class ReceiveIter extends PlanIter {
 
         QueryResult result = execute(rcb, origRequest, reqCopy);
 
-        int numPids = result.getNumPids();
-        List<MapValue> results = result.getResultsInternal();
-        state.theIsInSortPhase1 = result.isInPhase1();
-        state.theContinuationKey = result.getContinuationKey();
+                int numPids = result.getNumPids();
+                List<MapValue> results = result.getResultsInternal();
+                state.theIsInSortPhase1 = result.isInPhase1();
+                state.theContinuationKey = result.getContinuationKey();
 
-        rcb.tallyReadKB(result.getReadKB());
-        rcb.tallyReadUnits(result.getReadUnits());
-        rcb.tallyWriteKB(result.getWriteKB());
-        rcb.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
-        rcb.tallyRetryStats(result.getRetryStats());
-
-        if (rcb.getTraceLevel() >= 1) {
-            rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
-                      "reached limit = " + result.reachedLimit() +
-                      " in phase 1 = " + result.isInPhase1());
-        }
-
-        /*
-         * For each partition P that was accessed during the execution of
-         * the above QueryRequest, collect the results for P and create a
-         * scanner that will be used during phase 2 to collect further
-         * results from P only.
-         */
-        int resIdx = 0;
-
-        for (int p = 0; p < numPids; ++p) {
-
-            int pid = result.getPid(p);
-            int numResults = result.getNumPartitionResults(p);
-            byte[] contKey = result.getPartitionContKey(p);
-            assert(numResults > 0);
-
-            ArrayList<MapValue> partitionResults =
-                new ArrayList<MapValue>(numResults);
-
-            for (int j = 0; j < numResults; ++j) {
-
-                MapValue res = results.get(resIdx);
-                partitionResults.add(res);
+                rcb.tallyReadKB(result.getReadKB());
+                rcb.tallyReadUnits(result.getReadUnits());
+                rcb.tallyWriteKB(result.getWriteKB());
+                rcb.tallyRateLimitDelayedMs(result.getRateLimitDelayedMs());
+                rcb.tallyRetryStats(result.getRetryStats());
 
                 if (rcb.getTraceLevel() >= 1) {
-                    rcb.trace("Added result for partition " + pid +
-                              ":\n" + res);
+                    rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
+                            "reached limit = " + result.reachedLimit() +
+                            " in phase 1 = " + result.isInPhase1());
                 }
-                ++resIdx;
-            }
 
-            RemoteScanner scanner =
-                this.new RemoteScanner(rcb, state, false, pid, null);
-            scanner.addResults(partitionResults, contKey);
-            state.theSortedScanners.add(scanner);
-        }
+                /*
+                 * For each partition P that was accessed during the execution of
+                 * the above QueryRequest, collect the results for P and create a
+                 * scanner that will be used during phase 2 to collect further
+                 * results from P only.
+                 */
+                int resIdx = 0;
 
-        if (rcb.getTraceLevel() >= 1) {
-            rcb.trace("ReceiveIter.initPartitionSort() : " +
-                      " memory consumption = " + state.theMemoryConsumption);
-        }
+                for (int p = 0; p < numPids; ++p) {
 
-        /*
-         * For simplicity, if the size limit was not reached during this
-         * batch of sort phase 1, we don't start a new batch. We let the
-         * app do it. Furthermore, this means that each remote fetch will
-         * be done with the max amount of read limit, which will reduce the
-         * total number of fetches.
-         */
-        rcb.setReachedLimit(true);
+                    int pid = result.getPid(p);
+                    int numResults = result.getNumPartitionResults(p);
+                    byte[] contKey = result.getPartitionContKey(p);
+                    assert(numResults > 0);
+
+                    ArrayList<MapValue> partitionResults =
+                            new ArrayList<MapValue>(numResults);
+
+                    for (int j = 0; j < numResults; ++j) {
+
+                        MapValue res = results.get(resIdx);
+                        partitionResults.add(res);
+
+                        if (rcb.getTraceLevel() >= 1) {
+                            rcb.trace("Added result for partition " + pid +
+                                    ":\n" + res);
+                        }
+                        ++resIdx;
+                    }
+
+                    RemoteScanner scanner =
+                            this.new RemoteScanner(rcb, state, false, pid, null);
+                    scanner.addResults(partitionResults, contKey);
+                    state.theSortedScanners.add(scanner);
+                }
+
+                if (rcb.getTraceLevel() >= 1) {
+                    rcb.trace("ReceiveIter.initPartitionSort() : " +
+                            " memory consumption = " + state.theMemoryConsumption);
+                }
+
+                /*
+                 * For simplicity, if the size limit was not reached during this
+                 * batch of sort phase 1, we don't start a new batch. We let the
+                 * app do it. Furthermore, this means that each remote fetch will
+                 * be done with the max amount of read limit, which will reduce the
+                 * total number of fetches.
+                 */
+                rcb.setReachedLimit(true);
     }
 
     private void handleVirtualScans(
@@ -587,12 +587,13 @@ public class ReceiveIter extends PlanIter {
      * retry stats, rate limiters, etc.
      */
     private QueryResult execute(RuntimeControlBlock rcb,
-                                QueryRequest origRequest,
-                                QueryRequest reqCopy) {
+                                      QueryRequest origRequest,
+                                      QueryRequest reqCopy) {
         NoSQLException e = null;
         QueryResult result = null;
         try {
-            result = (QueryResult)rcb.getClient().execute(reqCopy);
+            result = rcb.getClient().execute(reqCopy).cast(QueryResult.class)
+                    .block();
         } catch (NoSQLException qe) {
             e = qe;
         }

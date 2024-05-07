@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.Clock;
 
 import oracle.nosql.driver.Consistency;
-import oracle.nosql.driver.http.Client;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.values.FieldValue;
@@ -127,7 +127,7 @@ public class RuntimeControlBlock {
         return theTraceBuilder.toString();
     }
 
-    public Client getClient() {
+    public AsyncClient getClient() {
         return theQueryDriver.getClient();
     }
 

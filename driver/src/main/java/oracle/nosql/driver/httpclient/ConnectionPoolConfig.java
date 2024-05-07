@@ -50,7 +50,7 @@ public class ConnectionPoolConfig {
 
         private long connectTimeout = 10000; // Default connect timeout in milliseconds
         private int maxConnections = 10; // Default max connections
-        private int maxPendingAcquires = 100; // Default max pending acquires
+        private int maxPendingAcquires = -1; // Default max pending acquires
         private long pendingAcquireTimeout = 45000; // Default pending acquire timeout in milliseconds
         private long maxIdleTime = 60000; // Default max idle time in milliseconds
         private long maxLifetime = 300000; // Default max lifetime in milliseconds

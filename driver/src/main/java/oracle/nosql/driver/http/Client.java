@@ -421,7 +421,7 @@ public class Client {
             if (qreq.isPrepared() && !qreq.isSimpleQuery()) {
                 trace("QueryRequest has no QueryDriver, but is prepared", 2);
                 QueryDriver driver = new QueryDriver(qreq);
-                driver.setClient(this);
+                //driver.setClient(this);
                 return new QueryResult(qreq, false);
             }
 
@@ -1258,7 +1258,7 @@ public class Client {
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
                     if (!qreq.isSimpleQuery()) {
-                        qreq.getDriver().setClient(this);
+                        //qreq.getDriver().setClient(this);
                     }
                 }
                 return res;
