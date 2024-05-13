@@ -83,6 +83,8 @@ public class Region {
     public static final Region AP_OSAKA_1 = new Region("ap-osaka-1");
     /** ICN */
     public static final Region AP_SINGAPORE_1 = new Region("ap-singapore-1");
+    /** XSP */
+    public static final Region AP_SINGAPORE_2 = new Region("ap-singapore-2");
     /** SIN */
     public static final Region AP_SEOUL_1 = new Region("ap-seoul-1");
     /** SYD */
@@ -247,6 +249,8 @@ public class Region {
     /* OC25 */
     /** TYO */
     public static final Region AP_DCC_TOKYO_1 = new Region("ap-dcc-tokyo-1");
+    /** UKY */
+    public static final Region AP_DCC_OSAKA_1 = new Region("ap-dcc-osaka-1");
 
     /* OC26 */
     /** AHU */
@@ -276,6 +280,7 @@ public class Region {
         OC1_REGIONS.put(AP_MUMBAI_1.getRegionId(), AP_MUMBAI_1);
         OC1_REGIONS.put(AP_OSAKA_1.getRegionId(), AP_OSAKA_1);
         OC1_REGIONS.put(AP_SINGAPORE_1.getRegionId(), AP_SINGAPORE_1);
+        OC1_REGIONS.put(AP_SINGAPORE_2.getRegionId(), AP_SINGAPORE_2);
         OC1_REGIONS.put(AP_SEOUL_1.getRegionId(), AP_SEOUL_1);
         OC1_REGIONS.put(AP_SYDNEY_1.getRegionId(), AP_SYDNEY_1);
         OC1_REGIONS.put(AP_TOKYO_1.getRegionId(), AP_TOKYO_1);
@@ -382,6 +387,7 @@ public class Region {
 
         /* OC25 */
         OC25_REGIONS.put(AP_DCC_TOKYO_1.getRegionId(), AP_DCC_TOKYO_1);
+        OC25_REGIONS.put(AP_DCC_OSAKA_1.getRegionId(), AP_DCC_OSAKA_1);
 
         /* OC26 */
         OC26_REGIONS.put(ME_ABUDHABI_3.getRegionId(), ME_ABUDHABI_3);

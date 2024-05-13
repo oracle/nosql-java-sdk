@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Unreleased
 
 ### Added
-- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ)
+- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ, UKY, XSP)
 - Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
 - Cloud only: added OKE workload identity authentication support
  - SignatureProvider.createWithOkeWorkloadIdentity()

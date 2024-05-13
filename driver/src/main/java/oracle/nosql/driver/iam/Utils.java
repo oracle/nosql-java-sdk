@@ -152,6 +152,7 @@ class Utils {
         IAM_URI.put("kix", OC1_EP_BASE.format(new Object[] {"ap-osaka-1"}));
         IAM_URI.put("icn", OC1_EP_BASE.format(new Object[] {"ap-seoul-1"}));
         IAM_URI.put("sin", OC1_EP_BASE.format(new Object[] {"ap-singapore-1"}));
+        IAM_URI.put("xsp", OC1_EP_BASE.format(new Object[] {"ap-singapore-2"}));
         IAM_URI.put("syd", OC1_EP_BASE.format(new Object[] {"ap-sydney-1"}));
         IAM_URI.put("nrt", OC1_EP_BASE.format(new Object[] {"ap-tokyo-1"}));
 
@@ -254,6 +255,7 @@ class Utils {
 
         /* OC25 */
         IAM_URI.put("tyo", OC25_EP_BASE.format(new Object[] {"ap-dcc-tokyo-1"}));
+        IAM_URI.put("uky", OC25_EP_BASE.format(new Object[] {"ap-dcc-osaka-1"}));
 
         /* OC26 */
         IAM_URI.put("ahu", OC26_EP_BASE.format(new Object[] {"me-abudhabi-3"}));
