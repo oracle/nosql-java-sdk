@@ -222,7 +222,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     public synchronized void bootstrapLogin() {
 
-        if (!isSecure || isClosed) {
+        /* re-check the authString in case of a race */
+        if (!isSecure || isClosed || authString.get() != null) {
             return;
         }
 
