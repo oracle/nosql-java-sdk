@@ -13,14 +13,13 @@ import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.InvalidAuthorizationException;
-import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.httpclient.HttpResponse;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
@@ -32,6 +31,10 @@ import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.ssl.SslContext;
+import reactor.core.Disposable;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * On-premises only.
@@ -86,21 +89,21 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     private static final int HTTP_TIMEOUT_MS = 30000;
 
     /*
-     * Authentication string which contain the Bearer prefix and login token's
-     * binary representation in hex format.
+     * Authentication token which contain the Bearer prefix and login token's
+     * binary representation in hex format and token expiration.
      */
-    private AtomicReference<String> authString = new AtomicReference<String>();
+    private final AtomicReference<Token> authToken = new AtomicReference<>();
 
-    /*
-     * Login token expiration time.
-     */
-    private long expirationTime;
+    /* Scheduled Refresh task */
+    private final AtomicReference<Disposable> refreshTask =
+            new AtomicReference<>();
 
-    /*
-     * A timer task used to periodically renew the login token.
-     */
-    private volatile Timer timer;
+    /* A Flag to indicate whether signature flush is in progress */
+    private final AtomicBoolean flushInProgress = new AtomicBoolean(false);
 
+    /* Thread to run refresh task */
+    private final Scheduler refreshScheduler = Schedulers.newSingle("token" +
+            "-refresh", true);
     /*
      * logger
      */
@@ -109,7 +112,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Whether to renew the login token automatically
      */
-    private boolean autoRenew = true;
+    private volatile boolean autoRenew = true;
 
     /*
      * Whether this is a secure store token provider.
@@ -149,7 +152,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Whether this provider is closed
      */
-    private boolean isClosed = false;
+    private volatile boolean isClosed = false;
 
     /*
      *  SslContext used by http client
@@ -199,19 +202,18 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     public StoreAccessTokenProvider(String userName,
                                     char[] password) {
 
+        /*
+         * Check null
+         */
+        if (userName == null || userName.isEmpty() ||
+                password == null) {
+            throw new IllegalArgumentException(
+                    "Invalid input arguments");
+        }
         isSecure = true;
         this.userName = userName;
         this.password = Arrays.copyOf(password, password.length);
         this.logger = null;
-
-        /*
-         * Check null
-         */
-        if (this.userName == null || this.userName.isEmpty() ||
-            this.password == null) {
-            throw new IllegalArgumentException(
-                "Invalid input arguments");
-        }
     }
 
     /**
@@ -219,55 +221,24 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      *
      * Bootstrap login using the provided credentials
      */
-    public synchronized void bootstrapLogin() {
-
+    private Mono<Token> bootstrapLogin() {
         if (!isSecure || isClosed) {
-            return;
+           return Mono.empty();
         }
 
-        try {
-            /*
-             * Convert the user:password pair in base 64 format with
-             * Basic prefix
-             */
-            final String encoded = Base64.getEncoder().
+        /*
+         * Convert the user:password pair in base 64 format with
+         * Basic prefix
+         */
+        final String encoded = Base64.getEncoder().
                 encodeToString((
                     userName + ":" + String.valueOf(password)).getBytes());
 
-            /*
-             * Send request to server for login token
-             */
-            oracle.nosql.driver.httpclient.HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
-                                                LOGIN_SERVICE);
-
-            /*
-             * login fail
-             */
-            if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
-                throw new InvalidAuthorizationException(
-                    "Fail to login to service: " + response.getBodyAsStringSync());
-            }
-
-            if (isClosed) {
-                return;
-            }
-
-            /*
-             * Generate the authentication string using login token
-             */
-            authString.set(BEARER_PREFIX +
-                           parseJsonResult(response.getBodyAsStringSync()));
-
-            /*
-             * Schedule login token renew thread
-             */
-            scheduleRefresh();
-
-        } catch (InvalidAuthorizationException iae) {
-            throw iae;
-        } catch (Exception e) {
-            throw new NoSQLException("Bootstrap login fail", e);
-        }
+        /*
+         * Send request to server for login token
+         */
+        return getTokenFromServer(BASIC_PREFIX + encoded,
+                LOGIN_SERVICE);
     }
 
     /**
@@ -275,26 +246,15 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     @Override
     public String getAuthorizationString(Request request) {
+        return getAuthorizationStringAsync(request).block();
+    }
 
-        if (!isSecure) {
-            return null;
+    @Override
+    public Mono<String> getAuthorizationStringAsync(Request request) {
+        if(!isSecure || isClosed) {
+            return Mono.empty();
         }
-
-        /*
-         * Already close
-         */
-        if (isClosed) {
-            return null;
-        }
-
-        /*
-         * If there is no cached auth string, re-authentication to retrieve
-         * the login token and generate the auth string.
-         */
-        if (authString.get() == null) {
-            bootstrapLogin();
-        }
-        return authString.get();
+        return Mono.just(authToken.get().authString);
     }
 
     /**
@@ -328,7 +288,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
          */
         try {
             final HttpResponse response =
-                sendRequest(authString.get(), LOGOUT_SERVICE);
+                    sendRequest(authToken.get().authString,
+            LOGOUT_SERVICE).block();
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
@@ -346,12 +307,11 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
          * Clean up
          */
         isClosed = true;
-        authString = null;
-        expirationTime = 0;
+        authToken.set(null);
         Arrays.fill(password, ' ');
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
+        if (refreshTask.get() != null) {
+            refreshTask.get().dispose();
+            refreshTask.set(null);
         }
     }
 
@@ -435,67 +395,59 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * reached.
      */
     private void scheduleRefresh() {
-
-        /*
-         * Only run when autoRenew is set
-         */
-        if (!isSecure || !autoRenew) {
+        logger.fine("Scheduling token refresh");
+        if (!isSecure || !autoRenew || isClosed) {
             return;
         }
-
-        /*
-         * Clean up any existing timer
-         */
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
+        // Get the existing token
+        Token existingToken = authToken.get();
+        Disposable task = refreshTask.getAndSet(null);
+        if(task != null) {
+            logger.fine("disposing refresh task");
+            task.dispose();
         }
 
         final long acquireTime = System.currentTimeMillis();
-
-        if (expirationTime <= 0) {
+        if(existingToken.expirationTime <= 0) {
             return;
         }
-
-        /*
-         * If it is 10 seconds before expiration, don't do further renew to
-         * avoid to many renew request in the last few seconds.
-         */
-        if (expirationTime > acquireTime + 10000) {
+        if (existingToken.expirationTime > acquireTime + 10000) {
             final long renewTime =
-                acquireTime + (expirationTime - acquireTime) / 2;
+                    acquireTime + (existingToken.expirationTime - acquireTime) / 2;
 
-            timer = new Timer(true /* isDaemon */);
-
-            /* Attempt a renew at the token half-life */
-            timer.schedule(new RefreshTask(), (renewTime - acquireTime));
+            /* Attempt a renewal at the token half-life */
+            task = refreshScheduler.schedule(
+                () -> getTokenFromServer(existingToken.authString, RENEW_SERVICE)
+                        .subscribe(),
+                renewTime,
+                TimeUnit.MILLISECONDS
+            );
+            refreshTask.set(task);
         }
     }
 
     /**
      * Retrieve login token from JSON string
      */
-    private String parseJsonResult(String jsonResult) {
+    private Token parseJsonResult(String jsonResult) {
         final MapValue mapValue =
             JsonUtils.createValueFromJson(jsonResult, null).asMap();
 
         /*
-         * Extract expiration time from JSON result
+         * Extract login token and expiration time from JSON result
          */
-        expirationTime = mapValue.getLong("expireAt");
+        String token = BEARER_PREFIX + mapValue.getString("token");
+        long life = mapValue.getLong("expireAt");
 
-        /*
-         * Extract login token from JSON result
-         */
-        return mapValue.getString("token");
+        return new Token(token,life);
     }
 
     /**
      * Send HTTPS request to login/renew/logout service location with proper
      * authentication information.
      */
-    private oracle.nosql.driver.httpclient.HttpResponse sendRequest(String authHeader,
-                                                                    String serviceName) throws Exception {
+    private Mono<HttpResponse> sendRequest(String authHeader,
+                                           String serviceName) {
         ReactorHttpClient client = null;
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
@@ -507,13 +459,10 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                  sslHandshakeTimeoutMs,
                  serviceName);
                  //logger);
-            return client.getRequest(
-                //client,
-                NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
-                .toString(),
-                headers).block();
-                //HTTP_TIMEOUT_MS,
-                //logger);
+            String uri = NoSQLHandleConfig.createURL(endpoint,
+                    basePath + serviceName).toString();
+
+            return client.getRequest(uri , headers);
         } finally {
             if (client != null) {
                 //client.shutdown();
@@ -543,45 +492,54 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
-    /**
-     * This task sends a request to the server for login session extension.
-     * Depending on the server policy, a new login token with new expiration
-     * time may or may not be granted.
-     */
-    private class RefreshTask extends TimerTask {
+    public void prepare() {
+        bootstrapLogin().block();
+    }
 
-        @Override
-        public void run() {
+    private Mono<Token> getTokenFromServer(String authHeader,
+                                           String serviceName) {
+        Mono<Token> tokenMono = sendRequest(authHeader,serviceName)
+                .flatMap(response -> {
+                    int responseCode = response.getStatusCode();
+                    Mono<String> body = response.getBodyAsString();
+                    return body.handle((bodyString, sink) -> {
+                        if(responseCode != HttpResponseStatus.OK.code()) {
+                            sink.error(new InvalidAuthorizationException(
+                                    "Fail to login to service: " + bodyString));
+                        }
+                        sink.next(parseJsonResult(bodyString));
+                    });
+                });
+        return tokenMono.doOnNext(token -> {
+            authToken.set(token);
+            scheduleRefresh();
+        });
+    }
 
-            if (!isSecure || !autoRenew || isClosed) {
-                return;
+    @Override
+    public void flushCache() {
+        if (!flushInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            Disposable task = refreshTask.getAndSet(null);
+            if (task != null) {
+                task.dispose();
             }
+            bootstrapLogin().subscribe();
+        } finally {
+            flushInProgress.set(false);
+        }
+    }
 
-            try {
-                final String oldAuth = authString.get();
-                oracle.nosql.driver.httpclient.HttpResponse response = sendRequest(oldAuth,
-                                                    RENEW_SERVICE);
-                final String token = parseJsonResult(response.getBodyAsStringSync());
-                if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
-                    throw new InvalidAuthorizationException(token);
-                }
-                if (isClosed) {
-                    return;
-                }
-                authString.compareAndSet(oldAuth,
-                                         BEARER_PREFIX + token);
 
-                scheduleRefresh();
-            } catch (Exception e) {
-                if (logger != null) {
-                    logger.info("Failed to renew login token: " + e);
-                }
+    private static class Token {
+        private final String authString;
+        private final long expirationTime;
 
-                if (timer != null) {
-                    timer.cancel();
-                    timer = null;
-                }
-            }
+        public Token(String authString, long expirationTime) {
+            this.authString = authString;
+            this.expirationTime = expirationTime;
         }
     }
 }

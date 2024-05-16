@@ -31,7 +31,6 @@ import javax.security.auth.Refreshable;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
-import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.iam.SignatureProvider.ResourcePrincipalClaimKeys;
 
@@ -348,8 +347,8 @@ class SecurityTokenSupplier {
 
         /**
          * Checks if two public keys are equal
-         * @param a one public key
-         * @param b the other one
+         * @param actual one public key
+         * @param expect the other one
          * @return true if the same
          */
         private boolean isEqualPublicKey(RSAPublicKey actual,

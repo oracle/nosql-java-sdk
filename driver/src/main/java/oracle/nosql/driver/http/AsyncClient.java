@@ -49,6 +49,7 @@ import oracle.nosql.driver.util.SerializationUtil;
 import oracle.nosql.driver.values.MapValue;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SynchronousSink;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetrySpec;
@@ -258,7 +259,6 @@ public class AsyncClient {
 
     public Mono<Result> execute(Request kvRequest) {
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
-        logger.log(Level.INFO, "sending execute request");
         initAndValidateRequest(kvRequest);
 
         Throwable exception = null;
@@ -272,10 +272,26 @@ public class AsyncClient {
                 /* Set the topo seq num in the request, if it has not been set
                  * already */
                 kvRequest.setTopoSeqNum(getTopoSeqNum());
+                /*
+                 * The following "if" may be true for advanced queries only. For
+                 * such queries, the "if" will be true (i.e., the QueryRequest will
+                 * be bound with a QueryDriver) if and only if this is not the 1st
+                 * execute() call for this query. In this case we just return a new,
+                 * empty QueryResult. Actual computation of a result batch will take
+                 * place when the app calls getResults() on the QueryResult.
+                 */
                 if (qreq.hasDriver()) {
                     logger.fine("QueryRequest has QueryDriver");
                     return Mono.just(new QueryResult(qreq, false));
                 }
+                /*
+                 * If it is an advanced query and we are here, then this must be
+                 * the 1st execute() call for the query. If the query has been
+                 * prepared before, we create a QueryDriver and bind it with the
+                 * QueryRequest. Then, we create and return an empty QueryResult.
+                 * Actual computation of a result batch will take place when the
+                 * app calls getResults() on the QueryResult.
+                 */
                 if (qreq.isPrepared() && !qreq.isSimpleQuery()) {
                     logger.fine("QueryRequest has no QueryDriver, but is prepared");
                     QueryDriver driver = new QueryDriver(qreq);
@@ -283,6 +299,7 @@ public class AsyncClient {
                     return Mono.just(new QueryResult(qreq, false));
                 }
                 logger.fine("QueryRequest has no QueryDriver and is not prepared");
+                qreq.incBatchCounter();
             }
 
             ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
@@ -383,8 +400,10 @@ public class AsyncClient {
                 }
                */
 
-                final HttpHeaders requestHeader = getHeader(kvRequest,buffer);
-                requestHeader.add(REQUEST_ID_HEADER, requestId);
+                final Mono<HttpHeaders> requestHeader = getHeader(kvRequest,
+                        buffer).map(headers -> headers.add(REQUEST_ID_HEADER,
+                        requestId));
+
                 logger.fine(getLogMessage(requestId.get(), requestClass,
                     "Sending request to Server"));
 
@@ -463,6 +482,24 @@ public class AsyncClient {
                         ": " + error.getMessage()));
                 //error.printStackTrace();
             })
+            //Authentication and InvalidAuthorizationException-Retry 1 time
+            .retryWhen(RetrySpec.max(1)
+                .filter(throwable -> throwable instanceof AuthenticationException
+                        || throwable instanceof InvalidAuthorizationException)
+                .doBeforeRetry(retrySignal -> {
+                    authProvider.flushCache();
+                })
+            )
+            //SecurityInfoNotReadyException-Retry 10 times with 100ms backoff
+            .retryWhen(RetrySpec.backoff(10, Duration.ofMillis(SEC_ERROR_DELAY_MS))
+                .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
+            )
+            //RetryableException-Retry 10 times with 200ms backoff + jitter
+            .retryWhen(Retry.backoff(10, Duration.ofMillis(200)).jitter(0.2)
+                .filter(throwable -> throwable instanceof RetryableException)
+            )
+            /* UnsupportedQueryVersionException- Retry 10 times. filter will
+            limit max retries to queryVersion */
             .retryWhen(RetrySpec.max(10)
                 .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
                     decrementQueryVersion((short) queryVersionUsed.get()))
@@ -471,24 +508,16 @@ public class AsyncClient {
                         retrySignal.totalRetries() + 1,
                         retrySignal.failure());
                 })
-            ).retryWhen(RetrySpec.max(10)
+            )
+            /* UnsupportedProtocolException- Retry 10 times. filter will
+            limit max retries to serialVersion */
+            .retryWhen(RetrySpec.max(10)
                 .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
                     decrementSerialVersion((short) serialVersionUsed.get()))
-            ).retryWhen(RetrySpec.max(1)
-                .filter(throwable -> throwable instanceof AuthenticationException)
-                .doBeforeRetry(retrySignal -> {
-                    if (authProvider instanceof StoreAccessTokenProvider) {
-                        final StoreAccessTokenProvider satp =
-                            (StoreAccessTokenProvider) authProvider;
-                        satp.bootstrapLogin();
-                    }
-                })
-            ).retryWhen(RetrySpec.max(1)
-                .filter(throwable -> throwable instanceof InvalidAuthorizationException)
-            ).retryWhen(RetrySpec.max(10)
-                .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
-            ).retryWhen(Retry.backoff(2, Duration.ofMillis(1000))
-                .filter(throwable -> throwable instanceof RetryableException)
+            )
+            // IOException - Retry 2 times with 10ms delay
+            .retryWhen(RetrySpec.fixedDelay(2, Duration.ofMillis(10))
+                    .filter(throwable -> throwable instanceof IOException)
             ).doFinally(signalType -> {
                 int refCount = buffer.refCnt();
                 logger.fine(getLogMessage(requestId.get(), requestClass,
@@ -829,7 +858,7 @@ public class AsyncClient {
         return recurseFlux;
     }
 
-    private HttpHeaders getHeader(Request kvRequest, ByteBuf buffer) {
+    private Mono<HttpHeaders> getHeader(Request kvRequest, ByteBuf buffer) {
         /*
          * boolean that indicates whether content must be signed. Cross
          * region operations must include content when signing. See comment
@@ -838,37 +867,44 @@ public class AsyncClient {
         final boolean signContent = requireContentSigned(kvRequest);
 
         //TODO check below line is having any blocking call
-        final String authString = authProvider.getAuthorizationString(kvRequest);
-        authProvider.validateAuthString(authString);
+        return Mono.from(authProvider.getAuthorizationStringAsync(kvRequest))
+            .handle((String authString, SynchronousSink<String> sink) -> {
+                try {
+                    authProvider.validateAuthString(authString);
+                    sink.next(authString);
+                } catch (Exception e) {
+                    sink.error(e);
+                }
+            }).flatMap(authString -> {
+                HttpHeaders headers = new DefaultHttpHeaders();
+                headers.set(CONTENT_TYPE, "application/octet-stream")
+                        .set(CONNECTION, KEEP_ALIVE)
+                        .set(ACCEPT, "application/octet-stream")
+                        .set(USER_AGENT, getUserAgent())
+                        .set(HttpHeaderNames.HOST, host)
+                        .setInt(CONTENT_LENGTH, buffer.readableBytes());
 
-        HttpHeaders headers = new DefaultHttpHeaders();
-        headers.set(CONTENT_TYPE, "application/octet-stream")
-                .set(CONNECTION, KEEP_ALIVE)
-                .set(ACCEPT, "application/octet-stream")
-                .set(USER_AGENT, getUserAgent())
-                .set(HttpHeaderNames.HOST, host)
-                .setInt(CONTENT_LENGTH, buffer.readableBytes());
+                if (sessionCookie.get() != null) {
+                    headers.add(COOKIE, sessionCookie);
+                }
+                String serdeVersion = getSerdeVersion(kvRequest);
+                if (serdeVersion != null) {
+                    headers.add("x-nosql-serde-version", serdeVersion);
+                }
 
-            if (sessionCookie.get() != null) {
-                headers.add(COOKIE, sessionCookie);
-            }
-            String serdeVersion = getSerdeVersion(kvRequest);
-            if (serdeVersion != null) {
-                headers.add("x-nosql-serde-version", serdeVersion);
-            }
-
-            byte[] content = signContent ? getBodyBytes(buffer) : null;
-            //TODO check below line is having any blocking call
-            authProvider.setRequiredHeaders(authString, kvRequest, headers, content);
-
-        String namespace = kvRequest.getNamespace();
-        if (namespace == null) {
-            namespace = config.getDefaultNamespace();
-        }
-        if (namespace != null) {
-            headers.add(REQUEST_NAMESPACE_HEADER, namespace);
-        }
-        return headers;
+                String namespace = kvRequest.getNamespace();
+                if (namespace == null) {
+                    namespace = config.getDefaultNamespace();
+                }
+                if (namespace != null) {
+                    headers.add(REQUEST_NAMESPACE_HEADER, namespace);
+                }
+                byte[] content = signContent ? getBodyBytes(buffer) : null;
+                //TODO check below line is having any blocking call
+                return Mono.from(authProvider.setRequiredHeadersAsync(authString,
+                        kvRequest,
+                        headers, content)).then(Mono.just(headers));
+            });
     }
 
     private synchronized int getTopoSeqNum() {

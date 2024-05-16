@@ -21,6 +21,8 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.values.MapValue;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 /*
  * Common is a companion class to the Oracle NoSQL Cloud Service examples. It
@@ -356,6 +358,11 @@ class Common {
         @Override
         public String getAuthorizationString(Request request) {
             return id;
+        }
+
+        @Override
+        public Publisher<String> getAuthorizationStringAsync(Request request) {
+            return Mono.just(id);
         }
 
         @Override

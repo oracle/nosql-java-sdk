@@ -23,9 +23,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,6 +41,11 @@ import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.ops.Request;
 
 import io.netty.handler.codec.http.HttpHeaders;
+import reactor.core.Disposable;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 /**
  * Cloud service only.
@@ -142,22 +150,28 @@ public class SignatureProvider
     private String delegationToken;
 
     /* the currently cached signature */
-    private SignatureDetails currentSigDetails;
+    private final AtomicReference<SignatureDetails> currentSigDetails =
+            new AtomicReference<>();
 
-    /* new signature, in process of warmup */
-    private SignatureDetails refreshSigDetails;
+    /* Scheduled Refresh task */
+    private final AtomicReference<Disposable> refreshTask =
+            new AtomicReference<>();
 
-    /* Refresh timer */
-    private volatile Timer refresher;
+    /* A Flag to indicate whether signature flush is in progress */
+    private final AtomicBoolean flushInProgress = new AtomicBoolean(false);
+
+    /* Thread to run refresh task */
+    private final Scheduler refreshScheduler = Schedulers.newSingle("token" +
+            "-refresh", true);
 
     /* Refresh time before signature expires */
     private long refreshAheadMs = DEFAULT_REFRESH_AHEAD;
 
     /* Refresh interval, if zero, no refresh will be scheduled */
-    private long refreshIntervalMs = 0;
+    private final long refreshIntervalMs;
 
     private String serviceHost;
-    private Region region;
+    private final Region region;
     private Logger logger;
 
     /**
@@ -767,9 +781,8 @@ public class SignatureProvider
     public SignatureProvider(AuthenticationProfileProvider profileProvider,
                                 int durationSeconds,
                                 int refreshAheadMs) {
-        if (profileProvider instanceof RegionProvider) {
-            this.region = ((RegionProvider) profileProvider).getRegion();
-        }
+        this.region = (profileProvider instanceof RegionProvider) ?
+                ((RegionProvider) profileProvider).getRegion() : null;
         this.provider = profileProvider;
         this.privateKeyProvider = (provider == null) ?
             null : new PrivateKeyProvider(provider);
@@ -781,9 +794,11 @@ public class SignatureProvider
         }
 
         this.refreshAheadMs = refreshAheadMs;
-        long durationMS = durationSeconds * 1000;
+        long durationMS = durationSeconds * 1000L;
         if (durationMS > refreshAheadMs) {
             this.refreshIntervalMs = durationMS - refreshAheadMs;
+        } else {
+            this.refreshIntervalMs = 0;
         }
         if (this.provider instanceof SecurityTokenBasedProvider) {
             ((SecurityTokenBasedProvider) provider)
@@ -792,63 +807,84 @@ public class SignatureProvider
     }
 
     @Override
-    public String getAuthorizationString(Request request) {
+    public Mono<String> getAuthorizationStringAsync(Request request) {
         if (serviceHost == null) {
-            throw new IllegalArgumentException(
-               "Unable to find service host, use setServiceHost " +
-               "to load from NoSQLHandleConfig");
+            Mono.error(new IllegalArgumentException(
+                    "Unable to find service host, use setServiceHost " +
+                            "to load from NoSQLHandleConfig"));
         }
-        SignatureDetails sigDetails = getSignatureDetails(request);
-        if (sigDetails != null) {
-            return sigDetails.getSignatureHeader();
-        }
-        return null;
+        return getSignatureDetails(request).map(SignatureDetails::getSignatureHeader);
     }
 
     @Override
+    public String getAuthorizationString(Request request) {
+        return getAuthorizationStringAsync(request).block();
+    }
+
+    @Override
+    public Mono<Void> setRequiredHeadersAsync(String authString,
+                                   Request request,
+                                   HttpHeaders headers,
+                                   byte[] content) {
+        Mono<SignatureDetails> sigDetailsMono = (content != null) ?
+                getSignatureWithContent(request, headers, content) :
+                getSignatureDetails(request);
+        return sigDetailsMono.doOnNext(sigDetails -> {
+            headers.add(AUTHORIZATION, sigDetails.getSignatureHeader());
+            headers.add(DATE, sigDetails.getDate());
+
+            final String token = getDelegationToken(request);
+            if (token != null) {
+                headers.add(OBO_TOKEN_HEADER, token);
+            }
+            String compartment = request.getCompartment();
+            if (compartment == null) {
+                /*
+                 * If request doesn't has compartment id, set the tenant id as the
+                 * default compartment, which is the root compartment in IAM if
+                 * using user principal. If using an instance principal this
+                 * value is null.
+                 */
+                compartment = getTenantOCID();
+            }
+
+            if (compartment != null) {
+                headers.add(REQUEST_COMPARTMENT_ID, compartment);
+            } else {
+                throw new IllegalArgumentException(
+                        "Compartment is null. When authenticating using an " +
+                                "Instance Principal the compartment for the operation " +
+                                "must be specified.");
+            }
+        }).then();
+    }
+
     public void setRequiredHeaders(String authString,
                                    Request request,
                                    HttpHeaders headers,
                                    byte[] content) {
-
-        SignatureDetails sigDetails = (content != null) ?
-            getSignatureWithContent(request, headers, content):
-            getSignatureDetails(request);
-        if (sigDetails == null) {
-            return;
-        }
-        headers.add(AUTHORIZATION, sigDetails.getSignatureHeader());
-        headers.add(DATE, sigDetails.getDate());
-
-        final String token = getDelegationToken(request);
-        if (token != null) {
-            headers.add(OBO_TOKEN_HEADER, token);
-        }
-        String compartment = request.getCompartment();
-        if (compartment == null) {
-            /*
-             * If request doesn't has compartment id, set the tenant id as the
-             * default compartment, which is the root compartment in IAM if
-             * using user principal. If using an instance principal this
-             * value is null.
-             */
-            compartment = getTenantOCID();
-        }
-
-        if (compartment != null) {
-            headers.add(REQUEST_COMPARTMENT_ID, compartment);
-        } else {
-            throw new IllegalArgumentException(
-                "Compartment is null. When authenticating using an " +
-                "Instance Principal the compartment for the operation " +
-                "must be specified.");
-        }
+        setRequiredHeadersAsync(authString,request,headers,content).block();
     }
 
+
     @Override
-    public synchronized void flushCache() {
-        currentSigDetails = null;
-        refreshSigDetails = null;
+    public void flushCache() {
+        /* If already a flush in progress do nothing */
+        if (!flushInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            /* cancel scheduled task if any */
+            Disposable task = refreshTask.getAndSet(null);
+            if (task != null) {
+                logger.fine("Flush: disposing refresh task");
+                task.dispose();
+            }
+            /* get new signature */
+            getSignatureDetailsForCache(false).subscribe();
+        } finally {
+            flushInProgress.set(false);
+        }
     }
 
     /**
@@ -867,9 +903,9 @@ public class SignatureProvider
 
     @Override
     public void close() {
-        if (refresher != null) {
-            refresher.cancel();
-            refresher = null;
+        Disposable task = refreshTask.getAndSet(null);
+        if(task != null) {
+            task.dispose();
         }
         if (provider instanceof InstancePrincipalsProvider) {
             ((InstancePrincipalsProvider)this.provider).close();
@@ -913,7 +949,7 @@ public class SignatureProvider
         }
 
         /* creates and caches a signature as warm-up */
-        getSignatureDetailsForCache(false);
+        getSignatureDetailsForCache(false).block();
         return this;
     }
 
@@ -975,115 +1011,86 @@ public class SignatureProvider
         }
     }
 
-    private SignatureDetails getSignatureDetails(Request request) {
-        SignatureDetails sigDetails =
-            (request.getIsRefresh() ? refreshSigDetails : currentSigDetails);
-        if (sigDetails != null) {
-            return sigDetails;
-        }
-
-        if (request.getIsRefresh()) {
-            /* try current details before failing */
-            sigDetails = currentSigDetails;
-            if (sigDetails != null) {
-                return sigDetails;
-            }
-        }
-
-        return getSignatureDetailsForCache(false);
+    private Mono<SignatureDetails> getSignatureDetails(Request request) {
+        return Mono.just(currentSigDetails.get());
     }
 
-    private SignatureDetails getSignatureWithContent(Request request,
+    private Mono<SignatureDetails> getSignatureWithContent(Request request,
                                                      HttpHeaders headers,
                                                      byte[] content) {
         return getSignatureDetailsInternal(false, request, headers, content);
     }
 
-    synchronized SignatureDetails
-        getSignatureDetailsForCache(boolean isRefresh) {
+    synchronized Mono<Void>
+    getSignatureDetailsForCache(boolean isRefresh) {
         return getSignatureDetailsInternal(isRefresh,
-                                           null /* request */,
-                                           null /* headers */,
-                                           null /* content */);
+                null /* request */,
+                null /* headers */,
+                null /* content */)
+                .doOnNext(signatureDetails -> {
+                    logger.fine("Successfully Got new token");
+                    currentSigDetails.set(signatureDetails);
+                    scheduleRefresh();
+                }).then();
     }
 
     /* visible for testing */
-    synchronized SignatureDetails
+    synchronized Mono<SignatureDetails>
         getSignatureDetailsInternal(boolean isRefresh,
                                     Request request,
                                     HttpHeaders headers,
                                     byte[] content) {
-        /*
-         * add one minute to the current time, so that any caching is
-         * effective over a more valid time period.
-         */
-        long nowPlus = System.currentTimeMillis() + 60_000L;
-        String date = createFormatter().format(new Date(nowPlus));
-        String keyId = provider.getKeyId();
+        return Mono.fromCallable(() -> {
+            /*
+             * add one minute to the current time, so that any caching is
+             * effective over a more valid time period.
+             */
+            long nowPlus = System.currentTimeMillis() + 60_000L;
+            String date = createFormatter().format(new Date(nowPlus));
+            String keyId = provider.getKeyId();
 
-        /*
-         * Security token based providers may refresh the security token
-         * and associated private key in above getKeyId() method, reload
-         * private key to PrivateKeyProvider to avoid a mismatch, which
-         * will create an invalid signature, cause authentication error.
-         */
-        if (provider instanceof SecurityTokenBasedProvider) {
-            privateKeyProvider.reload(provider.getPrivateKey(),
-                                      provider.getPassphraseCharacters());
-        }
-        String signature;
-        try {
-            signature = sign(signingContent(date, request, headers, content),
-                             privateKeyProvider.getKey());
-        } catch (Exception e) {
-            logMessage(Level.SEVERE, "Error signing request " + e.getMessage());
-            return null;
-        }
+            /*
+             * Security token based providers may refresh the security token
+             * and associated private key in above getKeyId() method, reload
+             * private key to PrivateKeyProvider to avoid a mismatch, which
+             * will create an invalid signature, cause authentication error.
+             */
+            if (provider instanceof SecurityTokenBasedProvider) {
+                privateKeyProvider.reload(provider.getPrivateKey(),
+                        provider.getPassphraseCharacters());
+            }
+            String signature;
+            try {
+                signature = sign(signingContent(date, request, headers, content),
+                        privateKeyProvider.getKey());
+            } catch (Exception e) {
+                logMessage(Level.SEVERE, "Error signing request " + e.getMessage());
+                return null;
+            }
 
-        String token = getDelegationToken(request);
-        String signingHeader;
-        if (content != null) {
-            signingHeader = (token == null)
-                ? SIGNING_HEADERS_WITH_CONTENT :
-                  SIGNING_HEADERS_WITH_CONTENT_OBO;
-        } else {
-            signingHeader = (token == null)
-                ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
-        }
+            String token = getDelegationToken(request);
+            String signingHeader;
+            if (content != null) {
+                signingHeader = (token == null)
+                        ? SIGNING_HEADERS_WITH_CONTENT :
+                        SIGNING_HEADERS_WITH_CONTENT_OBO;
+            } else {
+                signingHeader = (token == null)
+                        ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
+            }
 
-        String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
-                                         signingHeader,
-                                         keyId,
-                                         RSA,
-                                         signature,
-                                         SINGATURE_VERSION);
-        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
-
-        /*
-         *  Don't cache the signature generated with content, which
-         *  needs to be associated with its request
-         */
-        if (content != null) {
+            String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
+                    signingHeader,
+                    keyId,
+                    RSA,
+                    signature,
+                    SINGATURE_VERSION);
+            SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
             return sigDetails;
-        }
-
-        if (!isRefresh) {
-            /*
-             * if this is not a refresh, use the normal key and schedule a
-             * refresh
-             */
-            currentSigDetails = sigDetails;
-            scheduleRefresh();
-        } else {
-            /*
-             * If this is a refresh put the object in a temporary key.
-             * The caller (the refresh task) will:
-             * 1. perform callbacks if needed and when done,
-             * 2. move the object to the normal key and schedule a refresh
-             */
-            refreshSigDetails = sigDetails;
-        }
-        return sigDetails;
+        }).retryWhen(Retry.backoff(3, Duration.ofMillis(500))
+                .filter(throwable -> throwable instanceof SecurityInfoNotReadyException))
+        /* This blocks the thread. Subscribe on boundedElastic */
+        .subscribeOn(Schedulers.boundedElastic());
     }
 
     /*
@@ -1097,13 +1104,6 @@ public class SignatureProvider
     private String getDelegationToken(Request req) {
         return (req != null && req.getOboToken() != null) ?
                req.getOboToken() : delegationToken;
-    }
-
-    private synchronized void setRefreshKey() {
-        if (refreshSigDetails != null) {
-            currentSigDetails = refreshSigDetails;
-            refreshSigDetails = null;
-        }
     }
 
     private String signingContent(String date,
@@ -1143,13 +1143,17 @@ public class SignatureProvider
         if (refreshIntervalMs == 0) {
             return;
         }
-        if (refresher != null) {
-            refresher.cancel();
-            refresher = null;
+        Disposable task = refreshTask.getAndSet(null);
+        if (task != null) {
+            logger.fine("disposing refresh task");
+            task.dispose();
         }
-
-        refresher = new Timer(true /* isDaemon */);
-        refresher.schedule(new RefreshTask(), refreshIntervalMs);
+        task = refreshScheduler.schedule(() -> {
+            logger.fine("refreshing the token");
+            getSignatureDetailsForCache(false)
+                    .subscribe();
+        }, refreshIntervalMs, TimeUnit.MILLISECONDS);
+        refreshTask.set(task);
     }
 
     private static String readFile(File file)
@@ -1168,70 +1172,6 @@ public class SignatureProvider
         return sb.toString();
     }
 
-    private class RefreshTask extends TimerTask {
-        private static final int DELAY_MS = 500;
-
-        private void handleRefreshCallback(long refreshMs) {
-            if (refreshSigDetails == null) {
-                logMessage(Level.FINE,
-                           "Refresh didn't find cached refresh key");
-                return;
-            }
-
-            if (onSigRefresh != null) {
-                /* don't let problems in the callback affect this path */
-                try {
-                    onSigRefresh.refresh(refreshMs);
-                } catch (Throwable t) {
-                    logMessage(Level.FINE,
-                               "Exception from OnSignatureRefresh: " + t);
-                }
-            }
-
-            /* move temporary object to the normal key */
-            setRefreshKey();
-            scheduleRefresh();
-        }
-
-        @Override
-        public void run() {
-            long startTime = System.currentTimeMillis();
-            Exception lastException;
-            do {
-                try {
-                    getSignatureDetailsForCache(true);
-                    handleRefreshCallback(refreshAheadMs);
-                    return;
-                } catch (SecurityInfoNotReadyException se) {
-                    /*
-                     * This exception is thrown only if instance principal
-                     * is configured to use, indicates the last attempt of
-                     * security token acquisition is failed.
-                     */
-                    lastException = se;
-                    try {
-                        Thread.sleep(DELAY_MS);
-                    } catch (InterruptedException ie) {}
-                    continue;
-                } catch (Exception e) {
-                    lastException = e;
-                    break;
-                }
-            } while ((System.currentTimeMillis() - startTime) < refreshAheadMs);
-
-            /*
-             * Ignore the failure of refresh. The driver would try to
-             * generate signature in the next request if signature is not
-             * available, the failure would be reported at that moment.
-             */
-            logMessage(Level.WARNING,
-                       "Unable to refresh cached request signature, " +
-                       lastException.getMessage());
-            refresher.cancel();
-            refresher = null;
-        }
-    }
-
     /**
      * @hidden
      * Internal use only.
@@ -1244,28 +1184,17 @@ public class SignatureProvider
         this.onSigRefresh = onSigRefresh;
     }
 
-    /**
-     * @hidden
-     * Internal use only.
-     * <p>
-     * Returns the signature refresh callback, or null if not set
-     * @return the callback or null
-     */
-    public OnSignatureRefresh getOnSignatureRefresh() {
-        return onSigRefresh;
-    }
-
     static class SignatureDetails {
 
         /* Signature header string */
-        private String signatureHeader;
+        private final String signatureHeader;
 
         /*
          * Signing date, keep it and pass along with each request,
          * so requests can reuse the signature within the 5-mins
          * time window.
          */
-        private String date;
+        private final String date;
 
         SignatureDetails(String signatureHeader,
                          String date) {

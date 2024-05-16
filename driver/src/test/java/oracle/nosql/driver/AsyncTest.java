@@ -1,14 +1,14 @@
 package oracle.nosql.driver;
 
-import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.ops.*;
 import oracle.nosql.driver.values.MapValue;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
-import reactor.core.Disposable;
 import reactor.core.publisher.*;
 
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static oracle.nosql.driver.NoSQLHandleFactory.createNoSQLHandleAsync;
 
 public class AsyncTest {
     static void testAsync() throws InterruptedException {
@@ -20,6 +20,11 @@ public class AsyncTest {
             }
 
             @Override
+            public Publisher<String> getAuthorizationStringAsync(Request request) {
+                return Mono.just("Bearer id");
+            }
+
+            @Override
             public void close() {
 
             }
@@ -27,7 +32,7 @@ public class AsyncTest {
 
 
         Hooks.onErrorDropped(Throwable::printStackTrace);
-        NoSQLHandleAsync asyncHandle = new NoSQLHandleAsyncImpl(config);
+        NoSQLHandleAsync asyncHandle = createNoSQLHandleAsync(config);
         final String tableName = "sample";
         final String tableDDL = "CREATE TABLE IF NOT EXISTS " + tableName +
                 "(ID LONG, DOC JSON, PRIMARY KEY(ID))";
@@ -38,7 +43,7 @@ public class AsyncTest {
 
         // create table and wait for it to complete
         System.out.println("Creating table " + tableName);
-        Mono.from(asyncHandle.tableRequest(tableRequest))
+                Mono.from(asyncHandle.tableRequest(tableRequest))
                 .doOnNext(result -> System.out.println("Created table " + tableName))
                 .doOnError(throwable -> System.out.println("Table creation " +
                         "failed for " + tableName +":" + throwable.getMessage()))

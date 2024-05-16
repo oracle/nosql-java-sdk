@@ -73,6 +73,7 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
                         .setSslHandshakeTimeout(
                                 config.getSSLHandshakeTimeout());
             }
+            stProvider.prepare();
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
             if (sigProvider.getLogger() == null) {

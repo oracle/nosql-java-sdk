@@ -784,7 +784,7 @@ public class Client {
                 if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
-                    satp.bootstrapLogin();
+                    //satp.bootstrapLogin();
                     kvRequest.addRetryException(rae.getClass());
                     kvRequest.incrementRetries();
                     exception = rae;

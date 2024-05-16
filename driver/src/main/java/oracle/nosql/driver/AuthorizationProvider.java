@@ -11,6 +11,8 @@ import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
 
 import io.netty.handler.codec.http.HttpHeaders;
 import oracle.nosql.driver.ops.Request;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 /**
  * A callback interface used by the driver to obtain an authorization string
@@ -33,6 +35,8 @@ public interface AuthorizationProvider {
      * the request
      */
     public String getAuthorizationString(Request request);
+
+    public Publisher<String> getAuthorizationStringAsync(Request request);
 
     /**
      * Release resources provider is using.
@@ -75,6 +79,16 @@ public interface AuthorizationProvider {
         }
     }
 
+    public default Publisher<Void> setRequiredHeadersAsync(String authString,
+                                                Request request,
+                                                HttpHeaders headers,
+                                                byte[] content) {
+        return Mono.fromRunnable(() -> {
+            if (authString != null) {
+                headers.set(AUTHORIZATION, authString);
+            }
+        });
+    }
     /**
      * Invalidate any cached authorization strings.
      */

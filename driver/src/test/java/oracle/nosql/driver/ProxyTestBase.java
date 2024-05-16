@@ -64,6 +64,8 @@ import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
 import io.netty.util.ResourceLeakDetector;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 public class ProxyTestBase {
     protected static String VERBOSE = "test.verbose";
@@ -511,7 +513,12 @@ public class ProxyTestBase {
                         return "Bearer cloudsim";
                     }
 
-                    @Override
+                @Override
+                public Publisher<String> getAuthorizationStringAsync(Request request) {
+                    return Mono.just("Bearer cloudsim");
+                }
+
+                @Override
                     public void close() {
                     }
             });

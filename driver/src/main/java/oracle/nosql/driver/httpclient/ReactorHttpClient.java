@@ -53,7 +53,7 @@ public class ReactorHttpClient {
         if(sslContext != null) {
             httpClient.secure(sslContextSpec -> sslContextSpec.sslContext(sslContext));
         }
-        httpClient.warmup().block();
+        httpClient.warmup().subscribe();
     }
 
     public Mono<HttpResponse> sendRequest(String uri, HttpHeaders headers, HttpMethod httpMethod, ByteBuf body) {
@@ -79,6 +79,11 @@ public class ReactorHttpClient {
 
     public Mono<HttpResponse> postRequest(String uri, HttpHeaders headers, ByteBuf body) {
         return sendRequest(uri, headers, HttpMethod.POST, body);
+    }
+
+    public Mono<HttpResponse> postRequest(String uri, Mono<HttpHeaders> headers,
+                                          ByteBuf body) {
+        return headers.flatMap(h -> sendRequest(uri, h, HttpMethod.POST, body));
     }
 
     public HttpClient getHttpClient() {
