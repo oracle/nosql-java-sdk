@@ -27,7 +27,6 @@ import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
 
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -72,7 +71,7 @@ class FederationRequestHelper {
                     responseBody));
         }
         logTrace(logger, "Federation response " + responseBody);
-        return parseResponse(responseBody);
+        return parseTokenResponse(responseBody);
     }
 
     /*
@@ -170,31 +169,5 @@ class FederationRequestHelper {
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {
         return String.format("%s/fed-x509-sha256/%s",
                              tenantId, Utils.getFingerPrint(pair));
-    }
-
-    /*
-     * Response:
-     * { "token": "...."}
-     */
-    private static String parseResponse(String response) {
-        try {
-            JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
-                parser.nextToken();
-            }
-            while (parser.getCurrentToken() != null) {
-                String field = findField(response, parser, "token");
-                if (field != null) {
-                    parser.nextToken();
-                    return parser.getText();
-                }
-            }
-            throw new IllegalStateException(
-                "Unable to find security token in " + response);
-        } catch (IOException ioe) {
-            throw new IllegalStateException(
-                "Error parsing security token " + response +
-                " " + ioe.getMessage());
-        }
     }
 }

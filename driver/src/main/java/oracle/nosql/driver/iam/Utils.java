@@ -39,6 +39,7 @@ import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
@@ -89,6 +90,12 @@ class Utils {
     /* 4k bytes */
     private static final int BUF_SIZE = 0x800;
 
+    /* fields in JWT token JSON used to check validity */
+    private static final String[] FIELDS = {
+        "exp", "jwk", "n", "e",
+        SignatureProvider.ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY,
+        SignatureProvider.ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY};
+
     /* Map used to lookup IAM URI */
     private static final Map<String, String> IAM_URI = new HashMap<>();
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -131,6 +138,8 @@ class Utils {
         "https://auth.{0}.oraclecloud27.com");
     private final static MessageFormat OC28_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud28.com");
+    private final static MessageFormat OC31_EP_BASE = new MessageFormat(
+        "https://auth.{0}.sovereigncloud.nz");
 
     static {
         /* OC1 */
@@ -143,6 +152,7 @@ class Utils {
         IAM_URI.put("kix", OC1_EP_BASE.format(new Object[] {"ap-osaka-1"}));
         IAM_URI.put("icn", OC1_EP_BASE.format(new Object[] {"ap-seoul-1"}));
         IAM_URI.put("sin", OC1_EP_BASE.format(new Object[] {"ap-singapore-1"}));
+        IAM_URI.put("xsp", OC1_EP_BASE.format(new Object[] {"ap-singapore-2"}));
         IAM_URI.put("syd", OC1_EP_BASE.format(new Object[] {"ap-sydney-1"}));
         IAM_URI.put("nrt", OC1_EP_BASE.format(new Object[] {"ap-tokyo-1"}));
 
@@ -245,6 +255,7 @@ class Utils {
 
         /* OC25 */
         IAM_URI.put("tyo", OC25_EP_BASE.format(new Object[] {"ap-dcc-tokyo-1"}));
+        IAM_URI.put("uky", OC25_EP_BASE.format(new Object[] {"ap-dcc-osaka-1"}));
 
         /* OC26 */
         IAM_URI.put("ahu", OC26_EP_BASE.format(new Object[] {"me-abudhabi-3"}));
@@ -254,6 +265,9 @@ class Utils {
 
         /* OC28 */
         IAM_URI.put("drs", OC28_EP_BASE.format(new Object[] {"us-dcc-swjordan-2"}));
+
+        /* OC31 */
+        IAM_URI.put("izq", OC31_EP_BASE.format(new Object[] {"ap-hobsonville-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -318,6 +332,9 @@ class Utils {
             }
             if (Region.isOC28Region(regionIdOrCode)) {
                 return OC28_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC31Region(regionIdOrCode)) {
+                return OC31_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 
@@ -654,6 +671,113 @@ class Utils {
             }
         }
         return null;
+    }
+
+    /*
+     * Parse JSON response that only has one field token.
+     * { "token": "...."}
+     */
+    static String parseTokenResponse(String response) {
+        try {
+            JsonParser parser = createParser(response);
+            if (parser.getCurrentToken() == null) {
+                parser.nextToken();
+            }
+            while (parser.getCurrentToken() != null) {
+                String field = findField(response, parser, "token");
+                if (field != null) {
+                    parser.nextToken();
+                    return parser.getText();
+                }
+            }
+            throw new IllegalStateException(
+                "Unable to find security token in " + response);
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                "Error parsing security token " + response +
+                    " " + ioe.getMessage());
+        }
+    }
+
+    /*
+     * Parse security token JSON response get fields expiration time,
+     * modulus and public exponent of JWK, only used for security token
+     * validity check, ignores other fields.
+     *
+     * Response:
+     * {
+     *  "exp" : 1234123,
+     *  "jwk" : {
+     *    "e": "xxxx",
+     *    "n": "xxxx",
+     *    ...
+     *  }
+     *  ...
+     * }
+     */
+    static Map<String, String> parseToken(String token) {
+        if (token == null) {
+            return null;
+        }
+        String[] jwt = splitJWT(token);
+        String claimJson = new String(Base64.getUrlDecoder().decode(jwt[1]),
+            StandardCharsets.UTF_8);
+
+        try {
+            JsonParser parser = createParser(claimJson);
+            Map<String, String> results = new HashMap<>();
+            parse(token, parser, results);
+
+            String jwkString = results.get("jwk");
+            if (jwkString == null) {
+                return results;
+            }
+            parser = createParser(jwkString);
+            parse(token, parser, results);
+
+            return results;
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                "Error parsing security token "+ ioe.getMessage());
+        }
+    }
+
+    private static void parse(String json,
+                              JsonParser parser,
+                              Map<String, String> reults)
+        throws IOException {
+
+        if (parser.getCurrentToken() == null) {
+            parser.nextToken();
+        }
+        while (parser.getCurrentToken() != null) {
+            String field = findField(json, parser, FIELDS);
+            if (field != null) {
+                parser.nextToken();
+                reults.put(field, parser.getText());
+            }
+        }
+    }
+
+    private static String[] splitJWT(String jwt) {
+        final int dot1 = jwt.indexOf(".");
+        final int dot2 = jwt.indexOf(".", dot1 + 1);
+        final int dot3 = jwt.indexOf(".", dot2 + 1);
+
+        if (dot1 == -1 || dot2 == -1 || dot3 != -1) {
+            throw new IllegalArgumentException(
+                "Given string is not in the valid access token format");
+        }
+
+        final String[] parts = new String[3];
+        parts[0] = jwt.substring(0, dot1);
+        parts[1] = jwt.substring(dot1 + 1, dot2);
+        parts[2] = jwt.substring(dot2 + 1);
+        return parts;
+    }
+
+    static String generateOpcRequestId() {
+        return UUID.randomUUID().toString().replace("-", "").toUpperCase();
     }
 
     static void logTrace(Logger logger, String message) {

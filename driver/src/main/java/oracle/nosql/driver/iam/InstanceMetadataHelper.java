@@ -1,0 +1,155 @@
+/*-
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
+package oracle.nosql.driver.iam;
+
+import static oracle.nosql.driver.iam.Utils.*;
+import static oracle.nosql.driver.util.HttpConstants.APPLICATION_JSON;
+import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
+import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
+
+import java.io.IOException;
+import java.util.logging.Logger;
+
+import oracle.nosql.driver.httpclient.HttpResponse;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders;
+
+/**
+ * @hidden
+ * Internal use only
+ * <p>
+ * Helper class to fetch instance metadata from metadata service URL.
+ */
+class InstanceMetadataHelper {
+    private static final JsonFactory factory = new JsonFactory();
+
+    /* Instance metadata service base URL */
+    private static final String METADATA_SERVICE_BASE_URL =
+        "http://169.254.169.254/opc/v2/";
+    private static final String FALLBACK_METADATA_SERVICE_URL =
+        "http://169.254.169.254/opc/v1/";
+
+    /* The authorization header need to send to metadata service since V2 */
+    static final String AUTHORIZATION_HEADER_VALUE = "Bearer Oracle";
+    private static final String METADATA_SERVICE_HOST =
+        "169.254.169.254";
+
+    static String getInstanceMetadaURL(String baseMetadataURL) {
+        return baseMetadataURL + "instance/";
+    }
+
+    /**
+     * Fetch the instance metadata.
+     *
+     * @param timeout request timeout
+     * @param logger logger
+     */
+    static InstanceMetadata fetchMetadata(int timeout, Logger logger) {
+        String baseMetadataURL = METADATA_SERVICE_BASE_URL;
+        String instanceMDURL = getInstanceMetadaURL(baseMetadataURL);
+        logTrace(logger, "Fetch instance metadata using " + instanceMDURL);
+        ReactorHttpClient client = null;
+        try {
+            client = ReactorHttpClient.createMinimalClient(METADATA_SERVICE_HOST,
+                80,
+                null,
+                0,
+                "InstanceMDClient"/*, logger*/);
+
+            HttpResponse response = client.getRequest(instanceMDURL,
+                    headers()).block();
+
+            int status = response.getStatusCode();
+            String responseBody = response.getBodyAsStringSync();
+            if (status == 404) {
+                logTrace(logger, "Falling back to v1 metadata URL, " +
+                    "resource not found from v2");
+                baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
+                instanceMDURL = getInstanceMetadaURL(baseMetadataURL);
+                response = client.getRequest(instanceMDURL, headers()).block();
+                status = response.getStatusCode();
+                responseBody =  response.getBodyAsStringSync();
+                if (status != 200) {
+                    throw new IllegalStateException(
+                        String.format("Unable to get federation URL from" +
+                                "instance metadata " + METADATA_SERVICE_BASE_URL +
+                                " or fallback to " + FALLBACK_METADATA_SERVICE_URL +
+                                ", status code: %d, output: %s",
+                            status, responseBody));
+                }
+            } else if (status != 200) {
+                throw new IllegalStateException(
+                    String.format("Unable to get federation URL from" +
+                            "instance metadata " + METADATA_SERVICE_BASE_URL +
+                            ", status code: %d, output: %s",
+                        status,
+                        responseBody));
+            }
+
+            logTrace(logger, "Instance metadata " + responseBody);
+            String insRegion = findRegion(responseBody);
+            logTrace(logger, "Instance region " + insRegion);
+            return new InstanceMetadata(insRegion, baseMetadataURL);
+        } finally {
+            if (client != null) {
+                //client.shutdown();
+            }
+        }
+    }
+
+    private static HttpHeaders headers() {
+        return new DefaultHttpHeaders()
+            .set(CONTENT_TYPE, APPLICATION_JSON)
+            .set(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
+    }
+
+    private static String findRegion(String response) {
+        try {
+            JsonParser parser = factory.createParser(response);
+            if (parser.getCurrentToken() == null) {
+                parser.nextToken();
+            }
+            while (parser.getCurrentToken() != null) {
+                String field = findField(
+                    response, parser, "canonicalRegionName");
+                if (field != null) {
+                    parser.nextToken();
+                    return parser.getText();
+                }
+            }
+            throw new IllegalStateException(
+                "Unable to find region in instance metadata " + response);
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                "Error parsing instance metadata in response " +
+                    response+ " " + ioe.getMessage());
+        }
+    }
+
+    static class InstanceMetadata {
+        private final String region;
+        private final String baseMetadataURL;
+
+        InstanceMetadata(String region, String baseMetadataURL) {
+            this.region = region;
+            this.baseMetadataURL = baseMetadataURL;
+        }
+
+        String getRegion() {
+            return region;
+        }
+
+        String getBaseURL() {
+            return baseMetadataURL;
+        }
+    }
+}

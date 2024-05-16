@@ -72,10 +72,13 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             /* Enable hostname verification */
             final SslHandler sslHandler = client.getSslContext().newHandler(
                 ch.alloc(), client.getHost(), client.getPort());
-            final SSLEngine sslEngine = sslHandler.engine();
-            final SSLParameters sslParameters = sslEngine.getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-            sslEngine.setSSLParameters(sslParameters);
+
+            if (client.isEndpointIdentificationEnabled()) {
+                final SSLEngine sslEngine = sslHandler.engine();
+                final SSLParameters sslParameters = sslEngine.getSSLParameters();
+                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                sslEngine.setSSLParameters(sslParameters);
+            }
             sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
 
             p.addLast(sslHandler);

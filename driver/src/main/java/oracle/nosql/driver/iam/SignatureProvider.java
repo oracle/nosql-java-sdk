@@ -755,6 +755,71 @@ public class SignatureProvider
     }
 
     /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using the Kubernetes service account token at the
+     * default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithOkeWorkloadIdentity() {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(null, null, null));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using specified Kubernetes service account token string.
+     * If token string is null, the provider will use the service account token
+     * at the default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @param serviceAccountToken Kubernetes service account token string
+     * @param logger the logger used by the SignatureProvider
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithOkeWorkloadIdentity(String serviceAccountToken,
+                                      Logger logger) {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(serviceAccountToken, null, logger));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using Kubernetes service account token in the specified
+     * token file. If token file is null, the provider will use the service
+     * account token at the default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @param serviceAccountTokenFile Kubernetes service account token file
+     * @param logger the logger used by the SignatureProvider
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithOkeWorkloadIdentity(File serviceAccountTokenFile,
+                                      Logger logger) {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(
+                null, serviceAccountTokenFile, logger));
+        return provider;
+    }
+
+    /**
      * Constructor for SignatureProvider given an
      * AuthenticationProfileProvider.
      * This is for advanced use only; use of the create* methods is preferred.
@@ -907,8 +972,8 @@ public class SignatureProvider
         if(task != null) {
             task.dispose();
         }
-        if (provider instanceof InstancePrincipalsProvider) {
-            ((InstancePrincipalsProvider)this.provider).close();
+        if (provider instanceof SecurityTokenBasedProvider) {
+            ((SecurityTokenBasedProvider)this.provider).close();
         }
     }
 
@@ -944,8 +1009,8 @@ public class SignatureProvider
          * pass SSL related configuration to its SecurityTokenSupplier
          * to create the HTTP client
          */
-        if (provider instanceof InstancePrincipalsProvider) {
-            ((InstancePrincipalsProvider)this.provider).prepare(config);
+        if (provider instanceof SecurityTokenBasedProvider) {
+            ((SecurityTokenBasedProvider)this.provider).prepare(config);
         }
 
         /* creates and caches a signature as warm-up */

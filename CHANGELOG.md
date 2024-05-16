@@ -5,8 +5,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Unreleased
 
 ### Added
-- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH)
+- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ, UKY, XSP)
 - Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
+- Cloud only: added OKE workload identity authentication support
+ - SignatureProvider.createWithOkeWorkloadIdentity()
+ - SignatureProvider.createWithOkeWorkloadIdentity(String serviceAccountToken, Logger logger)
+ - SignatureProvider.createWithOkeWorkloadIdentity(File serviceAccountTokenFile, Logger logger)
+
+### Fixed
+- Changed handle close to not use the Netty "quiet period" when shutting down
+  the worker group. This makes handle close much faster as well as making it
+  faster to acquire authentication information in the cloud service when using a
+  method that uses an HTTP request such as Instance Principal authentication
 
 ## [5.4.14] 2023-11-17
 

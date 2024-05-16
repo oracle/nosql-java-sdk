@@ -2670,7 +2670,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                                              Result result)
             throws IOException {
 
-            int proxyTopoSeqNum = 1;
+            int proxyTopoSeqNum = -1;
             int[] shardIds = null;
             MapWalker walker = new MapWalker(in);
 

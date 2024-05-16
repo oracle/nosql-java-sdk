@@ -243,7 +243,7 @@ public class Quickstart {
     private String endpoint;
     private String service;
 
-    /* required for Instance/Resource Principal auth */
+    /* required for Instance/Resource Principal auth and OKE workload identity */
     private String compartment = null; // an OCID
 
     /* alternative cloud authorization mechanisms */
@@ -251,6 +251,7 @@ public class Quickstart {
     private final static boolean useInstancePrincipal = false;
     private final static boolean useResourcePrincipal = false;
     private final static boolean useSessionToken = false;
+    private final static boolean useOkeWorkloadIdentity = false;
 
     private Quickstart(String[] args) {
         /*
@@ -350,6 +351,9 @@ public class Quickstart {
                     } else if (useResourcePrincipal) {
                         authProvider =
                             SignatureProvider.createWithResourcePrincipal();
+                    } else if (useOkeWorkloadIdentity) {
+                        authProvider =
+                            SignatureProvider.createWithOkeWorkloadIdentity();
                     } else {
                         throw new IllegalArgumentException(
                             "Authorization method is required");
