@@ -20,19 +20,17 @@ import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.httpclient.HttpResponse;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.kv.AuthenticationException;
-import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
-import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.PrepareRequest;
+import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
-import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
@@ -799,62 +797,61 @@ public class AsyncClient {
         return SerializationUtil.readString(in);
     }
 
-    public Mono<TableResult> doTableRequest(TableRequest request) {
-        GetTableRequest getTableRequest = new GetTableRequest();
-
-        return execute(request).cast(TableResult.class)
-                .flatMapMany(tableResult -> {
-                    getTableRequest
-                            .setTableName(tableResult.getTableName())
-                            .setOperationId(tableResult.getOperationId())
-                            .setCompartment(tableResult.getCompartmentId());
-                    return Flux.interval(Duration.ofSeconds(5))
-                            .take(5)
-                            .flatMap(i -> execute(getTableRequest).cast(TableResult.class))
-                            .filter(res -> res.getTableState() == TableResult.State.ACTIVE)
-                            .next();
-                })
-                .next();
-       /* return doTableRequestInternal(request)
-                .map(result -> {
-                    getTableRequest.setTableName(result.getTableName())
-                            .setOperationId(result.getOperationId())
-                            .setCompartment(result.getCompartmentId());
-                    return result;
-                })
-                .flatMap(result ->
-                        doTableRequestInternal(getTableRequest)
-                                .repeatWhen(repeat -> repeat.delayElements(Duration.ofMillis(1000)).take(5)) // Retry up to 5 times
-                                .skipUntil(r -> r.getTableState() == TableResult.State.ACTIVE)
-                                .switchIfEmpty(Mono.error(new RequestTimeoutException("timeout")))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .single() // Take the last emitted item
-                );*/
-    }
-
     Flux<QueryResult> executeQuery(QueryRequest queryRequest) {
         requireNonNull(queryRequest, "NoSQLHandle: request must be non-null");
         logger.log(Level.INFO, "sending query request");
         initAndValidateRequest(queryRequest);
 
-        /**
+        /* If queryRequest is already not prepared, send prepare request to
+         * server and set the PrepareResult on queryRequest. This is done to
+         * check if query is simple or complex. Complex queries uses query
+         * driver and PlanIter which contains blocking code and can't be called
+         * from netty nio threads and need to be process on BoundedElastic
+         * threads.
+         */
+        Mono<QueryRequest> requestMono = Mono.just(queryRequest)
+            .filter(qr -> !qr.isPrepared())
+            .flatMap(qr -> {
+                PrepareRequest prepareRequest = new PrepareRequest();
+                prepareRequest.setStatement(queryRequest.getStatement())
+                        .setCompartment(queryRequest.getCompartment())
+                        .setTableName(queryRequest.getTableName())
+                        .setNamespace(qr.getNamespace());
+                return execute(prepareRequest).cast(PrepareResult.class)
+                        .doOnNext(qr::setPreparedStatement)
+                        .then(Mono.just(qr));
+            })
+            .defaultIfEmpty(queryRequest);
+
+        /*
          * Below code executes the query which return Mono<QueryResult> and
          * recursively expands to produce Flux<QueryResult>. For complex
-         * quires QueryDriver is used to get the results, which is blocking
-         * because of this results of the execute() are published on
-         * blockable BoundedElastic threads. This async code is same as
+         * quires QueryDriver is used to get the results, which is blocking,
+         * because of this for queries which have query driver publish the
+         * QueryResult on BoundedElastic threads. For simple queries request
+         * always goes to server without the need of query driver blocking
+         * part, so no need to publish on BoundedElastic for simple queries.
+         *
+         * This async code is same as
          * below sync code.
          *
          *   do {
          *     qureyResult = execute(queryRequest)
          *   } while(qureyResult.getContinuationKey != null)
          */
-        Mono<QueryResult> baseMono = execute(queryRequest)
-                .cast(QueryResult.class)
-                .publishOn(Schedulers.boundedElastic());
-        Flux<QueryResult> recurseFlux =
-                baseMono.expand(result -> result.getContinuationKey() == null ?
-                        Mono.empty() : baseMono);
+        Flux<QueryResult> recurseFlux = requestMono.flatMapMany(qr -> {
+            Mono<QueryResult> baseMono;
+            if(!qr.isSimpleQuery()) {
+                baseMono = execute(queryRequest)
+                        .cast(QueryResult.class)
+                        .publishOn(Schedulers.boundedElastic());
+            } else {
+                baseMono = execute(queryRequest)
+                        .cast(QueryResult.class);
+            }
+            return baseMono.expand(result -> result.getContinuationKey() == null ?
+                    Mono.empty() : baseMono);
+        });
         return recurseFlux;
     }
 

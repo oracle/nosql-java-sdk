@@ -4,13 +4,49 @@ import io.netty.handler.ssl.SslContextBuilder;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandleAsync;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
-import oracle.nosql.driver.ops.*;
+import oracle.nosql.driver.ops.AddReplicaRequest;
+import oracle.nosql.driver.ops.DeleteRequest;
+import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
+import oracle.nosql.driver.ops.GetIndexesRequest;
+import oracle.nosql.driver.ops.GetIndexesResult;
+import oracle.nosql.driver.ops.GetRequest;
+import oracle.nosql.driver.ops.GetResult;
+import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.ListTablesRequest;
+import oracle.nosql.driver.ops.ListTablesResult;
+import oracle.nosql.driver.ops.MultiDeleteRequest;
+import oracle.nosql.driver.ops.MultiDeleteResult;
+import oracle.nosql.driver.ops.PrepareRequest;
+import oracle.nosql.driver.ops.PrepareResult;
+import oracle.nosql.driver.ops.PutRequest;
+import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryRequest;
+import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
+import oracle.nosql.driver.ops.SystemRequest;
+import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.ops.SystemStatusRequest;
+import oracle.nosql.driver.ops.TableRequest;
+import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.TableUsageRequest;
+import oracle.nosql.driver.ops.TableUsageResult;
+import oracle.nosql.driver.ops.WriteMultipleRequest;
+import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.JsonUtils;
+import oracle.nosql.driver.values.MapValue;
 import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.net.ssl.SSLException;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
@@ -100,8 +136,7 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
          * The default logger logs at INFO. If this is too verbose users
          * must create a logger and pass it in.
          */
-        Logger logger = Logger.getLogger(getClass().getName());
-        return logger;
+        return Logger.getLogger(getClass().getName());
     }
 
     @Override
@@ -126,7 +161,7 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
 
     @Override
     public Publisher<TableResult> tableRequest(TableRequest request) {
-        return client.doTableRequest(request);
+        return client.execute(request).cast(TableResult.class);
     }
 
     @Override
@@ -140,7 +175,174 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     }
 
     @Override
+    public Publisher<MapValue> queryIterable(QueryRequest request) {
+        return Flux.from(query(request)).flatMap(queryResult ->
+           Flux.fromIterable(queryResult.getResults()));
+    }
+
+    @Override
+    public Publisher<PrepareResult> prepare(PrepareRequest request) {
+        return client.execute(request).cast(PrepareResult.class);
+    }
+
+    @Override
+    public Publisher<WriteMultipleResult> writeMultiple(WriteMultipleRequest request) {
+        return client.execute(request).cast(WriteMultipleResult.class);
+    }
+
+    @Override
+    public Publisher<MultiDeleteResult> multiDelete(MultiDeleteRequest request) {
+        return client.execute(request).cast(MultiDeleteResult.class);
+    }
+
+    @Override
+    public Publisher<SystemResult> systemRequest(SystemRequest request) {
+        return client.execute(request).cast(SystemResult.class);
+    }
+
+    @Override
+    public Publisher<SystemResult> systemStatus(SystemStatusRequest request) {
+        return client.execute(request).cast(SystemResult.class);
+    }
+
+    @Override
+    public Publisher<TableUsageResult> getTableUsage(TableUsageRequest request) {
+        return client.execute(request).cast(TableUsageResult.class);
+    }
+
+    @Override
+    public Publisher<GetIndexesResult> getIndexes(GetIndexesRequest request) {
+        return client.execute(request).cast(GetIndexesResult.class);
+    }
+
+    @Override
+    public Publisher<TableResult> doTableRequest(TableRequest request,
+                                                 Duration timeout,
+                                                 Duration pollInterval) {
+        return Mono.from(tableRequest(request))
+            .flatMap(result ->
+                Mono.from(result.waitForCompletionAsync(this,
+                    timeout, pollInterval)
+                )
+                .then(Mono.fromCallable(() -> result))
+            );
+    }
+
+    @Override
+    public Publisher<SystemResult> doSystemRequest(SystemRequest request,
+                                                   Duration timeout,
+                                                   Duration pollInterval) {
+        return Mono.from(systemRequest(request))
+            .flatMap(result -> Mono.from(result.waitForCompletionAsync(
+                        this, timeout, pollInterval))
+                .then(Mono.fromCallable(() -> result))
+            );
+    }
+
+    @Override
+    public Publisher<String> listNamespaces() {
+        Mono<SystemResult> systemResultMono = doSystemRequest(
+                "show as json namespaces");
+        return systemResultMono.flatMapMany(dres -> {
+            String jsonResult = dres.getResultString();
+            if (jsonResult == null) {
+                return Flux.empty();
+            }
+            MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
+
+            FieldValue namespaces = root.get("namespaces");
+            if (namespaces == null) {
+                return Flux.empty();
+            }
+
+
+            ArrayList<String> results = new ArrayList<>(
+                    namespaces.asArray().size());
+            for (FieldValue val : namespaces.asArray()) {
+                results.add(val.getString());
+            }
+            return Flux.fromIterable(results);
+        });
+    }
+
+    @Override
+    public Publisher<String> listRoles() {
+        Mono<SystemResult> systemResultMono = doSystemRequest(
+                "show as json roles");
+        return systemResultMono.flatMapMany(dres -> {
+            String jsonResult = dres.getResultString();
+            if (jsonResult == null) {
+                return Flux.empty();
+            }
+            MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
+
+            FieldValue roles = root.get("roles");
+            if (roles == null) {
+                return Flux.empty();
+            }
+
+            ArrayList<String> results = new ArrayList<>(roles.asArray().size());
+            for (FieldValue val : roles.asArray()) {
+                results.add(val.getString());
+            }
+            return Flux.fromIterable(results);
+        });
+    }
+
+    @Override
+    public Publisher<UserInfo> listUsers() {
+        Mono<SystemResult> systemResultMono = doSystemRequest(
+                "show as json users");
+        return systemResultMono.flatMapMany(dres -> {
+            String jsonResult = dres.getResultString();
+            if (jsonResult == null) {
+                return Flux.empty();
+            }
+
+            MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
+
+            FieldValue users = root.get("users");
+            if (users == null) {
+                return Flux.empty();
+            }
+
+            ArrayList<UserInfo> results = new ArrayList<>(
+                    users.asArray().size());
+
+            for (FieldValue val : users.asArray()) {
+                String id = val.asMap().getString("id");
+                String name = val.asMap().getString("name");
+                results.add(new UserInfo(id, name));
+            }
+            return Flux.fromIterable(results);
+        });
+    }
+
+    @Override
+    public Publisher<TableResult> addReplica(AddReplicaRequest request) {
+        return client.execute(request).cast(TableResult.class);
+    }
+
+    @Override
+    public Publisher<TableResult> dropReplica(DropReplicaRequest request) {
+        return client.execute(request).cast(TableResult.class);
+    }
+
+    @Override
+    public Publisher<ReplicaStatsResult> getReplicaStats(ReplicaStatsRequest request) {
+        return client.execute(request).cast(ReplicaStatsResult.class);
+    }
+
+
+    @Override
     public void close() {
         client.shutdown();
+    }
+
+    private Mono<SystemResult> doSystemRequest(String statement) {
+        SystemRequest systemRequest = new SystemRequest()
+            .setStatement(statement.toCharArray());
+        return Mono.from(doSystemRequest(systemRequest,
+                Duration.ofSeconds(30), Duration.ofSeconds(1)));
     }
 }

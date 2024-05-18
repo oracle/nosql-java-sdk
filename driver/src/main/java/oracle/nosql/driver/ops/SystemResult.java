@@ -9,7 +9,13 @@ package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleAsync;
 import oracle.nosql.driver.RequestTimeoutException;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 /**
  * On-premises only.
@@ -229,5 +235,41 @@ public class SystemResult extends Result {
                                          ie.getMessage());
             }
         } while (!state.equals(State.COMPLETE));
+    }
+    public Publisher<Void> waitForCompletionAsync(NoSQLHandleAsync handle,
+                                  Duration timeout,
+                                  Duration pollInterval) {
+        return Mono.defer(() -> {
+            if (state.equals(State.COMPLETE)) {
+                return Mono.empty().then();
+            }
+
+            int DELAY_MS = 500;
+            long waitMillis = timeout.toMillis();
+            long delayMillis = pollInterval.toMillis();
+            long delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
+            long maxRetry = waitMillis / delayMS;
+            if (waitMillis < delayMillis) {
+                return Mono.error(new IllegalArgumentException(
+                        "Wait milliseconds must be a mininum of " +
+                                DELAY_MS + " and greater than delay " +
+                                "milliseconds"));
+            }
+            SystemStatusRequest ds = new SystemStatusRequest()
+                    .setOperationId(operationId);
+            return Flux.interval(Duration.ZERO, Duration.ofMillis(delayMS))
+                .take(maxRetry)
+                .flatMap(i -> handle.systemStatus(ds))
+                .doOnNext(res ->  {
+                    resultString = res.resultString;
+                    state = res.state;
+                })
+                .filter(res -> res.state == State.COMPLETE)
+                .next()
+                .switchIfEmpty(Mono.error(new RequestTimeoutException(
+                    (int)waitMillis, "Operation not completed in expected " +
+                        "time")))
+                .then();
+        });
     }
 }

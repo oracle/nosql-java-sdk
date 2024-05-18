@@ -6,6 +6,7 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
 import reactor.core.publisher.*;
 
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static oracle.nosql.driver.NoSQLHandleFactory.createNoSQLHandleAsync;
@@ -43,7 +44,8 @@ public class AsyncTest {
 
         // create table and wait for it to complete
         System.out.println("Creating table " + tableName);
-                Mono.from(asyncHandle.tableRequest(tableRequest))
+                Mono.from(asyncHandle.doTableRequest(tableRequest,
+                                Duration.ofSeconds(5), Duration.ofSeconds(1)))
                 .doOnNext(result -> System.out.println("Created table " + tableName))
                 .doOnError(throwable -> System.out.println("Table creation " +
                         "failed for " + tableName +":" + throwable.getMessage()))
@@ -126,7 +128,10 @@ public class AsyncTest {
         // drop table
         System.out.println("Dropping the table");
         String dropDDL = "drop table " + tableName;
-        Mono.from(asyncHandle.tableRequest(new TableRequest().setStatement(dropDDL))).block();
+        Mono.from(asyncHandle.doTableRequest(
+                new TableRequest().setStatement(dropDDL),
+                Duration.ofSeconds(1),Duration.ofMillis(250)
+        )).block();
 
     }
 

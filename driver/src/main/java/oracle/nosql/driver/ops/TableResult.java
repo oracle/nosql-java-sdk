@@ -11,8 +11,14 @@ import oracle.nosql.driver.DefinedTags;
 import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleAsync;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.ops.TableLimits.CapacityMode;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
@@ -767,6 +773,60 @@ public class TableResult extends Result {
                                          ie.getMessage());
             }
         }
+    }
+
+    public Publisher<Void> waitForCompletionAsync(NoSQLHandleAsync handle,
+                                                  Duration timeout,
+                                                  Duration pollInterval) {
+        return Mono.defer(() -> {
+            if (isTerminal()) {
+                return Mono.empty().then();
+            }
+
+            if (operationId == null) {
+                return Mono.error(new IllegalArgumentException(
+                        "Operation state must not be null")).then();
+            }
+
+            /* TODO: try to share code with waitForState? */
+            final int DELAY_MS = 500;
+            long waitMillis = timeout.toMillis();
+            long delayMillis = pollInterval.toMillis();
+
+            long delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
+            long maxRetry = waitMillis / delayMS;
+            if (waitMillis < delayMillis) {
+                return Mono.error(new IllegalArgumentException(
+                    "Wait milliseconds must be a mininum of " +
+                     DELAY_MS + " and greater than pollInterval " +
+                     "milliseconds"));
+            }
+
+            GetTableRequest getTable = new GetTableRequest()
+                .setTableName(tableName)
+                .setOperationId(operationId)
+                .setCompartment(compartmentOrNamespace);
+
+            return Flux.interval(Duration.ZERO, Duration.ofMillis(delayMS))
+                .take(maxRetry)
+                .flatMap(i -> handle.getTable(getTable))
+                .doOnNext(res -> {
+                    state = res.getTableState();
+                    limits = res.getTableLimits();
+                    schema = res.getSchema();
+                    matchETag = res.getMatchETag();
+                    ddl = res.getDdl();
+                    isFrozen = res.isFrozen();
+                    isLocalReplicaInitialized = res.isLocalReplicaInitialized();
+                    replicas = res.getReplicas();
+                })
+                .filter(res -> isTerminal())
+                .next()
+                .switchIfEmpty(Mono.error(new RequestTimeoutException(
+                        (int)waitMillis, "Operation not completed in expected" +
+                        " time")
+                )).then();
+        });
     }
 
     private boolean isTerminal() {
