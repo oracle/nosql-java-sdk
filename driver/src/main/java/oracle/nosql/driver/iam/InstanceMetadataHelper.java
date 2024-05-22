@@ -63,7 +63,8 @@ class InstanceMetadataHelper {
                 80,
                 null,
                 0,
-                "InstanceMDClient"/*, logger*/);
+                "InstanceMDClient",
+                logger);
 
             HttpResponse response = client.getRequest(instanceMDURL,
                     headers()).block();

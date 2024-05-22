@@ -120,7 +120,7 @@ class SecurityTokenSupplier {
         }
         if (scheme.equalsIgnoreCase("http")) {
             return ReactorHttpClient.createMinimalClient(endpoint.getHost(), endpoint.getPort(),
-                                                  null, 0, "FederationClient");
+                      null, 0, "FederationClient", logger);
         }
 
         if (sslCtx == null) {
@@ -134,7 +134,7 @@ class SecurityTokenSupplier {
 
         return ReactorHttpClient.createMinimalClient(endpoint.getHost(), 443,
                               sslCtx, sslHandshakeTimeout,
-                              "FederationClient");
+                              "FederationClient", logger);
     }
 
     private synchronized String refreshAndGetTokenInternal() {

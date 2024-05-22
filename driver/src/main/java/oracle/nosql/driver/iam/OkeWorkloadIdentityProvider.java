@@ -170,7 +170,7 @@ class OkeWorkloadIdentityProvider
         this.okeTokenClient = ReactorHttpClient.createMinimalClient(
             tokenURL.getHost(), tokenURL.getPort(),
             sslCtx, config.getSSLHandshakeTimeout(),
-            "OkeWorkloadIdentityResourcePrincipalsTokenClient"/*, logger*/);
+            "OkeWorkloadIdentityResourcePrincipalsTokenClient", logger);
         //okeTokenClient.disableEndpointIdentification();
     }
 

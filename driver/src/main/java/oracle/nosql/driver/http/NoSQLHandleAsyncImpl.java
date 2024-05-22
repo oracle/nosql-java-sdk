@@ -61,7 +61,7 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
          */
         configSslContext(config);
 
-        client = new AsyncClient(config);
+        client = new AsyncClient(config,logger);
 
         /* configAuthProvider may use client */
         configAuthProvider(logger, config);

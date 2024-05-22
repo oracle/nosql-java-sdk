@@ -72,7 +72,7 @@ import static oracle.nosql.driver.util.HttpConstants.*;
 
 public class AsyncClient {
 
-    Logger logger = Logger.getLogger(getClass().getName());
+    private final Logger logger;
     private final NoSQLHandleConfig config;
 
     private final SerializerFactory v3factory = new BinarySerializerFactory();
@@ -142,8 +142,9 @@ public class AsyncClient {
     private final AtomicInteger maxRequestId = new AtomicInteger(1);
 
 
-    public AsyncClient(NoSQLHandleConfig config) {
+    public AsyncClient(NoSQLHandleConfig config, Logger logger) {
         this.config = config;
+        this.logger = logger;
         this.url = config.getServiceURL();
 
         logger.fine("Driver service URL:" + url.toString());
@@ -178,6 +179,7 @@ public class AsyncClient {
             .host(host)
             .port(url.getPort())
             .sslContext(sslCtx)
+            .logger(logger)
             .build();
 
         authProvider = config.getAuthorizationProvider();
@@ -521,7 +523,7 @@ public class AsyncClient {
                 logger.fine(getLogMessage(requestId.get(), requestClass,
                         signalType + " signal: " +
                         "buffer refCount is " + refCount));
-                if(!buffer.release(refCount)) {
+                if (!buffer.release(refCount)) {
                     logger.warning(getLogMessage(requestId.get(),
                         requestClass, "Buffer is not releases"));
                 }
@@ -841,7 +843,7 @@ public class AsyncClient {
          */
         Flux<QueryResult> recurseFlux = requestMono.flatMapMany(qr -> {
             Mono<QueryResult> baseMono;
-            if(!qr.isSimpleQuery()) {
+            if (!qr.isSimpleQuery()) {
                 baseMono = execute(queryRequest)
                         .cast(QueryResult.class)
                         .publishOn(Schedulers.boundedElastic());
@@ -928,7 +930,7 @@ public class AsyncClient {
      */
     private boolean decrementQueryVersion(short versionUsed) {
         //TODO check whether V3 is lowest version supported
-        if(versionUsed == QueryDriver.QUERY_V3) {
+        if (versionUsed == QueryDriver.QUERY_V3) {
             return false;
         }
         queryVersion.compareAndSet(versionUsed, versionUsed-1);
@@ -937,7 +939,7 @@ public class AsyncClient {
 
     private boolean decrementSerialVersion(short versionUsed) {
         //TODO check whether V2 is lowest version supported
-        if(versionUsed == V2) {
+        if (versionUsed == V2) {
             return false;
         }
         serialVersion.compareAndSet(versionUsed, versionUsed-1);

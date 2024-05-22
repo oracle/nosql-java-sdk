@@ -457,8 +457,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                  loginPort,
                  (isSecure && !disableSSLHook) ? sslContext : null,
                  sslHandshakeTimeoutMs,
-                 serviceName);
-                 //logger);
+                 serviceName,
+                 logger);
             String uri = NoSQLHandleConfig.createURL(endpoint,
                     basePath + serviceName).toString();
 
