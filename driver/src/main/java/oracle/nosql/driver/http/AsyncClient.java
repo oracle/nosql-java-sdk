@@ -13,6 +13,7 @@ import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.RequestSizeLimitException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.UnsupportedProtocolException;
@@ -20,6 +21,7 @@ import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.httpclient.HttpResponse;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.kv.AuthenticationException;
+import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
@@ -137,7 +139,7 @@ public class AsyncClient {
     /* for keeping track of SDKs usage */
     private final String userAgent;
 
-    private volatile TopologyInfo topology;
+    private final AtomicReference<TopologyInfo> topology = new AtomicReference<>();
 
     private final AtomicInteger maxRequestId = new AtomicInteger(1);
 
@@ -234,36 +236,34 @@ public class AsyncClient {
         }
     }
 
-    /*private Mono<HttpResponse> getHttpMono(AtomicInteger serialVersionUsed,
-                                           Request kvRequest,
-                                           AtomicReference<String> requestId
-                                           ) {
-        try {
-            buffer.clear();
-            serialVersionUsed.set(writeContent(buffer, kvRequest,
-                    (short) queryVersionUsed.get()));
-            logger.fine(getLogMessage(requestId.get(), requestClass,
-                    "buffer refCount after serialize " + buffer.refCnt()));
-        } catch (IOException e) {
-            return Mono.error(e);
-        }
-        final HttpHeaders requestHeader = getHeader(kvRequest,buffer);
-        requestHeader.add(REQUEST_ID_HEADER, requestId);
-        logger.fine(getLogMessage(requestId.get(), requestClass,
-                "Sending request to Server"));
-
-        // Submit http request to reactor netty
-        Mono<HttpResponse> responseMono = httpClient
-                .postRequest(kvRequestURI, requestHeader, buffer);
-    }*/
-
     public Mono<Result> execute(Request kvRequest) {
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
         initAndValidateRequest(kvRequest);
 
-        Throwable exception = null;
+        ClientRequest request = new ClientRequest(kvRequest,
+                maxRequestId.getAndIncrement(),
+                new AtomicInteger(serialVersion.get()),
+                new AtomicInteger(queryVersion.get()));
+
+        return executeWithTimeout(request);
+    }
+
+    private Mono<Result> executeWithTimeout(ClientRequest clientRequest) {
+        return executeWithRetry(clientRequest)
+        .timeout(Duration.ofMillis(clientRequest.kvRequest.getTimeoutInternal()));
+    }
+
+    private Mono<Result> getHttpMono(ClientRequest clientRequest) {
+        final Request kvRequest = clientRequest.kvRequest;
+        final String requestClass = kvRequest.getClass().getSimpleName();
+        final String requestId = Long.toString(clientRequest.requestId.get());
+        final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
+        final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
 
         return Mono.defer(() -> {
+            logger.fine(getLogMessage(requestId, requestClass,
+                    "Inside execute core part"));
+
             /* kvRequest.isQueryRequest() returns true if kvRequest is a
              * non-internal QueryRequest
              */
@@ -302,239 +302,154 @@ public class AsyncClient {
                 qreq.incBatchCounter();
             }
 
-            ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
-            final int timeoutMs = kvRequest.getTimeoutInternal();
-            final long startNanos = System.nanoTime();
-            final boolean signContent = requireContentSigned(kvRequest);
-            final String requestClass = kvRequest.getClass().getSimpleName();
-            final AtomicInteger serialVersionUsed =
-                    new AtomicInteger(serialVersion.get());
-            final AtomicInteger queryVersionUsed =
-                    new AtomicInteger(queryVersion.get());
-            AtomicReference<String> requestId = new AtomicReference<>
-                    (Long.toString(maxRequestId.getAndIncrement()));
+            //requestId.set(Long.toString(maxRequestId.getAndIncrement()));
+            serialVersionUsed.set(serialVersion.get());
+            queryVersionUsed.set(queryVersion.get());
 
-            // Inner mono which can be retried.
-            return Mono.defer(() -> {
-                //requestId.set(Long.toString(maxRequestId.getAndIncrement()));
-                logger.fine(getLogMessage(requestId.get(),requestClass,
-                                "Inside execute core part"));
-                buffer.retain();
-                logger.fine(getLogMessage(requestId.get(), requestClass,
-                        "buffer refCount is " + buffer.refCnt()));
-
-                serialVersionUsed.set(serialVersion.get());
-                queryVersionUsed.set(queryVersion.get());
-
-                if (serialVersion.get() < 3 && kvRequest instanceof DurableRequest) {
-                    if (((DurableRequest) kvRequest).getDurability() != null) {
-                        oneTimeMessage("The requested feature is not " +
-                            "supported " + "by the connected server: Durability");
-                    }
-                }
-
-                if (serialVersion.get() < 3 && kvRequest instanceof TableRequest) {
-                    TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
-                    if (limits != null && limits.getMode() ==
-                            TableLimits.CapacityMode.ON_DEMAND) {
-                        oneTimeMessage("The requested feature is not " +
-                            "supported " + "by the connected server:" +
-                            " on demand " + "capacity table");
-                    }
-                }
-
-                logger.fine(getLogMessage(requestId.get(), requestClass,
+            logger.fine(getLogMessage(requestId, requestClass,
                     "serialVersionUsed= " + serialVersionUsed));
 
-                logger.fine(getLogMessage(requestId.get(), requestClass,
+            logger.fine(getLogMessage(requestId, requestClass,
                     "queryVersionUsed= " + queryVersionUsed));
 
-
-                /*
-                 * we expressly check size limit below based on onprem versus
-                 * cloud. Set the request to not check size limit inside
-                 * writeContent().
-                 */
-                kvRequest.setCheckRequestSize(false);
-
-                /*
-                 * Temporarily change the timeout in the request object so
-                 * the serialized timeout sent to the server is correct for
-                 * this iteration. After serializing the request, set the
-                 * timeout back to the overall request timeout so that other
-                 * processing (retry delays, etc) work correctly.
-                 */
-                // TODO what is the use of this?
-                //kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
-
-                try {
-                    buffer.clear();
-                    serialVersionUsed.set(writeContent(buffer, kvRequest,
-                        (short) queryVersionUsed.get()));
-                    logger.fine(getLogMessage(requestId.get(), requestClass,
-                        "buffer refCount after serialize " + buffer.refCnt()));
-                } catch (IOException e) {
-                    return Mono.error(e);
+            if (serialVersionUsed.get() < 3 && kvRequest instanceof DurableRequest) {
+                if (((DurableRequest) kvRequest).getDurability() != null) {
+                    oneTimeMessage("The requested feature is not " +
+                            "supported " + "by the connected server: Durability");
                 }
+            }
 
-                /*
-                 * If on-premises the authProvider will always be a
-                 * StoreAccessTokenProvider. If so, check against
-                 * configurable limit. Otherwise check against internal
-                 * hardcoded cloud limit.
-                 */
-                //TODO Handle this
-                /*
-                if (authProvider instanceof StoreAccessTokenProvider) {
-                    if (buffer.readableBytes() >
-                            httpClient.getMaxContentLength()) {
-                        throw new RequestSizeLimitException("The request " +
-                                "size of " + buffer.readableBytes() +
-                                " exceeded the limit of " +
-                                httpClient.getMaxContentLength());
+            if (serialVersionUsed.get() < 3 && kvRequest instanceof TableRequest) {
+                TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
+                if (limits != null && limits.getMode() ==
+                        TableLimits.CapacityMode.ON_DEMAND) {
+                    oneTimeMessage("The requested feature is not " +
+                            "supported " + "by the connected server:" +
+                            " on demand " + "capacity table");
+                }
+            }
+
+            /*
+             * we expressly check size limit below based on onprem versus
+             * cloud. Set the request to not check size limit inside
+             * writeContent().
+             */
+            kvRequest.setCheckRequestSize(false);
+
+            return Mono.using(
+                () -> { // Bytebuf resource acquisition
+                    ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
+                    buffer.retain();
+                    return buffer;
+                },
+                (buffer) -> { // Bytebuf resource use
+                    try {
+                        serialVersionUsed.set(writeContent(buffer, kvRequest,
+                                (short) queryVersionUsed.get()));
+                    } catch (IOException e) {
+                        return Mono.error(e);
                     }
-                } else {
-                    kvRequest.setCheckRequestSize(true);
-                    BinaryProtocol.checkRequestSizeLimit(
-                            kvRequest, buffer.readableBytes());
-                }
-               */
 
-                final Mono<HttpHeaders> requestHeader = getHeader(kvRequest,
-                        buffer).map(headers -> headers.add(REQUEST_ID_HEADER,
-                        requestId));
-
-                logger.fine(getLogMessage(requestId.get(), requestClass,
-                    "Sending request to Server"));
-
-                // Submit http request to reactor netty
-                Mono<HttpResponse> responseMono = httpClient
-                    .postRequest(kvRequestURI, requestHeader, buffer);
-                return responseMono.doOnNext(response -> {
-                    logger.fine(getLogMessage(requestId.get(), requestClass,
-                    "Response: status=" + response.getStatus()));
-
-                    logger.fine(getLogMessage(requestId.get(), requestClass,
-                    "buffer refCount after response " +
-                     "from server: " + buffer.refCnt()));
-                }).doOnCancel(() -> {
-                    logger.fine(getLogMessage(requestId.get(), requestClass,
-                        "Request cancelled"));
-                }).flatMap(httpResponse -> {
-                    HttpHeaders responseHeaders = httpResponse.getHeaders();
-                    HttpResponseStatus responseStatus = httpResponse.getStatus();
-                    Mono<ByteBuf> body = httpResponse.getBody();
-                    Mono<Result> resultMono = body.handle((content,sink) -> {
-                        logger.fine(getLogMessage(requestId.get(),
-                                requestClass, "processing response"));
-                        try {
-                            Result res = processResponse(responseStatus,
-                                responseHeaders,
-                                content,
-                                kvRequest,
-                                (short) serialVersionUsed.get(),
-                                (short) queryVersionUsed.get());
-                            sink.next(res);
-
-                            //TODO what to do for below
-                            /*
-                            rateDelayedMs += getRateDelayedFromHeader(
-                                responseHandler.getHeaders());
-                            int resSize = wireContent.readerIndex();
-                            long networkLatency =
-                                (System.nanoTime() - latencyNanos) / 1_000_000;
-                            setTopology(res.getTopology());
-                            */
-
-                            // TODO is this required
-                            /*if (serialVersionUsed < 3) {
-                             *//* so we can emit a one-time message if the app *//*
-                             *//* tries to access modificationTime *//*
-                            if (res instanceof GetResult) {
-                                ((GetResult)res).setClient(this);
-                            } else if (res instanceof WriteResult) {
-                                ((WriteResult)res).setClient(this);
-                            }
-                            }*/
-
-                            //TODO is below required
-                            /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
-                                QueryRequest qreq = (QueryRequest)kvRequest;
-                                qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
-                            }*/
-                            //return res;
-                        } catch (IllegalReferenceCountException e) {
-                            logger.fine(getLogMessage(requestId.get(),
-                                requestClass,
-                                "Illegal refCount, request might be " +
-                                        "cancelled")
+                    /*
+                     * If on-premises the authProvider will always be a
+                     * StoreAccessTokenProvider. If so, check against
+                     * configurable limit. Otherwise check against internal
+                     * hardcoded cloud limit.
+                     */
+                    if (authProvider instanceof StoreAccessTokenProvider) {
+                        if (buffer.readableBytes() > httpClient.getMaxContentLength()) {
+                            return Mono.error(new RequestSizeLimitException(
+                                "The request size of " + buffer.readableBytes() +
+                                " exceeded the limit of " + httpClient.getMaxContentLength())
                             );
-                            sink.complete();
-                        } catch (Throwable t) {
-                            sink.error(t);
                         }
-                    });
-                    return resultMono;
-                });
-            }).doOnError(error -> {
-                logger.info(getLogMessage(requestId.get(), requestClass,
-                    "Error occurred " + error.getClass().getName() +
-                        ": " + error.getMessage()));
-                //error.printStackTrace();
-            })
-            //Authentication and InvalidAuthorizationException-Retry 1 time
-            .retryWhen(RetrySpec.max(1)
-                .filter(throwable -> throwable instanceof AuthenticationException
-                        || throwable instanceof InvalidAuthorizationException)
-                .doBeforeRetry(retrySignal -> {
-                    authProvider.flushCache();
-                })
-            )
-            //SecurityInfoNotReadyException-Retry 10 times with 100ms backoff
-            .retryWhen(RetrySpec.backoff(10, Duration.ofMillis(SEC_ERROR_DELAY_MS))
-                .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
-            )
-            //RetryableException-Retry 10 times with 200ms backoff + jitter
-            .retryWhen(Retry.backoff(10, Duration.ofMillis(200)).jitter(0.2)
-                .filter(throwable -> throwable instanceof RetryableException)
-            )
-            /* UnsupportedQueryVersionException- Retry 10 times. filter will
-            limit max retries to queryVersion */
-            .retryWhen(RetrySpec.max(10)
-                .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
-                    decrementQueryVersion((short) queryVersionUsed.get()))
-                .doBeforeRetry(retrySignal -> {
-                    logRetries(requestId.get(),requestClass,
-                        retrySignal.totalRetries() + 1,
-                        retrySignal.failure());
-                })
-            )
-            /* UnsupportedProtocolException- Retry 10 times. filter will
-            limit max retries to serialVersion */
-            .retryWhen(RetrySpec.max(10)
-                .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
-                    decrementSerialVersion((short) serialVersionUsed.get()))
-            )
-            // IOException - Retry 2 times with 10ms delay
-            .retryWhen(RetrySpec.fixedDelay(2, Duration.ofMillis(10))
-                    .filter(throwable -> throwable instanceof IOException)
-            ).doFinally(signalType -> {
-                int refCount = buffer.refCnt();
-                logger.fine(getLogMessage(requestId.get(), requestClass,
-                        signalType + " signal: " +
-                        "buffer refCount is " + refCount));
-                if (!buffer.release(refCount)) {
-                    logger.warning(getLogMessage(requestId.get(),
-                        requestClass, "Buffer is not releases"));
+                    } else {
+                        kvRequest.setCheckRequestSize(true);
+                        try {
+                            BinaryProtocol.checkRequestSizeLimit(
+                                    kvRequest, buffer.readableBytes());
+                        } catch (Throwable t) {
+                            return Mono.error(t);
+                        }
+                    }
+
+                    final Mono<HttpHeaders> requestHeader = getHeader(kvRequest,
+                        buffer)
+                        .map(headers -> headers.add(REQUEST_ID_HEADER, requestId))
+                        .doOnNext(header -> {
+                            logger.fine(getLogMessage(requestId, requestClass,
+                            "Sending request to Server"));
+                        });
+
+                    // Submit http request to reactor netty
+                    Mono<HttpResponse> responseMono = httpClient
+                        .postRequest(kvRequestURI, requestHeader, buffer)
+                        .doOnNext(response -> {
+                            logger.fine(getLogMessage(requestId, requestClass,
+                                    "Response: status=" + response.getStatus()));
+                        }).doOnCancel(() -> {
+                            logger.fine(getLogMessage(requestId, requestClass,
+                                    "Http request is cancelled"));
+                        });
+                    return processResponse(responseMono, clientRequest)
+                        .doOnNext(result ->  {
+                            setTopology(result.getTopology());
+                        });
+                },
+                (buffer) -> { // Bytebuf resource cleanup
+                    logger.fine(getLogMessage(requestId, requestClass,
+                        "Cleaning ByteBuf with refCount=" +
+                            buffer.refCnt()));
+                    buffer.release(buffer.refCnt());
                 }
-            }).doOnCancel(() -> logger.fine("Inner mono cancelled for " +
-                "request " + requestId));
-        }).timeout(Duration.ofMillis(kvRequest.getTimeoutInternal()))
-            .doOnCancel(() -> logger.fine("Outer mono cancelled"));
-        /* End-to-End timeout for this request. When timeout occurs Mono
-           will be cancelled by the framework and resources will be released
-         */
-        //TODO Map timeout to RequestTimeoutException
+            );
+        });
+    }
+
+    private Mono<Result> executeWithRetry(ClientRequest clientRequest) {
+        final String requestClass = clientRequest.getClass().getSimpleName();
+        final String requestId = clientRequest.requestIdStr;
+        final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
+        final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
+
+        return getHttpMono(clientRequest)
+                // Authentication and InvalidAuthorizationException-Retry 1 time
+                .retryWhen(RetrySpec.max(1)
+                        .filter(throwable -> throwable instanceof AuthenticationException
+                                || throwable instanceof InvalidAuthorizationException)
+                        .doBeforeRetry(retrySignal -> {
+                            authProvider.flushCache();
+                        })
+                )
+                // SecurityInfoNotReadyException-Retry 10 times with 100ms backoff
+                .retryWhen(RetrySpec.backoff(10, Duration.ofMillis(SEC_ERROR_DELAY_MS))
+                        .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
+                )
+                // RetryableException-Retry 10 times with 200ms backoff + jitter
+                .retryWhen(Retry.backoff(10, Duration.ofMillis(200)).jitter(0.2)
+                        .filter(throwable -> throwable instanceof RetryableException)
+                )
+                /* UnsupportedQueryVersionException- Retry 10 times. filter will
+                limit max retries to queryVersion */
+                .retryWhen(RetrySpec.max(10)
+                        .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
+                                decrementQueryVersion((short) queryVersionUsed.get()))
+                        .doBeforeRetry(retrySignal -> {
+                            logRetries(requestId, requestClass,
+                                    retrySignal.totalRetries() + 1,
+                                    retrySignal.failure());
+                        })
+                )
+                /* UnsupportedProtocolException- Retry 10 times. filter will
+                limit max retries to serialVersion */
+                .retryWhen(RetrySpec.max(10)
+                        .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
+                                decrementSerialVersion((short) serialVersionUsed.get()))
+                )
+                // IOException - Retry 2 times with 10ms delay
+                .retryWhen(RetrySpec.fixedDelay(2, Duration.ofMillis(10))
+                        .filter(throwable -> throwable instanceof IOException)
+                );
     }
 
     private short writeContent(ByteBuf content, Request kvRequest,
@@ -585,6 +500,72 @@ public class AsyncClient {
             return processOKResponse(bis, kvRequest, serialVersionUsed,
                 queryVersionUsed);
         }
+    }
+
+    private Mono<Result> processResponse(Mono<HttpResponse> responseMono,
+                                         ClientRequest clientRequest) {
+        final String requestClass = clientRequest.requestClass;
+        final String requestId = clientRequest.requestIdStr;
+        final Request kvRequest = clientRequest.kvRequest;
+        final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
+        final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
+
+        return responseMono.flatMap(httpResponse -> {
+            HttpHeaders responseHeaders = httpResponse.getHeaders();
+            HttpResponseStatus responseStatus = httpResponse.getStatus();
+            Mono<ByteBuf> body = httpResponse.getBody();
+            Mono<Result> resultMono = body.handle((content, sink) -> {
+                logger.fine(getLogMessage(requestId,
+                        requestClass, "processing response"));
+                try {
+                    Result res = processResponse(responseStatus,
+                            responseHeaders,
+                            content,
+                            kvRequest,
+                            (short) serialVersionUsed.get(),
+                            (short) queryVersionUsed.get());
+                    sink.next(res);
+
+                    //TODO what to do for below
+                        /*
+                        rateDelayedMs += getRateDelayedFromHeader(
+                            responseHandler.getHeaders());
+                        int resSize = wireContent.readerIndex();
+                        long networkLatency =
+                            (System.nanoTime() - latencyNanos) / 1_000_000;
+                        setTopology(res.getTopology());
+                        */
+
+                    // TODO is this required
+                    /*if (serialVersionUsed < 3) {
+                     *//* so we can emit a one-time message if the app *//*
+                     *//* tries to access modificationTime *//*
+                        if (res instanceof GetResult) {
+                            ((GetResult)res).setClient(this);
+                        } else if (res instanceof WriteResult) {
+                            ((WriteResult)res).setClient(this);
+                        }
+                        }*/
+
+                    //TODO is below required
+                        /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                            QueryRequest qreq = (QueryRequest)kvRequest;
+                            qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
+                        }*/
+                    //return res;
+                } catch (IllegalReferenceCountException e) {
+                    logger.fine(getLogMessage(requestId,
+                            requestClass,
+                            "Illegal refCount, request might be " +
+                                    "cancelled")
+                    );
+                    sink.complete();
+                } catch (Throwable t) {
+                    sink.error(t);
+                }
+            });
+            return resultMono;
+        });
     }
 
     /**
@@ -804,57 +785,68 @@ public class AsyncClient {
         logger.log(Level.INFO, "sending query request");
         initAndValidateRequest(queryRequest);
 
-        /* If queryRequest is already not prepared, send prepare request to
-         * server and set the PrepareResult on queryRequest. This is done to
-         * check if query is simple or complex. Complex queries uses query
-         * driver and PlanIter which contains blocking code and can't be called
-         * from netty nio threads and need to be process on BoundedElastic
-         * threads.
-         */
-        Mono<QueryRequest> requestMono = Mono.just(queryRequest)
-            .filter(qr -> !qr.isPrepared())
-            .flatMap(qr -> {
-                PrepareRequest prepareRequest = new PrepareRequest();
-                prepareRequest.setStatement(queryRequest.getStatement())
-                        .setCompartment(queryRequest.getCompartment())
-                        .setTableName(queryRequest.getTableName())
-                        .setNamespace(qr.getNamespace());
-                return execute(prepareRequest).cast(PrepareResult.class)
-                        .doOnNext(qr::setPreparedStatement)
-                        .then(Mono.just(qr));
-            })
-            .defaultIfEmpty(queryRequest);
+        // Use Flux.using to close the queryRequest once done using it.
+        return Flux.using(
+            () -> { // resource acquisition
+                return queryRequest;
+            },
+            (qRequest) -> {  //Using the resource
+                /* If queryRequest is already not prepared, send prepare request to
+                 * server and set the PrepareResult on queryRequest. This is done to
+                 * check if query is simple or complex. Complex queries uses query
+                 * driver and PlanIter which contains blocking code and can't be called
+                 * from netty nio threads and need to be process on BoundedElastic
+                 * threads.
+                 */
+                Mono<QueryRequest> requestMono = Mono.just(qRequest)
+                    .filter(qr -> !qr.isPrepared())
+                    .flatMap(qr -> {
+                        PrepareRequest prepareRequest = new PrepareRequest();
+                        prepareRequest.setStatement(qr.getStatement())
+                                .setCompartment(qr.getCompartment())
+                                .setTableName(qr.getTableName())
+                                .setNamespace(qr.getNamespace());
+                        return execute(prepareRequest).cast(PrepareResult.class)
+                                .doOnNext(qr::setPreparedStatement)
+                                .then(Mono.just(qr));
+                    })
+                    .defaultIfEmpty(qRequest);
 
-        /*
-         * Below code executes the query which return Mono<QueryResult> and
-         * recursively expands to produce Flux<QueryResult>. For complex
-         * quires QueryDriver is used to get the results, which is blocking,
-         * because of this for queries which have query driver publish the
-         * QueryResult on BoundedElastic threads. For simple queries request
-         * always goes to server without the need of query driver blocking
-         * part, so no need to publish on BoundedElastic for simple queries.
-         *
-         * This async code is same as
-         * below sync code.
-         *
-         *   do {
-         *     qureyResult = execute(queryRequest)
-         *   } while(qureyResult.getContinuationKey != null)
-         */
-        Flux<QueryResult> recurseFlux = requestMono.flatMapMany(qr -> {
-            Mono<QueryResult> baseMono;
-            if (!qr.isSimpleQuery()) {
-                baseMono = execute(queryRequest)
-                        .cast(QueryResult.class)
-                        .publishOn(Schedulers.boundedElastic());
-            } else {
-                baseMono = execute(queryRequest)
-                        .cast(QueryResult.class);
+                /*
+                 * Below code executes the query which return Mono<QueryResult> and
+                 * recursively expands to produce Flux<QueryResult>. For complex
+                 * quires QueryDriver is used to get the results, which is blocking,
+                 * because of this for queries which have query driver publish the
+                 * QueryResult on BoundedElastic threads. For simple queries request
+                 * always goes to server without the need of query driver blocking
+                 * part, so no need to publish on BoundedElastic for simple queries.
+                 *
+                 * This async code is same as
+                 * below sync code.
+                 *
+                 *   do {
+                 *     qureyResult = execute(queryRequest)
+                 *   } while(qureyResult.getContinuationKey != null)
+                 */
+                Flux<QueryResult> recurseFlux = requestMono.flatMapMany(qr -> {
+                    Mono<QueryResult> baseMono;
+                    if (!qr.isSimpleQuery()) {
+                        baseMono = execute(qr)
+                                .cast(QueryResult.class)
+                                .publishOn(Schedulers.boundedElastic());
+                    } else {
+                        baseMono = execute(qr)
+                                .cast(QueryResult.class);
+                    }
+                    return baseMono.expand(result -> result.getContinuationKey() == null ?
+                            Mono.empty() : baseMono);
+                });
+                return recurseFlux;
+            },
+            (qRequest) -> { // Resource cleanup
+                qRequest.close();
             }
-            return baseMono.expand(result -> result.getContinuationKey() == null ?
-                    Mono.empty() : baseMono);
-        });
-        return recurseFlux;
+        );
     }
 
     private Mono<HttpHeaders> getHeader(Request kvRequest, ByteBuf buffer) {
@@ -906,19 +898,25 @@ public class AsyncClient {
             });
     }
 
-    private synchronized int getTopoSeqNum() {
-        return (topology == null ? -1 : topology.getSeqNum());
+    // TODO check whether this is equivalent to synchronized version
+    private int getTopoSeqNum() {
+        TopologyInfo topo = topology.get();
+        return (topo == null ? -1 : topology.get().getSeqNum());
     }
 
-    private synchronized void setTopology(TopologyInfo topo) {
+    // TODO check whether this is equivalent to synchronized version
+    private void setTopology(TopologyInfo topo) {
         if (topo == null) {
             return;
         }
+        topology.accumulateAndGet(topo, (curTopo, newTopo) -> {
+            if (curTopo == null || curTopo.getSeqNum() < newTopo.getSeqNum()) {
+                logger.fine("New topology: " + newTopo);
+                return newTopo;
+            }
+            return curTopo;
+        });
 
-        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
-            topology = topo;
-            logger.fine("New topology: " + topo);
-        }
     }
 
     /**
@@ -959,6 +957,30 @@ public class AsyncClient {
     }
 
     public TopologyInfo getTopology() {
-        return topology;
+        return topology.get();
+    }
+
+    /*
+     * Helper class which contains all the information for async flow
+     */
+    private static class ClientRequest {
+        private final Request kvRequest;
+        private final String requestClass;
+        private final AtomicInteger requestId;
+        private final String requestIdStr;
+        private final AtomicInteger serialVersionUsed;
+        private final AtomicInteger queryVersionUsed;
+
+        public ClientRequest(Request kvRequest,
+                             int requestId,
+                             AtomicInteger serialVersionUsed,
+                             AtomicInteger queryVersionUsed) {
+            this.kvRequest = kvRequest;
+            this.requestClass = kvRequest.getClass().getSimpleName();
+            this.requestId = new AtomicInteger(requestId);
+            this.requestIdStr = Long.toString(requestId);
+            this.serialVersionUsed = serialVersionUsed;
+            this.queryVersionUsed = queryVersionUsed;
+        }
     }
 }

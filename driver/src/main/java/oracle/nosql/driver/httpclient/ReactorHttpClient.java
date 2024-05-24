@@ -11,6 +11,7 @@ import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.transport.ProxyProvider;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 /**
@@ -45,7 +46,7 @@ public class ReactorHttpClient {
     private final int port;
     private final SslContext sslContext;
     private final ConnectionPoolConfig connectionPoolConfig;
-
+    private final int maxContentLength;
     private final reactor.netty.http.client.HttpClient httpClient;
 
     /*
@@ -65,6 +66,7 @@ public class ReactorHttpClient {
         this.connectionPoolConfig = builder.config;
         this.sslContext = builder.sslContext;
         this.logger = builder.logger;
+        this.maxContentLength = builder.maxContentLength;
 
         ConnectionProvider connectionProvider = (connectionPoolConfig.getMaxConnections() == 1) ?
             ConnectionProvider.newConnection() :
@@ -120,6 +122,12 @@ public class ReactorHttpClient {
      * @return Mono of the response from the server
      */
     public Mono<HttpResponse> sendRequest(String uri, HttpHeaders headers, HttpMethod httpMethod, ByteBuf body) {
+        /* Reference to current HttpResponse. This reference is needed when
+         * response publisher is not consumed we need to drain the response
+         * ByteBuf.
+         */
+        final AtomicReference<HttpResponse> responseReference = new AtomicReference<>();
+
         return httpClient.request(httpMethod)
             .uri(uri)
             .send((httpClientRequest, nettyOutbound) -> {
@@ -131,9 +139,23 @@ public class ReactorHttpClient {
             })
             .responseConnection((httpClientResponse, connection) -> {
                 HttpResponse response = new HttpResponse(httpClientResponse,connection);
+                responseReference.set(response);
                 return Mono.just(response);
             })
-            .next();
+            .next()
+            .doOnCancel(() -> {
+                HttpResponse response = responseReference.get();
+                if (response != null) {
+                    response.releaseUnSubscribedResponse(HttpResponse.SubscriptionState.CANCELLED);
+                }
+            })
+            .onErrorMap(throwable -> {
+                HttpResponse response = responseReference.get();
+                if (response != null) {
+                    response.releaseUnSubscribedResponse(HttpResponse.SubscriptionState.ERROR);
+                }
+                return throwable;
+            });
     }
 
     /**
@@ -173,6 +195,9 @@ public class ReactorHttpClient {
         return headers.flatMap(h -> sendRequest(uri, h, HttpMethod.POST, body));
     }
 
+    public int getMaxContentLength() {
+        return maxContentLength;
+    }
     HttpClient getHttpClient() {
         return httpClient;
     }
