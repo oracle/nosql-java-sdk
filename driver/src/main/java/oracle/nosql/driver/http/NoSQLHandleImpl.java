@@ -7,13 +7,15 @@
 
 package oracle.nosql.driver.http;
 
-import java.util.ArrayList;
+import java.time.Duration;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleAsync;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
@@ -50,13 +52,12 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
-import oracle.nosql.driver.values.FieldValue;
-import oracle.nosql.driver.values.JsonUtils;
-import oracle.nosql.driver.values.MapValue;
 
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.JdkLoggerFactory;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * The methods in this class require non-null arguments. Because they all
@@ -69,21 +70,10 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * The HTTP client. This is not final so that it can be nulled upon
      * close.
      */
-    private Client client;
+    private final NoSQLHandleAsync client;
 
     public NoSQLHandleImpl(NoSQLHandleConfig config) {
-
-        configNettyLogging();
-        final Logger logger = getLogger(config);
-
-        /*
-         * config SslContext first, on-prem authorization provider
-         * will reuse the context in NoSQLHandleConfig
-         */
-        configSslContext(config);
-        client = new Client(logger, config);
-        /* configAuthProvider may use client */
-        configAuthProvider(logger, config);
+        client = new NoSQLHandleAsyncImpl(config);
     }
 
     /**
@@ -162,8 +152,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             }
             sigProvider.prepare(config);
             if (config.getAuthRefresh()) {
-                sigProvider.setOnSignatureRefresh(new SigRefresh());
-                client.createAuthRefreshList();
+                /*sigProvider.setOnSignatureRefresh(new SigRefresh());
+                client.createAuthRefreshList();*/
             }
         }
     }
@@ -171,37 +161,37 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @Override
     public DeleteResult delete(DeleteRequest request) {
         checkClient();
-        return (DeleteResult) client.execute(request);
+        return Mono.from(client.delete(request)).block();
     }
 
     @Override
     public GetResult get(GetRequest request) {
         checkClient();
-        return (GetResult) client.execute(request);
+        return Mono.from(client.get(request)).block();
     }
 
     @Override
     public PutResult put(PutRequest request) {
         checkClient();
-        return (PutResult) client.execute(request);
+        return Mono.from(client.put(request)).block();
     }
 
     @Override
     public WriteMultipleResult writeMultiple(WriteMultipleRequest request) {
         checkClient();
-        return (WriteMultipleResult) client.execute(request);
+        return Mono.from(client.writeMultiple(request)).block();
     }
 
     @Override
     public MultiDeleteResult multiDelete(MultiDeleteRequest request) {
         checkClient();
-        return (MultiDeleteResult) client.execute(request);
+        return Mono.from(client.multiDelete(request)).block();
     }
 
     @Override
     public QueryResult query(QueryRequest request) {
         checkClient();
-        return (QueryResult) client.execute(request);
+        return Flux.from(client.query(request)).next().block();
     }
 
     @Override
@@ -213,80 +203,80 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @Override
     public PrepareResult prepare(PrepareRequest request) {
         checkClient();
-        return (PrepareResult) client.execute(request);
+        return Mono.from(client.prepare(request)).block();
     }
 
     @Override
     public TableResult tableRequest(TableRequest request) {
         checkClient();
-        TableResult res = (TableResult) client.execute(request);
+        TableResult res =Mono.from(client.tableRequest(request)).block();
         /* update rate limiters, if table has limits */
-        client.updateRateLimiters(res.getTableName(), res.getTableLimits());
+        //client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
     }
 
     @Override
     public TableResult getTable(GetTableRequest request) {
         checkClient();
-        TableResult res = (TableResult) client.execute(request);
+        TableResult res = Mono.from(client.getTable(request)).block();
         /* update rate limiters, if table has limits */
-        client.updateRateLimiters(res.getTableName(), res.getTableLimits());
+        //client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
     }
 
     @Override
     public SystemResult systemRequest(SystemRequest request) {
         checkClient();
-        return (SystemResult) client.execute(request);
+        return Mono.from(client.systemRequest(request)).block();
     }
 
     @Override
     public SystemResult systemStatus(SystemStatusRequest request) {
         checkClient();
-        return (SystemResult) client.execute(request);
+        return Mono.from(client.systemStatus(request)).block();
     }
 
     @Override
     public TableUsageResult getTableUsage(TableUsageRequest request) {
         checkClient();
-        return (TableUsageResult) client.execute(request);
+        return Mono.from(client.getTableUsage(request)).block();
     }
 
     @Override
     public ListTablesResult listTables(ListTablesRequest request) {
         checkClient();
-        return (ListTablesResult) client.execute(request);
+        return Mono.from(client.listTables(request)).block();
     }
 
     @Override
     public GetIndexesResult getIndexes(GetIndexesRequest request) {
         checkClient();
-        return (GetIndexesResult) client.execute(request);
+        return Mono.from(client.getIndexes(request)).block();
     }
 
     @Override
     public TableResult addReplica(AddReplicaRequest request) {
         checkClient();
-        return (TableResult) client.execute(request);
+        return Mono.from(client.addReplica(request)).block();
     }
 
     @Override
     public TableResult dropReplica(DropReplicaRequest request) {
         checkClient();
-        return (TableResult) client.execute(request);
+        return Mono.from(client.dropReplica(request)).block();
     }
 
     @Override
     public ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request) {
         checkClient();
-        return (ReplicaStatsResult) client.execute(request);
+        return Mono.from(client.getReplicaStats(request)).block();
     }
 
     @Override
     synchronized public void close() {
         checkClient();
-        client.shutdown();
-        client = null;
+        //client.shutdown();
+        //client = null;
     }
 
     /**
@@ -296,25 +286,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public String[] listNamespaces() {
-        SystemResult dres = doSystemRequest("show as json namespaces");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
+        List<String> list =
+                Flux.from(client.listNamespaces()).collectList().block();
+        if(list == null) {
             return null;
         }
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue namespaces = root.get("namespaces");
-        if (namespaces == null) {
-            return null;
-        }
-
-        ArrayList<String> results = new ArrayList<String>(
-            namespaces.asArray().size());
-        for (FieldValue val : namespaces.asArray()) {
-            results.add(val.getString());
-        }
-        return results.toArray(new String[0]);
+        return list.toArray(new String[0]);
     }
 
     /**
@@ -324,29 +301,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public UserInfo[] listUsers() {
-        SystemResult dres = doSystemRequest("show as json users");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
+        List<UserInfo> list =
+                Flux.from(client.listUsers()).collectList().block();
+        if(list == null) {
             return null;
         }
-
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue users = root.get("users");
-        if (users == null) {
-            return null;
-        }
-
-        ArrayList<UserInfo> results = new ArrayList<UserInfo>(
-            users.asArray().size());
-
-        for (FieldValue val : users.asArray()) {
-            String id = val.asMap().getString("id");
-            String name = val.asMap().getString("name");
-            results.add(new UserInfo(id, name));
-        }
-        return results.toArray(new UserInfo[0]);
+        return list.toArray(new UserInfo[0]);
     }
 
     /**
@@ -356,26 +316,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public String[] listRoles() {
-        SystemResult dres = doSystemRequest("show as json roles");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
+        List<String> list =
+                Flux.from(client.listRoles()).collectList().block();
+        if(list == null) {
             return null;
         }
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue roles = root.get("roles");
-        if (roles == null) {
-            return null;
-        }
-
-        ArrayList<String> results = new ArrayList<String>(
-            roles.asArray().size());
-        for (FieldValue val : roles.asArray()) {
-            String role = val.asMap().getString("name");
-            results.add(role);
-        }
-        return results.toArray(new String[0]);
+        return list.toArray(new String[0]);
     }
 
 
@@ -390,9 +336,9 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public TableResult doTableRequest(TableRequest request,
                                       int timeoutMs,
                                       int pollIntervalMs) {
-        TableResult res = tableRequest(request);
-        res.waitForCompletion(this, timeoutMs, pollIntervalMs);
-        return res;
+        checkClient();
+       return Mono.from(client.doTableRequest(request, Duration.ofMillis(timeoutMs),
+               Duration.ofMillis(pollIntervalMs))).block();
     }
 
     @Override
@@ -402,14 +348,13 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         checkClient();
         SystemRequest dreq =
             new SystemRequest().setStatement(statement.toCharArray());
-        SystemResult dres = systemRequest(dreq);
-        dres.waitForCompletion(this, timeoutMs, pollIntervalMs);
-        return dres;
+        return Mono.from(client.doSystemRequest(dreq, Duration.ofMillis(timeoutMs),
+                Duration.ofMillis(pollIntervalMs))).block();
     }
 
     @Override
     public StatsControl getStatsControl() {
-        return client.getStatsControl();
+        return null;
     }
 
     /**
@@ -426,7 +371,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * For testing use
      */
     public Client getClient() {
-        return client;
+        return null;
     }
 
     /**
@@ -434,7 +379,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * For testing use
      */
     public short getSerialVersion() {
-        return client.getSerialVersion();
+        return ((NoSQLHandleAsyncImpl)client).getSerialVersion();
     }
 
     /**
@@ -443,7 +388,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * Testing use only.
      */
     public void setDefaultNamespace(String ns) {
-        client.setDefaultNamespace(ns);
+        ((NoSQLHandleAsyncImpl)client).setDefaultNamespace(ns);
     }
 
     /**
@@ -461,7 +406,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          */
         @Override
         public void refresh(long refreshMs) {
-            client.doRefresh(refreshMs);
+            //client.doRefresh(refreshMs);
         }
     }
 }

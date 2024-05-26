@@ -833,10 +833,16 @@ public class AsyncClient {
                     if (!qr.isSimpleQuery()) {
                         baseMono = execute(qr)
                                 .cast(QueryResult.class)
-                                .publishOn(Schedulers.boundedElastic());
+                                .publishOn(Schedulers.boundedElastic())
+                                .flatMap(result -> {
+                                    /* compute the result. This will call
+                                     * queryDriver and PlanIter to get results
+                                     */
+                                    result.getContinuationKey();
+                                    return Mono.just(result);
+                                });
                     } else {
-                        baseMono = execute(qr)
-                                .cast(QueryResult.class);
+                        baseMono = execute(qr).cast(QueryResult.class);
                     }
                     return baseMono.expand(result -> result.getContinuationKey() == null ?
                             Mono.empty() : baseMono);
@@ -844,7 +850,11 @@ public class AsyncClient {
                 return recurseFlux;
             },
             (qRequest) -> { // Resource cleanup
-                qRequest.close();
+                /* TODO Who owns the QueryRequest? Consider both sync and
+                    async case
+                */
+
+                //qRequest.close();
             }
         );
     }
@@ -958,6 +968,18 @@ public class AsyncClient {
 
     public TopologyInfo getTopology() {
         return topology.get();
+    }
+
+    short getSerialVersion() {
+        return (short) serialVersion.get();
+    }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public void setDefaultNamespace(String ns) {
+        config.setDefaultNamespace(ns);
     }
 
     /*

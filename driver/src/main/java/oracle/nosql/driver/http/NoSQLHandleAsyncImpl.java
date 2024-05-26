@@ -283,7 +283,7 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
 
             ArrayList<String> results = new ArrayList<>(roles.asArray().size());
             for (FieldValue val : roles.asArray()) {
-                results.add(val.getString());
+                results.add(val.asMap().getString("name"));
             }
             return Flux.fromIterable(results);
         });
@@ -344,5 +344,13 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
             .setStatement(statement.toCharArray());
         return Mono.from(doSystemRequest(systemRequest,
                 Duration.ofSeconds(30), Duration.ofSeconds(1)));
+    }
+
+    short getSerialVersion() {
+       return client.getSerialVersion();
+    }
+
+    void setDefaultNamespace(String ns) {
+        client.setDefaultNamespace(ns);
     }
 }
