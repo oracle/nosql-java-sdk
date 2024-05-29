@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -123,6 +124,8 @@ public class ProxyTestBase {
     protected static HashSet<String> existingTables;
 
     protected NoSQLHandle handle;
+
+    protected NoSQLHandleAsync asyncHandle;
 
     @Rule
     public final TestRule watchman = new TestWatcher() {
@@ -230,6 +233,12 @@ public class ProxyTestBase {
         return tableOperation(handle, statement, limits, DEFAULT_DDL_TIMEOUT);
     }
 
+    protected static Publisher<TableResult> tableOperationAsync(NoSQLHandleAsync asyncHandle,
+                                                                String statement,
+                                                                TableLimits limits) {
+        return tableOperationAsync(asyncHandle, statement, limits,
+                DEFAULT_DDL_TIMEOUT);
+    }
     /**
      * run the statement, assumes success, exception is thrown on error
      */
@@ -247,6 +256,25 @@ public class ProxyTestBase {
             handle.doTableRequest(tableRequest, waitMillis, 1000);
         return tres;
     }
+
+    protected static Publisher<TableResult> tableOperationAsync(NoSQLHandleAsync asyncHandle,
+                                                String statement,
+                                                TableLimits limits,
+                                                int waitMillis) {
+        assertTrue(waitMillis > 500);
+        TableRequest tableRequest = new TableRequest()
+            .setStatement(statement)
+            .setTableLimits(limits)
+            .setTimeout(DEFAULT_DDL_TIMEOUT);
+
+        Publisher<TableResult> tres =
+            asyncHandle.doTableRequest(tableRequest,
+                    Duration.ofMillis(waitMillis),
+                    Duration.ofMillis(1000)
+            );
+        return tres;
+    }
+
     /**
      * run the statement, assumes success, exception is thrown on error
      */
@@ -270,6 +298,7 @@ public class ProxyTestBase {
          * Configure and get the handle
          */
         handle = getHandle(endpoint);
+        asyncHandle = getAsyncHandle(endpoint);
 
         /* track existing tables and don't drop them */
         existingTables = new HashSet<String>();
@@ -306,6 +335,10 @@ public class ProxyTestBase {
                 }
             }
             handle.close();
+        }
+
+        if (asyncHandle != null) {
+            asyncHandle.close();
         }
     }
 
@@ -422,6 +455,12 @@ public class ProxyTestBase {
         return setupHandle(config);
     }
 
+    protected NoSQLHandleAsync getAsyncHandle(String ep) {
+        NoSQLHandleConfig config = new NoSQLHandleConfig(ep);
+        serviceURL = config.getServiceURL();
+        return setupAsyncHandle(config);
+    }
+
     /* Set configuration values for the handle */
     protected NoSQLHandle setupHandle(NoSQLHandleConfig config) {
         /*
@@ -438,6 +477,27 @@ public class ProxyTestBase {
         perTestHandleConfig(config);
 
         NoSQLHandle h = getHandle(config);
+
+        /* serial version will be set by default ListTables() in beforeTest */
+
+        return h;
+    }
+
+    protected NoSQLHandleAsync setupAsyncHandle(NoSQLHandleConfig config) {
+        /*
+         * 5 retries, default retry algorithm
+         */
+        config.configureDefaultRetryHandler(5, 0);
+        config.setRequestTimeout(30000);
+
+        /* remove idle connections after this many seconds */
+        config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
+        configAuth(config);
+
+        /* allow test cases to add/modify handle config */
+        perTestHandleConfig(config);
+
+        NoSQLHandleAsync h = getAsyncHandle(config);
 
         /* serial version will be set by default ListTables() in beforeTest */
 
@@ -472,14 +532,32 @@ public class ProxyTestBase {
         return NoSQLHandleFactory.createNoSQLHandle(config);
     }
 
-    void assertReadKB(Result res) {
+    protected NoSQLHandleAsync getAsyncHandle(NoSQLHandleConfig config) {
+        /*
+         * Create a Logger, set to WARNING by default.
+         */
+        Logger logger = Logger.getLogger(getClass().getName());
+        String level = System.getProperty("test.loglevel");
+        if (level == null) {
+            level = "WARNING";
+        }
+        logger.setLevel(Level.parse(level));
+        config.setLogger(logger);
+
+        /*
+         * Open the handle
+         */
+        return NoSQLHandleFactory.createNoSQLHandleAsync(config);
+    }
+
+    protected void assertReadKB(Result res) {
         if (onprem) {
             return;
         }
         assertTrue(res.getReadKBInternal() > 0);
     }
 
-    void assertWriteKB(Result res) {
+    protected void assertWriteKB(Result res) {
         if (onprem) {
             return;
         }

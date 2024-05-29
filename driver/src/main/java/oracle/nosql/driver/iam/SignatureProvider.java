@@ -25,7 +25,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Date;
-import java.util.Timer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -874,7 +873,7 @@ public class SignatureProvider
     @Override
     public Mono<String> getAuthorizationStringAsync(Request request) {
         if (serviceHost == null) {
-            Mono.error(new IllegalArgumentException(
+            return Mono.error(new IllegalArgumentException(
                     "Unable to find service host, use setServiceHost " +
                             "to load from NoSQLHandleConfig"));
         }
@@ -1093,7 +1092,9 @@ public class SignatureProvider
                 null /* headers */,
                 null /* content */)
                 .doOnNext(signatureDetails -> {
-                    logger.fine("Successfully Got new token");
+                    if (logger != null) {
+                        logger.fine("Successfully Got new token");
+                    }
                     currentSigDetails.set(signatureDetails);
                     scheduleRefresh();
                 }).then();
@@ -1210,14 +1211,13 @@ public class SignatureProvider
         }
         Disposable task = refreshTask.getAndSet(null);
         if (task != null) {
-            logger.fine("disposing refresh task");
+            if (logger != null) {
+                logger.fine("disposing refresh task");
+            }
             task.dispose();
         }
-        task = refreshScheduler.schedule(() -> {
-            logger.fine("refreshing the token");
-            getSignatureDetailsForCache(false)
-                    .subscribe();
-        }, refreshIntervalMs, TimeUnit.MILLISECONDS);
+        task = refreshScheduler.schedule(new RefreshTask(), refreshIntervalMs,
+                TimeUnit.MILLISECONDS);
         refreshTask.set(task);
     }
 
@@ -1235,6 +1235,31 @@ public class SignatureProvider
            }
         }
         return sb.toString();
+    }
+
+    private class RefreshTask implements Runnable {
+        private void handleRefreshCallback(long refreshMs) {
+            if (onSigRefresh != null) {
+                /* don't let problems in the callback affect this path */
+                try {
+                    onSigRefresh.refresh(refreshMs);
+                } catch (Throwable t) {
+                    logMessage(Level.FINE,
+                            "Exception from OnSignatureRefresh: " + t);
+                }
+            }
+        }
+
+        @Override
+        public void run() {
+            if (logger != null) {
+                logger.fine("refreshing the token");
+            }
+            getSignatureDetailsForCache(true)
+                .then(Mono.fromRunnable(() ->
+                    handleRefreshCallback(refreshAheadMs)))
+                .subscribe();
+        }
     }
 
     /**

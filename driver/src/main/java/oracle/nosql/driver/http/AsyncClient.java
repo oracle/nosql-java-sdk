@@ -236,6 +236,34 @@ public class AsyncClient {
         }
     }
 
+    /*
+     *  Creates an async flow which executes when subscribed. The overall
+     *  chain of operators is somewhat like below.
+     *
+         -------------        --------------
+        | HTTP Header |  ->  | HttpResponse |
+         -------------        --------------
+                |            |
+             ------------------
+            | MonoUsing(Result)|
+             ------------------
+                     |
+                 -------------
+                |  Mono Defer |
+                 ------------
+                     |
+                 ------------
+                |  Retry 1   |
+                 ------------
+                     |
+                 ------------
+                |  Retry N   |
+                 ------------
+                     |
+                 ------------
+                |  Timeout   |
+                 ------------
+     */
     public Mono<Result> execute(Request kvRequest) {
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
         initAndValidateRequest(kvRequest);

@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 /**
+ * Internal use only, not meant for public usage can change in the future.
+ * <p>
  * The HttpClient which uses {@link HttpClient}.
  * <p>
  *
@@ -48,6 +50,10 @@ public class ReactorHttpClient {
     private final ConnectionPoolConfig connectionPoolConfig;
     private final int maxContentLength;
     private final reactor.netty.http.client.HttpClient httpClient;
+    private final String proxyHost;
+    private final int proxyPort;
+    private final String proxyUser;
+    private final String proxyPassword;
 
     /*
      * TODO - Currently number of worker threads in EventLoopGroup uses
@@ -67,6 +73,10 @@ public class ReactorHttpClient {
         this.sslContext = builder.sslContext;
         this.logger = builder.logger;
         this.maxContentLength = builder.maxContentLength;
+        this.proxyHost = builder.proxyHost;
+        this.proxyPort = builder.proxyPort;
+        this.proxyUser = builder.proxyUserName;
+        this.proxyPassword = builder.proxyPassword;
 
         ConnectionProvider connectionProvider = (connectionPoolConfig.getMaxConnections() == 1) ?
             ConnectionProvider.newConnection() :
@@ -79,7 +89,7 @@ public class ReactorHttpClient {
             .maxLifeTime(Duration.ofMillis(connectionPoolConfig.getMaxLifetime()))
             .build();
 
-        httpClient = HttpClient
+        HttpClient client = HttpClient
             .create(connectionProvider)
             .host(this.host)
             .port(this.port)
@@ -89,7 +99,7 @@ public class ReactorHttpClient {
                         .maxHeaderSize(builder.maxHeaderSize)
                         .maxInitialLineLength(builder.maxInitialLineLength);
             })
-            // TCP configs
+            // TCP configs. TODO is this required?
             .option(ChannelOption.SO_KEEPALIVE,true)
             .option(ChannelOption.TCP_NODELAY, true)
             //Enable wiretap
@@ -97,19 +107,21 @@ public class ReactorHttpClient {
 
         // Proxy settings
         if (builder.proxyHost != null) {
-            httpClient.proxy(spec -> spec.type(ProxyProvider.Proxy.HTTP)
+            client = client.proxy(spec -> spec.type(ProxyProvider.Proxy.HTTP)
                 .host(builder.proxyHost)
                 .port(builder.proxyPort)
                 .username(builder.proxyUserName)
                 .password(pwd -> builder.proxyPassword));
         }
 
+        // SSL config
         if (sslContext != null) {
-            httpClient.secure(sslContextSpec -> {
+            client = client.secure(sslContextSpec -> {
                 sslContextSpec.sslContext(sslContext)
                 .handshakeTimeoutMillis(builder.sslHandshakeTimeoutMs);
             });
         }
+        httpClient = client;
         httpClient.warmup().subscribe();
     }
 
@@ -198,8 +210,87 @@ public class ReactorHttpClient {
     public int getMaxContentLength() {
         return maxContentLength;
     }
-    HttpClient getHttpClient() {
+
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public HttpClient getHttpClient() {
         return httpClient;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public Logger getLogger() {
+        return logger;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public String getHost() {
+        return host;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public int getPort() {
+        return port;
+    }
+
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public SslContext getSslContext() {
+        return sslContext;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public ConnectionPoolConfig getConnectionPoolConfig() {
+        return connectionPoolConfig;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public String getProxyHost() {
+        return proxyHost;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public int getProxyPort() {
+        return proxyPort;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public String getProxyUser() {
+        return proxyUser;
+    }
+
+    /**
+     * @hidden
+     * For testing only
+     */
+    public String getProxyPassword() {
+        return proxyPassword;
     }
 
     // Add other methods for different HTTP methods as needed

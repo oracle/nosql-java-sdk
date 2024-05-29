@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.logging.Logger;
 
 import org.junit.Test;
 
@@ -79,6 +80,7 @@ public class SignatureProviderTest extends DriverTestBase {
         SigRefresh refreshCallback = new SigRefresh();
         provider.setOnSignatureRefresh(refreshCallback);
         provider.prepare(new NoSQLHandleConfig("http://test"));
+        provider.setLogger(Logger.getLogger(getClass().getName()));
 
         Request request = new TableRequest();
         String authzString = provider.getAuthorizationString(request);

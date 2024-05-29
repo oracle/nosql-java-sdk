@@ -46,6 +46,7 @@ import reactor.core.scheduler.Schedulers;
  * <li>Storage of bootstrap login token for re-use</li>
  * <li>Optionally renews the login token before it expires</li>
  * <li>Logs out of the store when closed</li>
+ * <li>User must call prepare() to boot strap login before using</li>
  * </ul>
  * <p>
  * If accessing an insecure instance of Oracle NoSQL Database the default
@@ -251,7 +252,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
 
     @Override
     public Mono<String> getAuthorizationStringAsync(Request request) {
-        if(!isSecure || isClosed) {
+        if (!isSecure || isClosed) {
             return Mono.empty();
         }
         return Mono.just(authToken.get().authString);
@@ -352,7 +353,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     public StoreAccessTokenProvider setEndpoint(String endpoint) {
         this.endpoint = endpoint;
         URL url = NoSQLHandleConfig.createURL(endpoint, "");
-        if (!url.getProtocol().toLowerCase().equals("https") && isSecure) {
+        if (!url.getProtocol().toLowerCase().equals("https") && isSecure &&
+                !disableSSLHook) {
             throw new IllegalArgumentException(
                 "StoreAccessTokenProvider requires use of https");
         }
@@ -395,20 +397,24 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * reached.
      */
     private void scheduleRefresh() {
-        logger.fine("Scheduling token refresh");
+        if (logger != null) {
+            logger.fine("Scheduling token refresh");
+        }
         if (!isSecure || !autoRenew || isClosed) {
             return;
         }
         // Get the existing token
         Token existingToken = authToken.get();
         Disposable task = refreshTask.getAndSet(null);
-        if(task != null) {
-            logger.fine("disposing refresh task");
+        if (task != null) {
+            if (logger != null) {
+                logger.fine("disposing refresh task");
+            }
             task.dispose();
         }
 
         final long acquireTime = System.currentTimeMillis();
-        if(existingToken.expirationTime <= 0) {
+        if (existingToken.expirationTime <= 0) {
             return;
         }
         if (existingToken.expirationTime > acquireTime + 10000) {
@@ -419,7 +425,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             task = refreshScheduler.schedule(
                 () -> getTokenFromServer(existingToken.authString, RENEW_SERVICE)
                         .subscribe(),
-                renewTime,
+                (renewTime - acquireTime),
                 TimeUnit.MILLISECONDS
             );
             refreshTask.set(task);
@@ -503,7 +509,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                     int responseCode = response.getStatusCode();
                     Mono<String> body = response.getBodyAsString();
                     return body.handle((bodyString, sink) -> {
-                        if(responseCode != HttpResponseStatus.OK.code()) {
+                        if (responseCode != HttpResponseStatus.OK.code()) {
                             sink.error(new InvalidAuthorizationException(
                                     "Fail to login to service: " + bodyString));
                         }

@@ -48,7 +48,7 @@ public class StoreAccessTokenProviderTest {
      */
     private static final int port = 1443;
 
-    private static final String endpoint = "https://localhost:" + port;
+    private static final String endpoint = "http://localhost:" + port;
 
     /*
      * basicAuthString matching user name test and password NoSql00__123456
@@ -119,6 +119,7 @@ public class StoreAccessTokenProviderTest {
             new StoreAccessTokenProvider(
                 userName, password.toCharArray());
         sap.setEndpoint(endpoint);
+        sap.prepare();
 
         try {
             final String authString = sap.getAuthorizationString(null);
@@ -136,11 +137,14 @@ public class StoreAccessTokenProviderTest {
         } finally {
             sap.close();
         }
+        StoreAccessTokenProvider.disableSSLHook = false;
 
         /* bad endpoints */
         tryBadEndpoint("http://localhost");
         tryBadEndpoint("localhost:8080");
         tryBadEndpoint("foo://localhost");
+
+        StoreAccessTokenProvider.disableSSLHook = true;
     }
 
     @Test
@@ -153,6 +157,7 @@ public class StoreAccessTokenProviderTest {
             new StoreAccessTokenProvider(
                 userName, password.toCharArray());
         sap.setEndpoint(endpoint);
+        sap.prepare();
         Runnable run = new TestMultiThreads(sap);
 
         /*
@@ -185,7 +190,7 @@ public class StoreAccessTokenProviderTest {
         public void run() {
             try {
                 for (int i = 0; i < 5; i++) {
-                    //sap.bootstrapLogin();
+                    sap.flushCache();
                 }
             } finally {
                 sap.close();
