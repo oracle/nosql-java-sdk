@@ -1,3 +1,10 @@
+/*-
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
 package oracle.nosql.driver.http;
 
 import io.netty.buffer.ByteBuf;
@@ -268,12 +275,14 @@ public class AsyncClient {
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
         initAndValidateRequest(kvRequest);
 
-        ClientRequest request = new ClientRequest(kvRequest,
-                maxRequestId.getAndIncrement(),
-                new AtomicInteger(serialVersion.get()),
-                new AtomicInteger(queryVersion.get()));
+        return Mono.defer(() -> {
+            ClientRequest request = new ClientRequest(kvRequest,
+                    maxRequestId.getAndIncrement(),
+                    new AtomicInteger(serialVersion.get()),
+                    new AtomicInteger(queryVersion.get()));
 
-        return executeWithTimeout(request);
+            return executeWithTimeout(request);
+        });
     }
 
     private Mono<Result> executeWithTimeout(ClientRequest clientRequest) {
