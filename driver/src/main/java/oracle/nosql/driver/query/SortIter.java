@@ -63,6 +63,32 @@ public class SortIter extends PlanIter {
 
         CompareFunction theComparator;
 
+        /*
+         * If theLimit is < 0, the SortIter will cache the full query result
+         * set (in theResults) and then sort it and return it one result at a
+         * time. theLimit will be > 0 if the query contains LIMIT clause. In
+         * this case, theLimit is the sum of the OFFSET and LIMIT values
+         * specified in the query and the SortIter does not need to cache more
+         * than theLimit results. Specifically, if theLimit is > 0, the SortIter
+         * works as follows:
+         * a. Up to theLimit results are initially cached in theResults.
+         * b. If there are no more than theLimit results, theResults is sorted
+         *    and then theSortIter returns these sorted result one at a time.
+         * c. Otherwise, when theLimit results have been cached, they are
+         *    transfered from theResults to theResultsQueue, which keeps
+         *    the results sorted. Any subsequent result R is compared with
+         *    greatest result, R_MAX, in the queue: if it R > R_MAX, it is
+         *    discarded; otherwise, R is inserted in the queue and R_MAX is
+         *    removed from the queue and discarded.
+         * d. Note that PriorityQueue gives access to the least result in
+         *    the queue, not the greatest. To handle this, we use the
+         *    ReverseCompareFunction with theResultsQueue, to sort the
+         *    results in the reverse of the desired order. Then, when the
+         *    full result set has been computed, the SortIter transfers
+         *    the results in theResultsQueue to theResultsArray in the
+         *    correct order. After this point, the SortIter returns the
+         *    the results in theResultsArray, one at a time.
+         */
         int theLimit = -1;
 
         ArrayList<MapValue> theResults;
@@ -161,8 +187,6 @@ public class SortIter extends PlanIter {
 
     @Override
     public void open(RuntimeControlBlock rcb) {
-
-        rcb.trace("Opening SortIter");
 
         int limit = - 1;
 
