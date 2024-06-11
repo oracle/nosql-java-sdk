@@ -369,4 +369,8 @@ public class SimpleRateLimiter implements RateLimiter {
         return consumeInternal(units, 0, true, System.nanoTime());
     }
 
+    @Override
+    public int getDelay(long units) {
+        return consumeInternal(units, 0, false, System.nanoTime());
+    }
 }

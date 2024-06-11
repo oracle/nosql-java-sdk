@@ -8,8 +8,8 @@
 package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.Version;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.values.MapValue;
-import oracle.nosql.driver.http.Client;
 
 /**
  * A base class for results of single row modifying operations such as put
@@ -19,7 +19,7 @@ public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
     private long existingModificationTime;
-    private Client client;
+    private AsyncClient client;
 
     protected WriteResult() {}
 
@@ -93,7 +93,7 @@ public class WriteResult extends Result {
      * for internal use
      * @param client the client
      */
-    public void setClient(Client client) {
+    public void setClient(AsyncClient client) {
         this.client = client;
     }
 }

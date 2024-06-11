@@ -14,7 +14,7 @@ import static org.junit.Assume.assumeTrue;
 
 import java.util.concurrent.TimeUnit;
 
-import oracle.nosql.driver.http.Client;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -74,7 +74,7 @@ public class RateLimiterTest extends ProxyTestBase {
         final boolean verbose = Boolean.getBoolean("test.verbose");
 
         /* clear any previous rate limiters */
-        Client client = ((NoSQLHandleImpl)handle).getClient();
+        AsyncClient client = ((NoSQLHandleImpl)handle).getClient();
         client.enableRateLimiting(false, 100.0);
 
         /*
@@ -98,7 +98,7 @@ public class RateLimiterTest extends ProxyTestBase {
         final boolean verbose = Boolean.getBoolean("test.verbose");
 
         /* clear any previous rate limiters */
-        Client client = ((NoSQLHandleImpl)handle).getClient();
+        AsyncClient client = ((NoSQLHandleImpl)handle).getClient();
         client.enableRateLimiting(false, 100.0);
 
         /* configure our handle for rate limiting */

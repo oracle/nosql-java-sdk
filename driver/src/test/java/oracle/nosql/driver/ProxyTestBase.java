@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import oracle.nosql.driver.http.Client;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.GetTableRequest;
@@ -324,15 +324,15 @@ public class ProxyTestBase {
                  * code that removes idle connections. By default they
                  * are configured to be removed after 2 seconds
                  */
-                Client client = ((NoSQLHandleImpl)handle).getClient();
-                while (client.getTotalChannelCount() > 0) {
-                    /*
+                AsyncClient client = ((NoSQLHandleImpl)handle).getClient();
+                /*while (client.getTotalChannelCount() > 0) {
+                    *//*
                     System.out.println("Pool: free, total: " +
                                        client.getFreeChannelCount() + ", " +
                                        client.getTotalChannelCount());
-                    */
+                    *//*
                     try { Thread.sleep(1000); } catch (Exception e) {}
-                }
+                }*/
             }
             handle.close();
         }

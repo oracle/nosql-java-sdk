@@ -360,4 +360,12 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     void setDefaultNamespace(String ns) {
         client.setDefaultNamespace(ns);
     }
+
+    /**
+     * @hidden
+     * For testing use
+     */
+    public AsyncClient getClient() {
+        return client;
+    }
 }

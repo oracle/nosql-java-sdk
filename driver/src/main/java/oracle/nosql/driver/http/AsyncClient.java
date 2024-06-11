@@ -20,11 +20,15 @@ import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.RateLimiter;
+import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
+import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.UnsupportedQueryVersionException;
+import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpResponse;
 import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -32,6 +36,8 @@ import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.GetResult;
+import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.QueryRequest;
@@ -40,7 +46,9 @@ import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
+import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
+import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
 import oracle.nosql.driver.ops.serde.Serializer;
@@ -52,12 +60,15 @@ import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
+import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
 import oracle.nosql.driver.values.MapValue;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SynchronousSink;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetrySpec;
 
@@ -66,7 +77,11 @@ import java.net.URL;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -78,6 +93,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static oracle.nosql.driver.util.BinaryProtocol.*;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 import static oracle.nosql.driver.util.HttpConstants.*;
+import static oracle.nosql.driver.util.LogUtil.isLoggable;
+import static oracle.nosql.driver.util.LogUtil.logFine;
 
 public class AsyncClient {
 
@@ -108,6 +125,12 @@ public class AsyncClient {
     private final AuthorizationProvider authProvider;
     private final boolean useSSL;
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
+
+    /*
+     * Internal rate limiting: cloud only
+     */
+    private RateLimiterMap rateLimiterMap;
+
     private Map<String, AtomicLong> tableLimitUpdateMap;
 
     /* update table limits once every 10 minutes */
@@ -118,6 +141,11 @@ public class AsyncClient {
      * is unavailable
      */
     private static final int SEC_ERROR_DELAY_MS = 100;
+
+    /*
+     * singe thread executor for updating table limits
+     */
+    private ExecutorService threadPool;
 
     private AtomicInteger serialVersion = new AtomicInteger(DEFAULT_SERIAL_VERSION);
 
@@ -205,6 +233,20 @@ public class AsyncClient {
             this.userAgent = HttpConstants.userAgent;
         }
         oneTimeMessages = new HashSet<>();
+
+        /* StoreAccessTokenProvider == onprem */
+        if (config.getRateLimitingEnabled() &&
+                !(authProvider instanceof StoreAccessTokenProvider)) {
+            logFine(logger, "Starting client with rate limiting enabled");
+            rateLimiterMap = new RateLimiterMap();
+            tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
+            threadPool = Executors.newSingleThreadExecutor();
+        } else {
+            logFine(logger, "Starting client with no rate limiting");
+            rateLimiterMap = null;
+            tableLimitUpdateMap = null;
+            threadPool = null;
+        }
     }
 
     public void shutdown() {
@@ -230,9 +272,7 @@ public class AsyncClient {
 
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
-
-        // TODO
-        //kvRequest.setRateLimitDelayedMs(0);
+        kvRequest.setRateLimitDelayedMs(0);
 
         /*
          * If the request doesn't set an explicit compartment, use
@@ -281,26 +321,6 @@ public class AsyncClient {
                     new AtomicInteger(serialVersion.get()),
                     new AtomicInteger(queryVersion.get()));
 
-            return executeWithTimeout(request);
-        });
-    }
-
-    private Mono<Result> executeWithTimeout(ClientRequest clientRequest) {
-        return executeWithRetry(clientRequest)
-        .timeout(Duration.ofMillis(clientRequest.kvRequest.getTimeoutInternal()));
-    }
-
-    private Mono<Result> getHttpMono(ClientRequest clientRequest) {
-        final Request kvRequest = clientRequest.kvRequest;
-        final String requestClass = kvRequest.getClass().getSimpleName();
-        final String requestId = Long.toString(clientRequest.requestId.get());
-        final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
-        final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
-
-        return Mono.defer(() -> {
-            logger.fine(getLogMessage(requestId, requestClass,
-                    "Inside execute core part"));
-
             /* kvRequest.isQueryRequest() returns true if kvRequest is a
              * non-internal QueryRequest
              */
@@ -318,7 +338,9 @@ public class AsyncClient {
                  * place when the app calls getResults() on the QueryResult.
                  */
                 if (qreq.hasDriver()) {
-                    logger.fine("QueryRequest has QueryDriver");
+                    logger.fine(getLogMessage(request.requestIdStr,
+                        request.requestClass,
+                        "QueryRequest has QueryDriver"));
                     return Mono.just(new QueryResult(qreq, false));
                 }
                 /*
@@ -330,56 +352,143 @@ public class AsyncClient {
                  * app calls getResults() on the QueryResult.
                  */
                 if (qreq.isPrepared() && !qreq.isSimpleQuery()) {
-                    logger.fine("QueryRequest has no QueryDriver, but is prepared");
+                    logger.fine(getLogMessage(request.requestIdStr,
+                        request.requestClass,
+                        "QueryRequest has no QueryDriver, but is prepared"));
                     QueryDriver driver = new QueryDriver(qreq);
                     driver.setClient(this);
                     return Mono.just(new QueryResult(qreq, false));
                 }
-                logger.fine("QueryRequest has no QueryDriver and is not prepared");
+                logger.fine(getLogMessage(request.requestIdStr,
+                    request.requestClass,
+                    "QueryRequest has no QueryDriver and is not prepared"));
                 qreq.incBatchCounter();
             }
+            return executeWithTimeout(request);
+        });
+    }
 
-            //requestId.set(Long.toString(maxRequestId.getAndIncrement()));
-            serialVersionUsed.set(serialVersion.get());
-            queryVersionUsed.set(queryVersion.get());
+    private Mono<Result> executeWithTimeout(ClientRequest clientRequest) {
+        Request kvRequest = clientRequest.kvRequest;
+        int timeout = clientRequest.kvRequest.getTimeoutInternal();
+        String requestId = clientRequest.requestIdStr;
+        String requestCls = clientRequest.requestClass;
 
-            logger.fine(getLogMessage(requestId, requestClass,
-                    "serialVersionUsed= " + serialVersionUsed));
+        return executeWithRetry(clientRequest)
+            .timeout(Duration.ofMillis(timeout),
+                Mono.defer(() -> {
+                    String msg = String.format("[Request %s] %s timed out: %s",
+                        requestId, requestCls,
+                        kvRequest.getRetryStats() != null ?
+                            kvRequest.getRetryStats() : ""
+                    );
+                    RequestTimeoutException re =
+                        new RequestTimeoutException(timeout, msg,
+                            clientRequest.exception);
+                    return Mono.error(re);
+                })
+            );
+    }
 
-            logger.fine(getLogMessage(requestId, requestClass,
-                    "queryVersionUsed= " + queryVersionUsed));
+    private Mono<Result> getHttpMono(ClientRequest clientRequest) {
+        final Request kvRequest = clientRequest.kvRequest;
+        final String requestClass = kvRequest.getClass().getSimpleName();
+        final String requestId = Long.toString(clientRequest.requestId.get());
+        final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
+        final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
 
-            if (serialVersionUsed.get() < 3 && kvRequest instanceof DurableRequest) {
-                if (((DurableRequest) kvRequest).getDurability() != null) {
-                    oneTimeMessage("The requested feature is not " +
-                            "supported " + "by the connected server: Durability");
+        /* if the request itself specifies rate limiters, use them */
+        RateLimiter readLimiter = kvRequest.getReadRateLimiter();
+        RateLimiter writeLimiter = kvRequest.getWriteRateLimiter();
+        boolean checkReadUnits = readLimiter != null;
+        boolean checkWriteUnits = writeLimiter != null;
+
+        /* if not, see if we have limiters in our map for the given table */
+        if (rateLimiterMap != null &&
+               readLimiter == null && writeLimiter == null) {
+            String tableName = kvRequest.getTableName();
+            if (tableName != null && !tableName.isEmpty()) {
+                readLimiter = rateLimiterMap.getReadLimiter(tableName);
+                writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
+                if (readLimiter == null && writeLimiter == null) {
+                    if (kvRequest.doesReads() || kvRequest.doesWrites()) {
+                        backgroundUpdateLimiters(tableName,
+                                kvRequest.getCompartment());
+                    }
+                } else {
+                    checkReadUnits = kvRequest.doesReads();
+                    kvRequest.setReadRateLimiter(readLimiter);
+                    checkWriteUnits = kvRequest.doesWrites();
+                    kvRequest.setWriteRateLimiter(writeLimiter);
                 }
             }
+        }
+        clientRequest.readLimiter = readLimiter;
+        clientRequest.writeLimiter = writeLimiter;
+        clientRequest.checkReadUnits = checkReadUnits;
+        clientRequest.checkWriteUnits = checkWriteUnits;
 
-            if (serialVersionUsed.get() < 3 && kvRequest instanceof TableRequest) {
-                TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
-                if (limits != null && limits.getMode() ==
-                        TableLimits.CapacityMode.ON_DEMAND) {
-                    oneTimeMessage("The requested feature is not " +
-                            "supported " + "by the connected server:" +
-                            " on demand " + "capacity table");
-                }
-            }
+        return Mono.defer(() -> {
+            logger.fine(getLogMessage(requestId, requestClass,
+                    "Inside execute core part"));
 
-            /*
-             * we expressly check size limit below based on onprem versus
-             * cloud. Set the request to not check size limit inside
-             * writeContent().
-             */
-            kvRequest.setCheckRequestSize(false);
-
-            return Mono.using(
-                () -> { // Bytebuf resource acquisition
+            /* check rate limiter for permissions before sending thr request */
+            return getRateLimiterDelay(clientRequest).doOnNext(delay -> {
+                /* update the request for delayed time */
+                kvRequest.addRateLimitDelayedMs(delay.intValue());
+            }).then(
+                Mono.using(
+                () -> { // ByteBuf resource acquisition
                     ByteBuf buffer = ByteBufAllocator.DEFAULT.directBuffer();
                     buffer.retain();
                     return buffer;
                 },
-                (buffer) -> { // Bytebuf resource use
+                (buffer) -> { // ByteBuf resource use
+                    if (kvRequest.getNumRetries() > 0) {
+                        logRetries(requestId, requestClass,
+                            kvRequest.getNumRetries(), clientRequest.exception);
+                    }
+                    serialVersionUsed.set(serialVersion.get());
+                    queryVersionUsed.set(queryVersion.get());
+
+                    logger.fine(getLogMessage(requestId, requestClass,
+                        "serialVersionUsed= " + serialVersionUsed));
+
+                    logger.fine(getLogMessage(requestId, requestClass,
+                        "queryVersionUsed= " + queryVersionUsed));
+
+                    if (serialVersionUsed.get() < 3 && kvRequest instanceof DurableRequest) {
+                        if (((DurableRequest) kvRequest).getDurability() != null) {
+                            oneTimeMessage("The requested feature is not " +
+                                "supported by the connected server: " +
+                                "Durability");
+                        }
+                    }
+
+                    if (serialVersionUsed.get() < 3 && kvRequest instanceof TableRequest) {
+                        TableLimits limits = ((TableRequest) kvRequest).getTableLimits();
+                        if (limits != null && limits.getMode() ==
+                                TableLimits.CapacityMode.ON_DEMAND) {
+                            oneTimeMessage("The requested feature is not " +
+                                    "supported " + "by the connected server:" +
+                                    " on demand " + "capacity table");
+                        }
+                    }
+
+                    /*
+                     * we expressly check size limit below based on onprem versus
+                     * cloud. Set the request to not check size limit inside
+                     * writeContent().
+                     */
+                    kvRequest.setCheckRequestSize(false);
+
+                    /* Set the topo seq num in the request, if it has not been set
+                     * already */
+                    if (!(kvRequest instanceof QueryRequest) ||
+                            kvRequest.isQueryRequest()) {
+                        kvRequest.setTopoSeqNum(getTopoSeqNum());
+                    }
+
                     try {
                         serialVersionUsed.set(writeContent(buffer, kvRequest,
                                 (short) queryVersionUsed.get()));
@@ -418,6 +527,8 @@ public class AsyncClient {
                             "Sending request to Server"));
                         });
 
+                    clientRequest.latencyNanos = System.nanoTime();
+
                     // Submit http request to reactor netty
                     Mono<HttpResponse> responseMono = httpClient
                         .postRequest(kvRequestURI, requestHeader, buffer)
@@ -439,12 +550,13 @@ public class AsyncClient {
                             buffer.refCnt()));
                     buffer.release(buffer.refCnt());
                 }
-            );
+            ));
         });
     }
 
     private Mono<Result> executeWithRetry(ClientRequest clientRequest) {
-        final String requestClass = clientRequest.getClass().getSimpleName();
+        final Request kvRequest = clientRequest.kvRequest;
+        final String requestClass = clientRequest.requestClass;
         final String requestId = clientRequest.requestIdStr;
         final AtomicInteger queryVersionUsed = clientRequest.queryVersionUsed;
         final AtomicInteger serialVersionUsed = clientRequest.serialVersionUsed;
@@ -452,41 +564,107 @@ public class AsyncClient {
         return getHttpMono(clientRequest)
                 // Authentication and InvalidAuthorizationException-Retry 1 time
                 .retryWhen(RetrySpec.max(1)
-                        .filter(throwable -> throwable instanceof AuthenticationException
-                                || throwable instanceof InvalidAuthorizationException)
-                        .doBeforeRetry(retrySignal -> {
-                            authProvider.flushCache();
-                        })
+                    .filter(throwable -> throwable instanceof AuthenticationException
+                            || throwable instanceof InvalidAuthorizationException)
+                    .doBeforeRetry(retrySignal -> {
+                        Throwable t = retrySignal.copy().failure();
+                        authProvider.flushCache();
+                        kvRequest.addRetryException(t.getClass());
+                        kvRequest.incrementRetries();
+                        clientRequest.exception = t;
+                    })
                 )
                 // SecurityInfoNotReadyException-Retry 10 times with 100ms backoff
                 .retryWhen(RetrySpec.backoff(10, Duration.ofMillis(SEC_ERROR_DELAY_MS))
-                        .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
+                    .filter(throwable -> throwable instanceof SecurityInfoNotReadyException)
+                    .doBeforeRetry(retrySignal -> {
+                        Throwable t = retrySignal.copy().failure();
+                        kvRequest.addRetryException(t.getClass());
+                        clientRequest.exception = t;
+                    })
+                    .doAfterRetry(retrySignal -> {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        kvRequest.incrementRetries();
+                        int delay =
+                            (int) (SEC_ERROR_DELAY_MS * copy.totalRetries());
+                        kvRequest.addRetryDelayMs(delay);
+                    })
                 )
                 // RetryableException-Retry 10 times with 200ms backoff + jitter
+                // TODO how to use RetryHandler here?
                 .retryWhen(Retry.backoff(10, Duration.ofMillis(200)).jitter(0.2)
-                        .filter(throwable -> throwable instanceof RetryableException)
+                    .filter(throwable -> throwable instanceof RetryableException)
+                    .doBeforeRetry(retrySignal -> {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        Throwable re = copy.failure();
+                        if (re instanceof WriteThrottlingException &&
+                                clientRequest.writeLimiter != null) {
+                            /* ensure we check write limits next loop */
+                            clientRequest.checkWriteUnits = true;
+                            /* set limiter to its limit, if not over */
+                            if (clientRequest.writeLimiter.getCurrentRate() < 100.0) {
+                                clientRequest.writeLimiter.setCurrentRate(100.0);
+                            }
+                        }
+                        if (re instanceof ReadThrottlingException &&
+                                clientRequest.readLimiter != null) {
+                            /* ensure we check read limits next loop */
+                            clientRequest.checkReadUnits = true;
+                            /* set limiter to its limit, if not over */
+                            if (clientRequest.readLimiter.getCurrentRate() < 100.0) {
+                                clientRequest.readLimiter.setCurrentRate(100.0);
+                            }
+                        }
+                        kvRequest.addRetryException(re.getClass());
+                        logger.fine(getLogMessage(requestId, requestClass,
+                            "Retryable exception: " + re.getMessage()));
+                    })
+                    .doAfterRetry(retrySignal -> {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        Throwable re = copy.failure();
+                        kvRequest.incrementRetries();
+                        clientRequest.exception = re;
+                    })
                 )
                 /* UnsupportedQueryVersionException- Retry 10 times. filter will
                 limit max retries to queryVersion */
                 .retryWhen(RetrySpec.max(10)
-                        .filter(throwable -> throwable instanceof UnsupportedQueryVersionException &&
-                                decrementQueryVersion((short) queryVersionUsed.get()))
-                        .doBeforeRetry(retrySignal -> {
-                            logRetries(requestId, requestClass,
-                                    retrySignal.totalRetries() + 1,
-                                    retrySignal.failure());
-                        })
+                    .filter(t -> t instanceof UnsupportedQueryVersionException &&
+                        decrementQueryVersion((short) queryVersionUsed.get()))
+                    .doBeforeRetry(retrySignal -> {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        logRetries(requestId, requestClass,
+                            copy.totalRetries() + 1,
+                            copy.failure());
+                    })
                 )
                 /* UnsupportedProtocolException- Retry 10 times. filter will
                 limit max retries to serialVersion */
                 .retryWhen(RetrySpec.max(10)
-                        .filter(throwable -> throwable instanceof UnsupportedProtocolException &&
-                                decrementSerialVersion((short) serialVersionUsed.get()))
+                    .filter(t -> t instanceof UnsupportedProtocolException &&
+                        decrementSerialVersion((short) serialVersionUsed.get()))
+                    .doBeforeRetry(retrySignal -> {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        logRetries(requestId, requestClass,
+                            copy.totalRetries() + 1,
+                            copy.failure());
+                    })
                 )
                 // IOException - Retry 2 times with 10ms delay
                 .retryWhen(RetrySpec.fixedDelay(2, Duration.ofMillis(10))
-                        .filter(throwable -> throwable instanceof IOException)
-                );
+                    .filter(throwable -> throwable instanceof IOException)
+                    .doBeforeRetry(retrySignal ->  {
+                        Retry.RetrySignal copy = retrySignal.copy();
+                        kvRequest.addRetryException(copy.failure().getClass());
+                        kvRequest.incrementRetries();
+                        clientRequest.exception = copy.failure();
+                    })
+                ).onErrorMap(throwable -> {
+                    logger.fine(getLogMessage(requestId, requestClass,
+                            "Client execute exception: " + throwable.getMessage()));
+                    clientRequest.exception = throwable;
+                    return throwable;
+                });
     }
 
     private short writeContent(ByteBuf content, Request kvRequest,
@@ -517,12 +695,12 @@ public class AsyncClient {
         }
     }
 
-    final Result processResponse(HttpResponseStatus status,
-                                 HttpHeaders responseHeaders,
-                                 ByteBuf responseBody,
-                                 Request kvRequest,
-                                 short serialVersionUsed,
-                                 short queryVersionUsed) {
+    private Result processResponse(HttpResponseStatus status,
+                                   HttpHeaders responseHeaders,
+                                   ByteBuf responseBody,
+                                   Request kvRequest,
+                                   short serialVersionUsed,
+                                   short queryVersionUsed) {
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, responseBody);
 
@@ -551,57 +729,97 @@ public class AsyncClient {
             HttpHeaders responseHeaders = httpResponse.getHeaders();
             HttpResponseStatus responseStatus = httpResponse.getStatus();
             Mono<ByteBuf> body = httpResponse.getBody();
-            Mono<Result> resultMono = body.handle((content, sink) -> {
-                logger.fine(getLogMessage(requestId,
-                        requestClass, "processing response"));
+            Mono<Tuple2<Result,Integer>> resultMono = body.handle((content, sink) -> {
+                logger.fine(getLogMessage(requestId, requestClass,
+                    "processing response"));
                 try {
                     Result res = processResponse(responseStatus,
-                            responseHeaders,
-                            content,
-                            kvRequest,
-                            (short) serialVersionUsed.get(),
-                            (short) queryVersionUsed.get());
-                    sink.next(res);
+                        responseHeaders,
+                        content,
+                        kvRequest,
+                        (short) serialVersionUsed.get(),
+                        (short) queryVersionUsed.get());
 
-                    //TODO what to do for below
-                        /*
-                        rateDelayedMs += getRateDelayedFromHeader(
-                            responseHandler.getHeaders());
-                        int resSize = wireContent.readerIndex();
-                        long networkLatency =
-                            (System.nanoTime() - latencyNanos) / 1_000_000;
-                        setTopology(res.getTopology());
-                        */
+                    kvRequest.addRateLimitDelayedMs(
+                        getRateDelayedFromHeader(responseHeaders));
+                    int resSize = content.readerIndex();
+                    long latencyNanos = clientRequest.latencyNanos;
+                    long networkLatency =
+                        (System.nanoTime() - latencyNanos) / 1_000_000;
 
-                    // TODO is this required
-                    /*if (serialVersionUsed < 3) {
-                     *//* so we can emit a one-time message if the app *//*
-                     *//* tries to access modificationTime *//*
+                    setTopology(res.getTopology());
+
+                    if (serialVersionUsed.get() < 3) {
+                        /* so we can emit a one-time message if the app
+                           tries to access modificationTime */
                         if (res instanceof GetResult) {
                             ((GetResult)res).setClient(this);
                         } else if (res instanceof WriteResult) {
                             ((WriteResult)res).setClient(this);
                         }
-                        }*/
+                    }
 
-                    //TODO is below required
-                        /*if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
-                            QueryRequest qreq = (QueryRequest)kvRequest;
-                            qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
-                        }*/
-                    //return res;
+                    if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                        QueryRequest qreq = (QueryRequest)kvRequest;
+                        qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
+                    }
+
+                    if (res instanceof TableResult && rateLimiterMap != null) {
+                        /* update rate limiter settings for table */
+                        TableLimits tl = ((TableResult) res).getTableLimits();
+                        updateRateLimiters(((TableResult) res).getTableName(), tl);
+                    }
+
+                    /*
+                     * We may not have rate limiters yet because queries may
+                     * not have a tablename until after the first request.
+                     * So try to get rate limiters if we don't have them yet and
+                     * this is a QueryRequest.
+                     */
+                    if (rateLimiterMap != null && clientRequest.readLimiter == null) {
+                        clientRequest.readLimiter =
+                                getQueryRateLimiter(kvRequest, true);
+                    }
+                    if (rateLimiterMap != null && clientRequest.writeLimiter == null) {
+                        clientRequest.writeLimiter =
+                                getQueryRateLimiter(kvRequest, false);
+                    }
+
+                    /* consume rate limiter units based on actual usage */
+                    int rateDelayedMs = 0;
+                    rateDelayedMs += consumeLimiterUnits(clientRequest.readLimiter,
+                        res.getReadUnitsInternal());
+                    rateDelayedMs += consumeLimiterUnits(clientRequest.writeLimiter,
+                        res.getWriteUnitsInternal());
+
+                    sink.next(Tuples.of(res,rateDelayedMs));
                 } catch (IllegalReferenceCountException e) {
-                    logger.fine(getLogMessage(requestId,
-                            requestClass,
-                            "Illegal refCount, request might be " +
-                                    "cancelled")
+                    logger.fine(getLogMessage(requestId, requestClass,
+                        "Illegal refCount, request might be " +
+                            "cancelled")
                     );
                     sink.complete();
                 } catch (Throwable t) {
                     sink.error(t);
                 }
             });
-            return resultMono;
+            return resultMono.flatMap(tuple -> {
+                /* If there is no rate limit delay just return Result */
+                Result result = tuple.getT1();
+                int delay = tuple.getT2();
+                Mono<Result> resMono = Mono.just(result);
+                 if (delay > 0) {
+                     /* sleep for delay ms */
+                     resMono = Mono.delay(Duration.ofMillis(delay))
+                         .doOnNext(i -> kvRequest.addRateLimitDelayedMs(delay))
+                         .then(Mono.just(result));
+                }
+                return resMono.doOnNext(res -> {
+                    /* copy retry stats to Result on successful operation */
+                    res.setRateLimitDelayedMs(kvRequest.getRateLimitDelayedMs());
+                    res.setRetryStats(kvRequest.getRetryStats());
+                });
+            });
         });
     }
 
@@ -611,7 +829,7 @@ public class AsyncClient {
      * @return the result of processing the successful request
      * @throws NoSQLException if the stream could not be read for some reason
      */
-    Result processOKResponse(ByteInputStream in, Request kvRequest,
+    private Result processOKResponse(ByteInputStream in, Request kvRequest,
                              short serialVersionUsed, short queryVersionUsed) {
         try {
             SerializerFactory factory = chooseFactory(kvRequest);
@@ -1019,6 +1237,303 @@ public class AsyncClient {
         config.setDefaultNamespace(ns);
     }
 
+    private Mono<Long> getRateLimiterDelay(ClientRequest request) {
+        /*
+         * Check rate limiters before executing the request.
+         * Wait for read and/or write limiters to be below their limits
+         * before continuing. Be aware of the timeout given.
+         */
+        long delay = 0;
+        if (request.readLimiter != null && request.checkReadUnits) {
+            delay = request.readLimiter.getDelay(0);
+        }
+        if(request.writeLimiter != null && request.checkWriteUnits) {
+            delay += request.writeLimiter.getDelay(0);
+        }
+        return delay == 0 ? Mono.just(0L) :
+            Mono.delay(Duration.ofMillis(delay)).then(Mono.just(delay));
+    }
+
+    /**
+     * Returns a rate limiter for a query operation, if the query op has
+     * a prepared statement and a limiter exists in the rate limiter map
+     * for the query table.
+     */
+    private RateLimiter getQueryRateLimiter(Request request, boolean read) {
+        if (rateLimiterMap == null || !(request instanceof QueryRequest)) {
+            return null;
+        }
+
+        /*
+         * If we're asked for a write limiter, and the request doesn't
+         * do writes, return null
+         */
+        if (!read && !request.doesWrites()) {
+            return null;
+        }
+
+        /*
+         * We sometimes may only get a prepared statement after the
+         * first query response is returned. In this case, we can get
+         * the tablename from the request and apply rate limiting.
+         */
+        String tableName = request.getTableName();
+        if (tableName == null || tableName.isEmpty()) {
+            return null;
+        }
+
+        if (read) {
+            RateLimiter rl = rateLimiterMap.getReadLimiter(tableName);
+            if (rl != null) {
+                request.setReadRateLimiter(rl);
+            }
+            return rl;
+        }
+
+        RateLimiter rl = rateLimiterMap.getWriteLimiter(tableName);
+        if (rl != null) {
+            request.setWriteRateLimiter(rl);
+        }
+        return rl;
+    }
+
+    /**
+     * Consume rate limiter units after successful operation.
+     * @return the number of milliseconds delayed due to rate limiting
+     */
+    private int consumeLimiterUnits(RateLimiter rl, long units) {
+
+        if (rl == null || units <= 0) {
+            return 0;
+        }
+
+        /*
+         * The logic consumes units (and potentially delays) _after_ a
+         * successful operation for a couple reasons:
+         * 1) We don't know the actual number of units an op uses until
+         *    after the operation successfully finishes
+         * 2) Delaying after the op keeps the application from immediately
+         *    trying the next op and ending up waiting along with other
+         *    client threads until the rate goes below the limit, at which
+         *    time all client threads would continue at once. By waiting
+         *    after a successful op, client threads will get staggered
+         *    better to avoid spikes in throughput and oscillation that
+         *    can result from it.
+         */
+
+        return rl.getDelay(units);
+    }
+
+    /**
+     * Add or update rate limiters for a table.
+     * Cloud only.
+     *
+     * @param tableName table name or OCID of table
+     * @param limits read/write limits for table
+     */
+    public boolean updateRateLimiters(String tableName, TableLimits limits) {
+        if (rateLimiterMap == null) {
+            return false;
+        }
+
+        setTableNeedsRefresh(tableName, false);
+
+        if (limits == null ||
+                (limits.getReadUnits() <= 0 && limits.getWriteUnits() <= 0)) {
+            rateLimiterMap.remove(tableName);
+            logFine(logger, "removing rate limiting from table " + tableName);
+            return false;
+        }
+
+        /*
+         * Create or update rate limiters in map
+         * Note: noSQL cloud service has a "burst" availability of
+         * 300 seconds. But we don't know if or how many other clients
+         * may have been using this table, and a duration of 30 seconds
+         * allows for more predictable usage. Also, it's better to
+         * use a reasonable hardcoded value here than to try to explain
+         * the subtleties of it in docs for configuration. In the end
+         * this setting is probably fine for all uses.
+         */
+
+        /* allow tests to override this hardcoded setting */
+        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30);
+
+        double RUs = limits.getReadUnits();
+        double WUs = limits.getWriteUnits();
+
+        /* if there's a specified rate limiter percentage, use that */
+        double rlPercent = config.getDefaultRateLimitingPercentage();
+        if (rlPercent > 0.0) {
+            RUs = (RUs * rlPercent) / 100.0;
+            WUs = (WUs * rlPercent) / 100.0;
+        }
+
+        rateLimiterMap.update(tableName, RUs, WUs, durationSeconds);
+        if (isLoggable(logger, Level.FINE)) {
+            final String msg = String.format("Updated table '%s' to have " +
+                    "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
+            logFine(logger, msg);
+        }
+        return true;
+    }
+
+    /**
+     * Return true if table needs limits refresh.
+     */
+    private boolean tableNeedsRefresh(String tableName) {
+        if (tableLimitUpdateMap == null) {
+            return false;
+        }
+        AtomicLong then = tableLimitUpdateMap.get(tableName);
+        long nowNanos = System.nanoTime();
+        return then == null || then.get() <= nowNanos;
+    }
+
+    /**
+     * set the status of a table needing limits refresh now
+     */
+    private void setTableNeedsRefresh(String tableName, boolean needsRefresh) {
+        if (tableLimitUpdateMap == null) {
+            return;
+        }
+
+        AtomicLong then = tableLimitUpdateMap.get(tableName);
+        long nowNanos = System.nanoTime();
+        if (then != null) {
+            if (!needsRefresh) {
+                then.set(nowNanos + LIMITER_REFRESH_NANOS);
+            } else {
+                then.set(nowNanos - 1);
+            }
+            return;
+        }
+
+        if (needsRefresh) {
+            tableLimitUpdateMap.put(tableName, new AtomicLong(nowNanos - 1));
+        } else {
+            tableLimitUpdateMap.put(tableName,
+                    new AtomicLong(nowNanos + LIMITER_REFRESH_NANOS));
+        }
+    }
+
+    /**
+     * Query table limits and create rate limiters for a table in a
+     * short-lived background thread.
+     */
+    private synchronized void backgroundUpdateLimiters(String tableName,
+                                                       String compartmentId) {
+        if (!tableNeedsRefresh(tableName)) {
+            return;
+        }
+        setTableNeedsRefresh(tableName, false);
+        try {
+            threadPool.execute(() -> updateTableLimiters(tableName, compartmentId));
+        } catch (RejectedExecutionException e) {
+            setTableNeedsRefresh(tableName, true);
+        }
+    }
+
+    /*
+     * This is meant to be run in a background thread
+     */
+    private void updateTableLimiters(String tableName, String compartmentId) {
+
+        GetTableRequest gtr = new GetTableRequest()
+                .setTableName(tableName)
+                .setCompartment(compartmentId)
+                .setTimeout(1000);
+        TableResult res = null;
+        try {
+            logFine(logger, "Starting GetTableRequest for table '" +
+                    tableName + "'");
+            res = this.execute(gtr).cast(TableResult.class).block();
+        } catch (Exception e) {
+            logFine(logger, "GetTableRequest for table '" +
+                    tableName + "' returned exception: " + e.getMessage());
+        }
+
+        if (res == null) {
+            /* table doesn't exist? other error? */
+            logFine(logger, "GetTableRequest for table '" +
+                    tableName + "' returned null");
+            AtomicLong then = tableLimitUpdateMap.get(tableName);
+            if (then != null) {
+                /* allow retry after 100ms */
+                then.set(System.nanoTime() + 100_000_000L);
+            }
+            return;
+        }
+
+        logFine(logger, "GetTableRequest completed for table '" +
+                tableName + "'");
+        /* update/add rate limiters for table */
+        if (updateRateLimiters(tableName, res.getTableLimits())) {
+            logFine(logger, "background thread added limiters for table '" +
+                    tableName + "'");
+        }
+    }
+
+    /**
+     * @hidden
+     *
+     * Allow tests to reset limiters in map
+     *
+     * @param tableName name or OCID of the table
+     */
+    public void resetRateLimiters(String tableName) {
+        if (rateLimiterMap != null) {
+            rateLimiterMap.reset(tableName);
+        }
+    }
+
+    /**
+     * @hidden
+     *
+     * Allow tests to enable/disable rate limiting
+     * This method is not thread safe, and should only be
+     * executed by one thread when no other operations are
+     * in progress.
+     */
+    public void enableRateLimiting(boolean enable, double usePercent) {
+        config.setDefaultRateLimitingPercentage(usePercent);
+        if (enable && rateLimiterMap == null) {
+            rateLimiterMap = new RateLimiterMap();
+            tableLimitUpdateMap = new ConcurrentHashMap<>();
+            threadPool = Executors.newSingleThreadExecutor();
+        } else if (!enable && rateLimiterMap != null) {
+            rateLimiterMap.clear();
+            rateLimiterMap = null;
+            tableLimitUpdateMap.clear();
+            tableLimitUpdateMap = null;
+            if (threadPool != null) {
+                threadPool.shutdown();
+                threadPool = null;
+            }
+        }
+    }
+
+    /*
+     * If the response has a header indicating the amount of time the
+     * server side delayed the request due to rate limiting, return that
+     * value (in milliseconds).
+     */
+    private int getRateDelayedFromHeader(HttpHeaders headers) {
+        if (headers == null) {
+            return 0;
+        }
+        String v = headers.get(X_RATELIMIT_DELAY);
+        if (v == null || v.isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+        }
+
+        return 0;
+    }
+
     /*
      * Helper class which contains all the information for async flow
      */
@@ -1029,6 +1544,12 @@ public class AsyncClient {
         private final String requestIdStr;
         private final AtomicInteger serialVersionUsed;
         private final AtomicInteger queryVersionUsed;
+        private RateLimiter readLimiter;
+        private RateLimiter writeLimiter;
+        private boolean checkReadUnits;
+        private boolean checkWriteUnits;
+        private long latencyNanos;
+        private Throwable exception;
 
         public ClientRequest(Request kvRequest,
                              int requestId,

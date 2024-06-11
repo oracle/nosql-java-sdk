@@ -242,4 +242,10 @@ public interface RateLimiter {
      */
     public void setCurrentRate(double rateToSet);
 
+    /**
+     * Get number of milliseconds to wait to consume given units
+     * @param units units to consume
+     * @return milliseconds to wait for to consume the units
+     */
+    int getDelay(long units);
 }

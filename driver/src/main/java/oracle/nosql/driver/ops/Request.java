@@ -471,6 +471,14 @@ public abstract class Request {
     }
 
     /**
+     * @hidden
+     * Accumulate delay
+     * @param rateLimitDelayedMs delay in ms
+     */
+    public void addRateLimitDelayedMs(int rateLimitDelayedMs) {
+        this.rateLimitDelayedMs += rateLimitDelayedMs;
+    }
+    /**
      * Get the time the operation was delayed due to rate limiting.
      * Cloud only.
      * If rate limiting is in place, this value will represent the number of

@@ -10,7 +10,7 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.Version;
-import oracle.nosql.driver.http.Client;
+import oracle.nosql.driver.http.AsyncClient;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -28,7 +28,7 @@ public class GetResult extends Result {
     private Version version;
     private long expirationTime;
     private long modificationTime;
-    private Client client;
+    private AsyncClient client;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -204,7 +204,7 @@ public class GetResult extends Result {
      * for internal use
      * @param client the Client
      */
-    public void setClient(Client client) {
+    public void setClient(AsyncClient client) {
         this.client = client;
     }
 }

@@ -739,9 +739,9 @@ public class Client {
                     /* so we can emit a one-time message if the app */
                     /* tries to access modificationTime */
                     if (res instanceof GetResult) {
-                        ((GetResult)res).setClient(this);
+                        //((GetResult)res).setClient(this);
                     } else if (res instanceof WriteResult) {
-                        ((WriteResult)res).setClient(this);
+                        //((WriteResult)res).setClient(this);
                     }
                 }
 

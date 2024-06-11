@@ -370,8 +370,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * @hidden
      * For testing use
      */
-    public Client getClient() {
-        return null;
+    public AsyncClient getClient() {
+        return ((NoSQLHandleAsyncImpl) client).getClient();
     }
 
     /**
