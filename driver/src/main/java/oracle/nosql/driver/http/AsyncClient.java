@@ -270,10 +270,6 @@ public class AsyncClient {
          */
         kvRequest.validate();
 
-        /* clear any retry stats that may exist on this request object */
-        kvRequest.setRetryStats(null);
-        kvRequest.setRateLimitDelayedMs(0);
-
         /*
          * If the request doesn't set an explicit compartment, use
          * the config default if provided.
@@ -316,6 +312,10 @@ public class AsyncClient {
         initAndValidateRequest(kvRequest);
 
         return Mono.defer(() -> {
+            /* clear any retry stats that may exist on this request object */
+            kvRequest.setRetryStats(null);
+            kvRequest.setRateLimitDelayedMs(0);
+
             ClientRequest request = new ClientRequest(kvRequest,
                     maxRequestId.getAndIncrement(),
                     new AtomicInteger(serialVersion.get()),
@@ -1037,7 +1037,7 @@ public class AsyncClient {
 
     Flux<QueryResult> executeQuery(QueryRequest queryRequest) {
         requireNonNull(queryRequest, "NoSQLHandle: request must be non-null");
-        logger.log(Level.INFO, "sending query request");
+        logger.log(Level.FINE, "sending query request");
         initAndValidateRequest(queryRequest);
 
         // Use Flux.using to close the queryRequest once done using it.
@@ -1087,15 +1087,15 @@ public class AsyncClient {
                     Mono<QueryResult> baseMono;
                     if (!qr.isSimpleQuery()) {
                         baseMono = execute(qr)
-                                .cast(QueryResult.class)
-                                .publishOn(Schedulers.boundedElastic())
-                                .flatMap(result -> {
-                                    /* compute the result. This will call
-                                     * queryDriver and PlanIter to get results
-                                     */
-                                    result.getContinuationKey();
-                                    return Mono.just(result);
-                                });
+                            .cast(QueryResult.class)
+                            .publishOn(Schedulers.boundedElastic())
+                            .flatMap(result -> {
+                                /* compute the result. This will call
+                                 * queryDriver and PlanIter to get results
+                                 */
+                                result.getContinuationKey();
+                                return Mono.just(result);
+                            });
                     } else {
                         baseMono = execute(qr).cast(QueryResult.class);
                     }
@@ -1247,7 +1247,7 @@ public class AsyncClient {
         if (request.readLimiter != null && request.checkReadUnits) {
             delay = request.readLimiter.getDelay(0);
         }
-        if(request.writeLimiter != null && request.checkWriteUnits) {
+        if (request.writeLimiter != null && request.checkWriteUnits) {
             delay += request.writeLimiter.getDelay(0);
         }
         return delay == 0 ? Mono.just(0L) :

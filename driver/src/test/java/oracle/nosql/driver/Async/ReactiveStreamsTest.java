@@ -244,12 +244,13 @@ public class ReactiveStreamsTest extends ProxyTestBase {
             .setKey(new MapValue().put("userId", 1));
 
         return Mono.from(asyncHandle.get(favRequest))
-                .flatMapMany(res -> {
-                    List<String> favList = new ArrayList<>();
-                    res.getValue().get("favorites").asArray().iterator()
-                            .forEachRemaining(f -> favList.add(f.getString()));
-                    return Flux.fromStream(favList.stream());
-                });
+            .flatMapMany(res -> {
+                List<String> favList = new ArrayList<>();
+                res.getValue().get("favorites").asArray().iterator()
+                        .forEachRemaining(f -> favList.add(f.getString()));
+                return Flux.fromStream(favList.stream());
+            })
+            .delayElements(Duration.ofMillis(500));
     }
 
     private Flux<String> getSuggestFavs() {
@@ -257,12 +258,12 @@ public class ReactiveStreamsTest extends ProxyTestBase {
                 .setKey(new MapValue().put("sugId", 1));
 
         return Mono.from(asyncHandle.get(favRequest))
-                .flatMapMany(res -> {
-                    List<String> favList = new ArrayList<>();
-                    res.getValue().get("favorites").asArray().iterator()
-                            .forEachRemaining(f -> favList.add(f.getString()));
-                    return Flux.fromStream(favList.stream());
-                });
+            .flatMapMany(res -> {
+                List<String> favList = new ArrayList<>();
+                res.getValue().get("favorites").asArray().iterator()
+                        .forEachRemaining(f -> favList.add(f.getString()));
+                return Flux.fromStream(favList.stream());
+            });
     }
 
 }

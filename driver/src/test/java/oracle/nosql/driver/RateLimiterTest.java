@@ -12,9 +12,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import oracle.nosql.driver.http.AsyncClient;
+import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
@@ -24,6 +27,7 @@ import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableResult;
@@ -31,6 +35,10 @@ import oracle.nosql.driver.util.SimpleRateLimiter;
 import oracle.nosql.driver.values.MapValue;
 
 import org.junit.Test;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 /**
  * Tests for driver-side rate limiting. These tests require a
@@ -62,6 +70,31 @@ public class RateLimiterTest extends ProxyTestBase {
     @Test
     public void retryStatsTest() throws Exception {
         testRetryStats(500, 500, 500, 10);
+    }
+
+    @Test
+    public void basicInternalTestAsync() {
+        testLimitersAsync(false, 500, 200, 200, 10, 100.0);
+    }
+
+    @Test
+    public void basicExternalTestAsync() {
+        testLimitersAsync(true, 500, 200, 200, 10, 100.0);
+    }
+
+    @Test
+    public void basicInternalPercentTestAsync() {
+        testLimitersAsync(false, 500, 200, 200, 10, 20.0);
+    }
+
+    @Test
+    public void basicExternalPercentTestAsync() {
+        testLimitersAsync(true, 500, 200, 200, 10, 20.0);
+    }
+
+    @Test
+    public void retryStatsTestAsync() {
+        testRetryStatsAsync(500, 500, 500, 10);
     }
 
     private void testRetryStats(int maxRows,
@@ -552,6 +585,508 @@ public class RateLimiterTest extends ProxyTestBase {
             skipAllLimiting);
         /* Query based on all partitions scanning, no limit per req */
         doRateLimitedQueries(maxSeconds, readLimit,
+            0, false, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+    }
+
+    private void testRetryStatsAsync(int maxRows,
+                                     int readLimit,
+                                     int writeLimit,
+                                     int testSeconds) {
+        assumeTrue(!onprem);
+
+        final boolean verbose = Boolean.getBoolean("test.verbose");
+
+        /* clear any previous rate limiters */
+        AsyncClient client = ((NoSQLHandleAsyncImpl)asyncHandle).getClient();
+        client.enableRateLimiting(false, 100.0);
+
+        /*
+         * With these settings, we should get many internal throttling
+         * errors. This is on purpose, to verify that retry stats are
+         * properly returned in both QueryRequest and QueryResult objects.
+         */
+        runLimitedOpsOnTableAsync(readLimit, writeLimit, testSeconds,
+            maxRows, 100.0, verbose, false, true);
+    }
+
+    private void testLimitersAsync(boolean useExternalLimiters,
+                                   int maxRows,
+                                   int readLimit,
+                                   int writeLimit,
+                                   int testSeconds,
+                                   double usePercent) {
+
+        assumeTrue(!onprem);
+
+        final boolean verbose = Boolean.getBoolean("test.verbose");
+
+        /* clear any previous rate limiters */
+        AsyncClient client = ((NoSQLHandleAsyncImpl)asyncHandle).getClient();
+        client.enableRateLimiting(false, 100.0);
+
+        /* configure our handle for rate limiting */
+        if (!useExternalLimiters) {
+            client.enableRateLimiting(true, usePercent);
+        }
+
+        /* limit bursts in tests */
+        System.setProperty("test.rldurationsecs", "1");
+
+        /* then do the actual testing */
+        runLimitedOpsOnTableAsync(readLimit, writeLimit, testSeconds,
+            maxRows, usePercent, verbose, useExternalLimiters, false);
+    }
+
+    private void doRateLimitedOpsAsync(int numSeconds,
+                                       int readLimit, int writeLimit, int maxRows,
+                                       boolean checkUnits, double usePercent, boolean verbose,
+                                       boolean useExternalLimiters, boolean skipAllLimiting) {
+
+        if (readLimit == 0 && writeLimit == 0) {
+            return;
+        }
+
+
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + (numSeconds * 1000);
+
+        AtomicInteger readUnitsUsed = new AtomicInteger();
+        final AtomicInteger writeUnitsUsed = new AtomicInteger();
+
+        final AtomicInteger totalDelayedMs = new AtomicInteger();
+        final AtomicInteger throttleExceptions = new AtomicInteger();
+
+        RateLimiter rlim;
+        RateLimiter wlim;
+
+        double maxRVal = (double)readLimit + (double)writeLimit;
+
+        if (verbose) {
+            System.out.println("Running gets/puts: RUs=" +
+                readLimit + " WUs=" + writeLimit +
+                " percent=" + usePercent + " async=true");
+        }
+
+        if (!skipAllLimiting) {
+            if (!useExternalLimiters) {
+                rlim = null;
+                wlim = null;
+                /* reset internal limiters so they don't have unused units */
+                ((NoSQLHandleImpl)handle).getClient()
+                    .resetRateLimiters("testusersRateLimit");
+            } else {
+                rlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+                wlim = new SimpleRateLimiter(
+                    (writeLimit * usePercent) / 100.0, 1);
+            }
+        } else {
+            rlim = null;
+            wlim = null;
+        }
+
+        boolean doPut;
+        if (readLimit == 0) {
+            doPut = true;
+        } else if (writeLimit == 0) {
+            doPut = false;
+        } else {
+            int v = (int)(Math.random() * maxRVal);
+            doPut = (v >= readLimit);
+        }
+
+
+        /* run the async get/put operation for numSeconds */
+        Flux<Result> resultFlux = Mono.defer(() -> {
+            int id = (int) (Math.random() * maxRows);
+            if (doPut) {
+                MapValue value = new MapValue().put("name", "jane");
+                value.put("id", id);
+                PutRequest putRequest = new PutRequest()
+                        .setTableName("testusersRateLimit");
+                putRequest.setValue(value);
+                putRequest.setReadRateLimiter(null);
+                putRequest.setWriteRateLimiter(wlim);
+                return Mono.from(asyncHandle.put(putRequest));
+            } else {
+                MapValue key = new MapValue().put("id", id);
+                GetRequest getRequest = new GetRequest()
+                        .setTableName("testusersRateLimit");
+                getRequest.setKey(key);
+                getRequest.setReadRateLimiter(rlim);
+                getRequest.setWriteRateLimiter(null);
+                return Mono.from(asyncHandle.get(getRequest));
+            }
+        }).onErrorResume(err -> {
+            /* If skip limit just return empty */
+             if (err instanceof WriteThrottlingException && skipAllLimiting) {
+                 return Mono.empty();
+             }
+             if (err instanceof ReadThrottlingException && skipAllLimiting) {
+                 return Mono.empty();
+             }
+             return Mono.error(err);
+         })
+         /* repeat will run numSeconds */
+        .repeat(() -> System.currentTimeMillis() < endTime);
+
+        Disposable subscriber = resultFlux.subscribe(
+            result -> {
+                if (result instanceof PutResult) {
+                    PutResult pres = ((PutResult) result);
+                    writeUnitsUsed.addAndGet(pres.getWriteUnits());
+                    totalDelayedMs.addAndGet(pres.getRateLimitDelayedMs());
+                    RetryStats rs = pres.getRetryStats();
+                    if (rs != null) {
+                        throttleExceptions.addAndGet(
+                            rs.getNumExceptions(WriteThrottlingException.class));
+                    }
+                } else {
+                    GetResult gres = ((GetResult) result);
+                    readUnitsUsed.addAndGet(gres.getReadUnits());
+                    totalDelayedMs.addAndGet(gres.getRateLimitDelayedMs());
+                    RetryStats rs = gres.getRetryStats();
+                    if (rs != null) {
+                        throttleExceptions.addAndGet(
+                            rs.getNumExceptions(ReadThrottlingException.class));
+                    }
+                }
+            },
+            err -> {
+                if (err instanceof WriteThrottlingException &&
+                        !skipAllLimiting) {
+                    fail("Expected no write throttling exceptions, got one");
+                }
+                if (err instanceof ReadThrottlingException &&
+                        !skipAllLimiting) {
+                    fail("Expected no read throttling exceptions, got one");
+                }
+                fail("Got unexpected exception : " + err.getMessage());
+            }
+        );
+
+        /* wait for subscriber to finish */
+        while (!subscriber.isDisposed()) {
+            try {
+                if (verbose) {
+                    System.out.println("waiting for async op to complete");
+                }
+                Thread.sleep(Duration.ofMillis(500).toMillis());
+            } catch (InterruptedException ignored) {
+
+            }
+        }
+        numSeconds = (int)((System.currentTimeMillis() - startTime) / 1000);
+
+        int RUs = readUnitsUsed.get() / numSeconds;
+        int WUs = writeUnitsUsed.get() / numSeconds;
+
+        if (verbose) System.out.println("Resulting RUs=" + RUs +
+                " and WUs=" + WUs);
+        if (verbose) System.out.println("Rate delayed time = " +
+                totalDelayedMs + "ms");
+        if (verbose) System.out.println("Internal throttle exceptions = " +
+                throttleExceptions);
+
+        if (!checkUnits || skipAllLimiting) {
+            return;
+        }
+
+        usePercent = usePercent / 100.0;
+
+        if (RUs < (int)(readLimit * usePercent * 0.8) ||
+                RUs > (int)(readLimit * usePercent * 1.2)) {
+            fail("Gets: Expected around " + readLimit * usePercent +
+                " RUs, got " + RUs);
+        }
+        if (WUs < (int)(writeLimit * usePercent * 0.8) ||
+                WUs > (int)(writeLimit * usePercent * 1.2)) {
+            fail("Puts: Expected around " + writeLimit * usePercent +
+                " WUs, got " + WUs);
+        }
+    }
+    private void doRateLimitedQueriesAsync(int numSeconds,
+                                           int readLimit, int maxKB,
+                                           boolean singlePartition,
+                                           boolean doSort, double usePercent,
+                                           boolean verbose, boolean useExternalLimiters,
+                                           boolean skipAllLimiting) {
+
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime + (numSeconds * 1000);
+
+        AtomicInteger readUnitsUsed = new AtomicInteger();
+        AtomicInteger requestDelayedMs = new AtomicInteger();
+        AtomicInteger responseDelayedMs = new AtomicInteger();
+        RetryStats requestRetryStats = new RetryStats();
+        RetryStats responseRetryStats = new RetryStats();
+        AtomicInteger totalRecords = new AtomicInteger();
+
+        RateLimiter rlim;
+        RateLimiter wlim;
+
+        if (!skipAllLimiting) {
+            if (!useExternalLimiters) {
+                wlim = null;
+                rlim = null;
+                /* reset internal limiters so they don't have unused units */
+                ((NoSQLHandleAsyncImpl)asyncHandle).getClient()
+                    .resetRateLimiters("testusersRateLimit");
+            } else {
+                rlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+                wlim = new SimpleRateLimiter(
+                    (readLimit * usePercent) / 100.0, 1);
+            }
+        } else {
+            wlim = null;
+            rlim = null;
+        }
+
+        PrepareRequest prepReq = new PrepareRequest();
+        String statement;
+        if (singlePartition) {
+            /* Query based on single partition scanning */
+            int id = (int)(Math.random() * 500.0);
+            statement = "select * from testusersRateLimit " +
+                    "where id = " + id;
+        } else {
+            /* Query based on all partitions scanning */
+            statement = "select * from testusersRateLimit " +
+                    "where name = \"jane\"";
+        }
+        if (doSort) {
+            statement = statement + " order by name";
+        }
+        prepReq.setStatement(statement);
+        PrepareResult prepRes = Mono.from(asyncHandle.prepare(prepReq)).block();
+        assertTrue("Prepare statement failed",
+            prepRes.getPreparedStatement() != null);
+        readUnitsUsed.addAndGet(prepRes.getReadUnits());
+
+        if (maxKB <= 0) {
+            maxKB = (int)((readLimit * usePercent)/100.0);
+        }
+
+        if (verbose) System.out.println("Running queries: statement=" +
+            statement + "; RUs=" +
+            readLimit + " percent=" + usePercent + " maxKB=" + maxKB +
+            " singlePartition=" + singlePartition + " async=true");
+
+
+        /*
+         * we need a 20 second timeout because in some cases this
+         * is called on a table with 500 rows and 50RUs
+         * (uses 1000RUs = 20 seconds)
+         */
+        QueryRequest queryReq = new QueryRequest();
+        queryReq.setPreparedStatement(prepRes)
+            .setTimeout(20000)
+            .setMaxReadKB(maxKB);
+        queryReq.setReadRateLimiter(rlim);
+        queryReq.setWriteRateLimiter(wlim);
+
+        /* run query for numSeconds */
+        int finalMaxKB = maxKB;
+        Flux<QueryResult> queryFlux = Flux.from(asyncHandle.query(queryReq))
+            .onErrorResume(err -> {
+                if (err instanceof ReadThrottlingException && skipAllLimiting) {
+                    return Flux.empty();
+                }
+                if (err instanceof RequestTimeoutException) {
+                    return Flux.empty();
+                }
+                return Flux.error(err);
+            })
+            .repeat(() -> endTime > System.currentTimeMillis());
+
+        Disposable subscriber = queryFlux.subscribe(
+            res -> {
+                totalRecords.addAndGet(res.getResults().size());
+                readUnitsUsed.addAndGet(res.getReadUnits());
+                requestDelayedMs.addAndGet(queryReq.getRateLimitDelayedMs());
+                responseDelayedMs.addAndGet(res.getRateLimitDelayedMs());
+                requestRetryStats.addStats(queryReq.getRetryStats());
+                responseRetryStats.addStats(res.getRetryStats());
+
+                /*
+                 * verify that rate limiters were used
+                 */
+                if (!skipAllLimiting && !useExternalLimiters) {
+                    RateLimiter rl = res.getRequest().getReadRateLimiter();
+                    if (rl == null) {
+                        fail("query did not use rate limiter");
+                    }
+                }
+            },
+            err -> {
+                if (err instanceof ReadThrottlingException) {
+                    if (!skipAllLimiting) {
+                        fail("Expected no throttling exceptions, got one");
+                    }
+                }
+                fail("unexpected error :" + err.getMessage() );
+            }
+        );
+
+        /* wait for subscriber to complete */
+        while (!subscriber.isDisposed()) {
+            try {
+                if (verbose) {
+                    System.out.println("waiting for async query to complete");
+                }
+                Thread.sleep(Duration.ofMillis(500).toMillis());
+            } catch (InterruptedException ignored) {
+            }
+        }
+
+        int numMs = (int)(System.currentTimeMillis() - startTime);
+
+        usePercent = usePercent / 100.0;
+
+        int RUs = (readUnitsUsed.get() * 1000) / numMs;
+
+        if (verbose) {
+            System.out.println("Total read units=" + readUnitsUsed +
+                " in " + numMs + "ms");
+            System.out.println("Total records=" + totalRecords);
+            System.out.println("Resulting query RUs=" + RUs);
+            System.out.println("Rate limiting delayed execution by " +
+                requestDelayedMs + "ms");
+            System.out.println("Request retries: " + requestRetryStats);
+        }
+        if (!skipAllLimiting &&
+                requestDelayedMs.get() <= 0 && responseDelayedMs.get() <= 0) {
+            fail("Query did not delay at all due to rate limiting");
+        }
+        /* the delayed time should be the same in request and response */
+        if (requestDelayedMs.get() != responseDelayedMs.get()) {
+            fail("Mismatch in rate limit delay reported by request versus " +
+                "response: request=" + requestDelayedMs + " response=" +
+                responseDelayedMs);
+        }
+        /* retry stats should be the same as well */
+        if (!requestRetryStats.equals(responseRetryStats)) {
+            fail("Mismatch in retry stats reported by request versus " +
+                "response: request=" + requestRetryStats + " response=" +
+                responseRetryStats);
+        }
+        /* if no limiting, retries should be nonzero */
+        if (skipAllLimiting && requestRetryStats.getRetries() == 0) {
+            fail("Expected to get internal retries, but got none");
+        }
+
+        if (skipAllLimiting) {
+            return;
+        }
+
+        int expectedRUs = (int)(readLimit * usePercent);
+
+        /* for very small expected amounts, just verify within 1 RU */
+        if (expectedRUs < 4 &&
+            RUs <= (expectedRUs + 1) &&
+            RUs >= (expectedRUs - 1)) {
+            return;
+        }
+
+        if (RUs < (int)(expectedRUs * 0.6) ||
+                RUs > (int)(expectedRUs * 1.5)) {
+            fail("Query: \"" + prepReq.getStatement() +
+                "\"\nExpected around " + expectedRUs + " RUs, got " + RUs);
+        }
+    }
+
+    private void ensureTableExistsWithLimitsAsync(int readLimit,
+                                                  int writeLimit){
+        try {
+            alterTableLimits(handle,
+                "testusersRateLimit",
+                new TableLimits(readLimit, writeLimit, 50));
+            return;
+        } catch (TableNotFoundException tnfe) {}
+
+        createAndPopulateTableAsync();
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(100);
+        } catch (Exception e) {}
+
+        alterTableLimits(handle,
+            "testusersRateLimit",
+            new TableLimits(readLimit, writeLimit, 50));
+    }
+
+    private void createAndPopulateTableAsync() {
+        StepVerifier.create(tableOperationAsync(
+            asyncHandle,
+            "create table if not exists testusersRateLimit(id integer, " +
+                "name string, primary key(id))",
+                new TableLimits(50000, 50000, 50))
+        )
+        .assertNext(tres -> {
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+        })
+        .verifyComplete();
+
+        /* fill table with data */
+        doRateLimitedOpsAsync(
+            5 /* seconds */,
+            50000, 50000, /* r/w limits */
+            500, /* maxRows */
+            false /* don't check resulting rate */,
+            100.0 /* usePercent */,
+            verbose,
+            false /* use internal limiting */,
+            true /* skip all limiting */);
+    }
+
+    private void runLimitedOpsOnTableAsync(
+            int readLimit, int writeLimit, int maxSeconds, int maxRows,
+            double usePercent, boolean verbose, boolean useExternalLimiters,
+            boolean skipAllLimiting) {
+        /* TODO: test large versus small records */
+
+        if (verbose) {
+            System.out.println("Running rate limiting test: RUs=" +
+                readLimit + " WUs=" + writeLimit + " usePercent=" +
+                usePercent + " external=" + useExternalLimiters +
+                " async=true");
+        }
+
+        ensureTableExistsWithLimitsAsync(readLimit, writeLimit);
+        /*
+         * we have to do the read/write ops separately since we're
+         * running single-threaded, and the result is hard to tell
+         * if it's correct (example: we'd get 37RUs and 15WUs)
+         */
+        doRateLimitedOpsAsync(maxSeconds, 0, writeLimit,
+            maxRows, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+
+        doRateLimitedOpsAsync(maxSeconds, readLimit, 0,
+            maxRows, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+
+        /* Query based on single partition scanning, no sort */
+        doRateLimitedQueriesAsync(maxSeconds, readLimit,
+            20, true, false, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+
+        /* Query based on single partition scanning, with sort */
+        doRateLimitedQueriesAsync(maxSeconds, readLimit,
+            20, true, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on all partitions scanning - no sort */
+        doRateLimitedQueriesAsync(maxSeconds, readLimit,
+            20, false, false, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on all partitions scanning - with sort */
+        doRateLimitedQueriesAsync(maxSeconds, readLimit,
+            20, false, true, usePercent, verbose, useExternalLimiters,
+            skipAllLimiting);
+        /* Query based on all partitions scanning, no limit per req */
+        doRateLimitedQueriesAsync(maxSeconds, readLimit,
             0, false, true, usePercent, verbose, useExternalLimiters,
             skipAllLimiting);
     }
