@@ -354,7 +354,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public StatsControl getStatsControl() {
-        return null;
+        return client.getStatsControl();
     }
 
     /**

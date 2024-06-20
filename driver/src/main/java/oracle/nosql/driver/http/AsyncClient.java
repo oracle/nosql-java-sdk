@@ -26,6 +26,7 @@ import oracle.nosql.driver.RequestSizeLimitException;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
+import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
@@ -62,7 +63,6 @@ import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
-import oracle.nosql.driver.values.MapValue;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SynchronousSink;
@@ -78,7 +78,6 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -147,29 +146,24 @@ public class AsyncClient {
      */
     private ExecutorService threadPool;
 
-    private AtomicInteger serialVersion = new AtomicInteger(DEFAULT_SERIAL_VERSION);
+    private final AtomicInteger serialVersion = new AtomicInteger(DEFAULT_SERIAL_VERSION);
 
     /* separate version for query compatibility */
-    private AtomicInteger queryVersion = new AtomicInteger(QueryDriver.QUERY_VERSION);
+    private final AtomicInteger queryVersion = new AtomicInteger(QueryDriver.QUERY_VERSION);
 
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
 
     /**
-     * list of Request instances to refresh when auth changes. This will only
-     * exist in a cloud configuration
+     * config for statistics
      */
-    private ConcurrentLinkedQueue<Request> authRefreshRequests;
-    /* used as key and value for auth requests -- guaranteed illegal */
-    private MapValue badValue;
+    private final StatsControlImpl statsControl;
 
     /*
      * for session persistence, if used. This has the
      * full "session=xxxxx" key/value pair.
      */
     private final AtomicReference<String> sessionCookie = new AtomicReference<>("");
-    /* note this must end with '=' */
-    private final String SESSION_COOKIE_FIELD = "session=";
 
     /* for keeping track of SDKs usage */
     private final String userAgent;
@@ -239,7 +233,7 @@ public class AsyncClient {
                 !(authProvider instanceof StoreAccessTokenProvider)) {
             logFine(logger, "Starting client with rate limiting enabled");
             rateLimiterMap = new RateLimiterMap();
-            tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
+            tableLimitUpdateMap = new ConcurrentHashMap<>();
             threadPool = Executors.newSingleThreadExecutor();
         } else {
             logFine(logger, "Starting client with no rate limiting");
@@ -247,6 +241,8 @@ public class AsyncClient {
             tableLimitUpdateMap = null;
             threadPool = null;
         }
+        statsControl = new StatsControlImpl(config, logger, httpClient,
+            config.getRateLimitingEnabled());
     }
 
     public void shutdown() {
@@ -329,6 +325,8 @@ public class AsyncClient {
                 /* Set the topo seq num in the request, if it has not been set
                  * already */
                 kvRequest.setTopoSeqNum(getTopoSeqNum());
+
+                statsControl.observeQuery(qreq);
                 /*
                  * The following "if" may be true for advanced queries only. For
                  * such queries, the "if" will be true (i.e., the QueryRequest will
@@ -523,8 +521,10 @@ public class AsyncClient {
                         buffer)
                         .map(headers -> headers.add(REQUEST_ID_HEADER, requestId))
                         .doOnNext(header -> {
+                            clientRequest.reqSize =
+                                Integer.parseInt(header.get(CONTENT_LENGTH));
                             logger.fine(getLogMessage(requestId, requestClass,
-                            "Sending request to Server"));
+                                "Sending request to Server"));
                         });
 
                     clientRequest.latencyNanos = System.nanoTime();
@@ -534,15 +534,12 @@ public class AsyncClient {
                         .postRequest(kvRequestURI, requestHeader, buffer)
                         .doOnNext(response -> {
                             logger.fine(getLogMessage(requestId, requestClass,
-                                    "Response: status=" + response.getStatus()));
+                                "Response: status=" + response.getStatus()));
                         }).doOnCancel(() -> {
                             logger.fine(getLogMessage(requestId, requestClass,
-                                    "Http request is cancelled"));
+                                "Http request is cancelled"));
                         });
-                    return processResponse(responseMono, clientRequest)
-                        .doOnNext(result ->  {
-                            setTopology(result.getTopology());
-                        });
+                    return processResponse(responseMono, clientRequest);
                 },
                 (buffer) -> { // Bytebuf resource cleanup
                     logger.fine(getLogMessage(requestId, requestClass,
@@ -572,6 +569,7 @@ public class AsyncClient {
                         kvRequest.addRetryException(t.getClass());
                         kvRequest.incrementRetries();
                         clientRequest.exception = t;
+                        statsControl.observeError(kvRequest);
                     })
                 )
                 // SecurityInfoNotReadyException-Retry 10 times with 100ms backoff
@@ -581,6 +579,7 @@ public class AsyncClient {
                         Throwable t = retrySignal.copy().failure();
                         kvRequest.addRetryException(t.getClass());
                         clientRequest.exception = t;
+                        statsControl.observeError(kvRequest);
                     })
                     .doAfterRetry(retrySignal -> {
                         Retry.RetrySignal copy = retrySignal.copy();
@@ -663,6 +662,7 @@ public class AsyncClient {
                     logger.fine(getLogMessage(requestId, requestClass,
                             "Client execute exception: " + throwable.getMessage()));
                     clientRequest.exception = throwable;
+                    statsControl.observeError(kvRequest);
                     return throwable;
                 });
     }
@@ -742,10 +742,9 @@ public class AsyncClient {
 
                     kvRequest.addRateLimitDelayedMs(
                         getRateDelayedFromHeader(responseHeaders));
-                    int resSize = content.readerIndex();
-                    long latencyNanos = clientRequest.latencyNanos;
-                    long networkLatency =
-                        (System.nanoTime() - latencyNanos) / 1_000_000;
+                    clientRequest.resSize = content.readerIndex();
+                    clientRequest.latencyNanos =
+                        (System.nanoTime() - clientRequest.latencyNanos) / 1_000_000;
 
                     setTopology(res.getTopology());
 
@@ -818,6 +817,9 @@ public class AsyncClient {
                     /* copy retry stats to Result on successful operation */
                     res.setRateLimitDelayedMs(kvRequest.getRateLimitDelayedMs());
                     res.setRetryStats(kvRequest.getRetryStats());
+                    statsControl.observe(kvRequest,
+                        Math.toIntExact(clientRequest.latencyNanos),
+                        clientRequest.reqSize, clientRequest.resSize);
                 });
             });
         });
@@ -918,6 +920,7 @@ public class AsyncClient {
          * multiple Set-Cookie headers.
          */
         String v = headers.get("Set-Cookie");
+        String SESSION_COOKIE_FIELD = "session=";
         /* note SESSION_COOKIE_FIELD has appended '=' */
         if (v == null || !v.startsWith(SESSION_COOKIE_FIELD)) {
             return;
@@ -1529,9 +1532,14 @@ public class AsyncClient {
         try {
             return Integer.parseInt(v);
         } catch (Exception e) {
+            logger.fine("Failed to parse X_RATELIMIT_DELAY " + e.getMessage());
         }
 
         return 0;
+    }
+
+    StatsControl getStatsControl() {
+        return statsControl;
     }
 
     /*
@@ -1550,6 +1558,9 @@ public class AsyncClient {
         private boolean checkWriteUnits;
         private long latencyNanos;
         private Throwable exception;
+        private int reqSize;
+        private int resSize;
+
 
         public ClientRequest(Request kvRequest,
                              int requestId,

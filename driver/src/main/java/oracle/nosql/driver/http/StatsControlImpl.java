@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
-import oracle.nosql.driver.httpclient.HttpClient;
+import oracle.nosql.driver.httpclient.ReactorHttpClient;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.Request;
 
@@ -21,18 +21,18 @@ public class StatsControlImpl
     implements StatsControl {
 
     private StatsControl.Profile profile;
-    private int interval;
+    private final int interval;
     private boolean prettyPrint;
 
-    private Logger logger;
-    private HttpClient httpClient;    /* required for connections */
-    private String id = Integer.toHexString(UUID.randomUUID().hashCode());
+    private final Logger logger;
+    private final ReactorHttpClient httpClient;    /* required for connections */
+    private final String id = Integer.toHexString(UUID.randomUUID().hashCode());
     private StatsHandler statsHandler;
     private boolean enableCollection = false;
     private Stats stats;
 
     StatsControlImpl(NoSQLHandleConfig config, Logger logger,
-        HttpClient httpClient, boolean rateLimitingEnabled) {
+        ReactorHttpClient httpClient, boolean rateLimitingEnabled) {
         this.logger = logger;
         this.httpClient = httpClient;
 
@@ -137,7 +137,8 @@ public class StatsControlImpl
         int reqSize, int resSize) {
         if (stats != null && enableCollection) {
             stats.observe(kvRequest, false,
-                httpClient.getAcquiredChannelCount(),
+                // TODO how to get connection pool metrics here?
+                /*httpClient.getAcquiredChannelCount()*/0,
                 reqSize, resSize, networkLatency);
         }
     }
@@ -145,7 +146,8 @@ public class StatsControlImpl
     void observeError(Request kvRequest) {
         if (stats != null && enableCollection) {
             stats.observeError(kvRequest,
-                httpClient.getAcquiredChannelCount());
+                // TODO how to get connection pool metrics here?
+                /*httpClient.getAcquiredChannelCount()*/0);
         }
     }
 

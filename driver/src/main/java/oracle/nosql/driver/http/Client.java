@@ -294,8 +294,8 @@ public class Client {
         }
 
         oneTimeMessages = new HashSet<String>();
-        statsControl = new StatsControlImpl(config,
-            logger, httpClient, httpConfig.getRateLimitingEnabled());
+        /*statsControl = new StatsControlImpl(config,
+            logger, httpClient, httpConfig.getRateLimitingEnabled());*/
 
         String extensionUserAgent = httpConfig.getExtensionUserAgent();
         if (extensionUserAgent != null) {

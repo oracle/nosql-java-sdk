@@ -11,6 +11,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandleAsync;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
@@ -367,5 +368,10 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
      */
     public AsyncClient getClient() {
         return client;
+    }
+
+    @Override
+    public StatsControl getStatsControl() {
+        return client.getStatsControl();
     }
 }

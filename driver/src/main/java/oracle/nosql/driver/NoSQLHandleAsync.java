@@ -90,4 +90,5 @@ public interface NoSQLHandleAsync extends AutoCloseable {
 
     Publisher<ReplicaStatsResult> getReplicaStats(ReplicaStatsRequest request);
 
+    StatsControl getStatsControl();
 }
