@@ -172,6 +172,7 @@ public class Result {
     }
 
     /**
+     * @hidden
      * Returns the server protocol serial version or 0 if not available.
      * This is a new feature not supported in older servers.
      *
