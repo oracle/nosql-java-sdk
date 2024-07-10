@@ -728,7 +728,6 @@ public class Client {
                                        kvRequest,
                                        serialVersionUsed,
                                        queryVersionUsed);
-                System.out.println("GMF: ser version: " + res.getServerSerialVersion());
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
