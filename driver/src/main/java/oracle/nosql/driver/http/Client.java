@@ -25,6 +25,7 @@ import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
+import static oracle.nosql.driver.util.HttpConstants.SERVER_SERIAL_VERSION;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
@@ -1230,10 +1231,20 @@ public class Client {
 
         setSessionCookie(headers);
 
+        Result res = null;
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
-            return processOKResponse(bis, kvRequest, serialVersionUsed,
-                                     queryVersionUsed);
+            res = processOKResponse(bis, kvRequest, serialVersionUsed,
+                                    queryVersionUsed);
         }
+        String sv = headers.get(SERVER_SERIAL_VERSION);
+        if (sv != null) {
+            try {
+                res.setServerSerialVersion(Integer.parseInt(sv));
+            } catch (Exception e) {
+                /* ignore */
+            }
+        }
+        return res;
     }
 
     /**

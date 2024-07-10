@@ -23,6 +23,13 @@ public class Result {
     private int writeKB;
 
     /*
+     * if available, the serial version of the proxy, otherwise 0. This
+     * allows the SDK to conditionalize code and tests based on new features
+     * and semantics
+     */
+    private int serialVersion;
+
+    /*
      * Cloud Only
      * If rate limiting is in place, this value will represent the number of
      * milliseconds that the operation was delayed due to rate limiting.
@@ -162,5 +169,24 @@ public class Result {
      */
     public void setTopology(TopologyInfo ti) {
         topology = ti;
+    }
+
+    /**
+     * @hidden
+     * Returns the server protocol serial version or 0 if not available.
+     * This is a new feature not supported in older servers.
+     *
+     * @return the serial version of the server
+     */
+    public int getServerSerialVersion() {
+        return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * @param version the server's serial version
+     */
+    public void setServerSerialVersion(int version) {
+        serialVersion = version;
     }
 }
