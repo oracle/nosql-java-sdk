@@ -53,6 +53,17 @@ public class HttpConstants {
     public static final String REQUEST_NAMESPACE_HEADER = "x-nosql-default-ns";
 
     /**
+     * A header that indicates the serial version of the protocol used by the
+     * server (proxy).
+     */
+    public static final String SERVER_SERIAL_VERSION = "x-nosql-serial-version";
+
+    /**
+     * A header that indicates the version of the proxy and kv used.
+     */
+    public static final String SERVER_VERSION = "x-nosql-version";
+
+    /**
      * Headers possibly set by the load balancer service to indicate original
      * IP address
      */
