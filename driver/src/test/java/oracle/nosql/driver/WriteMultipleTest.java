@@ -9,6 +9,7 @@ package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT;
 import static oracle.nosql.driver.util.BinaryProtocol.ROW_SIZE_LIMIT;
+import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -135,7 +136,12 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(true);
         umRequest.add(put, false);
-        rowPresent.add(true);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            rowPresent.add(false);
+        } else {
+            rowPresent.add(true);
+        }
         shouldSucceed.add(true);
 
         /* PutIfVersion, ReturnRow = true */
@@ -145,9 +151,9 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setMatchVersion(versionId2)
             .setValue(value)
             .setTableName(tableName)
-            .setReturnRow(true);
+            .setReturnRow(false);
         umRequest.add(put, false);
-        rowPresent.add(true);
+        rowPresent.add(false);
         shouldSucceed.add(true);
 
         /* PutIfAbsent, ReturnRow = false */
@@ -168,7 +174,12 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(true);
         umRequest.add(put, false);
-        rowPresent.add(true);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            rowPresent.add(false);
+        } else {
+            rowPresent.add(true);
+        }
         shouldSucceed.add(true);
 
         /* Put, ReturnRow = false */
@@ -178,7 +189,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(false);
         umRequest.add(put, false);
-        rowPresent.add(true);
+        rowPresent.add(false);
         shouldSucceed.add(true);
 
         /* Delete, ReturnRow = true */
@@ -188,7 +199,12 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(true);
         umRequest.add(delete, false);
-        rowPresent.add(true);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            rowPresent.add(false);
+        } else {
+            rowPresent.add(true);
+        }
         shouldSucceed.add(true);
 
         /* Delete, ReturnRow = false */
@@ -198,7 +214,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(false);
         umRequest.add(delete, false);
-        rowPresent.add(true);
+        rowPresent.add(false);
         shouldSucceed.add(true);
 
         /* DeleteIfVersion, ReturnRow = true */
@@ -209,7 +225,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setTableName(tableName)
             .setReturnRow(true);
         umRequest.add(delete, false);
-        rowPresent.add(true);
+        rowPresent.add(false);
         shouldSucceed.add(true);
 
         /* DeleteIfVersion, ReturnRow = true */
@@ -709,15 +725,20 @@ public class WriteMultipleTest extends ProxyTestBase {
 
         /*
          * Execute 5 PutIfPresent ops with returnRow = true
-         * all ops succeed, previous rows returned are all null.
+         * all ops succeed.
          */
         ret = handle.writeMultiple(reqPutIfPresents);
         for (int i = 0; i < ret.getResults().size(); i++) {
             OperationResult opRet = ret.getResults().get(i);
             assertTrue(opRet.getSuccess());
-            assertNull(opRet.getExistingValue());
-            assertNull(opRet.getExistingVersion());
-
+            /* If proxy serial version <= V4,put success does not return row */
+            if (proxySerialVersion < V4) {
+                assertNull(opRet.getExistingValue());
+                assertNull(opRet.getExistingVersion());
+            } else {
+                assertNotNull(opRet.getExistingValue());
+                assertNotNull(opRet.getExistingVersion());
+            }
             assertNotNull(opRet.getVersion());
             updVersions[i] = opRet.getVersion();
         }
@@ -800,7 +821,7 @@ public class WriteMultipleTest extends ProxyTestBase {
 
         /*
          * Execute 5 Deletes ops with returnRow = true,
-         * all ops fail, previous rows returned are all null.
+         * all ops success.
          */
         WriteMultipleRequest reqDeletes = new WriteMultipleRequest();
         for (int i = 0; i < num; i++) {
@@ -814,8 +835,14 @@ public class WriteMultipleTest extends ProxyTestBase {
         ret = handle.writeMultiple(reqDeletes);
         for (OperationResult opRet: ret.getResults()) {
             assertTrue(opRet.getSuccess());
-            assertNull(opRet.getExistingValue());
-            assertNull(opRet.getExistingVersion());
+            /* If proxy serial version <= V4,put success does not return row */
+            if (proxySerialVersion < V4) {
+                assertNull(opRet.getExistingValue());
+                assertNull(opRet.getExistingVersion());
+            } else {
+                assertNotNull(opRet.getExistingValue());
+                assertNotNull(opRet.getExistingVersion());
+            }
         }
     }
 
@@ -873,10 +900,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             }
 
             if (rowPresentList != null) {
-                boolean rowPresent = rowPresentList.get(ind);
-                boolean hasReturnRow = !result.getSuccess() &&
-                                        request.getReturnRowInternal() &&
-                                        rowPresent;
+                boolean hasReturnRow = rowPresentList.get(ind);;
 
                 assertTrue("The existing value is expected to be " +
                            (hasReturnRow ? "not null" : "null") + " but not",

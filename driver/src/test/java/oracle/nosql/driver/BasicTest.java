@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver;
 
+import static oracle.nosql.driver.util.BinaryProtocol.V4;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -167,14 +168,27 @@ public class BasicTest extends ProxyTestBase {
             putRequest.setReturnRow(true);
             PutResult pr = handle.put(putRequest);
             assertNotNull(pr.getVersion()); /* success */
-            assertNull(pr.getExistingVersion());
-            assertNull(pr.getExistingValue());
+            /* If proxy serial version <= V4,put success does not return row */
+            if (proxySerialVersion <= V4) {
+                assertNull(pr.getExistingVersion());
+                assertNull(pr.getExistingValue());
+                assertEquals(0, pr.getExistingModificationTime());
+                assertWriteKB(pr);
+            } else {
+                assertNotNull(pr.getExistingVersion());
+                assertNotNull(pr.getExistingValue());
+                assertTrue(pr.getExistingModificationTime() != 0);
+                assertReadKB(pr);
+                assertWriteKB(pr);
+            }
 
             putRequest.setOption(Option.IfAbsent);
             pr = handle.put(putRequest);
             assertNull(pr.getVersion()); /* failure */
             assertNotNull(pr.getExistingVersion());
             assertNotNull(pr.getExistingValue());
+            assertTrue(pr.getExistingModificationTime() != 0);
+            assertReadKB(pr);
 
             /* clean up */
             putRequest.setReturnRow(false);
@@ -253,6 +267,10 @@ public class BasicTest extends ProxyTestBase {
         int origWrite = res.getWriteKB();
         assertEquals(1, origWrite);
         assertEquals(0, origRead);
+        assertNull("Not expecting previous version", res.getExistingVersion());
+        assertNull("Not expecting previous value", res.getExistingValue());
+        assertEquals(0, res.getExistingModificationTime());
+
 
         /*
          * do a second put. Read should still be 0, write will increase
@@ -263,14 +281,29 @@ public class BasicTest extends ProxyTestBase {
         int newWrite = res.getWriteKB();
         assertEquals(2*origWrite, newWrite);
         assertEquals(0, newRead);
+        assertNull("Not expecting previous version", res.getExistingVersion());
+        assertNull("Not expecting previous value", res.getExistingValue());
+        assertEquals(0, res.getExistingModificationTime());
 
-        /* set return row and expect the same result */
+        /* set return row and check */
         putRequest.setReturnRow(true);
         res = handle.put(putRequest);
         newRead = res.getReadKB();
         newWrite = res.getWriteKB();
         assertEquals(2*origWrite, newWrite);
-        assertEquals(0, newRead);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            assertEquals(0, newRead);
+            assertNull("Not expecting previous version", res.getExistingVersion());
+            assertNull("Not expecting previous value", res.getExistingValue());
+            assertEquals(0, res.getExistingModificationTime());
+        } else {
+            assertEquals(1, newRead);
+            assertNotNull("Expecting previous version",
+                res.getExistingVersion());
+            assertNotNull("Expecting previous value", res.getExistingValue());
+            assertTrue(res.getExistingModificationTime() != 0);
+        }
 
         /* make it ifAbsent and verify read and write consumption */
         putRequest.setOption(PutRequest.Option.IfAbsent);
@@ -285,6 +318,10 @@ public class BasicTest extends ProxyTestBase {
          */
         assertEquals(0, newWrite);
         assertEquals(1 + origWrite, newRead);
+        assertNotNull("Expecting previous version",
+                res.getExistingVersion());
+        assertNotNull("Expecting previous value", res.getExistingValue());
+        assertTrue(res.getExistingModificationTime() != 0);
     }
 
     /**
@@ -570,6 +607,8 @@ public class BasicTest extends ProxyTestBase {
         final String name = genString((recordKB - 1) * 1024);
         MapValue value = new MapValue().put("id", 10).put("name", name);
         MapValue newValue = new MapValue().put("id", 11).put("name", name);
+        MapValue newValue1 = new MapValue().put("id", 12).put("name", name);
+        MapValue newValue2 = new MapValue().put("id", 13).put("name", name);
 
 
         /* Put a row */
@@ -586,20 +625,64 @@ public class BasicTest extends ProxyTestBase {
                        false, /* modtime should be zero */
                        recordKB);
 
+        /* Put a row again with SetReturnRow(false).
+         * expect no row returned
+         */
+        putReq.setReturnRow(false);
+        putRes = handle.put(putReq);
+        checkPutResult(putReq, putRes,
+                       true  /* shouldSucceed */,
+                       false /* rowPresent */,
+                       null  /* expPrevValue */,
+                       null  /* expPrevVersion */,
+                       false, /* modtime should be zero */
+                       recordKB);
+        Version oldVersion = putRes.getVersion();
+
+
         /*
          * Put row again with SetReturnRow(true),
-         * expect no existing row returned.
          */
         putReq.setReturnRow(true);
         putRes = handle.put(putReq);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            /* expect no existing row returned */
+            checkPutResult(putReq, putRes,
+                           true /* shouldSucceed */,
+                           false /* rowPresent */,
+                           null /* expPrevValue */,
+                           null /* expPrevVersion */,
+                           false, /* modtime should be zero */
+                           recordKB);
+        } else {
+            /* expect existing row returned */
+            checkPutResult(putReq, putRes,
+                           true /* shouldSucceed */,
+                           true /* rowPresent */,
+                           value /* expPrevValue */,
+                           oldVersion /* expPrevVersion */,
+                           true, /* modtime should be zero */
+                           recordKB);
+        }
+        oldVersion = putRes.getVersion();
+
+        /*
+         * Put a new row with SetReturnRow(true),
+         * expect no existing row returned.
+         */
+        putReq = new PutRequest()
+            .setValue(newValue)
+            .setTableName(tableName)
+            .setReturnRow(true);
+        putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        true /* shouldSucceed */,
-                       true /* rowPresent */,
+                       false /* rowPresent */,
                        null /* expPrevValue */,
                        null /* expPrevVersion */,
                        false, /* modtime should be zero */
                        recordKB);
-        Version oldVersion = putRes.getVersion();
 
         /* PutIfAbsent an existing row, it should fail */
         putReq = new PutRequest()
@@ -610,14 +693,13 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        false /* shouldSucceed */,
-                       true  /* rowPresent */,
+                       false  /* rowPresent */,
                        null  /* expPrevValue */,
                        null  /* expPrevVersion */,
                        false, /* modtime should be zero */
                        recordKB);
         /*
          * PutIfAbsent fails + SetReturnRow(true),
-         * return existing value and version
          */
         putReq.setReturnRow(true);
         putRes = handle.put(putReq);
@@ -638,30 +720,42 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        true /* shouldSucceed */,
-                       true /* rowPresent */,
+                       false /* rowPresent */,
                        null /* expPrevValue */,
                        null /* expPrevVersion */,
                        false, /* modtime should be zero */
                        recordKB);
+        oldVersion = putRes.getVersion();
+
         /*
          * PutIfPresent succeed + SetReturnRow(true),
-         * expect no existing row returned.
          */
         putReq.setReturnRow(true);
         putRes = handle.put(putReq);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion <= V4) {
         checkPutResult(putReq, putRes,
                        true /* shouldSucceed */,
-                       true /* rowPresent */,
+                       false /* rowPresent */,
                        null /* expPrevValue */,
                        null /* expPrevVersion */,
                        false, /* modtime should be zero */
                        recordKB);
+        } else {
+            checkPutResult(putReq, putRes,
+                           true /* shouldSucceed */,
+                           true /* rowPresent */,
+                           value /* expPrevValue */,
+                           oldVersion /* expPrevVersion */,
+                           true, /* modtime should be zero */
+                           recordKB);
+        }
         Version ifVersion = putRes.getVersion();
 
         /* PutIfPresent an new row, it should fail */
         putReq = new PutRequest()
             .setOption(Option.IfPresent)
-            .setValue(newValue)
+            .setValue(newValue1)
             .setDurability(Durability.COMMIT_SYNC)
             .setTableName(tableName);
         putRes = handle.put(putReq);
@@ -689,10 +783,21 @@ public class BasicTest extends ProxyTestBase {
         /* PutIfAbsent an new row, it should succeed */
         putReq = new PutRequest()
             .setOption(Option.IfAbsent)
-            .setValue(newValue)
+            .setValue(newValue1)
             .setDurability(Durability.COMMIT_SYNC)
             .setTableName(tableName);
         putRes = handle.put(putReq);
+        checkPutResult(putReq, putRes,
+                       true  /* shouldSucceed */,
+                       false /* rowPresent */,
+                       null  /* expPrevValue */,
+                       null  /* expPrevVersion */,
+                       false, /* modtime should be zero */
+                       recordKB);
+
+        /* PutIfAbsent success + SetReturnRow(true) */
+        putReq.setValue(newValue2).setReturnRow(true);
+        putRes =  handle.put(putReq);
         checkPutResult(putReq, putRes,
                        true  /* shouldSucceed */,
                        false /* rowPresent */,
@@ -713,14 +818,14 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        false /* shouldSucceed */,
-                       true  /* rowPresent */,
+                       false  /* rowPresent */,
                        null  /* expPrevValue */,
                        null  /* expPrevVersion */,
                        false, /* modtime should be zero */
                        recordKB);
         /*
          * PutIfVersion fails + SetReturnRow(true),
-         * expect no existing row returned.
+         * expect existing row returned.
          */
         putReq.setReturnRow(true);
         putRes = handle.put(putReq);
@@ -744,7 +849,7 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        true /* shouldSucceed */,
-                       true /* rowPresent */,
+                       false /* rowPresent */,
                        null /* expPrevValue */,
                        null /* expPrevVersion */,
                        false, /* modtime should be zero */
@@ -758,7 +863,7 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         checkPutResult(putReq, putRes,
                        true /* shouldSucceed */,
-                       true /* rowPresent */,
+                       false /* rowPresent */,
                        null /* expPrevValue */,
                        null /* expPrevVersion */,
                        false, /* modtime should be zero */
@@ -825,7 +930,7 @@ public class BasicTest extends ProxyTestBase {
             putRes = handle.put(putReq);
             checkPutResult(putReq, putRes,
                            true /* shouldSucceed */,
-                           true /* rowPresent */,
+                           false /* rowPresent */,
                            null /* expPrevValue */,
                            null /* expPrevVersion */,
                            false, /* modtime should be zero */
@@ -854,7 +959,7 @@ public class BasicTest extends ProxyTestBase {
             DeleteResult delRes = handle.delete(delReq);
             checkDeleteResult(delReq, delRes,
                               true  /* shouldSucceed */,
-                              true  /* rowPresent */,
+                              false  /* rowPresent */,
                               null  /* expPrevValue */,
                               null  /* expPrevVersion */,
                               false, /* modtime should be zero */
@@ -907,7 +1012,7 @@ public class BasicTest extends ProxyTestBase {
         DeleteResult delRes = handle.delete(delReq);
         checkDeleteResult(delReq, delRes,
                           true  /* shouldSucceed */,
-                          true  /* rowPresent */,
+                          false  /* rowPresent */,
                           null  /* expPrevValue */,
                           null  /* expPrevVersion */,
                           false, /* modtime should be zero */
@@ -915,18 +1020,31 @@ public class BasicTest extends ProxyTestBase {
 
         /* Put the row back to store */
         putReq = new PutRequest().setValue(value).setTableName(tableName);
-        handle.put(putReq);
+        putRes = handle.put(putReq);
+        oldVersion = putRes.getVersion();
+        assertNotNull(oldVersion);
 
-        /* Delete succeed + setReturnRow(true), no existing row returned. */
+        /* Delete succeed + setReturnRow(true) */
         delReq.setReturnRow(true);
         delRes = handle.delete(delReq);
-        checkDeleteResult(delReq, delRes,
-                          true /* shouldSucceed */,
-                          true /* rowPresent */,
-                          null /* expPrevValue */,
-                          null /* expPrevVersion */,
-                          false, /* modtime should be zero */
-                          recordKB);
+        /* If proxy serial version <= V4,put success does not return row */
+        if (proxySerialVersion < V4) {
+            checkDeleteResult(delReq, delRes,
+                              true /* shouldSucceed */,
+                              false /* rowPresent */,
+                              null /* expPrevValue */,
+                              null /* expPrevVersion */,
+                              false, /* modtime should be zero */
+                              recordKB);
+        } else {
+            checkDeleteResult(delReq, delRes,
+                              true /* shouldSucceed */,
+                              true /* rowPresent */,
+                              value /* expPrevValue */,
+                              oldVersion /* expPrevVersion */,
+                              true, /* modtime should be zero */
+                              recordKB);
+        }
 
         /* Delete fail + setReturnRow(true), no existing row returned. */
         delRes = handle.delete(delReq);
@@ -951,7 +1069,7 @@ public class BasicTest extends ProxyTestBase {
         delRes = handle.delete(delReq);
         checkDeleteResult(delReq, delRes,
                           false /* shouldSucceed */,
-                          true  /* rowPresent */,
+                          false  /* rowPresent */,
                           null  /* expPrevValue */,
                           null  /* expPrevVersion */,
                           false, /* modtime should be zero */
@@ -979,7 +1097,7 @@ public class BasicTest extends ProxyTestBase {
         delRes = handle.delete(delReq);
         checkDeleteResult(delReq, delRes,
                           true  /* shouldSucceed */,
-                          true  /* rowPresent */,
+                          false  /* rowPresent */,
                           null  /* expPrevValue */,
                           null  /* expPrevVersion */,
                           false, /* modtime should be zero */
@@ -998,7 +1116,7 @@ public class BasicTest extends ProxyTestBase {
         delRes = handle.delete(delReq);
         checkDeleteResult(delReq, delRes,
                           true  /* shouldSucceed */,
-                          true  /* returnRow */,
+                          false  /* returnRow */,
                           null  /* expPrevValue */,
                           null  /* expPrevVersion */,
                           false, /* modtime should be zero */
@@ -1613,9 +1731,7 @@ public class BasicTest extends ProxyTestBase {
                                            MapValue expPrevValue,
                                            Version expPrevVersion) {
 
-        boolean hasReturnRow = !shouldSucceed &&
-                               rowPresent &&
-                               request.getReturnRowInternal();
+        boolean hasReturnRow = rowPresent;
         if (hasReturnRow) {
             assertNotNull("PrevValue should be non-null",
                           result.getExistingValueInternal());

@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- Fixed an issue when stats collection is enabled debug logs were not 
+  logging.
+
+### Changed
+- Put and Put if-present can return the existing row when setReturnRow is 
+  set to true and row already exists.
+- Delete can return the deleted row when setReturnRow is set to true.
+
 ## [5.4.15] 2024-06-05
 
 ### Added
