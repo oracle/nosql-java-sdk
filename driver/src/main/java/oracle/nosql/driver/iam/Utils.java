@@ -128,6 +128,8 @@ class Utils {
         "https://auth.{0}.oraclecloud21.com");
     private final static MessageFormat OC22_EP_BASE = new MessageFormat(
         "https://auth.{0}.psn-pco.it");
+    private final static MessageFormat OC23_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud23.com");
     private final static MessageFormat OC24_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud24.com");
     private final static MessageFormat OC25_EP_BASE = new MessageFormat(
@@ -138,6 +140,8 @@ class Utils {
         "https://auth.{0}.oraclecloud27.com");
     private final static MessageFormat OC28_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud28.com");
+    private final static MessageFormat OC29_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud29.com");
     private final static MessageFormat OC31_EP_BASE = new MessageFormat(
         "https://auth.{0}.sovereigncloud.nz");
 
@@ -171,6 +175,7 @@ class Utils {
         IAM_URI.put("auh", OC1_EP_BASE.format(new Object[] {"me-abudhabi-1"}));
         IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
         IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
+        IAM_URI.put("ruh", OC1_EP_BASE.format(new Object[] {"me-riyadh-1"}));
 
         IAM_URI.put("qro", OC1_EP_BASE.format(new Object[] {"mx-queretaro-1"}));
         IAM_URI.put("mty", OC1_EP_BASE.format(new Object[] {"mx-monterrey-1"}));
@@ -250,6 +255,10 @@ class Utils {
         /* OC22 */
         IAM_URI.put("nap", OC22_EP_BASE.format(new Object[] {"eu-dcc-rome-1"}));
 
+        /* OC23 */
+        IAM_URI.put("ebb", OC23_EP_BASE.format(new Object[] {"us-somerset-1"}));
+        IAM_URI.put("ebl", OC23_EP_BASE.format(new Object[] {"us-thames-1"}));
+
         /* OC24 */
         IAM_URI.put("avz", OC24_EP_BASE.format(new Object[] {"eu-dcc-zurich-1"}));
 
@@ -265,6 +274,10 @@ class Utils {
 
         /* OC28 */
         IAM_URI.put("drs", OC28_EP_BASE.format(new Object[] {"us-dcc-swjordan-2"}));
+
+        /* OC29 */
+        IAM_URI.put("rkt", OC29_EP_BASE.format(new Object[] {"me-abudhabi-2"}));
+        IAM_URI.put("shj", OC29_EP_BASE.format(new Object[] {"me-abudhabi-4"}));
 
         /* OC31 */
         IAM_URI.put("izq", OC31_EP_BASE.format(new Object[] {"ap-hobsonville-1"}));
@@ -318,6 +331,9 @@ class Utils {
             if (Region.isOC22Region(regionIdOrCode)) {
                 return OC22_EP_BASE.format(new Object[] {regionIdOrCode});
             }
+            if (Region.isOC23Region(regionIdOrCode)) {
+                return OC23_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
             if (Region.isOC24Region(regionIdOrCode)) {
                 return OC24_EP_BASE.format(new Object[] {regionIdOrCode});
             }
@@ -332,6 +348,9 @@ class Utils {
             }
             if (Region.isOC28Region(regionIdOrCode)) {
                 return OC28_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC29Region(regionIdOrCode)) {
+                return OC29_EP_BASE.format(new Object[] {regionIdOrCode});
             }
             if (Region.isOC31Region(regionIdOrCode)) {
                 return OC31_EP_BASE.format(new Object[] {regionIdOrCode});

@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Added
+- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+
 ## [5.4.15] 2024-06-05
 
 ### Added
