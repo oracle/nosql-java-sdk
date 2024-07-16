@@ -292,7 +292,7 @@ public class BasicTest extends ProxyTestBase {
         newWrite = res.getWriteKB();
         assertEquals(2*origWrite, newWrite);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             assertEquals(0, newRead);
             assertNull("Not expecting previous version", res.getExistingVersion());
             assertNull("Not expecting previous value", res.getExistingValue());
@@ -646,7 +646,7 @@ public class BasicTest extends ProxyTestBase {
         putReq.setReturnRow(true);
         putRes = handle.put(putReq);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             /* expect no existing row returned */
             checkPutResult(putReq, putRes,
                            true /* shouldSucceed */,
@@ -734,13 +734,13 @@ public class BasicTest extends ProxyTestBase {
         putRes = handle.put(putReq);
         /* If proxy serial version <= V4,put success does not return row */
         if (proxySerialVersion <= V4) {
-        checkPutResult(putReq, putRes,
-                       true /* shouldSucceed */,
-                       false /* rowPresent */,
-                       null /* expPrevValue */,
-                       null /* expPrevVersion */,
-                       false, /* modtime should be zero */
-                       recordKB);
+            checkPutResult(putReq, putRes,
+                           true /* shouldSucceed */,
+                           false /* rowPresent */,
+                           null /* expPrevValue */,
+                           null /* expPrevVersion */,
+                           false, /* modtime should be zero */
+                           recordKB);
         } else {
             checkPutResult(putReq, putRes,
                            true /* shouldSucceed */,
@@ -1028,7 +1028,7 @@ public class BasicTest extends ProxyTestBase {
         delReq.setReturnRow(true);
         delRes = handle.delete(delReq);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             checkDeleteResult(delReq, delRes,
                               true /* shouldSucceed */,
                               false /* rowPresent */,

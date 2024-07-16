@@ -137,7 +137,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setReturnRow(true);
         umRequest.add(put, false);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             rowPresent.add(false);
         } else {
             rowPresent.add(true);
@@ -175,7 +175,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setReturnRow(true);
         umRequest.add(put, false);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             rowPresent.add(false);
         } else {
             rowPresent.add(true);
@@ -200,7 +200,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             .setReturnRow(true);
         umRequest.add(delete, false);
         /* If proxy serial version <= V4,put success does not return row */
-        if (proxySerialVersion < V4) {
+        if (proxySerialVersion <= V4) {
             rowPresent.add(false);
         } else {
             rowPresent.add(true);
@@ -732,7 +732,7 @@ public class WriteMultipleTest extends ProxyTestBase {
             OperationResult opRet = ret.getResults().get(i);
             assertTrue(opRet.getSuccess());
             /* If proxy serial version <= V4,put success does not return row */
-            if (proxySerialVersion < V4) {
+            if (proxySerialVersion <= V4) {
                 assertNull(opRet.getExistingValue());
                 assertNull(opRet.getExistingVersion());
             } else {
@@ -836,7 +836,7 @@ public class WriteMultipleTest extends ProxyTestBase {
         for (OperationResult opRet: ret.getResults()) {
             assertTrue(opRet.getSuccess());
             /* If proxy serial version <= V4,put success does not return row */
-            if (proxySerialVersion < V4) {
+            if (proxySerialVersion <= V4) {
                 assertNull(opRet.getExistingValue());
                 assertNull(opRet.getExistingVersion());
             } else {

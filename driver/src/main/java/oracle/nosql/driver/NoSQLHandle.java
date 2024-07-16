@@ -142,7 +142,8 @@ public interface NoSQLHandle extends AutoCloseable {
      * fails because the row exists and its version does not match.
      * </li>
      * <li> The {@link DeleteRequest#setMatchVersion} is not used and the
-     * operation succeeds.
+     * operation succeeds provided that the server supports providing the
+     * existing row.
      * </li>
      * </ul>
      * Use of {@link DeleteRequest#setReturnRow} may result in additional
@@ -157,10 +158,6 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for any other
      * reason
-     *
-     * @since 5.4.16 {@link DeleteRequest#setReturnRow} will return existing
-     * row(if provided by the server) even when operation succeeds as specified
-     * above.
      */
     DeleteResult delete(DeleteRequest request);
 
@@ -223,10 +220,12 @@ public interface NoSQLHandle extends AutoCloseable {
      * <li>The {@link Option#IfVersion} is used and the operation fails because
      * the row exists and its version does not match.
      * </li>
-     * <li>The {@link Option#IfPresent} is used and the operation succeeds.
+     * <li>The {@link Option#IfPresent} is used and the operation succeeds
+     * provided that the server supports providing the existing row.
      * </li>
      * <li>The {@link Option} is not used and put operation replaces the
-     * existing row.
+     * existing row provided that the server supports providing the existing
+     * row.
      * </li>
      * </ul>
      * Use of {@link PutRequest#setReturnRow} may result in additional
@@ -241,10 +240,6 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for any other
      * reason
-     *
-     * @since 5.4.16 {@link PutRequest#setReturnRow} will return existing
-     * row(if provided by the server) even when operation succeeds as specified
-     * above.
      */
     PutResult put(PutRequest request);
 
