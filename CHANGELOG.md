@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   set to true and row already exists.
 - Delete can return the deleted row when setReturnRow is set to true.
 
+### Added
+- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+
 ## [5.4.15] 2024-06-05
 
 ### Added
