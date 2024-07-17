@@ -132,16 +132,22 @@ public interface NoSQLHandle extends AutoCloseable {
      * on whether the {@link Version} of an existing row matches that supplied
      * by {@link DeleteRequest#setMatchVersion}.
      * <p>
-     * It is also possible, on failure, to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned
-     * if a delete operation fails because of a Version mismatch. The existing
-     * row information will only be returned if
-     * {@link DeleteRequest#setReturnRow} is true and the operation fails
-     * because {@link DeleteRequest#setMatchVersion} is used and the operation
+     * It is also possible to return information about the existing
+     * row. The row, including it's {@link Version} can be optionally returned.
+     * The existing row information will only be returned if
+     * {@link DeleteRequest#setReturnRow} is true and one of the following
+     * occurs:
+     * <ul>
+     * <li> The {@link DeleteRequest#setMatchVersion} is used and the operation
      * fails because the row exists and its version does not match.
+     * </li>
+     * <li> The {@link DeleteRequest#setMatchVersion} is not used and the
+     * operation succeeds provided that the server supports providing the
+     * existing row.
+     * </li>
+     * </ul>
      * Use of {@link DeleteRequest#setReturnRow} may result in additional
-     * consumed read capacity. If the operation is successful there will be
-     * no information returned about the previous row.
+     * consumed read capacity.
      *
      * @param request the input parameters for the operation
      *
@@ -204,22 +210,26 @@ public interface NoSQLHandle extends AutoCloseable {
      * {@link Version} matches that provided</li>
      * </ul>
      * <p>
-     * It is also possible, on failure, to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned
-     * if a put operation fails because of a Version mismatch or if the
-     * operation fails because the row already exists. The existing row
-     * information will only be returned if {@link PutRequest#setReturnRow} is
-     * true and one of the following occurs:
+     * It is also possible to return information about the existing
+     * row. The row, including it's {@link Version} can be optionally returned.
+     * The existing row information will only be returned if
+     * {@link PutRequest#setReturnRow} is true and one of the following occurs:
      * <ul>
      * <li>The {@link Option#IfAbsent} is used and the operation fails because
      * the row already exists.</li>
      * <li>The {@link Option#IfVersion} is used and the operation fails because
      * the row exists and its version does not match.
      * </li>
+     * <li>The {@link Option#IfPresent} is used and the operation succeeds
+     * provided that the server supports providing the existing row.
+     * </li>
+     * <li>The {@link Option} is not used and put operation replaces the
+     * existing row provided that the server supports providing the existing
+     * row.
+     * </li>
      * </ul>
      * Use of {@link PutRequest#setReturnRow} may result in additional
-     * consumed read capacity. If the operation is successful there will be
-     * no information returned about the previous row.
+     * consumed read capacity.
      *
      * @param request the input parameters for the operation
      *

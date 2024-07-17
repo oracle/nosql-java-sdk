@@ -42,9 +42,10 @@ public class StatsControlImpl
         this.statsHandler = config.getStatsHandler();
 
         if (profile != Profile.NONE) {
-            if (config.getStatsEnableLog() &&
-                ( logger.getLevel() == null ||
-                  logger.getLevel().intValue() > Level.INFO.intValue())) {
+            /* when stats collection is enabled set log level to INFO if it
+             * is not set.
+             */
+            if (config.getStatsEnableLog() && !logger.isLoggable(Level.INFO)) {
                 logger.setLevel(Level.INFO);
             }
             logger.log(Level.INFO, LOG_PREFIX +

@@ -122,6 +122,9 @@ public class ProxyTestBase {
 
     protected NoSQLHandle handle;
 
+    /* serial version used at the proxy server */
+    protected int proxySerialVersion;
+
     @Rule
     public final TestRule watchman = new TestWatcher() {
 
@@ -273,6 +276,7 @@ public class ProxyTestBase {
         existingTables = new HashSet<String>();
         ListTablesRequest listTables = new ListTablesRequest();
         ListTablesResult lres = handle.listTables(listTables);
+        proxySerialVersion = lres.getServerSerialVersion();
         for (String tableName: lres.getTables()) {
             existingTables.add(tableName);
         }
