@@ -133,7 +133,8 @@ public interface NoSQLHandle extends AutoCloseable {
      * by {@link DeleteRequest#setMatchVersion}.
      * <p>
      * It is also possible to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned.
+     * row. The row, including it's {@link Version} and modification time
+     * can be optionally returned.
      * The existing row information will only be returned if
      * {@link DeleteRequest#setReturnRow} is true and one of the following
      * occurs:
@@ -211,7 +212,8 @@ public interface NoSQLHandle extends AutoCloseable {
      * </ul>
      * <p>
      * It is also possible to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned.
+     * row. The existing row, including it's {@link Version} and modification
+     * time can be optionally returned.
      * The existing row information will only be returned if
      * {@link PutRequest#setReturnRow} is true and one of the following occurs:
      * <ul>
