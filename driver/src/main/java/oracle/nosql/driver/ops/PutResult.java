@@ -17,10 +17,10 @@ import oracle.nosql.driver.values.MapValue;
  * <p>
  * On a successful operation the value returned by {@link #getVersion} is
  * non-null. On failure that value is null. Information about the
- * existing row on failure may be available using
- * {@link #getExistingValue} and.{@link #getExistingVersion}, depending on the
- * use of {@link PutRequest#setReturnRow} and whether the put had an option set
- * using {@link PutRequest#setOption}.
+ * existing row may be available using
+ * {@link #getExistingValue}, {@link #getExistingVersion}, and
+ * {@link #getExistingModificationTime}, depending on the
+ * use of {@link PutRequest#setReturnRow} and the results of the operation.
  * @see NoSQLHandle#put
  */
 public class PutResult extends WriteResult {
@@ -49,9 +49,8 @@ public class PutResult extends WriteResult {
 
     /**
      * Returns the existing row {@link Version} if available. This value will
-     * only be available if the conditional put operation failed and the request
-     * specified that return information be returned using
-     * {@link PutRequest#setReturnRow}.
+     * only be available if the conditions specified in
+     * {@link PutRequest#setReturnRow} are met.
      *
      * @return the Version
      */
@@ -61,9 +60,8 @@ public class PutResult extends WriteResult {
 
     /**
      * Returns the existing row value if available. This value will
-     * only be available if the conditional put operation failed and the request
-     * specified that return information be returned using
-     * {@link PutRequest#setReturnRow}.
+     * only be available if the conditions specified in
+     * {@link PutRequest#setReturnRow} are met.
      *
      * @return the value
      */
@@ -73,9 +71,8 @@ public class PutResult extends WriteResult {
 
     /**
      * Returns the existing modification time if available. This value will
-     * only be available if the conditional put operation failed and the request
-     * specified that return information be returned using
-     * {@link PutRequest#setReturnRow}.
+     * only be available if the conditions specified in
+     * {@link PutRequest#setReturnRow} are met.
      *
      * @return the existing modification time in milliseconds since Jan 1, 1970
      *

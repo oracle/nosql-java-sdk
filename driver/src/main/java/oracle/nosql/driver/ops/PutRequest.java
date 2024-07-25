@@ -268,11 +268,9 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * Returns whether information about the exist row should be returned on
-     * failure because of a version mismatch or failure of an "if absent"
-     * operation. If no option is set via {@link #setOption} or the option is
-     * {@link Option#IfPresent} the value of this parameter is ignored and there
-     * will not be any return information.
+     * Returns whether information about the existing row should be returned.
+     * See {@link PutRequest#setReturnRow} for details on the return
+     * information.
      *
      * @return true if information should be returned.
      */
@@ -295,9 +293,27 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * Sets whether information about the exist row should be returned on
-     * failure because of a version mismatch or failure of an "if absent"
-     * operation.
+     * Sets whether information about the existing row should be returned.
+     * The existing row information, including the value, Version, and
+     * modification time, will only be returned if
+     * {@link PutRequest#setReturnRow} is true and one of the following occurs:
+     * <ul>
+     * <li>The {@link Option#IfAbsent} is used and the operation fails because
+     * the row already exists.</li>
+     * <li>The {@link Option#IfVersion} is used and the operation fails because
+     * the row exists and its version does not match.
+     * </li>
+     * <li>The {@link Option#IfPresent} is used and the operation succeeds
+     * provided that the server supports providing the existing row.
+     * </li>
+     * <li>The {@link Option} is not used and put operation replaces the
+     * existing row provided that the server supports providing the existing
+     * row.
+     * </li>
+     * </ul>
+     *
+     * This setting is optional and defaults to false. If true the operation
+     * will incur additional cost.
      *
      * @param value set to true if information should be returned
      *
