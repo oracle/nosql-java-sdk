@@ -72,6 +72,14 @@ public class DriverTestBase {
         return ".";
     }
 
+    /*
+     * Tests are run from driver/target/test-run, return the relative path
+     * to the test resources directory
+     */
+    protected static String getResourcesDir() {
+        return "../../src/test/resources/";
+    }
+
     protected static void clearTestDirectory() {
         File testDir = new File(getTestDir());
         if (!testDir.exists()) {

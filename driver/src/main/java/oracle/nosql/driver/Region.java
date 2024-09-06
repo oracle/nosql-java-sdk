@@ -7,9 +7,22 @@
 
 package oracle.nosql.driver;
 
-import java.text.MessageFormat;
-import java.util.HashMap;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+
+/* used for parsing region config file which is JSON */
+import oracle.nosql.driver.values.ArrayValue;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.MapValue;
 
 /**
  * Cloud service only.
@@ -46,605 +59,201 @@ import java.util.Map;
  * <a href="https://docs.cloud.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm">Regions and Availability Domains</a>.
  */
 public class Region {
-    private static final Map<String, Region> OC1_REGIONS = new HashMap<>();
-    private static final Map<String, Region> GOV_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC4_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC5_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC8_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC9_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC10_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC14_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC15_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC16_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC17_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC19_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC20_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC21_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC22_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC23_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC24_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC25_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC26_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC27_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC28_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC29_REGIONS = new HashMap<>();
-    private static final Map<String, Region> OC31_REGIONS = new HashMap<>();
-
-    /* OC1 */
-    /** JNB */
-    public static final Region AF_JOHANNESBURG_1 = new Region("af-johannesburg-1");
-    /** YNY */
-    public static final Region AP_CHUNCHEON_1 = new Region("ap-chuncheon-1");
-    /** HYD */
-    public static final Region AP_HYDERABAD_1 = new Region("ap-hyderabad-1");
-    /** MEL */
-    public static final Region AP_MELBOURNE_1 = new Region("ap-melbourne-1");
-    /** BOM */
-    public static final Region AP_MUMBAI_1 = new Region("ap-mumbai-1");
-    /** KIX */
-    public static final Region AP_OSAKA_1 = new Region("ap-osaka-1");
-    /** ICN */
-    public static final Region AP_SINGAPORE_1 = new Region("ap-singapore-1");
-    /** XSP */
-    public static final Region AP_SINGAPORE_2 = new Region("ap-singapore-2");
-    /** SIN */
-    public static final Region AP_SEOUL_1 = new Region("ap-seoul-1");
-    /** SYD */
-    public static final Region AP_SYDNEY_1 = new Region("ap-sydney-1");
-    /** NRT */
-    public static final Region AP_TOKYO_1 = new Region("ap-tokyo-1");
-
-    /** CWL */
-    public static final Region UK_CARDIFF_1 = new Region("uk-cardiff-1");
-    /** LHR */
-    public static final Region UK_LONDON_1 = new Region("uk-london-1");
-
-    /** AMS */
-    public static final Region EU_AMSTERDAM_1 = new Region("eu-amsterdam-1");
-    /** FRA */
-    public static final Region EU_FRANKFURT_1 = new Region("eu-frankfurt-1");
-    /** MAD */
-    public static final Region EU_MADRID_1 = new Region("eu-madrid-1");
-    /** MRS */
-    public static final Region EU_MARSEILLE_1 = new Region("eu-marseille-1");
-    /** LIN */
-    public static final Region EU_MILAN_1 = new Region("eu-milan-1");
-    /** CDG */
-    public static final Region EU_PARIS_1 = new Region("eu-paris-1");
-    /** ARN */
-    public static final Region EU_STOCKHOLM_1 = new Region("eu-stockholm-1");
-    /** ZRH */
-    public static final Region EU_ZURICH_1 = new Region("eu-zurich-1");
-
-    /** AUH */
-    public static final Region ME_ABUDHABI_1 = new Region("me-abudhabi-1");
-    /** DXB */
-    public static final Region ME_DUBAI_1 = new Region("me-dubai-1");
-    /** RUH */
-    public static final Region ME_RIYADH_1 = new Region("me-riyadh-1");
-    /** JED */
-    public static final Region ME_JEDDAH_1 = new Region("me-jeddah-1");
-
-    /** QRO */
-    public static final Region MX_QUERETARO_1 = new Region("mx-queretaro-1");
-    /** MTY */
-    public static final Region MX_MONTERREY_1 = new Region("mx-monterrey-1");
-
-    /** MTZ */
-    public static final Region IL_JERUSALEM_1 = new Region("il-jerusalem-1");
-
-    /** IAD */
-    public static final Region US_ASHBURN_1 = new Region("us-ashburn-1");
-    /** PHX */
-    public static final Region US_PHOENIX_1 = new Region("us-phoenix-1");
-    /** SJC */
-    public static final Region US_SANJOSE_1 = new Region("us-sanjose-1");
-    /** AGA */
-    public static final Region US_SALTLAKE_2 = new Region("us-saltlake-2");
-    /** ORD */
-    public static final Region US_CHICAGO_1 = new Region("us-chicago-1");
-
-    /** YUL */
-    public static final Region CA_MONTREAL_1 = new Region("ca-montreal-1");
-    /** YYZ */
-    public static final Region CA_TORONTO_1 = new Region("ca-toronto-1");
-
-    /** BOG */
-    public static final Region SA_BOGOTA_1 = new Region("sa-bogota-1");
-    /** GRU */
-    public static final Region SA_SAOPAULO_1 = new Region("sa-saopaulo-1");
-    /** SCL */
-    public static final Region SA_SANTIAGO_1 = new Region("sa-santiago-1");
-    /** VAP */
-    public static final Region SA_VALPARAISO_1 = new Region("sa-valparaiso-1");
-    /** VCP */
-    public static final Region SA_VINHEDO_1 = new Region("sa-vinhedo-1");
-
-    /* OC2 */
-    /** LFI */
-    public static final Region US_LANGLEY_1 = new Region("us-langley-1");
-    /** LUF */
-    public static final Region US_LUKE_1 = new Region("us-luke-1");
-
-    /* OC3 */
-    /** RIC */
-    public static final Region US_GOV_ASHBURN_1 = new Region("us-gov-ashburn-1");
-    /** PIA */
-    public static final Region US_GOV_CHICAGO_1 = new Region("us-gov-chicago-1");
-    /** TUS */
-    public static final Region US_GOV_PHOENIX_1 = new Region("us-gov-phoenix-1");
-
-    /* OC4 */
-    /** LTN */
-    public static final Region UK_GOV_LONDON_1 = new Region("uk-gov-london-1");
-    /** BRS */
-    public static final Region UK_GOV_CARDIFF_1 = new Region("uk-gov-cardiff-1");
-
-    /* OC5 */
-    /** TIW */
-    public static final Region US_TACOMA_1 = new Region("us-tacoma-1");
-
-    /* OC8 */
-    /** NJA */
-    public static final Region AP_CHIYODA_1 = new Region("ap-chiyoda-1");
-    /** UKB */
-    public static final Region AP_IBARAKI_1 = new Region("ap-ibaraki-1");
-
-    /* OC9 */
-    /** MCT */
-    public static final Region ME_DCC_MUSCAT_1 = new Region("me-dcc-muscat-1");
-
-    /* OC10 */
-    /** WGA */
-    public static final Region AP_DCC_CANBERRA_1 = new Region("ap-dcc-canberra-1");
-
-    /* OC14 */
-    /** ORK */
-    public static final Region AP_DCC_DUBLIN_1 = new Region("eu-dcc-dublin-1");
-    /** SNN */
-    public static final Region AP_DCC_DUBLIN_2 = new Region("eu-dcc-dublin-2");
-    /** BGY */
-    public static final Region AP_DCC_MILAN_1 = new Region("eu-dcc-milan-1");
-    /** MXP */
-    public static final Region AP_DCC_MILAN_2 = new Region("eu-dcc-milan-2");
-    /** DUS */
-    public static final Region AP_DCC_RATING_1 = new Region("eu-dcc-rating-1");
-    /** DTM */
-    public static final Region AP_DCC_RATING_2 = new Region("eu-dcc-rating-2");
-
-    /* OC15 */
-    /** DAC */
-    public static final Region AP_DCC_GAZIPUR_1 = new Region("ap-dcc-gazipur-1");
-
-    /* OC16 */
-    /** SGU */
-    public static final Region US_WESTJORDAN_1 = new Region("us-westjordan-1");
-
-    /* OC17 */
-    /** IFP */
-    public static final Region US_DCC_PHOENIX_1 = new Region("us-dcc-phoenix-1");
-    /** GCN */
-    public static final Region US_DCC_PHOENIX_2 = new Region("us-dcc-phoenix-2");
-    /** YUM */
-    public static final Region US_DCC_PHOENIX_4 = new Region("us-dcc-phoenix-4");
-
-    /* OC19 */
-    /** STR */
-    public static final Region EU_FRANKFURT_2 = new Region("eu-frankfurt-2");
-    /** VLL */
-    public static final Region EU_MADRID_2 = new Region("eu-madrid-2");
-
-    /* OC20 */
-    /** BEG */
-    public static final Region EU_JOVANOVAC_1 = new Region("eu-jovanovac-1");
-
-    /* OC21 */
-    /** DOH */
-    public static final Region ME_DCC_DOHA_1 = new Region("me-dcc-doha-1");
-
-    /* OC22 */
-    /** NAP */
-    public static final Region EU_DCC_ROME_1 = new Region("eu-dcc-rome-1");
-
-    /* OC23 */
-    /** EBB */
-    public static final Region US_SOMERSET_1 = new Region("us-somerset-1");
-    /** EBL */
-    public static final Region US_THAMES_1 = new Region("us-thames-1");
-
-    /* OC24 */
-    /** AVZ */
-    public static final Region EU_DCC_ZURICH_1 = new Region("eu-dcc-zurich-1");
-
-    /* OC25 */
-    /** TYO */
-    public static final Region AP_DCC_TOKYO_1 = new Region("ap-dcc-tokyo-1");
-    /** UKY */
-    public static final Region AP_DCC_OSAKA_1 = new Region("ap-dcc-osaka-1");
-
-    /* OC26 */
-    /** AHU */
-    public static final Region ME_ABUDHABI_3 = new Region("me-abudhabi-3");
-
-    /* OC27 */
-    /** OZZ */
-    public static final Region US_DCC_SWJORDAN_1 = new Region("us-dcc-swjordan-1");
-
-    /* OC28 */
-    /** DRS */
-    public static final Region US_DCC_SWJORDAN_2 = new Region("us-dcc-swjordan-2");
-
-    /* OC29 */
-    /** RKT */
-    public static final Region ME_ABUDHABI_2 = new Region("me-abudhabi-2");
-    /** SHJ */
-    public static final Region ME_ABUDHABI_4 = new Region("me-abudhabi-4");
-
-    /* OC31 */
-    /** IZQ */
-    public static final Region AP_HOBSONVILLE_1 = new Region("ap-hobsonville-1");
-
-    static {
-        /* OC1 */
-        /* AF */
-        OC1_REGIONS.put(AF_JOHANNESBURG_1.getRegionId(), AF_JOHANNESBURG_1);
-
-        /* APAC */
-        OC1_REGIONS.put(AP_CHUNCHEON_1.getRegionId(), AP_CHUNCHEON_1);
-        OC1_REGIONS.put(AP_HYDERABAD_1.getRegionId(), AP_HYDERABAD_1);
-        OC1_REGIONS.put(AP_MELBOURNE_1.getRegionId(), AP_MELBOURNE_1);
-        OC1_REGIONS.put(AP_MUMBAI_1.getRegionId(), AP_MUMBAI_1);
-        OC1_REGIONS.put(AP_OSAKA_1.getRegionId(), AP_OSAKA_1);
-        OC1_REGIONS.put(AP_SINGAPORE_1.getRegionId(), AP_SINGAPORE_1);
-        OC1_REGIONS.put(AP_SINGAPORE_2.getRegionId(), AP_SINGAPORE_2);
-        OC1_REGIONS.put(AP_SEOUL_1.getRegionId(), AP_SEOUL_1);
-        OC1_REGIONS.put(AP_SYDNEY_1.getRegionId(), AP_SYDNEY_1);
-        OC1_REGIONS.put(AP_TOKYO_1.getRegionId(), AP_TOKYO_1);
-
-        /* EMEA */
-        OC1_REGIONS.put(UK_CARDIFF_1.getRegionId(), UK_CARDIFF_1);
-        OC1_REGIONS.put(UK_LONDON_1.getRegionId(), UK_LONDON_1);
-
-        OC1_REGIONS.put(EU_AMSTERDAM_1.getRegionId(), EU_AMSTERDAM_1);
-        OC1_REGIONS.put(EU_FRANKFURT_1.getRegionId(), EU_FRANKFURT_1);
-        OC1_REGIONS.put(EU_MADRID_1.getRegionId(), EU_MADRID_1);
-        OC1_REGIONS.put(EU_MARSEILLE_1.getRegionId(), EU_MARSEILLE_1);
-        OC1_REGIONS.put(EU_MILAN_1.getRegionId(), EU_MILAN_1);
-        OC1_REGIONS.put(EU_PARIS_1.getRegionId(), EU_PARIS_1);
-        OC1_REGIONS.put(EU_STOCKHOLM_1.getRegionId(), EU_STOCKHOLM_1);
-        OC1_REGIONS.put(EU_ZURICH_1.getRegionId(), EU_ZURICH_1);
-
-        OC1_REGIONS.put(ME_ABUDHABI_1.getRegionId(), ME_ABUDHABI_1);
-        OC1_REGIONS.put(ME_DUBAI_1.getRegionId(), ME_DUBAI_1);
-        OC1_REGIONS.put(ME_JEDDAH_1.getRegionId(), ME_JEDDAH_1);
-        OC1_REGIONS.put(ME_RIYADH_1.getRegionId(), ME_RIYADH_1);
-
-        OC1_REGIONS.put(MX_QUERETARO_1.getRegionId(), MX_QUERETARO_1);
-        OC1_REGIONS.put(MX_MONTERREY_1.getRegionId(), MX_MONTERREY_1);
-
-        OC1_REGIONS.put(IL_JERUSALEM_1.getRegionId(), IL_JERUSALEM_1);
-
-        /* LAD */
-        OC1_REGIONS.put(SA_BOGOTA_1.getRegionId(), SA_BOGOTA_1);
-        OC1_REGIONS.put(SA_SAOPAULO_1.getRegionId(), SA_SAOPAULO_1);
-        OC1_REGIONS.put(SA_SANTIAGO_1.getRegionId(), SA_SANTIAGO_1);
-        OC1_REGIONS.put(SA_VALPARAISO_1.getRegionId(), SA_VALPARAISO_1);
-        OC1_REGIONS.put(SA_VINHEDO_1.getRegionId(), SA_VINHEDO_1);
-
-        /* North America */
-        OC1_REGIONS.put(US_ASHBURN_1.getRegionId(), US_ASHBURN_1);
-        OC1_REGIONS.put(US_PHOENIX_1.getRegionId(), US_PHOENIX_1);
-        OC1_REGIONS.put(US_SANJOSE_1.getRegionId(), US_SANJOSE_1);
-        OC1_REGIONS.put(US_SALTLAKE_2.getRegionId(), US_SALTLAKE_2);
-        OC1_REGIONS.put(US_CHICAGO_1.getRegionId(), US_CHICAGO_1);
-
-        OC1_REGIONS.put(CA_MONTREAL_1.getRegionId(), CA_MONTREAL_1);
-        OC1_REGIONS.put(CA_TORONTO_1.getRegionId(), CA_TORONTO_1);
-
-        /* OC2 */
-        GOV_REGIONS.put(US_LANGLEY_1.getRegionId(), US_LANGLEY_1);
-        GOV_REGIONS.put(US_LUKE_1.getRegionId(), US_LUKE_1);
-
-        /* OC3 */
-        GOV_REGIONS.put(US_GOV_ASHBURN_1.getRegionId(), US_GOV_ASHBURN_1);
-        GOV_REGIONS.put(US_GOV_CHICAGO_1.getRegionId(), US_GOV_CHICAGO_1);
-        GOV_REGIONS.put(US_GOV_PHOENIX_1.getRegionId(), US_GOV_PHOENIX_1);
-
-        /* OC4 */
-        OC4_REGIONS.put(UK_GOV_LONDON_1.getRegionId(), UK_GOV_LONDON_1);
-        OC4_REGIONS.put(UK_GOV_CARDIFF_1.getRegionId(), UK_GOV_CARDIFF_1);
-
-        /* OC5 */
-        OC5_REGIONS.put(US_TACOMA_1.getRegionId(), US_TACOMA_1);
-
-        /* OC8 */
-        OC8_REGIONS.put(AP_CHIYODA_1.getRegionId(), AP_CHIYODA_1);
-        OC8_REGIONS.put(AP_IBARAKI_1.getRegionId(), AP_IBARAKI_1);
-
-        /* OC9 */
-        OC9_REGIONS.put(ME_DCC_MUSCAT_1.getRegionId(), ME_DCC_MUSCAT_1);
-
-        /* OC10 */
-        OC10_REGIONS.put(AP_DCC_CANBERRA_1.getRegionId(), AP_DCC_CANBERRA_1);
-
-        /* OC14 */
-        OC14_REGIONS.put(AP_DCC_DUBLIN_1.getRegionId(), AP_DCC_DUBLIN_1);
-        OC14_REGIONS.put(AP_DCC_DUBLIN_2.getRegionId(), AP_DCC_DUBLIN_2);
-        OC14_REGIONS.put(AP_DCC_MILAN_1.getRegionId(), AP_DCC_MILAN_1);
-        OC14_REGIONS.put(AP_DCC_MILAN_2.getRegionId(), AP_DCC_MILAN_2);
-        OC14_REGIONS.put(AP_DCC_RATING_1.getRegionId(), AP_DCC_RATING_1);
-        OC14_REGIONS.put(AP_DCC_RATING_2.getRegionId(), AP_DCC_RATING_2);
-
-        /* OC15 */
-        OC15_REGIONS.put(AP_DCC_GAZIPUR_1.getRegionId(), AP_DCC_GAZIPUR_1);
-
-        /* OC16 */
-        OC16_REGIONS.put(US_WESTJORDAN_1.getRegionId(), US_WESTJORDAN_1);
-
-        /* OC17 */
-        OC17_REGIONS.put(US_DCC_PHOENIX_1.getRegionId(), US_DCC_PHOENIX_1);
-        OC17_REGIONS.put(US_DCC_PHOENIX_2.getRegionId(), US_DCC_PHOENIX_2);
-        OC17_REGIONS.put(US_DCC_PHOENIX_4.getRegionId(), US_DCC_PHOENIX_4);
-
-        /* OC19 */
-        OC19_REGIONS.put(EU_FRANKFURT_2.getRegionId(), EU_FRANKFURT_2);
-        OC19_REGIONS.put(EU_MADRID_2.getRegionId(), EU_MADRID_2);
-
-        /* OC20 */
-        OC20_REGIONS.put(EU_JOVANOVAC_1.getRegionId(), EU_JOVANOVAC_1);
-
-        /* OC21 */
-        OC21_REGIONS.put(ME_DCC_DOHA_1.getRegionId(), ME_DCC_DOHA_1);
-
-        /* OC22 */
-        OC22_REGIONS.put(EU_DCC_ROME_1.getRegionId(), EU_DCC_ROME_1);
-
-        /* OC23 */
-        OC23_REGIONS.put(US_SOMERSET_1.getRegionId(), US_SOMERSET_1);
-        OC23_REGIONS.put(US_THAMES_1.getRegionId(), US_THAMES_1);
-
-        /* OC24 */
-        OC24_REGIONS.put(EU_DCC_ZURICH_1.getRegionId(), EU_DCC_ZURICH_1);
-
-        /* OC25 */
-        OC25_REGIONS.put(AP_DCC_TOKYO_1.getRegionId(), AP_DCC_TOKYO_1);
-        OC25_REGIONS.put(AP_DCC_OSAKA_1.getRegionId(), AP_DCC_OSAKA_1);
-
-        /* OC26 */
-        OC26_REGIONS.put(ME_ABUDHABI_3.getRegionId(), ME_ABUDHABI_3);
-
-        /* OC27 */
-        OC27_REGIONS.put(US_DCC_SWJORDAN_1.getRegionId(), US_DCC_SWJORDAN_1);
-
-        /* OC28 */
-        OC28_REGIONS.put(US_DCC_SWJORDAN_2.getRegionId(), US_DCC_SWJORDAN_2);
-
-        /* OC29 */
-        OC29_REGIONS.put(ME_ABUDHABI_2.getRegionId(), ME_ABUDHABI_2);
-        OC29_REGIONS.put(ME_ABUDHABI_4.getRegionId(), ME_ABUDHABI_4);
-
-        /* OC31 */
-        OC31_REGIONS.put(AP_HOBSONVILLE_1.getRegionId(), AP_HOBSONVILLE_1);
-    }
-
-    private final static MessageFormat OC1_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud.com");
-    private final static MessageFormat GOV_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclegovcloud.com");
-    private final static MessageFormat OC4_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclegovcloud.uk");
-    private final static MessageFormat OC5_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud5.com");
-    private final static MessageFormat OC8_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud8.com");
-    private final static MessageFormat OC9_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud9.com");
-    private final static MessageFormat OC10_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud10.com");
-    private final static MessageFormat OC14_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud14.com");
-    private final static MessageFormat OC15_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud15.com");
-    private final static MessageFormat OC16_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud16.com");
-    private final static MessageFormat OC17_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud17.com");
-    private final static MessageFormat OC19_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud.eu");
-    private final static MessageFormat OC20_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud20.com");
-    private final static MessageFormat OC21_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud21.com");
-    private final static MessageFormat OC22_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.psn-pco.it");
-    private final static MessageFormat OC23_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud23.com");
-    private final static MessageFormat OC24_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud24.com");
-    private final static MessageFormat OC25_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.nricloud.jp");
-    private final static MessageFormat OC26_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud26.com");
-    private final static MessageFormat OC27_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud27.com");
-    private final static MessageFormat OC28_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud28.com");
-    private final static MessageFormat OC29_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.oraclecloud29.com");
-    private final static MessageFormat OC31_EP_BASE = new MessageFormat(
-        "https://nosql.{0}.oci.sovereigncloud.nz");
-
-    private String regionId;
-
-    private Region(String regionId) {
-        this.regionId = regionId;
-    }
-
-    /**
-     * Returns the NoSQL Database Cloud Service Endpoint for this region.
-     * @return NoSQL Database Cloud Service Endpoint
+    /* Region metadata env attribute key */
+    private static final String OCI_REGION_METADATA_ENV_VAR_NAME =
+        "OCI_REGION_METADATA";
+
+    /* Default realm metadata env attribute key - not used by nosql at this time
+    private static final String OCI_DEFAULT_REALM_ENV_VAR_NAME =
+        "OCI_DEFAULT_REALM";
+    */
+
+    /* The regions-config file path location */
+    private static final String REGIONS_CONFIG_FILE_PATH =
+        System.getProperty("user.home") + File.separator +
+            ".oci" + File.separator + "regions-config.json";
+
+    /*
+     * endpoint format: {service}.{regionId}.oci.{realmDomain}, e.g.
+     *   https://nosql.us-ashburn-1.oci.oraclecloud.com
      */
-    public String endpoint() {
-        if (isOC1Region(regionId)) {
-            return OC1_EP_BASE.format(new Object[] { regionId });
+    private static final String endpointFormat = "https://%1$s.%2$s.oci.%3$s";
+
+    /* LinkedHashMap to ensure stable ordering of registered regions */
+    private static final Map<String, Region> ALL_REGIONS =
+        new LinkedHashMap<>();
+
+    /* only do each of these once, and use of IMDS must be enabled */
+    private static volatile boolean hasUsedEnvVar = false;
+    private static volatile boolean hasUsedConfigFile = false;
+    private static volatile boolean visitIMDS = false;
+
+    /* synchronization of static structures */
+    private static final ReentrantReadWriteLock lock =
+        new ReentrantReadWriteLock();
+    private static final Lock readLock = lock.readLock();
+    private static final Lock writeLock = lock.writeLock();
+
+    /*
+     * Do not edit from here down to the end of the list of generated variables
+     */
+    /* Known Regions start -- automatically generated */
+    public static final Region AF_JOHANNESBURG_1 = register("af-johannesburg-1", Realm.OC1, "jnb");
+    public static final Region AP_CHUNCHEON_1 = register("ap-chuncheon-1", Realm.OC1, "yny");
+    public static final Region AP_HYDERABAD_1 = register("ap-hyderabad-1", Realm.OC1, "hyd");
+    public static final Region AP_MELBOURNE_1 = register("ap-melbourne-1", Realm.OC1, "mel");
+    public static final Region AP_MUMBAI_1 = register("ap-mumbai-1", Realm.OC1, "bom");
+    public static final Region AP_OSAKA_1 = register("ap-osaka-1", Realm.OC1, "kix");
+    public static final Region AP_SEOUL_1 = register("ap-seoul-1", Realm.OC1, "icn");
+    public static final Region AP_SINGAPORE_1 = register("ap-singapore-1", Realm.OC1, "sin");
+    public static final Region AP_SINGAPORE_2 = register("ap-singapore-2", Realm.OC1, "xsp");
+    public static final Region AP_SYDNEY_1 = register("ap-sydney-1", Realm.OC1, "syd");
+    public static final Region AP_TOKYO_1 = register("ap-tokyo-1", Realm.OC1, "nrt");
+    public static final Region CA_MONTREAL_1 = register("ca-montreal-1", Realm.OC1, "yul");
+    public static final Region CA_TORONTO_1 = register("ca-toronto-1", Realm.OC1, "yyz");
+    public static final Region EU_AMSTERDAM_1 = register("eu-amsterdam-1", Realm.OC1, "ams");
+    public static final Region EU_FRANKFURT_1 = register("eu-frankfurt-1", Realm.OC1, "fra");
+    public static final Region EU_MADRID_1 = register("eu-madrid-1", Realm.OC1, "mad");
+    public static final Region EU_MARSEILLE_1 = register("eu-marseille-1", Realm.OC1, "mrs");
+    public static final Region EU_MILAN_1 = register("eu-milan-1", Realm.OC1, "lin");
+    public static final Region EU_PARIS_1 = register("eu-paris-1", Realm.OC1, "cdg");
+    public static final Region EU_STOCKHOLM_1 = register("eu-stockholm-1", Realm.OC1, "arn");
+    public static final Region EU_ZURICH_1 = register("eu-zurich-1", Realm.OC1, "zrh");
+    public static final Region IL_JERUSALEM_1 = register("il-jerusalem-1", Realm.OC1, "mtz");
+    public static final Region ME_ABUDHABI_1 = register("me-abudhabi-1", Realm.OC1, "auh");
+    public static final Region ME_DUBAI_1 = register("me-dubai-1", Realm.OC1, "dxb");
+    public static final Region ME_JEDDAH_1 = register("me-jeddah-1", Realm.OC1, "jed");
+    public static final Region ME_RIYADH_1 = register("me-riyadh-1", Realm.OC1, "ruh");
+    public static final Region MX_MONTERREY_1 = register("mx-monterrey-1", Realm.OC1, "mty");
+    public static final Region MX_QUERETARO_1 = register("mx-queretaro-1", Realm.OC1, "qro");
+    public static final Region SA_BOGOTA_1 = register("sa-bogota-1", Realm.OC1, "bog");
+    public static final Region SA_SANTIAGO_1 = register("sa-santiago-1", Realm.OC1, "scl");
+    public static final Region SA_SAOPAULO_1 = register("sa-saopaulo-1", Realm.OC1, "gru");
+    public static final Region SA_VALPARAISO_1 = register("sa-valparaiso-1", Realm.OC1, "vap");
+    public static final Region SA_VINHEDO_1 = register("sa-vinhedo-1", Realm.OC1, "vcp");
+    public static final Region UK_LONDON_1 = register("uk-london-1", Realm.OC1, "lhr");
+    public static final Region UK_CARDIFF_1 = register("uk-cardiff-1", Realm.OC1, "cwl");
+    public static final Region US_PHOENIX_1 = register("us-phoenix-1", Realm.OC1, "phx");
+    public static final Region US_ASHBURN_1 = register("us-ashburn-1", Realm.OC1, "iad");
+    public static final Region US_SALTLAKE_2 = register("us-saltlake-2", Realm.OC1, "aga");
+    public static final Region US_SANJOSE_1 = register("us-sanjose-1", Realm.OC1, "sjc");
+    public static final Region US_CHICAGO_1 = register("us-chicago-1", Realm.OC1, "ord");
+    public static final Region US_LANGLEY_1 = register("us-langley-1", Realm.OC2, "lfi");
+    public static final Region US_LUKE_1 = register("us-luke-1", Realm.OC2, "luf");
+    public static final Region US_GOV_ASHBURN_1 = register("us-gov-ashburn-1", Realm.OC3, "ric");
+    public static final Region US_GOV_CHICAGO_1 = register("us-gov-chicago-1", Realm.OC3, "pia");
+    public static final Region US_GOV_PHOENIX_1 = register("us-gov-phoenix-1", Realm.OC3, "tus");
+    public static final Region UK_GOV_LONDON_1 = register("uk-gov-london-1", Realm.OC4, "ltn");
+    public static final Region UK_GOV_CARDIFF_1 = register("uk-gov-cardiff-1", Realm.OC4, "brs");
+    public static final Region US_TACOMA_1 = register("us-tacoma-1", Realm.OC5, "tiw");
+    public static final Region AP_CHIYODA_1 = register("ap-chiyoda-1", Realm.OC8, "nja");
+    public static final Region AP_IBARAKI_1 = register("ap-ibaraki-1", Realm.OC8, "ukb");
+    public static final Region ME_DCC_MUSCAT_1 = register("me-dcc-muscat-1", Realm.OC9, "mct");
+    public static final Region AP_DCC_CANBERRA_1 = register("ap-dcc-canberra-1", Realm.OC10, "wga");
+    public static final Region EU_DCC_DUBLIN_1 = register("eu-dcc-dublin-1", Realm.OC14, "ork");
+    public static final Region EU_DCC_DUBLIN_2 = register("eu-dcc-dublin-2", Realm.OC14, "snn");
+    public static final Region EU_DCC_MILAN_1 = register("eu-dcc-milan-1", Realm.OC14, "bgy");
+    public static final Region EU_DCC_MILAN_2 = register("eu-dcc-milan-2", Realm.OC14, "mxp");
+    public static final Region EU_DCC_RATING_1 = register("eu-dcc-rating-1", Realm.OC14, "dus");
+    public static final Region EU_DCC_RATING_2 = register("eu-dcc-rating-2", Realm.OC14, "dtm");
+    public static final Region AP_DCC_GAZIPUR_1 = register("ap-dcc-gazipur-1", Realm.OC15, "dac");
+    public static final Region US_WESTJORDAN_1 = register("us-westjordan-1", Realm.OC16, "sgu");
+    public static final Region US_DCC_PHOENIX_1 = register("us-dcc-phoenix-1", Realm.OC17, "ifp");
+    public static final Region US_DCC_PHOENIX_2 = register("us-dcc-phoenix-2", Realm.OC17, "gcn");
+    public static final Region US_DCC_PHOENIX_4 = register("us-dcc-phoenix-4", Realm.OC17, "yum");
+    public static final Region EU_FRANKFURT_2 = register("eu-frankfurt-2", Realm.OC19, "str");
+    public static final Region EU_MADRID_2 = register("eu-madrid-2", Realm.OC19, "vll");
+    public static final Region EU_JOVANOVAC_1 = register("eu-jovanovac-1", Realm.OC20, "beg");
+    public static final Region ME_DCC_DOHA_1 = register("me-dcc-doha-1", Realm.OC21, "doh");
+    public static final Region EU_DCC_ROME_1 = register("eu-dcc-rome-1", Realm.OC22, "nap");
+    public static final Region US_SOMERSET_1 = register("us-somerset-1", Realm.OC23, "ebb");
+    public static final Region US_THAMES_1 = register("us-thames-1", Realm.OC23, "ebl");
+    public static final Region EU_DCC_ZURICH_1 = register("eu-dcc-zurich-1", Realm.OC24, "avz");
+    public static final Region EU_CRISSIER_1 = register("eu-crissier-1", Realm.OC24, "avf");
+    public static final Region AP_DCC_OSAKA_1 = register("ap-dcc-osaka-1", Realm.OC25, "uky");
+    public static final Region AP_DCC_TOKYO_1 = register("ap-dcc-tokyo-1", Realm.OC25, "tyo");
+    public static final Region ME_ABUDHABI_3 = register("me-abudhabi-3", Realm.OC26, "ahu");
+    public static final Region ME_ALAIN_1 = register("me-alain-1", Realm.OC26, "rba");
+    public static final Region US_DCC_SWJORDAN_1 = register("us-dcc-swjordan-1", Realm.OC27, "ozz");
+    public static final Region US_DCC_SWJORDAN_2 = register("us-dcc-swjordan-2", Realm.OC28, "drs");
+    public static final Region ME_ABUDHABI_2 = register("me-abudhabi-2", Realm.OC29, "rkt");
+    public static final Region ME_ABUDHABI_4 = register("me-abudhabi-4", Realm.OC29, "shj");
+    public static final Region AP_HOBSONVILLE_1 = register("ap-hobsonville-1", Realm.OC31, "izq");
+    public static final Region AP_SUWON_1 = register("ap-suwon-1", Realm.OC35, "dln");
+    /* Known Regions end generated code */
+
+    /* instance state */
+    private final String regionId;
+    private final String regionCode;
+    private final Realm realm;
+
+    private Region(String regionId, String regionCode, Realm realm) {
+        this.regionId = regionId;
+        this.regionCode = regionCode;
+        this.realm = realm;
+        writeLock.lock();
+        try {
+            ALL_REGIONS.put(regionId, this);
+        } finally {
+            writeLock.unlock();
         }
-        if (isGovRegion(regionId)) {
-            return GOV_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC4Region(regionId)) {
-            return OC4_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC5Region(regionId)) {
-            return OC5_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC8Region(regionId)) {
-            return OC8_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC9Region(regionId)) {
-            return OC9_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC10Region(regionId)) {
-            return OC10_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC14Region(regionId)) {
-            return OC14_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC15Region(regionId)) {
-            return OC15_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC16Region(regionId)) {
-            return OC16_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC17Region(regionId)) {
-            return OC17_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC19Region(regionId)) {
-            return OC19_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC20Region(regionId)) {
-            return OC20_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC21Region(regionId)) {
-            return OC21_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC22Region(regionId)) {
-            return OC22_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC23Region(regionId)) {
-            return OC23_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC24Region(regionId)) {
-            return OC24_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC25Region(regionId)) {
-            return OC25_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC26Region(regionId)) {
-            return OC26_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC27Region(regionId)) {
-            return OC27_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC28Region(regionId)) {
-            return OC28_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC29Region(regionId)) {
-            return OC29_EP_BASE.format(new Object[] { regionId });
-        }
-        if (isOC31Region(regionId)) {
-            return OC31_EP_BASE.format(new Object[] { regionId });
-        }
-        throw new IllegalArgumentException(
-            "Unable to find endpoint for unknown region" + regionId);
     }
 
     /**
-     * Returns the Region associated with the string value supplied,
-     * or null if the string does not represent a known region.
+     * Returns the Region object from the canonical public region id. Returns
+     * null if the region id is not known.
      *
-     * @param regionId the string value of the region
-     * @return the Region or null if the string does not represent a
-     * Region.
+     * @param regionId The region ID.
+     * @return The Region object.
      */
     public static Region fromRegionId(String regionId) {
         if (regionId == null) {
             throw new IllegalArgumentException("Invalid region id " + regionId);
         }
         regionId = regionId.toLowerCase();
-        Region region = OC1_REGIONS.get(regionId);
+        Region region = ALL_REGIONS.get(regionId);
         if (region == null) {
-            region = OC4_REGIONS.get(regionId);
+            registerAllRegions();
+            region = ALL_REGIONS.get(regionId);
         }
-        if (region == null) {
-            region = OC5_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = GOV_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC8_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC9_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC10_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC14_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC15_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC16_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC17_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC19_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC20_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC21_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC22_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC23_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC24_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC25_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC26_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC27_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC28_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC29_REGIONS.get(regionId);
-        }
-        if (region == null) {
-            region = OC31_REGIONS.get(regionId);
-        }
-
         return region;
     }
 
     /**
-     * @hidden
-     * Internal use only
+     * Returns the Region object from the public region code or id. Returns
+     * null if the region id and code are not known
+     *
+     * @param regionIdOrCode The region code or id.
+     * @return The Region object.
+     */
+    public static Region fromRegionIdOrCode(String regionIdOrCode) {
+        final String rCodeOrId = regionIdOrCode.toLowerCase();
+        Region region = fromRegionId(rCodeOrId);
+        if (region != null) {
+            return region;
+        }
+        /*
+         * Searching based on code requires a search of all values
+         */
+        readLock.lock();
+        try {
+            Optional<Region> reg = ALL_REGIONS.values().stream()
+                .filter(
+                    r ->
+                    r.regionCode.equals(rCodeOrId)
+                    || r.regionId.equals(rCodeOrId))
+                .findAny();
+            if (reg.isPresent()) {
+                return reg.get();
+            }
+            return null;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    /**
+     * Returns the region id for this region
      * @return the region id
      */
     public String getRegionId() {
@@ -652,233 +261,353 @@ public class Region {
     }
 
     /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
+     * Returns the NoSQL Database Cloud Service Endpoint for this region.
+     * @return NoSQL Database Cloud Service Endpoint
      */
-    public static boolean isOC1Region(String regionId) {
-        return (OC1_REGIONS.get(regionId) != null);
+    public String endpoint() {
+        /*
+         * endpoint format: nosql.{regionID}.oci.{realmDomain}
+         */
+        return endpointForService("nosql");
     }
 
     /**
      * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
+     * Returns the Endpoint for this region for the named service.
+     * @return Service Endpoint
      */
-    public static boolean isGovRegion(String regionId) {
-        return (GOV_REGIONS.get(regionId) != null);
+    public String endpointForService(String service) {
+        /*
+         * endpoint format: {service}.{regionID}.oci.{realmDomain}
+         */
+        return String.format(endpointFormat, service, regionId,
+                             realm.getSecondLevelDomain());
+    }
+
+    /**
+     * Register a new region. Used to allow the SDK to be forward compatible
+     * with unreleased regions.
+     *
+     * @param regionId The region ID.
+     * @param realm The realm of the new region.
+     * @param regionCode The 3-letter region code returned by the instance
+     * metadata service as the 'region' value, if it differs from regionId.
+     * This is only needed for very early regions.
+     * @return The registered region (or existing one if found).
+     */
+    static Region register(String regionId,
+                           final Realm realm,
+                           String regionCode) {
+        regionId = regionId.trim().toLowerCase(Locale.US);
+        if (regionId.isEmpty()) {
+            throw new IllegalArgumentException("Cannot have empty regionId");
+        }
+
+        Region region;
+        readLock.lock();
+        try {
+            region = getRegion(regionId, realm);
+            if (region != null) {
+                return region;
+            }
+        } finally {
+            readLock.unlock();
+        }
+        writeLock.lock();
+        try {
+            /* Recheck in case of race */
+            region = getRegion(regionId, realm);
+            if (region != null) {
+                return region;
+            }
+            if (regionCode != null) {
+                regionCode = regionCode.trim().toLowerCase(Locale.US);
+                if (regionCode.isEmpty()) {
+                    regionCode = null;
+                }
+            }
+            return new Region(regionId, regionCode, realm);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    private static Region getRegion(String regionId, Realm realm) {
+        readLock.lock();
+        try {
+            for (Region region : ALL_REGIONS.values()) {
+                if (region.regionId.equals(regionId)) {
+                    if (!region.realm.equals(realm)) {
+                        throw new IllegalArgumentException(
+                            "Region : "
+                            + regionId
+                            + " is already registered with "
+                            + region.realm
+                            + ". It cannot be re-registered with a different"
+                            + " realm.");
+                    }
+                    return region;
+                }
+            }
+        } finally {
+            readLock.unlock();
+        }
+        return null;
+    }
+
+    static Region[] values() {
+        registerAllRegions();
+        readLock.lock();
+        try {
+            return ALL_REGIONS.values().toArray(new Region[ALL_REGIONS.size()]);
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    /** Register all regions */
+    private static void registerAllRegions() {
+        if (!hasUsedConfigFile) {
+            readRegionConfigFile();
+        }
+
+        if (!hasUsedEnvVar) {
+            readEnvVar();
+        }
     }
 
     /**
      * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
+     * public for testing
      */
-    public static boolean isOC4Region(String regionId) {
-        return (OC4_REGIONS.get(regionId) != null);
+    public static void readEnvVar() {
+        final String envVar =
+            System.getProperty(OCI_REGION_METADATA_ENV_VAR_NAME);
+
+        hasUsedEnvVar = true;
+        if (envVar != null) {
+            try {
+                MapValue region =
+                    FieldValue.createFromJson(envVar, null).asMap();
+                addRegion(region);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(
+                    "Unable to add region from environment variable " +
+                    envVar + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /** Registers region and sets hasUsedConfigFile status to true. */
+    private static void readRegionConfigFile() {
+        hasUsedConfigFile = true;
+        readRegionConfigFile(REGIONS_CONFIG_FILE_PATH);
     }
 
     /**
      * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
+     * this is public for testing purposes only
      */
-    public static boolean isOC5Region(String regionId) {
-        return (OC5_REGIONS.get(regionId) != null);
+    public static void readRegionConfigFile(String fileName) {
+        File file = new File(fileName);
+        if (!file.isFile()) {
+            /* not an error, file doesn't exist or isn't regular file */
+            return;
+        }
+        String content = null;
+        try {
+            content = new String(
+                Files.readAllBytes(Paths.get(fileName)),
+                StandardCharsets.UTF_8);
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Unable to read regions file, " + fileName + ": " + ioe);
+        }
+        if (content == null || content.isEmpty()) {
+            /* empty file is not an error */
+            return;
+        }
+        ArrayValue arrayOfRegions =
+            FieldValue.createFromJson(content, null).asArray();
+        for (FieldValue val : arrayOfRegions) {
+            addRegion(val.asMap());
+        }
+    }
+
+    private static void addRegion(MapValue region) {
+        /* this will throw on invalid region */
+        validateRegion(region);
+
+        /* this will add the realm if not present */
+        Realm realm =
+            Realm.getRealm(region.get("realmKey").getString(),
+                           region.get("realmDomainComponent").getString(),
+                           true);
+        register(region.get("regionIdentifier").getString(),
+                 realm,
+                 region.get("regionKey").getString());
+    }
+
+    /*
+     * Make sure that all required fields are present
+     */
+    private static void validateRegion(MapValue region) {
+        final String[] fields = new String[] {"regionKey",
+                                              "realmDomainComponent",
+                                              "realmKey",
+                                              "regionIdentifier"};
+        for (String f : fields) {
+            try {
+                if (!region.get(f).isString()) {
+                    throw new IllegalArgumentException(
+                        "Type of field " + f + " in region must be string: " +
+                        region);
+                }
+            } catch (NullPointerException npe) {
+                throw new IllegalArgumentException(
+                    "Missing field " + f + " in region: " + region);
+            }
+        }
     }
 
     /**
      * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
+     *
+     * Realm is internal use for now
      */
-    public static boolean isOC8Region(String regionId) {
-        return (OC8_REGIONS.get(regionId) != null);
-    }
+    static class Realm {
+        /* LinkedHashMap to ensure stable ordering of registered realms */
+        private static final Map<String, Realm> ALL_REALMS =
+            new LinkedHashMap<>();
+        private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+        private static final Lock readLock = lock.readLock();
+        private static final Lock writeLock = lock.writeLock();
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC9Region(String regionId) {
-        return (OC9_REGIONS.get(regionId) != null);
-    }
+        private final String realmId;
+        private final String secondLevelDomain;
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC10Region(String regionId) {
-        return (OC10_REGIONS.get(regionId) != null);
-    }
+        /*
+         * Do not manually modify from here to 'Known Realms end' comment
+         * This is generated code
+         */
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC14Region(String regionId) {
-        return (OC14_REGIONS.get(regionId) != null);
-    }
+        /* Known Realms start -- automatically generated */
+        static final Realm OC1 = new Realm("oraclecloud.com", "oc1");
+        static final Realm OC2 = new Realm("oraclegovcloud.com", "oc2");
+        static final Realm OC3 = new Realm("oraclegovcloud.com", "oc3");
+        static final Realm OC4 = new Realm("oraclegovcloud.uk", "oc4");
+        static final Realm OC5 = new Realm("oraclecloud5.com", "oc5");
+        static final Realm OC8 = new Realm("oraclecloud8.com", "oc8");
+        static final Realm OC9 = new Realm("oraclecloud9.com", "oc9");
+        static final Realm OC10 = new Realm("oraclecloud10.com", "oc10");
+        static final Realm OC14 = new Realm("oraclecloud14.com", "oc14");
+        static final Realm OC15 = new Realm("oraclecloud15.com", "oc15");
+        static final Realm OC16 = new Realm("oraclecloud16.com", "oc16");
+        static final Realm OC17 = new Realm("oraclecloud17.com", "oc17");
+        static final Realm OC19 = new Realm("oraclecloud.eu", "oc19");
+        static final Realm OC20 = new Realm("oraclecloud20.com", "oc20");
+        static final Realm OC21 = new Realm("oraclecloud21.com", "oc21");
+        static final Realm OC22 = new Realm("psn-pco.it", "oc22");
+        static final Realm OC23 = new Realm("oraclecloud23.com", "oc23");
+        static final Realm OC24 = new Realm("oraclecloud24.com", "oc24");
+        static final Realm OC25 = new Realm("nricloud.jp", "oc25");
+        static final Realm OC26 = new Realm("oraclecloud26.com", "oc26");
+        static final Realm OC27 = new Realm("oraclecloud27.com", "oc27");
+        static final Realm OC28 = new Realm("oraclecloud28.com", "oc28");
+        static final Realm OC29 = new Realm("oraclecloud29.com", "oc29");
+        static final Realm OC31 = new Realm("sovereigncloud.nz", "oc31");
+        static final Realm OC35 = new Realm("oraclecloud35.com", "oc35");
+        /* Known Realms end generated code */
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC15Region(String regionId) {
-        return (OC15_REGIONS.get(regionId) != null);
-    }
+        private Realm(String secondLevelDomain, String realmId) {
+            this.realmId = realmId;
+            this.secondLevelDomain = secondLevelDomain;
+            writeLock.lock();
+            try {
+                ALL_REALMS.put(realmId, this);
+            } finally {
+                writeLock.unlock();
+            }
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC16Region(String regionId) {
-        return (OC16_REGIONS.get(regionId) != null);
-    }
+        static Realm getRealm(String realmId, String secondLevelDomain,
+                              boolean add) {
+            Realm realm = ALL_REALMS.get(realmId);
+            if (realm == null && add) {
+                realm = new Realm(realmId, secondLevelDomain);
+            }
+            return realm;
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC17Region(String regionId) {
-        return (OC17_REGIONS.get(regionId) != null);
-    }
+        String getRealmId() {
+            return this.realmId;
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC19Region(String regionId) {
-        return (OC19_REGIONS.get(regionId) != null);
-    }
+        String getSecondLevelDomain() {
+            return this.secondLevelDomain;
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC20Region(String regionId) {
-        return (OC20_REGIONS.get(regionId) != null);
-    }
+        /**
+         * All known Realms in this version of the SDK
+         *
+         * @return Known realms
+         */
+        static Realm[] values() {
+            readLock.lock();
+            try {
+                return ALL_REALMS.values().toArray(
+                    new Realm[ALL_REALMS.size()]);
+            } finally {
+                readLock.unlock();
+            }
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC21Region(String regionId) {
-        return (OC21_REGIONS.get(regionId) != null);
-    }
+        /**
+         * Register a new Realm. Used to allow the SDK to be forward
+         * compatible with unreleased realms.
+         *
+         * @param realmId The realm id.
+         * @param secondLevelDomain The second level domain of the realm.
+         * @return The registered Realm (or existing one if found).
+         */
+        static Realm register(String realmId, String secondLevelDomain) {
+            realmId = realmId.toLowerCase(Locale.US);
+            secondLevelDomain = secondLevelDomain.toLowerCase(Locale.US);
+            writeLock.lock();
+            try {
+                for (Realm realm : Realm.values()) {
+                    if (realm.realmId.equals(realmId)) {
+                        if (!realm.secondLevelDomain.equals(secondLevelDomain)){
+                            throw new IllegalArgumentException(
+                                "RealmId : "
+                                + realmId
+                                + " is already registered with "
+                                + realm.getSecondLevelDomain()
+                                + ". It cannot be re-registered with a " +
+                                "different secondLevelDomain");
+                        }
+                        return realm;
+                    }
+                }
+                return new Realm(realmId, secondLevelDomain);
+            } finally {
+                writeLock.unlock();
+            }
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC22Region(String regionId) {
-        return (OC22_REGIONS.get(regionId) != null);
-    }
+        @Override
+        public boolean equals(final Object o) {
+            if (o == this) return true;
+            if (!(o instanceof Realm)) return false;
+            final Realm other = (Realm) o;
+            return realmId.equals(other.realmId) &&
+                secondLevelDomain.equals(other.secondLevelDomain);
+        }
 
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC23Region(String regionId) {
-        return (OC23_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC24Region(String regionId) {
-        return (OC24_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC25Region(String regionId) {
-        return (OC25_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC26Region(String regionId) {
-        return (OC26_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC27Region(String regionId) {
-        return (OC27_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC28Region(String regionId) {
-        return (OC28_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC29Region(String regionId) {
-        return (OC29_REGIONS.get(regionId) != null);
-    }
-
-    /**
-     * @hidden
-     * Internal use only
-     * @param regionId the region id
-     * @return the value
-     */
-    public static boolean isOC31Region(String regionId) {
-        return (OC31_REGIONS.get(regionId) != null);
+        @Override
+        public int hashCode() {
+            return realmId.hashCode() + secondLevelDomain.hashCode();
+        }
     }
 
     /**

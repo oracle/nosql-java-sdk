@@ -130,6 +130,7 @@ public class HandleConfigTest {
                           String host, int port) {
         NoSQLHandleConfig config = new NoSQLHandleConfig(region, null);
         URL configURL = config.getServiceURL();
+        System.out.println("GMF: " + configURL);
         assertEquals(protocol, configURL.getProtocol());
         assertEquals(host, configURL.getHost());
         assertEquals(port, configURL.getPort());

@@ -812,7 +812,6 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  value
      */
     public static class QueryRequestSerializer extends NsonSerializerBase {
-        @SuppressWarnings("deprecation")
         @Override
         public void serialize(Request request,
                               short serialVersion,
@@ -822,6 +821,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                           "in query request serializer");
             }
 
+        @SuppressWarnings("deprecation")
         @Override
         public void serialize(Request request,
                               short serialVersion,
