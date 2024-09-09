@@ -99,7 +99,8 @@ class Utils {
     static String getIAMURL(String regionIdOrCode) {
         Region region = Region.fromRegionIdOrCode(regionIdOrCode);
         if (region != null) {
-            return region.endpointForService("auth");
+            return region.endpointForService("auth",
+                                             Region.getAuthEndpointFormat());
         }
         return null;
     }

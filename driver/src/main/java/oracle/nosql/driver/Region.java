@@ -77,7 +77,10 @@ public class Region {
      * endpoint format: {service}.{regionId}.oci.{realmDomain}, e.g.
      *   https://nosql.us-ashburn-1.oci.oraclecloud.com
      */
-    private static final String endpointFormat = "https://%1$s.%2$s.oci.%3$s";
+    private static final String svcEndpointFormat =
+        "https://%1$s.%2$s.oci.%3$s";
+    private static final String authEndpointFormat =
+        "https://%1$s.%2$s.%3$s";
 
     /* LinkedHashMap to ensure stable ordering of registered regions */
     private static final Map<String, Region> ALL_REGIONS =
@@ -268,7 +271,7 @@ public class Region {
         /*
          * endpoint format: nosql.{regionID}.oci.{realmDomain}
          */
-        return endpointForService("nosql");
+        return endpointForService("nosql", svcEndpointFormat);
     }
 
     /**
@@ -276,12 +279,21 @@ public class Region {
      * Returns the Endpoint for this region for the named service.
      * @return Service Endpoint
      */
-    public String endpointForService(String service) {
+    public String endpointForService(String service, String format) {
         /*
-         * endpoint format: {service}.{regionID}.oci.{realmDomain}
+         * endpoint format: {service}.{regionID}[.oci].{realmDomain}
          */
-        return String.format(endpointFormat, service, regionId,
+        return String.format(format, service, regionId,
                              realm.getSecondLevelDomain());
+    }
+
+    /**
+     * hidden
+     * Returns the format for the auth endpoint
+     * @returns the format
+     */
+    public static String getAuthEndpointFormat() {
+        return authEndpointFormat;
     }
 
     /**
