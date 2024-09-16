@@ -192,24 +192,12 @@
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
       <version>${bouncy.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
       <version>${bouncy.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- test -->
@@ -220,16 +208,6 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- IAM unit tests only - Bouncycastle has changed
-         the packaging since 1.69, classes needed by test
-         has been moved to bcutil-jdk18on.
-    -->
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcutil-jdk18on</artifactId>
-      <version>${bouncy.version}</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
