@@ -89,12 +89,11 @@ public class PrepareRequestSerializer extends BinaryProtocol
         PrepareResult result = new PrepareResult();
         deserializeConsumedCapacity(in, result);
 
-        PreparedStatement prepStmt =
-            deserializeInternal(prepRq.getStatement(),
-                                prepRq.getQueryPlan(),
-                                result,
-                                in,
-                                serialVersion);
+        deserializeInternal(prepRq.getStatement(),
+                            prepRq.getQueryPlan(),
+                            result,
+                            in,
+                            serialVersion);
         return result;
     }
 

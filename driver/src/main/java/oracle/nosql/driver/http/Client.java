@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.http;
 
+import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.headersFactory;
+import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.trailersFactory;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -655,9 +657,11 @@ public class Client {
                 }
 
                 final FullHttpRequest request =
-                    new DefaultFullHttpRequest(HTTP_1_1, POST, kvRequestURI,
-                                               buffer,
-                                               false /* Don't validate hdrs */);
+                    new DefaultFullHttpRequest(
+                        HTTP_1_1, POST, kvRequestURI,
+                        buffer,
+                        headersFactory().withValidation(false),
+                        trailersFactory().withValidation(false));
                 HttpHeaders headers = request.headers();
                 addCommonHeaders(headers);
                 int contentLength = buffer.readableBytes();
