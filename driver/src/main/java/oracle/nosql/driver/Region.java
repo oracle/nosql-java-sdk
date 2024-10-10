@@ -290,7 +290,7 @@ public class Region {
     /**
      * hidden
      * Returns the format for the auth endpoint
-     * @returns the format
+     * @return the format
      */
     public static String getAuthEndpointFormat() {
         return authEndpointFormat;

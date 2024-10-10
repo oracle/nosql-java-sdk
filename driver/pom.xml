@@ -411,7 +411,6 @@
             <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
           </header>
           <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
-          <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
           </additionalOptions>
