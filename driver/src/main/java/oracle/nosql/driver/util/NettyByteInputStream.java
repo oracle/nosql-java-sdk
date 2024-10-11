@@ -58,7 +58,11 @@ public class NettyByteInputStream extends ByteBufInputStream
 
     @Override
     public void setOffset(int offset) {
-        buffer.readerIndex(offset);
+        try {
+            buffer.readerIndex(offset);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     @Override

@@ -75,6 +75,46 @@ public class MapWalker {
     }
 
     /**
+     * Returns the current index into the map
+     * @return the index
+     */
+    public int getCurrentIndex() {
+        return currentIndex;
+    }
+
+    /**
+     * Returns the current offset of the underlying ByteInputStream
+     *
+     * @return the offset
+     */
+    public int getStreamOffset() {
+        return bis.getOffset();
+    }
+
+    /**
+     * Resets current index and stream state, allowing a MapWalker to
+     * be reset to an earlier state. The current name will not be set
+     * correctly until a {@link MapWalker#next} operation is performed.
+     * <p>
+     * This operation can be used in conjunction with
+     * {@link MapWalker#getCurrentIndex} and {@link MapWalker#getStreamOffset}.
+     * The stream should be positioned at the <b>beginning</b> of a map
+     * entry, e.g. at the name, ready for the {@link MapWalker#next} call to be
+     * made. The caller acquires the current index and offset and can then
+     * manipulate the MapWalker as needed, after which is can call this method
+     * with the saved offset and index to reset the state. The positioning of
+     * the stream isn't enforced, but the caller must know the state so that
+     * if it continues to use the MapWalker after reset it does not fail.
+     *
+     * @param index index into the map
+     * @param streamOffset offset to use into the input stream
+     */
+    public void reset(int index, int streamOffset) {
+        currentIndex = index;
+        bis.setOffset(streamOffset);
+    }
+
+    /**
      * Returns the number of elements in the map
      * @return the number of elements
      */
@@ -122,5 +162,43 @@ public class MapWalker {
      */
     public void skip() throws IOException {
         Nson.generateEventsFromNson(null, bis, true);
+    }
+
+    /**
+     * Searches the map looking for a matching field, optionally
+     * case-sensitive or case-insensitive. If
+     * the field is found the method returns true and the stream is positioned
+     * at the field's value. If the field does not exist the method returns
+     * false and the stream is at the end of the map. In both cases it is
+     * likely that the caller will want to reset the stream in the walker using
+     * the {@link MapWalker#reset} method, using information saved before
+     * this call because this call does not preserve the current location in
+     * the stream.
+     * <p>
+     * When this call is made the stream must be positioned at the start of a
+     * field, on the field name, or it will fail with an unpredictable
+     * exception.
+     * <p>
+     * The field name is a single component and only the current map will be
+     * searched. No navigation is performed.
+     *
+     * @param fieldName the field to look for
+     * @param caseSensitive set to true for a case-sensitive search
+     * @return true if the field is found, false otherwise
+     */
+    public boolean find(String fieldName,
+                        boolean caseSensitive) throws IOException {
+        while (hasNext()) {
+            next();
+            boolean found = (caseSensitive ?
+                             fieldName.equals(currentName) :
+                             fieldName.equalsIgnoreCase(currentName));
+            if (found) {
+                return true;
+            } else {
+                skip();
+            }
+        }
+        return false;
     }
 }
