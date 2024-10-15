@@ -120,7 +120,7 @@ See the Quickstart example below for code details for using a Resource Principal
 The on-premises configuration requires a running instance of Oracle NoSQL
 Database. In addition a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
-[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/22.3/admin/proxy-and-driver.html)
+[Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/24.3/admin/proxy.html)
 for proxy configuration information.
 
 On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
