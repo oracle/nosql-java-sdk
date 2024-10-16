@@ -11,11 +11,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   provided by the environment variable, OCI_REGION_METADATA, which is necessary
   for services that do not have access to an Instance Metadata Service to
   provide local region information.
+- Cloud only: fixed a compatibility issue introduced in 5.4.15 regarding use of
+  the Bouncy Castle artifacts. This would turn up when using Instance Principal
+  authentication
 
 ### Changed
 - Put and Put if-present can return the existing row when setReturnRow is
   set to true and row already exists.
 - Delete can return the deleted row when setReturnRow is set to true.
+- Cloud only: refactored how the Region class operations to allow applications
+  to add regions dynamically via a configuration file
+  (~/.oci/regions-config.jsonc) or environment variable (OCI_REGION_METADATA)
 
 ### Added
 - Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
