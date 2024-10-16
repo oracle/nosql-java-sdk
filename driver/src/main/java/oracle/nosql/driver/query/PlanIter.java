@@ -306,6 +306,9 @@ public abstract class PlanIter {
         StringBuilder sb,
         QueryFormatter formatter);
 
+    /*
+     * Note: the serialVersion param is actually the queryVersion.
+     */
     public static PlanIter deserializeIter(
         ByteInputStream in,
         short serialVersion) throws IOException {
