@@ -178,8 +178,20 @@ public class PackedInteger {
      */
     public static int getReadSortedIntLength(byte[] buf, int off) {
 
-        /* The first byte of the buf stores the length of the value part. */
-        int b1 = buf[off] & 0xff;
+        return getReadSortedIntLength(buf[off]);
+    }
+
+    /**
+     * Returns the number of bytes that would be read by {@link
+     * #readSortedInt} based on the initial byte of the buffer.
+     *
+     * @param value the byte containing the length
+     *
+     * @return the number of bytes that would be read.
+     */
+    public static int getReadSortedIntLength(byte value) {
+
+        int b1 = value & 0xff;
         if (b1 < 0x08) {
             return 1 + 0x08 - b1;
         }

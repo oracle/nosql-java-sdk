@@ -35,24 +35,9 @@ public class SerializationUtil {
      */
     public static int readPackedInt(ByteInputStream in) throws IOException {
 
-        if (in.isDirect()) {
-            return readPackedIntDirect(in);
-        }
-        in.ensureCapacity(1);
-        final int offset = in.getOffset();
-        final byte[] array = in.array();
-        final int len = PackedInteger.getReadSortedIntLength(array, offset);
-        /* move the offset past the integer; this also ensures length */
-        in.skip(len);
-        return PackedInteger.readSortedInt(array, offset);
-    }
-
-    private static int readPackedIntDirect(ByteInputStream in)
-        throws IOException {
-
         final byte[] bytes = new byte[PackedInteger.MAX_LENGTH];
         in.readFully(bytes, 0, 1);
-        final int len = PackedInteger.getReadSortedIntLength(bytes, 0);
+        final int len = PackedInteger.getReadSortedIntLength(bytes[0]);
         try {
             in.readFully(bytes, 1, len - 1);
         } catch (IndexOutOfBoundsException e) {
@@ -71,23 +56,8 @@ public class SerializationUtil {
     public static int skipPackedInt(ByteInputStream in)
         throws IOException {
 
-        if (in.isDirect()) {
-            return skipPackedIntDirect(in);
-        }
-        in.ensureCapacity(1);
-        final int offset = in.getOffset();
-        final byte[] array = in.array();
-        final int len = PackedInteger.getReadSortedIntLength(array, offset);
-        /* move the offset past the integer; this also ensures length */
-        in.skip(len);
-        return len;
-    }
-
-    private static int skipPackedIntDirect(ByteInputStream in)
-        throws IOException {
-
         byte b = in.readByte();
-        int len = PackedInteger.getReadSortedIntLength(new byte[]{b}, 0);
+        int len = PackedInteger.getReadSortedIntLength(b);
         if (len > 1) {
             in.skip(len - 1);
         }
@@ -105,20 +75,6 @@ public class SerializationUtil {
     public static int writePackedInt(ByteOutputStream out, int value)
             throws IOException {
 
-        if (out.isDirect()) {
-            return writePackedIntDirect(out, value);
-        }
-        final int len = PackedInteger.getWriteSortedIntLength(value);
-        out.ensureCapacity(len);
-        final int offset = out.getOffset();
-        final byte[] array = out.array();
-        out.skip(len);
-        return PackedInteger.writeSortedInt(array, offset, value);
-    }
-
-    public static int writePackedIntDirect(ByteOutputStream out, int value)
-            throws IOException {
-
         final byte[] buf = new byte[PackedInteger.MAX_LENGTH];
         final int offset = PackedInteger.writeSortedInt(buf, 0, value);
         out.write(buf, 0, offset);
@@ -134,25 +90,10 @@ public class SerializationUtil {
      */
     public static long readPackedLong(ByteInputStream in) throws IOException {
 
-        if (in.isDirect()) {
-            return readPackedLongDirect(in);
-        }
-
-        in.ensureCapacity(1);
-        final int offset = in.getOffset();
-        final byte[] array = in.array();
-        final int len = PackedInteger.getReadSortedLongLength(array, offset);
-        /* move the offset past the integer; this also ensures length */
-        in.skip(len);
-        return PackedInteger.readSortedLong(array, offset);
-    }
-
-    public static long readPackedLongDirect(ByteInputStream in)
-        throws IOException {
-
         final byte[] bytes = new byte[PackedInteger.MAX_LONG_LENGTH];
         in.readFully(bytes, 0, 1);
-        final int len = PackedInteger.getReadSortedLongLength(bytes, 0);
+        /* long and int store length the same way */
+        final int len = PackedInteger.getReadSortedIntLength(bytes[0]);
         try {
             in.readFully(bytes, 1, len - 1);
         } catch (IndexOutOfBoundsException e) {
@@ -182,21 +123,6 @@ public class SerializationUtil {
      * @throws IOException if an I/O error occurs
      */
     public static int writePackedLong(ByteOutputStream out, long value)
-            throws IOException {
-
-        if (out.isDirect()) {
-            return writePackedLongDirect(out, value);
-        }
-
-        final int len = PackedInteger.getWriteSortedLongLength(value);
-        out.ensureCapacity(len);
-        final int offset = out.getOffset();
-        final byte[] array = out.array();
-        out.skip(len);
-        return PackedInteger.writeSortedLong(array, offset, value);
-    }
-
-    public static int writePackedLongDirect(ByteOutputStream out, long value)
             throws IOException {
 
         final byte[] buf = new byte[PackedInteger.MAX_LONG_LENGTH];
@@ -285,18 +211,10 @@ public class SerializationUtil {
             return EMPTY_STRING;
         }
 
-        if (in.isDirect()) {
-            final byte[] bytes = new byte[length];
-            in.readFully(bytes);
-            return StandardCharsets.UTF_8.decode(
-                ByteBuffer.wrap(bytes)).toString();
-        } else {
-            final byte[] bytes = in.array();
-            int offset = in.getOffset();
-            in.skip(length);
-            return StandardCharsets.UTF_8.decode(
-                ByteBuffer.wrap(bytes, offset, length)).toString();
-        }
+        final byte[] bytes = new byte[length];
+        in.readFully(bytes);
+        return StandardCharsets.UTF_8.decode(
+            ByteBuffer.wrap(bytes)).toString();
     }
 
     /**
