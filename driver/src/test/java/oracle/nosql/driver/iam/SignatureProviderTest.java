@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -107,7 +107,8 @@ public class SignatureProviderTest extends DriverTestBase {
                     try {
                         startFlag.await();
                         assertNotNull(
-                            provider.getSignatureDetailsInternal(false));
+                            provider.getSignatureDetailsInternal(
+                                    false, null, null, null /* content */));
                     } catch (InterruptedException e) {
                     }
                 }

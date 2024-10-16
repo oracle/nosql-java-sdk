@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -15,6 +15,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 
+/**
+ * A ByteInputStream based on Netty's ByteBufInputStream
+ */
 public class NettyByteInputStream extends ByteBufInputStream
     implements ByteInputStream {
 
@@ -55,7 +58,11 @@ public class NettyByteInputStream extends ByteBufInputStream
 
     @Override
     public void setOffset(int offset) {
-        buffer.readerIndex(offset);
+        try {
+            buffer.readerIndex(offset);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     @Override

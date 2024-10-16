@@ -1,11 +1,13 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
  */
 
 package oracle.nosql.driver.ops;
+
+import oracle.nosql.driver.query.TopologyInfo;
 
 /**
  * Result is a base class for result classes for all supported operations.
@@ -19,6 +21,13 @@ public class Result {
     private int readKB;
     private int readUnits;
     private int writeKB;
+
+    /*
+     * if available, the serial version of the proxy, otherwise 0. This
+     * allows the SDK to conditionalize code and tests based on new features
+     * and semantics
+     */
+    private int serialVersion;
 
     /*
      * Cloud Only
@@ -36,6 +45,7 @@ public class Result {
      */
     private RetryStats retryStats;
 
+    private TopologyInfo topology;
 
     protected Result() {}
 
@@ -145,4 +155,38 @@ public class Result {
         retryStats = rs;
     }
 
+    /**
+     * @hidden
+     * @return the current topology info
+     */
+    public TopologyInfo getTopology() {
+        return topology;
+    }
+
+    /**
+     * @hidden
+     * @param ti the current topology info
+     */
+    public void setTopology(TopologyInfo ti) {
+        topology = ti;
+    }
+
+    /**
+     * @hidden
+     * Returns the server protocol serial version or 0 if not available.
+     * This is a new feature not supported in older servers.
+     *
+     * @return the serial version of the server
+     */
+    public int getServerSerialVersion() {
+        return serialVersion;
+    }
+
+    /**
+     * @hidden
+     * @param version the server's serial version
+     */
+    public void setServerSerialVersion(int version) {
+        serialVersion = version;
+    }
 }

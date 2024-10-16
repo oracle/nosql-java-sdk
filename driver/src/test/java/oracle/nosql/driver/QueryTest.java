@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -1140,10 +1140,10 @@ public class QueryTest extends ProxyTestBase {
         verbose("Finished: total=" + total + ", pass=" + passed +
                 ", timeouts=" + timeouts + ", exceptions=" + exceptions +
                 ", nullResults=" + nullResults);
-        assertTrue("Unexpected number of exceptions. Expected zero, got " +
-                   exceptions, exceptions == 0);
-        assertTrue("Unexpected number of null results. Expected zero, got " +
-                   nullResults, nullResults == 0);
+        assertEquals("Unexpected number of exceptions. Expected zero, got " +
+                exceptions, 0, exceptions);
+        assertEquals("Unexpected number of null results. Expected zero, got " +
+                nullResults, 0, nullResults);
         assertTrue("Expected last request to pass, but it failed", lastPassed);
     }
 
@@ -2338,8 +2338,8 @@ public class QueryTest extends ProxyTestBase {
             }
             while (!queryReq.isDone());
 
-            assertTrue("Wrong number of rows returned, expect " + expNumRows +
-                ", but get " + numRows, numRows == expNumRows);
+            assertEquals("Wrong number of rows returned, expect " + expNumRows +
+                    ", but get " + numRows, numRows, expNumRows);
         }
     }
 
@@ -2396,7 +2396,8 @@ public class QueryTest extends ProxyTestBase {
         return MIN_QUERY_COST;
     }
 
-    private QueryRequest newQueryRequest() {
+    @SuppressWarnings("resource")
+	private QueryRequest newQueryRequest() {
         return new QueryRequest().setTraceLevel(traceLevel);
     }
 }

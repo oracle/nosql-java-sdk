@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
@@ -29,27 +30,60 @@ import oracle.nosql.driver.util.ByteOutputStream;
  */
 public class PrepareRequestSerializer extends BinaryProtocol
                                       implements Serializer {
-
     @Override
     public void serialize(Request request,
                           short serialVersion,
                           ByteOutputStream out)
         throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in prepare request serializer");
+    }
+
+    @Override
+    public void serialize(Request request,
+                          short serialVersion,
+                          short queryVersion,
+                          ByteOutputStream out)
+        throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         PrepareRequest prepRq = (PrepareRequest) request;
 
         writeOpCode(out, OpCode.PREPARE);
         serializeRequest(prepRq, out);
         writeString(out, prepRq.getStatement());
-        out.writeShort(QueryDriver.QUERY_VERSION);
+        out.writeShort(queryVersion);
         out.writeBoolean(prepRq.getQueryPlan());
     }
 
     @Override
-    public PrepareResult deserialize(Request request,
-                                     ByteInputStream in,
-                                     short serialVersion)
-        throws IOException {
+    public PrepareResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion) throws IOException {
+            throw new IllegalArgumentException("Missing query version " +
+                      "in prepare request deserializer");
+    }
+
+    @Override
+    public PrepareResult deserialize(
+         Request request,
+         ByteInputStream in,
+         short serialVersion,
+         short queryVersion) throws IOException {
+
+        /* QUERY_V4 and above not supported by V3 protocol */
+        if (queryVersion >= QueryDriver.QUERY_V4) {
+            throw new UnsupportedQueryVersionException(
+                "Query version " + queryVersion +
+                " not supported by V3 protocol");
+        }
 
         PrepareRequest prepRq = (PrepareRequest) request;
         PrepareResult result = new PrepareResult();
@@ -58,16 +92,16 @@ public class PrepareRequestSerializer extends BinaryProtocol
         PreparedStatement prepStmt =
             deserializeInternal(prepRq.getStatement(),
                                 prepRq.getQueryPlan(),
+                                result,
                                 in,
                                 serialVersion);
-
-        result.setPreparedStatement(prepStmt);
         return result;
     }
 
     static PreparedStatement deserializeInternal(
         String sqlText,
         boolean getQueryPlan,
+        PrepareResult result,
         ByteInputStream in,
         short serialVersion)  throws IOException {
 
@@ -123,17 +157,22 @@ public class PrepareRequestSerializer extends BinaryProtocol
             ti = BinaryProtocol.readTopologyInfo(in);
         }
 
-        return new PreparedStatement(sqlText,
-                                     queryPlan,
-                                     null, // query schema
-                                     ti,
-                                     proxyStatement,
-                                     driverPlan,
-                                     numIterators,
-                                     numRegisters,
-                                     externalVars,
-                                     namespace,
-                                     tableName,
-                                     operation);
+        PreparedStatement prep =
+            new PreparedStatement(sqlText,
+                                  queryPlan,
+                                  null, // query schema
+                                  proxyStatement,
+                                  driverPlan,
+                                  numIterators,
+                                  numRegisters,
+                                  externalVars,
+                                  namespace,
+                                  tableName,
+                                  operation);
+
+        result.setPreparedStatement(prep);
+        result.setTopology(ti);
+
+        return prep;
     }
 }

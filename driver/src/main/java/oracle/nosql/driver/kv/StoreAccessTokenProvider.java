@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -222,7 +222,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     public synchronized void bootstrapLogin() {
 
-        if (!isSecure || isClosed) {
+        /* re-check the authString in case of a race */
+        if (!isSecure || isClosed || authString.get() != null) {
             return;
         }
 
@@ -375,10 +376,21 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Returns the endpoint of the authenticating entity
+     * @return the endpoint
+     */
     public String getEndpoint() {
         return endpoint;
     }
 
+    /**
+     * Sets the endpoint of the authenticating entity
+     * @param endpoint the endpoint
+     * @return this
+     * @throws IllegalArgumentException if the endpoint is not correctly
+     * formatted
+     */
     public StoreAccessTokenProvider setEndpoint(String endpoint) {
         this.endpoint = endpoint;
         URL url = NoSQLHandleConfig.createURL(endpoint, "");
@@ -391,13 +403,23 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return this;
     }
 
+    /**
+     * Sets the SSL context
+     * @param sslCtx the context
+     * @return this
+     */
     public StoreAccessTokenProvider setSslContext(SslContext sslCtx) {
         this.sslContext = sslCtx;
         return this;
     }
 
-    public StoreAccessTokenProvider setSslHandshakeTimeout(int timeout) {
-        this.sslHandshakeTimeoutMs = timeout;
+    /**
+     * Sets the SSL handshake timeout in milliseconds
+     * @param timeoutMs the timeout in milliseconds
+     * @return this
+     */
+    public StoreAccessTokenProvider setSslHandshakeTimeout(int timeoutMs) {
+        this.sslHandshakeTimeoutMs = timeoutMs;
         return this;
     }
 

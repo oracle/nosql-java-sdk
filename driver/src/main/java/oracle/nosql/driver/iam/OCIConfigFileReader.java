@@ -1,13 +1,11 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
  */
 
 package oracle.nosql.driver.iam;
-
-import static oracle.nosql.driver.iam.OCIConfigFileProvider.DEFAULT_PROFILE_NAME;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,6 +17,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+
+import oracle.nosql.driver.Region;
 
 /**
  * Cloud service only.
@@ -42,6 +42,25 @@ import java.util.Map;
  * </pre>
  */
 public class OCIConfigFileReader {
+    /**
+     * Default configuration file at <code>~/.oci/config</code>
+     */
+    public static final String DEFAULT_FILE_PATH =
+        System.getProperty("user.home") + File.separator +
+            ".oci" + File.separator + "config";
+    /**
+     * Default profile in config file
+     */
+    public static final String DEFAULT_PROFILE_NAME = "DEFAULT";
+
+    static final String FINGERPRINT_PROP = "fingerprint";
+    static final String TENANCY_PROP = "tenancy";
+    static final String USER_PROP = "user";
+    static final String KEY_FILE_PROP = "key_file";
+    static final String PASSPHRASE_PROP = "pass_phrase";
+    static final String REGION_PROP = "region";
+    static final String SESSION_TOKEN_FILE_PROP = "security_token_file";
+    static final String OCI_REGION_ENV_VAR_NAME = "OCI_REGION";
 
     /**
      * Create a new instance using a file at a given location.
@@ -123,6 +142,29 @@ public class OCIConfigFileReader {
         }
 
         return new OCIConfigFile(accumulator, profile);
+    }
+
+    static String missing(String propertyName) {
+        return "Required property " + propertyName +
+            " is missing from OCI configuration file." +
+            " For more information about OCI configuration file and" +
+            " how to get required information," +
+            " see https://docs.oracle.com" +
+            "/en-us/iaas/Content/API/Concepts/sdkconfig.htm";
+    }
+
+    static Region getRegionFromConfigFile(OCIConfigFile configFile) {
+        Region region = null;
+        String regionId = configFile.get(REGION_PROP);
+        if (regionId == null || regionId.isEmpty()) {
+            /* Attempts to read region id from env variable */
+            regionId = System.getenv(OCI_REGION_ENV_VAR_NAME);
+        }
+
+        if (regionId != null && !regionId.isEmpty()) {
+            return Region.fromRegionId(regionId);
+        }
+        return region;
     }
 
     private OCIConfigFileReader() {}

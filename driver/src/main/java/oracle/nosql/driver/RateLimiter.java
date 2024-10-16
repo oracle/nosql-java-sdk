@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -120,7 +120,7 @@ public interface RateLimiter {
 
     /**
      * Consumes a number of units, blocking until the units are available.
-     * <p>
+     *
      * @param units the number of units to consume. This can be a negative
      *        value to "give back" units.
      * @return the amount of time blocked in milliseconds. If not blocked,

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,7 +9,7 @@ package oracle.nosql.driver.iam;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static oracle.nosql.driver.iam.OCIConfigFileProvider.*;
+import static oracle.nosql.driver.iam.OCIConfigFileReader.*;
 
 import java.io.File;
 import java.io.PrintWriter;

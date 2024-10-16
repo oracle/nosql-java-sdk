@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -16,9 +16,6 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -72,7 +69,7 @@ class FederationRequestHelper {
                     response.getOutput()));
         }
         logTrace(logger, "Federation response " + response.getOutput());
-        return parseResponse(response.getOutput());
+        return parseTokenResponse(response.getOutput());
     }
 
     /*
@@ -127,7 +124,7 @@ class FederationRequestHelper {
                                        Logger logger) {
 
         String date = createFormatter().format(new Date());
-        String bodySha = calculateBodySHA256(body);
+        String bodySha = computeBodySHA256(body);
         StringBuilder sign = new StringBuilder();
         sign.append(DATE).append(HEADER_DELIMITER)
             .append(date).append("\n")
@@ -170,42 +167,5 @@ class FederationRequestHelper {
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {
         return String.format("%s/fed-x509-sha256/%s",
                              tenantId, Utils.getFingerPrint(pair));
-    }
-
-    private static String calculateBodySHA256(byte[] body) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(body);
-            byte[] hash = digest.digest();
-            return new String(Base64.getEncoder().encodeToString(hash));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algorithm SHA-256 unavailable", e);
-        }
-    }
-
-    /*
-     * Response:
-     * { "token": "...."}
-     */
-    private static String parseResponse(String response) {
-        try {
-            JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
-                parser.nextToken();
-            }
-            while (parser.getCurrentToken() != null) {
-                String field = findField(response, parser, "token");
-                if (field != null) {
-                    parser.nextToken();
-                    return parser.getText();
-                }
-            }
-            throw new IllegalStateException(
-                "Unable to find security token in " + response);
-        } catch (IOException ioe) {
-            throw new IllegalStateException(
-                "Error parsing security token " + response +
-                " " + ioe.getMessage());
-        }
     }
 }

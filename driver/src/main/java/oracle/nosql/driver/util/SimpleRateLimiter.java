@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,7 +9,6 @@ package oracle.nosql.driver.util;
 
 import oracle.nosql.driver.RateLimiter;
 
-import java.lang.IllegalArgumentException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 
@@ -181,7 +180,7 @@ public class SimpleRateLimiter implements RateLimiter {
         if (timeoutMs > 0 && msToSleep >= timeoutMs) {
             uninterruptibleSleep(timeoutMs);
             throw new TimeoutException("timed out waiting " + timeoutMs +
-                "ms for " + units + " units in rate limiter");
+                                       "ms due to rate limiting");
         }
 
         /* sleep for the requested time. */

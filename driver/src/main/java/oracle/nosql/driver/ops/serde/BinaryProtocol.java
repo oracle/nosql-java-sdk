@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -24,6 +24,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
+import static oracle.nosql.driver.util.BinaryProtocol.ETAG_MISMATCH;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
 import static oracle.nosql.driver.util.BinaryProtocol.EVOLUTION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_ARGUMENT;
@@ -53,12 +54,14 @@ import static oracle.nosql.driver.util.BinaryProtocol.TABLE_DEPLOYMENT_LIMIT_EXC
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_EXISTS;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
+import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_READY;
 import static oracle.nosql.driver.util.BinaryProtocol.TENANT_DEPLOYMENT_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_DAYS;
 import static oracle.nosql.driver.util.BinaryProtocol.TTL_HOURS;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
 import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
+import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_QUERY_VERSION;
 import static oracle.nosql.driver.util.BinaryProtocol.UPDATING;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
@@ -93,10 +96,12 @@ import oracle.nosql.driver.SystemException;
 import oracle.nosql.driver.TableExistsException;
 import oracle.nosql.driver.TableLimitException;
 import oracle.nosql.driver.TableNotFoundException;
+import oracle.nosql.driver.TableNotReadyException;
 import oracle.nosql.driver.TableSizeException;
 import oracle.nosql.driver.TimeToLive;
 import oracle.nosql.driver.UnauthorizedException;
 import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.kv.AuthenticationException;
@@ -273,8 +278,8 @@ public class BinaryProtocol extends Nson {
     /*
      * Writes fields from Request
      */
-    static void serializeRequest(Request rq,
-                                 ByteOutputStream out)
+    protected static void serializeRequest(Request rq,
+                                           ByteOutputStream out)
         throws IOException {
 
         writeTimeout(out, rq.getTimeoutInternal());
@@ -455,10 +460,16 @@ public class BinaryProtocol extends Nson {
             if (msg.contains("Invalid driver serial version")) {
                 return new UnsupportedProtocolException(msg);
             }
+            if (msg.contains("Invalid query version")) {
+                return new UnsupportedQueryVersionException(msg);
+            }
             return new IllegalArgumentException("Bad protocol message: " + msg);
         case UNSUPPORTED_PROTOCOL:
             /* note this is specifically for protocol version mismatches */
             return new UnsupportedProtocolException(msg);
+        case UNSUPPORTED_QUERY_VERSION:
+            /* note this is specifically for query version mismatches */
+            return new UnsupportedQueryVersionException(msg);
         case REQUEST_TIMEOUT:
             return new RequestTimeoutException(msg);
         case INVALID_AUTHORIZATION:
@@ -477,6 +488,10 @@ public class BinaryProtocol extends Nson {
             return new ResourceNotFoundException(msg);
         case OPERATION_NOT_SUPPORTED:
             return new OperationNotSupportedException(msg);
+        case TABLE_NOT_READY:
+            return new TableNotReadyException(msg);
+        case ETAG_MISMATCH:
+            return new IllegalArgumentException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);

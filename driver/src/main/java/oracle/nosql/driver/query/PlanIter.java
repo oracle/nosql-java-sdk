@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -114,11 +114,13 @@ public abstract class PlanIter {
 
         ARITH_OP(8),
 
+        FN_SIZE(15),
         FN_SUM(39),
         FN_MIN_MAX(41),
 
         GROUP(65),
-        SORT2(66);
+        SORT2(66),
+        FN_COLLECT(78);
 
         private static final PlanIterKind[] VALUES = values();
 
@@ -134,7 +136,7 @@ public abstract class PlanIter {
                     return kind;
                 }
             }
-            System.out.println("Unexpected iterator kind: " + kvcode);
+            //System.out.println("Unexpected iterator kind: " + kvcode);
             return null;
         }
     }
@@ -157,7 +159,9 @@ public abstract class PlanIter {
         FN_COUNT_NUMBERS(44),
         FN_SUM(45),
         FN_MIN(47),
-        FN_MAX(48);
+        FN_MAX(48),
+        FN_ARRAY_COLLECT(91),
+        FN_ARRAY_COLLECT_DISTINCT(92);
 
         private static final FuncCode[] VALUES = values();
 
@@ -173,7 +177,8 @@ public abstract class PlanIter {
                     return code;
                 }
             }
-            return null;
+
+            throw new QueryStateException("Unknown function kind: " + kvcode);
         }
 
     }
@@ -314,9 +319,7 @@ public abstract class PlanIter {
         PlanIterKind kind = PlanIterKind.valueOf(ord);
 
         if (theTraceDeser) {
-        /* TODO: think about logging
             System.out.println("Deserializing " + kind + " iter");
-        */
         }
 
         PlanIter iter = null;
@@ -350,11 +353,17 @@ public abstract class PlanIter {
         case ARITH_OP:
             iter = new ArithOpIter(in, serialVersion);
             break;
+        case FN_SIZE:
+            iter = new FuncSizeIter(in, serialVersion);
+            break;
         case FN_SUM:
             iter = new FuncSumIter(in, serialVersion);
             break;
         case FN_MIN_MAX:
             iter = new FuncMinMaxIter(in, serialVersion);
+            break;
+        case FN_COLLECT:
+            iter = new FuncCollectIter(in, serialVersion);
             break;
         default:
             throw new QueryStateException(
@@ -459,6 +468,29 @@ public abstract class PlanIter {
         }
 
         sb.append("]");
+
+        return sb.toString();
+    }
+
+    public static String printIntArray(int[] ints) {
+
+        if (ints == null) {
+            return "null";
+        }
+
+        StringBuffer sb = new StringBuffer();
+
+        sb.append("[ ");
+
+        for (int i =0; i < ints.length; ++i) {
+            int v = ints[i];
+            sb.append(v);
+            if (i < ints.length - 1) {
+                sb.append(", ");
+            }
+        }
+
+        sb.append(" ]");
 
         return sb.toString();
     }

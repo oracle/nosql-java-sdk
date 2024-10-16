@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -93,7 +93,7 @@ abstract class ResourcePrincipalTokenSupplier {
 
             logTrace(logger, "Getting security token from file.");
             SecurityToken token = getSecurityTokenFromFile();
-            token.validate(minTokenLifetime);
+            token.validate(minTokenLifetime, logger);
             securityToken = token;
             return securityToken.getSecurityToken();
         }
@@ -132,16 +132,19 @@ abstract class ResourcePrincipalTokenSupplier {
         extends ResourcePrincipalTokenSupplier {
 
         private final SecurityToken securityToken;
+        private final Logger logger;
 
         FixedSecurityTokenSupplier(SessionKeyPairSupplier sessionKeySupplier,
-                                   String sessionToken) {
+                                   String sessionToken,
+                                   Logger logger) {
             this.securityToken = new SecurityToken(sessionToken,
                                                    sessionKeySupplier);
+            this.logger = logger;
         }
 
         @Override
         public String getSecurityToken() {
-            securityToken.validate(minTokenLifetime);
+            securityToken.validate(minTokenLifetime, logger);
             return securityToken.getSecurityToken();
         }
 

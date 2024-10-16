@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -51,6 +51,17 @@ public class HttpConstants {
      * onprem use only.
      */
     public static final String REQUEST_NAMESPACE_HEADER = "x-nosql-default-ns";
+
+    /**
+     * A header that indicates the serial version of the protocol used by the
+     * server (proxy).
+     */
+    public static final String SERVER_SERIAL_VERSION = "x-nosql-serial-version";
+
+    /**
+     * A header that indicates the version of the proxy and kv used.
+     */
+    public static final String SERVER_VERSION = "x-nosql-version";
 
     /**
      * Headers possibly set by the load balancer service to indicate original

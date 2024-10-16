@@ -2,3 +2,4 @@ target
 *.versionsBackup
 *.diff
 Fortify*
+logging.properties

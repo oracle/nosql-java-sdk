@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -209,7 +209,7 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
-         * Returns the previous row value associated with the key if available.
+         * Returns the existing row value associated with the key if available.
          * @return the existing value if set
          */
         public MapValue getExistingValue() {
@@ -217,7 +217,7 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
-         * Returns the previous modification time associated with the key if
+         * Returns the existing modification time associated with the key if
          * available.
          * @return the modification time if set, in milliseconds sine Jan 1,
          * 1970

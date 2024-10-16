@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -17,6 +17,7 @@ import static org.junit.Assert.fail;
 import java.util.HashSet;
 import java.util.List;
 
+import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -532,6 +533,207 @@ public class OnPremiseTest extends ProxyTestBase {
             new ListTablesRequest().setNamespace("myns");
         ListTablesResult lres = handle.listTables(listTables);
         assertEquals(2, lres.getTables().length);
+    }
+
+    @Test
+    public void testDefaultNamespaces()
+        throws Exception {
+
+        /* this only works with versions of KV with default namespace support */
+        assumeKVVersion("testDefaultNamespaces", 22, 3, 32);
+
+        /*
+         * Note: tables will be dropped by a cascading drop of the namespace
+         */
+        final String parentName = "parent";
+        final String childName = "parent.child";
+        final String nsParentName = "mydns:parent";
+        final String nsChildName = "mydns:parent.child";
+        final int numParent = 30;
+        final int numChild = 40;
+
+        ((NoSQLHandleImpl)handle).setDefaultNamespace("mydns");
+
+        doSysOp(handle, "create namespace mydns");
+
+        /* parent in mydns */
+        TableRequest treq = new TableRequest().setStatement(
+            "create table parent(sid integer, id integer, name string, " +
+            "salary long, primary key(SHARD(sid), id))");
+        TableResult tres = handle.tableRequest(treq);
+        tres.waitForCompletion(handle, 100000, 1000);
+
+        /* child in mydns */
+        treq = new TableRequest().setStatement(
+            "create table parent.child(cid integer, cname string, " +
+            "primary key(cid))");
+        tres = handle.tableRequest(treq);
+        tres.waitForCompletion(handle, 100000, 1000);
+
+        ListTablesRequest listTables;
+        ListTablesResult lres;
+
+        /* test ListTables with no namespace: should return all */
+        listTables = new ListTablesRequest();
+        lres = handle.listTables(listTables);
+        /* 23.3.19 upwards should return just the tables in the def namespace */
+        if (checkKVVersion(23, 3, 18)) {
+            assertTrue(lres.getTables().length == 2);
+        } else {
+            assertTrue(lres.getTables().length > 2);
+        }
+
+        /* test ListTables with explicit namespace */
+        listTables = new ListTablesRequest().setNamespace("mydns");
+        lres = handle.listTables(listTables);
+        assertEquals(2, lres.getTables().length);
+
+        /* test ListTables with explicit invalid */
+        listTables = new ListTablesRequest().setNamespace("invalid");
+        lres = handle.listTables(listTables);
+        assertEquals(0, lres.getTables().length);
+
+        /* put data in both tables */
+        PutRequest preq = new PutRequest();
+        MapValue value = new MapValue();
+        for (int i = 0; i < numParent; i++) {
+            value.put("name", "pname");
+            value.put("id", i);
+            value.put("sid", i);
+            value.put("salary", i*1000);
+            preq.setTableName(parentName).setValue(value);
+            PutResult pres = handle.put(preq);
+            assertNotNull("Parent put failed", pres.getVersion());
+            for (int j = 0; j < numChild; j++) {
+                value.put("cid", j);
+                value.put("cname", "cname" + j);
+                preq.setTableName(childName).setValue(value);
+                pres = handle.put(preq);
+                assertNotNull("Child put failed", pres.getVersion());
+                assertNoUnits(pres);
+            }
+        }
+
+        /* get parent */
+        GetRequest getReq = new GetRequest().setTableName(parentName)
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        GetResult getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+
+        /* get child */
+        getReq = new GetRequest().setTableName(childName)
+            .setKey(new MapValue().put("id", 1).put("sid", 1).put("cid", 1));
+        getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+        assertNoUnits(getRes);
+
+        try {
+            /* query parent */
+            String query = "select * from " + parentName;
+            List<MapValue> res = doQuery(handle, query);
+            assertEquals(numParent, res.size());
+
+            /* query child */
+            query = "select * from " + childName;
+            res = doQuery(handle, query);
+            assertEquals(numParent * numChild, res.size());
+
+            /* prepared query on child */
+            res = doPreparedQuery(handle, query);
+            assertEquals(numParent * numChild, res.size());
+
+            /* query parent with explicit namespace */
+            query = "select * from " + nsParentName;
+            res = doQuery(handle, query);
+            assertEquals(numParent, res.size());
+
+            /* query child with explicit namespace */
+            query = "select * from " + nsChildName;
+            res = doQuery(handle, query);
+            assertEquals(numParent * numChild, res.size());
+
+        } catch (RequestTimeoutException rte) {
+            if (checkKVVersion(20, 1, 1) ||
+                !(rte.getCause() instanceof SystemException)) {
+                throw rte;
+            }
+            /* ignore this exception for 19 for now; known bug */
+        }
+
+        /* Verify per-request namespaces */
+        ((NoSQLHandleImpl)handle).setDefaultNamespace(null);
+
+        /* this should fail */
+        getReq = new GetRequest().setTableName(parentName)
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        try {
+            getRes = handle.get(getReq);
+            fail("Get should have failed");
+        } catch (TableNotFoundException e) {
+            // expected
+        }
+
+        /* This should pass */
+        getReq = new GetRequest().setTableName(parentName)
+            .setNamespace("mydns")
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+
+        /* This should pass */
+        ((NoSQLHandleImpl)handle).setDefaultNamespace("invalid");
+        getReq = new GetRequest().setTableName(parentName)
+            .setNamespace("mydns")
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+
+
+        /* test complex query (exercises internal request copying) */
+        String query = "select sid, count(*) as cnt, sum(salary) as sum " +
+                "from " + parentName + " group by sid";
+        /* this should pass */
+        List<MapValue> res = doQuery(handle, query, "mydns");
+        assertEquals(numParent, res.size());
+
+        /* this should fail */
+        try {
+            res = doQuery(handle, query, "invalid");
+            fail("query should have failed");
+        } catch (TableNotFoundException e) {
+            // expected
+        }
+
+
+        /* verify table name overrides request namespace */
+
+        /* this should fail */
+        getReq = new GetRequest().setTableName(parentName)
+            .setNamespace("invalid")
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        try {
+            getRes = handle.get(getReq);
+            fail("Get should have failed");
+        } catch (TableNotFoundException e) {
+            // expected
+        }
+
+        /* This should pass */
+        getReq = new GetRequest().setTableName(nsParentName)
+            .setNamespace("invalid")
+            .setKey(new MapValue().put("id", 1).put("sid", 1));
+        getRes = handle.get(getReq);
+        assertNotNull(getRes.getValue());
+
+        /* drop table with namespace in request */
+        treq = new TableRequest()
+            .setStatement("drop table parent.child")
+            .setNamespace("mydns");
+        tres = handle.tableRequest(treq);
+        tres.waitForCompletion(handle, 100000, 1000);
+
+        /* drop namespace - use cascade to remove tables */
+        doSysOp(handle, "drop namespace mydns cascade");
     }
 
     /**

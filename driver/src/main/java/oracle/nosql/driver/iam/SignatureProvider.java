@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -12,6 +12,7 @@ import static oracle.nosql.driver.iam.Utils.RSA;
 import static oracle.nosql.driver.iam.Utils.SIGNATURE_HEADER_FORMAT;
 import static oracle.nosql.driver.iam.Utils.SINGATURE_VERSION;
 import static oracle.nosql.driver.iam.Utils.createFormatter;
+import static oracle.nosql.driver.iam.Utils.computeBodySHA256;
 import static oracle.nosql.driver.iam.Utils.sign;
 import static oracle.nosql.driver.util.HttpConstants.*;
 
@@ -118,6 +119,13 @@ public class SignatureProvider
     private static final String SIGNING_HEADERS = "(request-target) host date";
     private static final String SIGNING_HEADERS_WITH_OBO =
         "(request-target) host date opc-obo-token";
+
+    private static final String SIGNING_HEADERS_WITH_CONTENT =
+        "(request-target) host date " +
+        "content-length content-type x-content-sha256";
+    private static final String SIGNING_HEADERS_WITH_CONTENT_OBO =
+        "(request-target) host date " +
+        "content-length content-type x-content-sha256 opc-obo-token";
     private static final String OBO_TOKEN_HEADER = "opc-obo-token";
 
     /* Maximum lifetime of signature 240 seconds */
@@ -647,21 +655,183 @@ public class SignatureProvider
         return provider;
     }
 
-    /*
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the default profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithSessionToken() {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider());
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the default location, the value of field
+     * <code>security_token_file</code>. The configuration file used is
+     * <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithSessionToken(String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(profile));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider using a temporary session token read from
+     * a token file. The path of token file is read from the specified profile
+     * in configuration file at the specified location, the value of field
+     * <code>security_token_file</code>. The configuration file
+     * used is <code>~/.oci/config</code>. See
+     * <a href="https://docs.cloud.oracle.com/iaas/Content/API/Concepts/sdkconfig.htm">SDK Configuration File</a>
+     * for details of the file's contents and format.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_authentication_methods.htm#sdk_authentication_methods_session_token">Session Token-Based Authentication</a>
+     * for more details of session-token-based authentication.
+     * <p>
+     * You can use the OCI CLI to authenticate and create a token, see
+     * <a href="https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/clitoken.htm">Token-based Authentication for the CLI</a>.
+     * <p>
+     * When using this constructor the user has a default compartment for
+     * all tables. It is the root compartment of the user's tenancy.
+     *
+     * @param configFilePath path of configuration file
+     *
+     * @param profile profile name used to load session token
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithSessionToken(String configFilePath, String profile) {
+        SignatureProvider provider = new SignatureProvider(
+            new SessionTokenProvider(configFilePath, profile));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using the Kubernetes service account token at the
+     * default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @return SignatureProvider
+     */
+    public static SignatureProvider createWithOkeWorkloadIdentity() {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(null, null, null));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using specified Kubernetes service account token string.
+     * If token string is null, the provider will use the service account token
+     * at the default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @param serviceAccountToken Kubernetes service account token string
+     * @param logger the logger used by the SignatureProvider
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithOkeWorkloadIdentity(String serviceAccountToken,
+                                      Logger logger) {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(serviceAccountToken, null, logger));
+        return provider;
+    }
+
+    /**
+     * Creates a SignatureProvider with Container Engine for Kubernetes (OKE)
+     * workload identity using Kubernetes service account token in the specified
+     * token file. If token file is null, the provider will use the service
+     * account token at the default path
+     * <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.
+     * This provider can only be used inside Kubernetes pods.
+     * <p>
+     * See <a href="https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm">Granting Workloads Access to OCI Resources</a>
+     * for more details of OKE workload identity.
+     *
+     * @param serviceAccountTokenFile Kubernetes service account token file
+     * @param logger the logger used by the SignatureProvider
+     * @return SignatureProvider
+     */
+    public static SignatureProvider
+        createWithOkeWorkloadIdentity(File serviceAccountTokenFile,
+                                      Logger logger) {
+        SignatureProvider provider = new SignatureProvider(
+            new OkeWorkloadIdentityProvider(
+                null, serviceAccountTokenFile, logger));
+        return provider;
+    }
+
+    /**
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider.
+     * This is for advanced use only; use of the create* methods is preferred.
      * The SignatureProvider that generates and caches request signature using
      * key id and private key supplied by {@link AuthenticationProfileProvider}.
+     *
+     * @param provider The provider to use
      */
-    protected SignatureProvider(AuthenticationProfileProvider provider) {
+    public SignatureProvider(AuthenticationProfileProvider provider) {
         this(provider, MAX_ENTRY_LIFE_TIME, DEFAULT_REFRESH_AHEAD);
     }
 
-    /*
+    /**
+     * Constructor for SignatureProvider given an
+     * AuthenticationProfileProvider and refresh details.
+     * This is for advanced use only; use of the create* methods is preferred.
      * The constructor that is able to set refresh time before signature
-     * expire, currently this is hidden for simplicity.
+     * expires.
+     *
+     * @param profileProvider The provider to use
+     * @param durationSeconds amount of time to keep signature before refresh
+     * @param refreshAheadMs how soon before expiry to start a new refresh
      */
-    protected SignatureProvider(AuthenticationProfileProvider profileProvider,
+    public SignatureProvider(AuthenticationProfileProvider profileProvider,
                                 int durationSeconds,
-                                int refreshAhead) {
+                                int refreshAheadMs) {
         if (profileProvider instanceof RegionProvider) {
             this.region = ((RegionProvider) profileProvider).getRegion();
         }
@@ -675,7 +845,7 @@ public class SignatureProvider
                 MAX_ENTRY_LIFE_TIME + " seconds");
         }
 
-        this.refreshAheadMs = refreshAhead;
+        this.refreshAheadMs = refreshAheadMs;
         long durationMS = durationSeconds * 1000;
         if (durationMS > refreshAheadMs) {
             this.refreshIntervalMs = durationMS - refreshAheadMs;
@@ -703,17 +873,21 @@ public class SignatureProvider
     @Override
     public void setRequiredHeaders(String authString,
                                    Request request,
-                                   HttpHeaders headers) {
+                                   HttpHeaders headers,
+                                   byte[] content) {
 
-        SignatureDetails sigDetails = getSignatureDetails(request);
+        SignatureDetails sigDetails = (content != null) ?
+            getSignatureWithContent(request, headers, content):
+            getSignatureDetails(request);
         if (sigDetails == null) {
             return;
         }
         headers.add(AUTHORIZATION, sigDetails.getSignatureHeader());
         headers.add(DATE, sigDetails.getDate());
 
-        if (delegationToken != null) {
-            headers.add(OBO_TOKEN_HEADER, delegationToken);
+        final String token = getDelegationToken(request);
+        if (token != null) {
+            headers.add(OBO_TOKEN_HEADER, token);
         }
         String compartment = request.getCompartment();
         if (compartment == null) {
@@ -750,6 +924,8 @@ public class SignatureProvider
         if (provider instanceof UserAuthenticationProfileProvider) {
             return ((UserAuthenticationProfileProvider)this.provider)
                 .getTenantId();
+        } else if (provider instanceof SessionTokenProvider) {
+            return ((SessionTokenProvider) this.provider).getTenantId();
         }
         return null;
     }
@@ -760,14 +936,19 @@ public class SignatureProvider
             refresher.cancel();
             refresher = null;
         }
-        if (provider instanceof InstancePrincipalsProvider) {
-            ((InstancePrincipalsProvider)this.provider).close();
+        if (provider instanceof SecurityTokenBasedProvider) {
+            ((SecurityTokenBasedProvider)this.provider).close();
         }
     }
 
     @Override
     public Region getRegion() {
         return region;
+    }
+
+    @Override
+    public boolean forCloud() {
+        return true;
     }
 
     /**
@@ -792,12 +973,12 @@ public class SignatureProvider
          * pass SSL related configuration to its SecurityTokenSupplier
          * to create the HTTP client
          */
-        if (provider instanceof InstancePrincipalsProvider) {
-            ((InstancePrincipalsProvider)this.provider).prepare(config);
+        if (provider instanceof SecurityTokenBasedProvider) {
+            ((SecurityTokenBasedProvider)this.provider).prepare(config);
         }
 
         /* creates and caches a signature as warm-up */
-        getSignatureDetailsInternal(false);
+        getSignatureDetailsForCache(false);
         return this;
     }
 
@@ -874,12 +1055,29 @@ public class SignatureProvider
             }
         }
 
-        return getSignatureDetailsInternal(false);
+        return getSignatureDetailsForCache(false);
+    }
+
+    private SignatureDetails getSignatureWithContent(Request request,
+                                                     HttpHeaders headers,
+                                                     byte[] content) {
+        return getSignatureDetailsInternal(false, request, headers, content);
+    }
+
+    synchronized SignatureDetails
+        getSignatureDetailsForCache(boolean isRefresh) {
+        return getSignatureDetailsInternal(isRefresh,
+                                           null /* request */,
+                                           null /* headers */,
+                                           null /* content */);
     }
 
     /* visible for testing */
-    synchronized SignatureDetails getSignatureDetailsInternal(boolean isRefresh)
-    {
+    synchronized SignatureDetails
+        getSignatureDetailsInternal(boolean isRefresh,
+                                    Request request,
+                                    HttpHeaders headers,
+                                    byte[] content) {
         /*
          * add one minute to the current time, so that any caching is
          * effective over a more valid time period.
@@ -900,14 +1098,24 @@ public class SignatureProvider
         }
         String signature;
         try {
-            signature = sign(signingContent(date), privateKeyProvider.getKey());
+            signature = sign(signingContent(date, request, headers, content),
+                             privateKeyProvider.getKey());
         } catch (Exception e) {
             logMessage(Level.SEVERE, "Error signing request " + e.getMessage());
             return null;
         }
 
-        String signingHeader = (delegationToken == null)
-            ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
+        String token = getDelegationToken(request);
+        String signingHeader;
+        if (content != null) {
+            signingHeader = (token == null)
+                ? SIGNING_HEADERS_WITH_CONTENT :
+                  SIGNING_HEADERS_WITH_CONTENT_OBO;
+        } else {
+            signingHeader = (token == null)
+                ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
+        }
+
         String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
                                          signingHeader,
                                          keyId,
@@ -915,6 +1123,15 @@ public class SignatureProvider
                                          signature,
                                          SINGATURE_VERSION);
         SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
+
+        /*
+         *  Don't cache the signature generated with content, which
+         *  needs to be associated with its request
+         */
+        if (content != null) {
+            return sigDetails;
+        }
+
         if (!isRefresh) {
             /*
              * if this is not a refresh, use the normal key and schedule a
@@ -934,6 +1151,19 @@ public class SignatureProvider
         return sigDetails;
     }
 
+    /*
+     * Since Request.oboToken is not required by non Java SDKs, if there
+     * is no Request.oboToken, simplify this method as following:
+     *
+     * private String getDelegationToken(Request req) {
+     *     return delegationToken;
+     * }
+     */
+    private String getDelegationToken(Request req) {
+        return (req != null && req.getOboToken() != null) ?
+               req.getOboToken() : delegationToken;
+    }
+
     private synchronized void setRefreshKey() {
         if (refreshSigDetails != null) {
             currentSigDetails = refreshSigDetails;
@@ -941,17 +1171,34 @@ public class SignatureProvider
         }
     }
 
-    String signingContent(String date) {
+    private String signingContent(String date,
+                                  Request request,
+                                  HttpHeaders headers,
+                                  byte[] content) {
         StringBuilder sb = new StringBuilder();
         sb.append(REQUEST_TARGET).append(HEADER_DELIMITER)
-        .append("post /").append(NOSQL_DATA_PATH).append("\n")
-        .append(HOST).append(HEADER_DELIMITER)
-        .append(serviceHost).append("\n")
-        .append(DATE).append(HEADER_DELIMITER).append(date);
+          .append("post /").append(NOSQL_DATA_PATH).append("\n")
+          .append(HOST).append(HEADER_DELIMITER)
+          .append(serviceHost).append("\n")
+          .append(DATE).append(HEADER_DELIMITER).append(date);
 
-        if (delegationToken != null) {
+        if (content != null) {
+            /* Must be in this order */
+            sb.append("\n").append("content-length")
+              .append(HEADER_DELIMITER).append(headers.get(CONTENT_LENGTH))
+              .append("\n").append("content-type")
+              .append(HEADER_DELIMITER).append(headers.get(CONTENT_TYPE));
+
+            String sha256 = computeBodySHA256(content);
+            sb.append("\n").append("x-content-sha256")
+              .append(HEADER_DELIMITER).append(sha256);
+            headers.add("x-content-sha256", sha256);
+        }
+
+        String token = getDelegationToken(request);
+        if (token != null) {
             sb.append("\n").append(OBO_TOKEN_HEADER)
-              .append(HEADER_DELIMITER).append(delegationToken);
+              .append(HEADER_DELIMITER).append(token);
         }
         return sb.toString();
     }
@@ -1017,7 +1264,7 @@ public class SignatureProvider
             Exception lastException;
             do {
                 try {
-                    getSignatureDetailsInternal(true);
+                    getSignatureDetailsForCache(true);
                     handleRefreshCallback(refreshAheadMs);
                     return;
                 } catch (SecurityInfoNotReadyException se) {

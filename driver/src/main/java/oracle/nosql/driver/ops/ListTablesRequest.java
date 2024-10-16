@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -104,8 +104,8 @@ public class ListTablesRequest extends Request {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -129,6 +129,8 @@ public class ListTablesRequest extends Request {
      * @param namespace the namespace to use
      *
      * @return this
+     *
+     * @since 5.4.10
      */
     public ListTablesRequest setNamespace(String namespace) {
         this.namespace = namespace;
@@ -142,6 +144,7 @@ public class ListTablesRequest extends Request {
      *
      * @return the namespace
      */
+    @Override
     public String getNamespace() {
         return namespace;
     }

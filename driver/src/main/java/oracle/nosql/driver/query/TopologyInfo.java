@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -16,6 +16,9 @@ public class TopologyInfo {
     private int[] theShardIds;
 
     public TopologyInfo(int seqNum, int[] shardIds) {
+        if (shardIds == null) {
+            throw new IllegalArgumentException("TopologyInfo shardIds must not be null");
+        }
         theSeqNum = seqNum;
         theShardIds = shardIds;
     }
@@ -32,6 +35,10 @@ public class TopologyInfo {
         return theShardIds[i];
     }
 
+    int getLastShardId() {
+        return theShardIds[theShardIds.length-1];
+    }
+   
     int[] getShardIds() {
         return theShardIds;
     }
@@ -53,5 +60,19 @@ public class TopologyInfo {
     @Override
     public int hashCode() {
         return theSeqNum;
+    }
+
+    @Override
+    public String toString() {
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("seqNum = ").append(theSeqNum);
+        sb.append(" shards ids = [ ");
+        for (int sid : theShardIds) {
+            sb.append(sid).append(" ");
+        }
+        sb.append("]");
+
+        return sb.toString();
     }
 }

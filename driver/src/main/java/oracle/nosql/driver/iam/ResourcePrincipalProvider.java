@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -139,8 +139,8 @@ class ResourcePrincipalProvider
             tokenSupplier = new FileSecurityTokenSupplier(
                             sessKeySupplier, rpst, logger);
         } else {
-            tokenSupplier = new FixedSecurityTokenSupplier(sessKeySupplier,
-                                                           rpst);
+            tokenSupplier = new FixedSecurityTokenSupplier(
+                sessKeySupplier, rpst, logger);
         }
 
         String rpRegion = System.getenv(OCI_RESOURCE_PRINCIPAL_REGION);

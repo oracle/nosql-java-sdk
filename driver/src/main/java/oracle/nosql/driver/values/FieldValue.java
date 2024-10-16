@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -110,9 +110,6 @@ public abstract class FieldValue implements Comparable<FieldValue> {
         NULL,
         /** @hidden An empty, or missing value, used only by index keys */
         EMPTY;
-    }
-
-    public FieldValue() {
     }
 
     /**
@@ -565,6 +562,17 @@ public abstract class FieldValue implements Comparable<FieldValue> {
      */
     public boolean isEMPTY() {
         return this == EmptyValue.getInstance();
+    }
+
+    /**
+     * @hidden
+     * @return true if is NULL, json null, or empty
+     */
+    public boolean isSpecialValue() {
+        Type type = getType();
+        return (type == Type.NULL ||
+                type == Type.JSON_NULL ||
+                type == Type.EMPTY);
     }
 
     /**

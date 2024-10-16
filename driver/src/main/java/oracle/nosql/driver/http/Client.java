@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -25,6 +25,7 @@ import static oracle.nosql.driver.util.HttpConstants.COOKIE;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
+import static oracle.nosql.driver.util.HttpConstants.SERVER_SERIAL_VERSION;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
@@ -33,11 +34,14 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logTrace;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -67,16 +71,20 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.UnsupportedProtocolException;
+import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
@@ -89,9 +97,11 @@ import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
 import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
+import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
+import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
@@ -178,6 +188,9 @@ public class Client {
 
     private volatile short serialVersion = DEFAULT_SERIAL_VERSION;
 
+    /* separate version for query compatibility */
+    private volatile short queryVersion = QueryDriver.QUERY_VERSION;
+
     /* for one-time messages */
     private final HashSet<String> oneTimeMessages;
 
@@ -204,6 +217,11 @@ public class Client {
 
     /* for keeping track of SDKs usage */
     private String userAgent;
+
+    private volatile TopologyInfo topology;
+
+    /* for internal testing */
+    private final String prepareFilename;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -289,6 +307,9 @@ public class Client {
         } else {
             this.userAgent = HttpConstants.userAgent;
         }
+
+        /* for internal testing */
+        prepareFilename = System.getProperty("test.preparefilename");
     }
 
     /**
@@ -374,8 +395,15 @@ public class Client {
         kvRequest.setRetryStats(null);
         kvRequest.setRateLimitDelayedMs(0);
 
+        /* kvRequest.isQueryRequest() returns true if kvRequest is a
+         * non-internal QueryRequest */
         if (kvRequest.isQueryRequest()) {
+
             QueryRequest qreq = (QueryRequest)kvRequest;
+
+            /* Set the topo seq num in the request, if it has not been set
+             * already */
+            kvRequest.setTopoSeqNum(getTopoSeqNum());
 
             statsControl.observeQuery(qreq);
 
@@ -404,7 +432,6 @@ public class Client {
                 trace("QueryRequest has no QueryDriver, but is prepared", 2);
                 QueryDriver driver = new QueryDriver(qreq);
                 driver.setClient(this);
-                driver.setTopologyInfo(qreq.topologyInfo());
                 return new QueryResult(qreq, false);
             }
 
@@ -420,6 +447,7 @@ public class Client {
              * QueryResult.
              */
             trace("QueryRequest has no QueryDriver and is not prepared", 2);
+            qreq.incBatchCounter();
         }
 
         int timeoutMs = kvRequest.getTimeoutInternal();
@@ -470,16 +498,22 @@ public class Client {
             }
         }
 
-        final long startTime = System.currentTimeMillis();
-        kvRequest.setStartTimeMs(startTime);
+        final long startNanos = System.nanoTime();
+        kvRequest.setStartNanos(startNanos);
         final String requestClass = kvRequest.getClass().getSimpleName();
 
+        /*
+         * boolean that indicates whether content must be signed. Cross
+         * region operations must include content when signing. See comment
+         * on the method
+         */
+        final boolean signContent = requireContentSigned(kvRequest);
         String requestId = "";
         int thisIterationTimeoutMs = 0;
 
         do {
-            long thisTime = System.currentTimeMillis();
-            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
 
             /*
              * Check rate limiters before executing the request.
@@ -513,14 +547,14 @@ public class Client {
                 }
             }
 
+            /* update iteration timeout in case limiters slept for some time */
+            thisIterationTimeoutMs =
+                getIterationTimeoutMs(timeoutMs, startNanos);
+
             /* ensure limiting didn't throw us over the timeout */
-            if (timeoutRequest(startTime, timeoutMs, exception)) {
+            if (thisIterationTimeoutMs <= 0) {
                 break;
             }
-
-            /* update iteration timeout in case limiters slept for some time */
-            thisTime = System.currentTimeMillis();
-            thisIterationTimeoutMs = timeoutMs - (int)(thisTime - startTime);
 
             final String authString =
                 authProvider.getAuthorizationString(kvRequest);
@@ -549,8 +583,8 @@ public class Client {
 
             ResponseHandler responseHandler = null;
             short serialVersionUsed = serialVersion;
+            short queryVersionUsed = queryVersion;
             ByteBuf buffer = null;
-            long networkLatency;
             try {
                 /*
                  * NOTE: the ResponseHandler will release the Channel
@@ -559,6 +593,14 @@ public class Client {
                  * operations in the loop.
                  */
                 Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
+                /* update iteration timeout in case channel took some time */
+                thisIterationTimeoutMs =
+                    getIterationTimeoutMs(timeoutMs, startNanos);
+                /* ensure limiting didn't throw us over the timeout */
+                if (thisIterationTimeoutMs <= 0) {
+                    break;
+                }
+
                 requestId = Long.toString(nextRequestId());
                 responseHandler =
                     new ResponseHandler(httpClient, logger, channel,
@@ -573,10 +615,24 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                /* update timeout in request to match this iteration timeout */
-                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
+                /* Set the topo seq num in the request, if it has not been set
+                 * already */
+                if (!(kvRequest instanceof QueryRequest) ||
+                    kvRequest.isQueryRequest()) {
+                    kvRequest.setTopoSeqNum(getTopoSeqNum());
+                }
 
-                serialVersionUsed = writeContent(buffer, kvRequest);
+                /*
+                 * Temporarily change the timeout in the request object so
+                 * the serialized timeout sent to the server is correct for
+                 * this iteration. After serializing the request, set the
+                 * timeout back to the overall request timeout so that other
+                 * processing (retry delays, etc) work correctly.
+                 */
+                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
+                serialVersionUsed = writeContent(buffer, kvRequest,
+                    queryVersionUsed);
+                kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
                  * If on-premises the authProvider will always be a
@@ -625,11 +681,21 @@ public class Client {
                     kvRequest.setCompartmentInternal(
                         config.getDefaultCompartment());
                 }
-                authProvider.setRequiredHeaders(authString, kvRequest, headers);
 
-                if (config.getDefaultNamespace() != null) {
-                    headers.add(REQUEST_NAMESPACE_HEADER,
-                                config.getDefaultNamespace());
+                /*
+                 * Get request body bytes if the request needed to be signed
+                 * with content
+                 */
+                byte[] content = signContent ? getBodyBytes(buffer) : null;
+                authProvider.setRequiredHeaders(authString, kvRequest, headers,
+                                                content);
+
+                String namespace = kvRequest.getNamespace();
+                if (namespace == null) {
+                    namespace = config.getDefaultNamespace();
+                }
+                if (namespace != null) {
+                    headers.add(REQUEST_NAMESPACE_HEADER, namespace);
                 }
 
                 if (isLoggable(logger, Level.FINE) &&
@@ -637,7 +703,7 @@ public class Client {
                     logTrace(logger, "Request: " + requestClass +
                                      ", requestId=" + requestId);
                 }
-                networkLatency = System.currentTimeMillis();
+                long latencyNanos = System.nanoTime();
                 httpClient.runRequest(request, responseHandler, channel);
 
                 boolean isTimeout =
@@ -659,11 +725,16 @@ public class Client {
                 Result res = processResponse(responseHandler.getStatus(),
                                        responseHandler.getHeaders(),
                                        wireContent,
-                                       kvRequest);
+                                       kvRequest,
+                                       serialVersionUsed,
+                                       queryVersionUsed);
                 rateDelayedMs += getRateDelayedFromHeader(
                                        responseHandler.getHeaders());
                 int resSize = wireContent.readerIndex();
-                networkLatency = System.currentTimeMillis() - networkLatency;
+                long networkLatency =
+                    (System.nanoTime() - latencyNanos) / 1_000_000;
+
+                setTopology(res.getTopology());
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -673,6 +744,11 @@ public class Client {
                     } else if (res instanceof WriteResult) {
                         ((WriteResult)res).setClient(this);
                     }
+                }
+
+                if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
+                    QueryRequest qreq = (QueryRequest)kvRequest;
+                    qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
                 }
 
                 if (res instanceof TableResult && rateLimiterMap != null) {
@@ -715,8 +791,7 @@ public class Client {
                 return res;
 
             } catch (AuthenticationException rae) {
-                if (authProvider != null &&
-                    authProvider instanceof StoreAccessTokenProvider) {
+                if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
                     satp.bootstrapLogin();
@@ -810,10 +885,20 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = re;
                 continue;
+            } catch (UnsupportedQueryVersionException uqve) {
+                /* decrement query version and try again */
+                if (decrementQueryVersion(queryVersionUsed) == true) {
+                    logFine(logger, "Got unsupported query version error " +
+                            "from server: decrementing query version to " +
+                            queryVersion + " and trying again.");
+                    continue;
+                }
+                throw uqve;
             } catch (UnsupportedProtocolException upe) {
-                /* reduce protocol version and try again */
+                /* decrement protocol version and try again */
                 if (decrementSerialVersion(serialVersionUsed) == true) {
-                    exception = upe;
+                    /* Don't set this exception: it's misleading */
+                    /* exception = upe; */
                     logFine(logger, "Got unsupported protocol error " +
                             "from server: decrementing serial version to " +
                             serialVersion + " and trying again.");
@@ -836,9 +921,8 @@ public class Client {
                 }
                 throw e;
             } catch (IOException ioe) {
-                /* Maybe make this logFine */
                 String name = ioe.getClass().getName();
-                logInfo(logger, "Client execution IOException, name: " +
+                logFine(logger, "Client execution IOException, name: " +
                         name + ", message: " + ioe.getMessage());
                 /*
                  * An exception in the channel, e.g. the server may have
@@ -862,13 +946,20 @@ public class Client {
                 throw new NoSQLException("Request interrupted: " +
                                          ie.getMessage());
             } catch (ExecutionException ee) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                logInfo(logger, "Unable to execute request: " +
-                        ee.getCause().getMessage());
-                /* is there a better exception? */
-                throw new NoSQLException(
-                    "Unable to execute request: " + ee.getCause().getMessage());
+                /*
+                 * This can happen if a channel is bad in HttpClient.getChannel.
+                 * This happens if the channel is shut down by the server side
+                 * or the server (proxy) is restarted, etc. Treat it like
+                 * IOException above, but retry without waiting
+                 */
+                String name = ee.getCause().getClass().getName();
+                logFine(logger, "Client ExecutionException, name: " +
+                        name + ", message: " + ee.getMessage() + ", retrying");
+
+                kvRequest.addRetryException(ee.getCause().getClass());
+                kvRequest.incrementRetries();
+                exception = ee.getCause();
+                continue;
             } catch (TimeoutException te) {
                 exception = te;
                 logInfo(logger, "Timeout exception: " + te);
@@ -900,16 +991,40 @@ public class Client {
                     responseHandler.close();
                 }
             }
-        } while (! timeoutRequest(startTime, timeoutMs, exception));
+        } while (! timeoutRequest(startNanos, timeoutMs, exception));
 
         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
         statsControl.observeError(kvRequest);
+        /*
+         * If the request timed out in a single iteration, and the
+         * timeout was fairly long, and there was no delay due to
+         * rate limiting, reset the session cookie so the next request
+         * may use a different server.
+         */
+        if (timeoutMs == thisIterationTimeoutMs &&
+            timeoutMs >= 2000 &&
+            rateDelayedMs == 0) {
+            setSessionCookieValue(null);
+        }
         throw new RequestTimeoutException(timeoutMs,
-            requestClass + " timed out: requestId=" + requestId + " " +
+            requestClass + " timed out:" +
+            (requestId.isEmpty() ? "" : " requestId=" + requestId) +
             " nextRequestId=" + nextRequestId() +
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
+    }
+
+    /**
+     * Calculate the timeout for the next iteration.
+     * This is basically the given timeout minus the time
+     * elapsed since the start of the request processing.
+     * If this returns zero or negative, the request should be
+     * aborted with a timeout exception.
+     */
+    private int getIterationTimeoutMs(long timeoutMs, long startNanos) {
+        long diffNanos = System.nanoTime() - startNanos;
+        return ((int)timeoutMs - Math.toIntExact(diffNanos / 1_000_000));
     }
 
     /**
@@ -1006,7 +1121,7 @@ public class Client {
         if (limits == null ||
             (limits.getReadUnits() <= 0 && limits.getWriteUnits() <= 0)) {
             rateLimiterMap.remove(tableName);
-            logInfo(logger, "removing rate limiting from table " + tableName);
+            logFine(logger, "removing rate limiting from table " + tableName);
             return false;
         }
 
@@ -1036,9 +1151,11 @@ public class Client {
         }
 
         rateLimiterMap.update(tableName, RUs, WUs, durationSeconds);
-        final String msg = String.format("Updated table '%s' to have " +
-            "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
-        logInfo(logger, msg);
+        if (isLoggable(logger, Level.FINE)) {
+            final String msg = String.format("Updated table '%s' to have " +
+                "RUs=%.1f and WUs=%.1f per second", tableName, RUs, WUs);
+            logFine(logger, msg);
+        }
 
         return true;
     }
@@ -1046,18 +1163,18 @@ public class Client {
 
     /**
      * Determine if the request should be timed out.
-     * Check if the request exceed the timeout given.
+     * Check if the request exceeds the timeout given.
      *
-     * @param startTime when the request starts
-     * @param requestTimeout the default timeout of this request
+     * @param startNanos when the request starts
+     * @param requestTimeoutMs the timeout of this request in ms
      * @param exception the last exception
      *
-     * @return true the request need to be timed out.
+     * @return true if the request needs to be timed out.
      */
-    boolean timeoutRequest(long startTime,
-                           long requestTimeout,
+    boolean timeoutRequest(long startNanos,
+                           long requestTimeoutMs,
                            Throwable exception) {
-        return ((System.currentTimeMillis() - startTime) >= requestTimeout);
+        return (getIterationTimeoutMs(requestTimeoutMs, startNanos) <= 0);
     }
 
     /**
@@ -1067,16 +1184,25 @@ public class Client {
      *
      * @throws IOException
      */
-    private short writeContent(ByteBuf content, Request kvRequest)
+    private short writeContent(ByteBuf content, Request kvRequest,
+                               short queryVersion)
         throws IOException {
 
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         final short versionUsed = serialVersion;
         SerializerFactory factory = chooseFactory(kvRequest);
         factory.writeSerialVersion(versionUsed, bos);
-        kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                      versionUsed,
-                                                      bos);
+        if (kvRequest instanceof QueryRequest ||
+            kvRequest instanceof PrepareRequest) {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          queryVersion,
+                                                          bos);
+        } else {
+            kvRequest.createSerializer(factory).serialize(kvRequest,
+                                                          versionUsed,
+                                                          bos);
+        }
         return versionUsed;
     }
 
@@ -1091,7 +1217,9 @@ public class Client {
     final Result processResponse(HttpResponseStatus status,
                                  HttpHeaders headers,
                                  ByteBuf content,
-                                 Request kvRequest) {
+                                 Request kvRequest,
+                                 short serialVersionUsed,
+                                 short queryVersionUsed) {
 
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
@@ -1103,9 +1231,20 @@ public class Client {
 
         setSessionCookie(headers);
 
+        Result res = null;
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
-            return processOKResponse(bis, kvRequest);
+            res = processOKResponse(bis, kvRequest, serialVersionUsed,
+                                    queryVersionUsed);
         }
+        String sv = headers.get(SERVER_SERIAL_VERSION);
+        if (sv != null) {
+            try {
+                res.setServerSerialVersion(Integer.parseInt(sv));
+            } catch (Exception e) {
+                /* ignore */
+            }
+        }
+        return res;
     }
 
     /**
@@ -1115,17 +1254,29 @@ public class Client {
      *
      * @throws NoSQLException if the stream could not be read for some reason
      */
-    Result processOKResponse(ByteInputStream in, Request kvRequest) {
+    Result processOKResponse(ByteInputStream in, Request kvRequest,
+                             short serialVersionUsed, short queryVersionUsed) {
         try {
             SerializerFactory factory = chooseFactory(kvRequest);
             int code = factory.readErrorCode(in);
             /* note: this will always be zero in V4 */
             if (code == 0) {
-                Result res =
-                    kvRequest.createDeserializer(factory).
-                    deserialize(kvRequest,
-                                in,
-                                serialVersion);
+                Result res;
+                Serializer ser = kvRequest.createDeserializer(factory);
+                if (kvRequest instanceof QueryRequest ||
+                    kvRequest instanceof PrepareRequest) {
+                    prepareResponseTestHook(kvRequest, in,
+                                            serialVersionUsed,
+                                            queryVersionUsed);
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed,
+                                          queryVersionUsed);
+                } else {
+                    res = ser.deserialize(kvRequest,
+                                          in,
+                                          serialVersionUsed);
+                }
 
                 if (kvRequest.isQueryRequest()) {
                     QueryRequest qreq = (QueryRequest)kvRequest;
@@ -1290,17 +1441,17 @@ public class Client {
             .setTimeout(1000);
         TableResult res = null;
         try {
-            logInfo(logger, "Starting GetTableRequest for table '" +
+            logFine(logger, "Starting GetTableRequest for table '" +
                 tableName + "'");
             res = (TableResult) this.execute(gtr);
         } catch (Exception e) {
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned exception: " + e.getMessage());
         }
 
         if (res == null) {
             /* table doesn't exist? other error? */
-            logInfo(logger, "GetTableRequest for table '" +
+            logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned null");
             AtomicLong then = tableLimitUpdateMap.get(tableName);
             if (then != null) {
@@ -1310,11 +1461,11 @@ public class Client {
             return;
         }
 
-        logInfo(logger, "GetTableRequest completed for table '" +
+        logFine(logger, "GetTableRequest completed for table '" +
             tableName + "'");
         /* update/add rate limiters for table */
         if (updateRateLimiters(tableName, res.getTableLimits())) {
-            logInfo(logger, "background thread added limiters for table '" +
+            logFine(logger, "background thread added limiters for table '" +
                 tableName + "'");
         }
     }
@@ -1460,6 +1611,24 @@ public class Client {
         }
         if (serialVersion == V3) {
             serialVersion = V2;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @hidden
+     *
+     * Try to decrement the query protocol version.
+     * @return true: version was decremented
+     *         false: already at lowest version number.
+     */
+    private synchronized boolean decrementQueryVersion(short versionUsed) {
+        if (queryVersion != versionUsed) {
+            return true;
+        }
+        if (queryVersion == QueryDriver.QUERY_V4) {
+            queryVersion = QueryDriver.QUERY_V3;
             return true;
         }
         return false;
@@ -1663,11 +1832,143 @@ public class Client {
         return 0;
     }
 
+    /*
+     * Cloud service only.
+     *
+     * The request content needs to be signed for cross-region requests
+     * under these conditions:
+     * 1. a request is being made by a client that will become a cross-region
+     * request such as add/drop replica
+     * 2. a client table request such as add/drop index or alter table that
+     * operates on a multi-region table. In this case the operation is
+     * automatically applied remotely so it's implicitly a cross-region
+     * operation
+     * 3. internal use calls that use an OBO token to make the actual
+     * cross region call from with the NoSQL cloud service. In this case
+     * the OBO token is non-null in the request
+     *
+     * In cases (1) and (2) the signing is required so that the service can
+     * acquire an OBO token for the operation. In case (3) the OBO token
+     * that's been acquired by the service is used for the actual
+     * cross region operation.
+     */
+    private boolean requireContentSigned(Request request) {
+        /*
+         * if this client is not using the cloud no signing is required
+         */
+        if (!authProvider.forCloud()) {
+            return false;
+        }
+
+        /*
+         * See comment above for the logic. TableRequest is always signed
+         * because in the client it's not known if the operation is on a
+         * multi-region table or not. This is a small bit of overhead and
+         * is ignored if the table is not multi-region
+         *
+         * The Request.oboToken is not required by non Java SDKs, remove
+         * request.getOboToken() != null if there is no Request.oboToken
+         */
+        return request instanceof AddReplicaRequest ||
+               request instanceof DropReplicaRequest ||
+               request instanceof TableRequest ||
+               request.getOboToken() != null;
+    }
+
+    /*
+     * Returns the request content bytes
+     */
+    private byte[] getBodyBytes(ByteBuf buffer) {
+        if (buffer.hasArray()) {
+            return buffer.array();
+        }
+
+        byte[] bytes = new byte[buffer.readableBytes()];
+        buffer.getBytes(buffer.readerIndex(), bytes);
+        return bytes;
+    }
+
     /**
      * @hidden
      * For testing use
      */
     public void setDefaultNamespace(String ns) {
         config.setDefaultNamespace(ns);
+    }
+
+    public TopologyInfo getTopology() {
+        return topology;
+    }
+
+    private synchronized int getTopoSeqNum() {
+        return (topology == null ? -1 : topology.getSeqNum());
+    }
+
+    private synchronized void setTopology(TopologyInfo topo) {
+
+        if (topo == null) {
+            return;
+        }
+
+        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+            topology = topo;
+            trace("New topology: " + topo, 1);
+        }
+    }
+
+    /*
+     * @hidden
+     * Test hook for collecting prepare responses
+     */
+    private void prepareResponseTestHook(Request kvReq,
+                                     ByteInputStream in,
+                                     short serialVersion,
+                                     short queryVersion) throws IOException {
+        if (prepareFilename == null ||
+            !(kvReq instanceof PrepareRequest) ||
+            !(in instanceof NettyByteInputStream)) {
+            return;
+        }
+        int offset = in.getOffset();
+        try {
+            PrepareRequest pReq = (PrepareRequest) kvReq;
+            NettyByteInputStream nis = (NettyByteInputStream) in;
+            ByteBuf buf = nis.buffer();
+            int numBytes = buf.readableBytes();
+            byte[] bytes = new byte[numBytes];
+            for (int x = 0; x < numBytes; x++) {
+                bytes[x] = in.readByte();
+            }
+            try (DataOutputStream dos = new DataOutputStream(
+                    new FileOutputStream(prepareFilename))) {
+                logFine(logger, "Serializing prepare response to " +
+                    prepareFilename);
+                dos.write(bytes, 0, numBytes);
+            } catch (Exception e) {
+                System.err.println("Error writing serialized " +
+                        "prepared result: " + e);
+            }
+            /* write statement, etc to properties file */
+            Properties props = new Properties();
+            props.setProperty("statement", pReq.getStatement());
+            props.setProperty("getplan",
+                    String.valueOf(pReq.getQueryPlan()));
+            props.setProperty("serialversion",
+                    String.valueOf(serialVersion));
+            props.setProperty("queryversion",
+                    String.valueOf(queryVersion));
+            String fName = prepareFilename + ".props";
+            try (FileOutputStream fos = new FileOutputStream(fName)) {
+                logFine(logger, "Writing property file " + fName);
+                props.store(fos, "");
+            } catch (Exception e) {
+                System.err.println("Error writing serialized " +
+                        "prepared result: " + e);
+            }
+        } catch (IOException e) {
+            System.err.println("Error writing serialized " +
+                    "prepared result: " + e);
+        }
+        in.setOffset(offset);
     }
 }

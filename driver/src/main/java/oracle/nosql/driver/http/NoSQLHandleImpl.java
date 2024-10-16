@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -19,8 +19,10 @@ import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -37,6 +39,8 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
@@ -258,6 +262,24 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     public GetIndexesResult getIndexes(GetIndexesRequest request) {
         checkClient();
         return (GetIndexesResult) client.execute(request);
+    }
+
+    @Override
+    public TableResult addReplica(AddReplicaRequest request) {
+        checkClient();
+        return (TableResult) client.execute(request);
+    }
+
+    @Override
+    public TableResult dropReplica(DropReplicaRequest request) {
+        checkClient();
+        return (TableResult) client.execute(request);
+    }
+
+    @Override
+    public ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request) {
+        checkClient();
+        return (ReplicaStatsResult) client.execute(request);
     }
 
     @Override

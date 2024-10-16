@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,7 +7,11 @@
 
 package oracle.nosql.driver.ops.serde;
 
+import static oracle.nosql.driver.util.BinaryProtocol.V3;
+
 import java.io.IOException;
+
+import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
 
@@ -118,6 +122,24 @@ public class BinarySerializerFactory implements SerializerFactory {
         return multiDeleteSerializer;
     }
 
+    @Override
+    public Serializer createAddReplicaSerializer() {
+        throw new UnsupportedProtocolException(
+            "AddReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createDropReplicaSerializer() {
+        throw new UnsupportedProtocolException(
+            "DropReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createGetReplicaStatsSerializer() {
+        throw new UnsupportedProtocolException(
+            "GetReplicaStats is not supported with serial version: " + V3);
+    }
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -187,6 +209,24 @@ public class BinarySerializerFactory implements SerializerFactory {
     @Override
     public Serializer createMultiDeleteDeserializer() {
         return multiDeleteSerializer;
+    }
+
+    @Override
+    public Serializer createAddReplicaDeserializer() {
+        throw new UnsupportedProtocolException(
+            "AddReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createDropReplicaDeserializer() {
+        throw new UnsupportedProtocolException(
+            "DropReplica is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createGetReplicaStatsDeserializer() {
+        throw new UnsupportedProtocolException(
+            "GetReplciaStats is not supported with serial version: " + V3);
     }
 
     @Override

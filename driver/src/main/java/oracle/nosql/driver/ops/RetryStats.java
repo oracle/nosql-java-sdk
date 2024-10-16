@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -130,6 +130,10 @@ public class RetryStats {
         exceptionMap.clear();
     }
 
+    /**
+     * Returns the map of exceptions that have been retried
+     * @return the map
+     */
     public Map<Class<? extends Throwable>, Integer> getExceptionMap() {
         return exceptionMap;
     }
@@ -173,6 +177,11 @@ public class RetryStats {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return retries + delayMs;
     }
 
     @Override

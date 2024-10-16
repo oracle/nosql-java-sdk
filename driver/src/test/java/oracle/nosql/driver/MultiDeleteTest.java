@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,12 +8,13 @@
 package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.BinaryProtocol.WRITE_KB_LIMIT;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import oracle.nosql.driver.FieldRange;
-import oracle.nosql.driver.TableNotFoundException;
+import org.junit.Test;
+
 import oracle.nosql.driver.ops.MultiDeleteRequest;
 import oracle.nosql.driver.ops.MultiDeleteResult;
 import oracle.nosql.driver.ops.PutRequest;
@@ -21,8 +22,6 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.values.IntegerValue;
 import oracle.nosql.driver.values.MapValue;
-
-import org.junit.Test;
 
 /**
  * Test on MultiDelete operation.
@@ -216,7 +215,7 @@ public class MultiDeleteTest extends ProxyTestBase {
             }
         }
 
-        assertTrue(nDeleted == expNumDeleted);
+        assertEquals(nDeleted, expNumDeleted);
     }
 
     /**

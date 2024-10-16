@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -72,10 +72,13 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             /* Enable hostname verification */
             final SslHandler sslHandler = client.getSslContext().newHandler(
                 ch.alloc(), client.getHost(), client.getPort());
-            final SSLEngine sslEngine = sslHandler.engine();
-            final SSLParameters sslParameters = sslEngine.getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-            sslEngine.setSSLParameters(sslParameters);
+
+            if (client.isEndpointIdentificationEnabled()) {
+                final SSLEngine sslEngine = sslHandler.engine();
+                final SSLParameters sslParameters = sslEngine.getSSLParameters();
+                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                sslEngine.setSSLParameters(sslParameters);
+            }
             sslHandler.setHandshakeTimeoutMillis(client.getHandshakeTimeoutMs());
 
             p.addLast(sslHandler);
@@ -153,6 +156,7 @@ public class HttpClientChannelPoolHandler implements ChannelPoolHandler,
             logFine(client.getLogger(),
                     "HttpClient " + client.getName() +
                     ", channel " + ctx.channel() + " inactive");
+            client.removeChannel(ctx.channel());
             ctx.fireChannelInactive();
         }
 

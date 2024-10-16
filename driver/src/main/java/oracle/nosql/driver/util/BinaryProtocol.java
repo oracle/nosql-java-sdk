@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -30,11 +30,6 @@ public final class BinaryProtocol {
     public static final short DEFAULT_SERIAL_VERSION = V4;
 
     /**
-     * Serial version of the sub-protocol related to queries
-     */
-    public static final short QUERY_VERSION = 2;
-
-    /**
      * Operation codes
      */
     public static enum OpCode {
@@ -63,7 +58,19 @@ public final class BinaryProtocol {
         DROP_INDEX(22),
         /* added in V2 */
         SYSTEM_REQUEST(23),
-        SYSTEM_STATUS_REQUEST(24);
+        SYSTEM_STATUS_REQUEST(24),
+        /* unused ops, to be consistent with op code defined in proxy */
+        UNUSED_25(25),
+        UNUSED_26(26),
+        UNUSED_27(27),
+        UNUSED_28(28),
+        UNUSED_29(29),
+        UNUSED_30(30),
+        UNUSED_31(31),
+        UNUSED_32(32),
+        ADD_REPLICA(33),
+        DROP_REPLICA(34),
+        GET_REPLICA_STATS(35);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {
@@ -177,6 +184,9 @@ public final class BinaryProtocol {
     public static final int CANNOT_CANCEL_WORK_REQUEST = 23;
     /* added in V3 */
     public static final int UNSUPPORTED_PROTOCOL = 24;
+    /* added in V4 */
+    public static final int TABLE_NOT_READY = 26;
+    public static final int UNSUPPORTED_QUERY_VERSION = 27;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

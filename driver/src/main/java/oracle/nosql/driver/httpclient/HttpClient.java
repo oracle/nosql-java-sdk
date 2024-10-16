@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -110,6 +110,9 @@ public class HttpClient {
      */
     private final SslContext sslCtx;
     private final int handshakeTimeoutMs;
+
+    /* Enable endpoint identification by default if using SSL */
+    private boolean enableEndpointIdentification = true;
 
     private final Logger logger;
 
@@ -282,11 +285,19 @@ public class HttpClient {
         return sslCtx;
     }
 
-    int getPort() {
+    public boolean isEndpointIdentificationEnabled() {
+        return enableEndpointIdentification;
+    }
+
+    public void disableEndpointIdentification() {
+        this.enableEndpointIdentification = false;
+    }
+
+    public int getPort() {
         return port;
     }
 
-    String getHost() {
+    public String getHost() {
         return host;
     }
 
@@ -366,7 +377,16 @@ public class HttpClient {
      */
     public void shutdown() {
         pool.close();
-        workerGroup.shutdownGracefully().syncUninterruptibly();
+        /*
+         * 0 means no quiet period, waiting for more tasks
+         * 5000ms is total time to wait for shutdown (should never take this
+         * long
+         *
+         * See doc:
+         * https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully--
+         */
+        workerGroup.shutdownGracefully(0, 5000, TimeUnit.MILLISECONDS).
+            syncUninterruptibly();
     }
 
     public Channel getChannel(int timeoutMs)
@@ -382,9 +402,7 @@ public class HttpClient {
             /* retry loop with at most (retryInterval) ms timeouts */
             long thisTimeoutMs = (timeoutMs - msDiff);
             if (thisTimeoutMs <= 0) {
-                String msg = "Timed out after " + msDiff +
-                             "ms (" + retries + " retries) trying " +
-                             "to acquire channel";
+                String msg = "Timed out trying to acquire channel";
                 logInfo(logger, "HttpClient " + name + " " + msg);
                 throw new TimeoutException(msg);
             }
@@ -397,7 +415,7 @@ public class HttpClient {
                 retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 if (retries == 0) {
-                    logInfo(logger, "Timed out after " +
+                    logFine(logger, "Timed out after " +
                             (System.currentTimeMillis() - startMs) +
                             "ms trying to acquire channel: retrying");
                 }
@@ -449,6 +467,15 @@ public class HttpClient {
     }
 
     /**
+     * Close and remove channel from client pool.
+     */
+    public void removeChannel(Channel channel) {
+        logFine(logger, "closing and removing channel " + channel);
+        pool.removeChannel(channel);
+    }
+
+
+    /**
      * Sends an HttpRequest, setting up the ResponseHandler as the handler to
      * use for the (asynchronous) response.
      *
@@ -485,16 +512,13 @@ public class HttpClient {
          * another thread.
          */
         channel.writeAndFlush(request).
-            addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) {
-                        if (!future.isSuccess()) {
-                            /* handleException logs this exception */
-                            handler.handleException("HttpClient: send failed",
-                                                    future.cause());
-                        }
-                    }
-                });
+            addListener((ChannelFutureListener) future -> {
+                if (!future.isSuccess()) {
+                    /* handleException logs this exception */
+                    handler.handleException("HttpClient: send failed",
+                                            future.cause());
+                }
+            });
     }
 
     /**

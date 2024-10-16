@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -17,9 +17,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
-//import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.util.SizeOf;
 
 /**
@@ -39,6 +40,9 @@ import oracle.nosql.driver.util.SizeOf;
  * schema field names are treated as case-insensitive. If a MapValue
  * represents JSON, field names are case-sensitive.
  * </p>
+ * MapValue does not support put of Java null values. If a "null" JSON value is
+ * desired it is possible to put a {@link NullValue} instance using
+ * "put(fieldName, NullValue.getInstance())"
  * <p>
  * When a MapValue is received on output the value will always conform to
  * the schema of the table from which the value was received or the implied
@@ -115,6 +119,17 @@ public class MapValue extends FieldValue
      */
     public Set<Map.Entry<String, FieldValue>> entrySet() {
         return values.entrySet();
+    }
+
+    /**
+     * @hidden
+     * Returns the set of keys in this map, sorted according to the
+     * String.compareTo() method.
+     *
+     * @return the soerted set of keys
+     */
+    public SortedSet<String> sortedKeys() {
+        return new TreeSet<String>(values.keySet());
     }
 
     /**
@@ -289,6 +304,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, BigDecimal value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new NumberValue(value));
     }
 
@@ -303,6 +319,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, String value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new StringValue(value));
     }
 
@@ -331,6 +348,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, byte[] value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new BinaryValue(value));
     }
 
@@ -345,6 +363,7 @@ public class MapValue extends FieldValue
      * @return this
      */
     public MapValue put(String name, Timestamp value) {
+        requireNonNull(value, "MapValue.put: value must be non-null");
         return put(name, new TimestampValue(value));
     }
 
@@ -367,6 +386,8 @@ public class MapValue extends FieldValue
     public MapValue putFromJson(String name,
                                 String jsonString,
                                 JsonOptions options) {
+        requireNonNull(jsonString,
+                       "MapValue.putFromJson: JSON string must be non-null");
         return put(name, JsonUtils.createValueFromJson(jsonString, options));
     }
 
@@ -605,7 +626,7 @@ public class MapValue extends FieldValue
         return size;
     }
 
-    /*
+    /**
      * @hidden
      * Called from a sorting ReceiveIter
      */

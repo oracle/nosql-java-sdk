@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,8 +7,11 @@
 
 package oracle.nosql.driver.ops;
 
+import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.Map;
+import java.util.TreeMap;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
@@ -19,6 +22,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
+import oracle.nosql.driver.query.VirtualScan;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -39,9 +43,9 @@ import oracle.nosql.driver.query.TopologyInfo;
  * <pre>
  *    NoSQLHandle handle = ...;
  *
- *    QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
- *
- *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+ *    try (
+ *        QueryRequest qreq = new QueryRequest().setStatement("select * from foo");
+ *        QueryIterableResult qir = handle.queryIterable(qreq)) {
  *        for( MapValue row : qir) {
  *            // do something with row
  *        }
@@ -73,7 +77,7 @@ import oracle.nosql.driver.query.TopologyInfo;
  * of the rows read satisfied the query conditions).
  * <p>
  * If an application wishes to terminate query execution before retrieving all
- * of the query results, it should call {@link #close} in order to release any
+ * the query results, it should call {@link #close} in order to release any
  * local resources held by the query. This also allows the application to reuse
  * the QueryRequest instance to run the same query from the beginning or a
  * different query.
@@ -98,6 +102,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private long maxMemoryConsumption = 1024 * 1024 * 1024;
 
+    private long maxServerMemoryConsumption = 10 * 1024 * 1024;
+
     private MathContext mathContext = MathContext.DECIMAL32;
 
     private Consistency consistency;
@@ -107,6 +113,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     private PreparedStatement preparedStatement;
 
     private byte[] continuationKey;
+
+    private VirtualScan virtualScan;
 
     /*
      * The QueryDriver, for advanced queries only.
@@ -126,6 +134,21 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     private int shardId = -1;
 
+    private String queryName;
+
+    private boolean logFileTracing;
+
+    private String driverQueryTrace;
+
+    private Map<String, String> serverQueryTraces;
+
+    private int batchCounter;
+
+    private boolean inTestMode;
+
+    /**
+     * Default constructor for QueryRequest
+     */
     public QueryRequest() {
     }
 
@@ -140,15 +163,21 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         super.copyTo(internalReq);
 
         internalReq.traceLevel = traceLevel;
+        internalReq.logFileTracing = logFileTracing;
+        internalReq.queryName = queryName;
+        internalReq.batchCounter = batchCounter;
         internalReq.limit = limit;
         internalReq.maxReadKB = maxReadKB;
         internalReq.maxWriteKB = maxWriteKB;
         internalReq.maxMemoryConsumption = maxMemoryConsumption;
+        internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
+        internalReq.topoSeqNum = topoSeqNum;
+        internalReq.inTestMode = inTestMode;
         return internalReq;
     }
 
@@ -163,6 +192,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
+        driverQueryTrace = null;
+        batchCounter = 0;
         return internalReq;
     }
 
@@ -217,26 +248,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     * @return TopologyInfo
-     */
-    public TopologyInfo topologyInfo() {
-        return (preparedStatement == null ?
-                null :
-                preparedStatement.topologyInfo());
-    }
-
-    /**
-     * @hidden
-     * @return topology seq num
-     */
-    public int topologySeqNum() {
-        return (preparedStatement == null ?
-                -1 :
-                preparedStatement.topologySeqNum());
-    }
-
-    /**
-     * @hidden
      */
     @Override
     public boolean isQueryRequest() {
@@ -283,11 +294,18 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * @hidden
-     *
-     * @return trace level
+     * @param vs the virtual scan
      */
-    public int getTraceLevel() {
-        return traceLevel;
+    public void setVirtualScan(VirtualScan vs) {
+        virtualScan = vs;
+    }
+
+    /**
+     * @hidden
+     * @return the virtual scan
+     */
+    public VirtualScan getVirtualScan() {
+        return virtualScan;
     }
 
     /**
@@ -303,6 +321,127 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         }
         traceLevel = level;
         return this;
+    }
+
+    /**
+     * @hidden
+     *
+     * @return trace level
+     */
+    public int getTraceLevel() {
+        return traceLevel;
+    }
+
+    /**
+     * @hidden
+     * Set a symbolic name for this query. This name will appear in query logs
+     * if query tracing has been turned on.
+     *
+     * @param name the query name
+     *
+     * @return this
+     */
+    public QueryRequest setQueryName(String name) {
+        queryName = name;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * Returns the query name
+     *
+     * @return the query name, or null if it has not been set
+     */
+    public String getQueryName() {
+        return queryName;
+    }
+
+    /**
+     * @hidden
+     * If the logFileTracing parameter is set to true, log records produced
+     * during query execution tracing will be written to the log files.
+     * Otherwise, they are shipped by the servers to the driver, where they
+     * can be displayed via the {@link #printTrace} method.
+     *
+     * @param value tracing log files setting
+     * @return this
+     */
+    public QueryRequest setLogFileTracing(boolean value) {
+        logFileTracing = value;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @return if log file tracing is enabled
+     */
+    public boolean getLogFileTracing() {
+        return logFileTracing;
+    }
+
+    /**
+     * @hidden
+     * @param traces the query traces to add
+     */
+    public void addQueryTraces(Map<String, String> traces) {
+
+        if (traces == null) {
+            return;
+        }
+
+        if (serverQueryTraces == null) {
+            serverQueryTraces = new TreeMap<String, String>();
+        }
+        serverQueryTraces.putAll(traces);
+    }
+
+    /**
+     * @hidden
+     * @param out the stream to print to
+     */
+    public void printTrace(PrintStream out) {
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("\n\n---------------------------------\n");
+        sb.append("CLIENT : " + queryName);
+        sb.append("\n---------------------------------\n\n");
+        if (driver != null) {
+            sb.append(driver.getQueryTrace());
+        } else if (driverQueryTrace != null) {
+            sb.append(driverQueryTrace);
+        }
+        sb.append("\n");
+
+        if (serverQueryTraces != null) {
+            for (Map.Entry<String, String> entry : serverQueryTraces.entrySet()) {
+                sb.append("\n\n-------------------------------------------\n");
+                sb.append(queryName);
+                sb.append(": ");
+                sb.append(entry.getKey());
+                sb.append("\n-------------------------------------------\n\n");
+                sb.append(entry.getValue());
+                sb.append("\n");
+            }
+        }
+
+        out.println(sb.toString());
+    }
+
+    /**
+     * @hidden
+     * @return the current batch counter
+     */
+    public int getBatchCounter() {
+        return batchCounter;
+    }
+
+    /**
+     * @hidden
+     * Increment the current batch counter
+     */
+    public void incBatchCounter() {
+        ++batchCounter;
     }
 
     /**
@@ -430,9 +569,12 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * (which may be required due to the use of an index on an array or map)
      * and sorting. Such operations may consume a lot of memory as they need
      * to cache the full result set or a large subset of it at the client
-     * memory. The default value is 1GB.
+     * memory. If the maximum amount of memory is exceeded, a exception will
+     * be throw.
+     * <p>
+     * The default value is 1GB.
      *
-     * @param maxBytes the value to use in bytes
+     * @param maxBytes the amount of memory to use, in bytes
      *
      * @return this
      */
@@ -451,12 +593,40 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * array or map) and sorting (sorting by distance when a query contains
      * a geo_near() function). Such operations may consume a lot of memory
      * as they need to cache the full result set at the client memory.
-     * The default value is 100MB.
+     * <p>
+     * The default value is 1GB.
      *
      * @return the maximum number of memory bytes
      */
     public long getMaxMemoryConsumption() {
         return maxMemoryConsumption;
+    }
+
+    /**
+     * @hidden
+     * On-premises only.
+     *
+     * Sets the maximum number of memory bytes that may be consumed by an
+     * individual server node while servicing a query request.
+     *
+     * @param maxBytes the value to use in bytes
+     *
+     * @return this
+     */
+    public QueryRequest setMaxServerMemoryConsumption(long maxBytes) {
+        if (maxBytes < 0) {
+            throw new IllegalArgumentException("maxBytes must be >= 0");
+        }
+        maxServerMemoryConsumption = maxBytes;
+        return this;
+    }
+
+    /**
+     * @hidden
+     * @return max server memory consumption
+     */
+    public long getMaxServerMemoryConsumption() {
+        return maxServerMemoryConsumption;
     }
 
     /**
@@ -601,6 +771,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         this.continuationKey = continuationKey;
 
         if (driver != null && !isInternal && continuationKey == null) {
+            driverQueryTrace = driver.getQueryTrace();
             driver.close();
             driver = null;
         }
@@ -669,8 +840,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -681,6 +852,27 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     public QueryRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name in the SQL statement
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public QueryRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 
@@ -759,5 +951,21 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     @Override
     public boolean shouldRetry() {
         return false;
+    }
+
+    /**
+     * @hidden
+     * @param v the test mode
+     */
+    public void setInTestMode(boolean v) {
+        inTestMode = v;
+    }
+
+    /**
+     * @hidden
+     * @return the current test mode
+     */
+    public boolean inTestMode() {
+        return inTestMode;
     }
 }

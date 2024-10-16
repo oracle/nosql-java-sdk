@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -227,6 +227,19 @@ public class LruCache<K, V> {
         }
     }
 
+    /**
+     * Removes all the entries from this cache. The cache will be empty after
+     * this call returns.
+     */
+    public void clear() {
+        lock.lock();
+        try {
+            cacheMap.clear();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     private boolean isExpired(CacheEntry<V> entry) {
         final long now = System.currentTimeMillis();
 
@@ -292,7 +305,7 @@ public class LruCache<K, V> {
 
         /**
          * Attempt to stop the background activity for the cleanup.
-         * @param wait if true, the the method attempts to wait for the
+         * @param wait if true, the method attempts to wait for the
          * background thread to finish background activity.
          */
         void stop(boolean wait) {

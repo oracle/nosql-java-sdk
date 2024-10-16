@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,6 +10,7 @@ package oracle.nosql.driver.values;
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.function.Consumer;
@@ -47,6 +48,14 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     @Override
     public Type getType() {
         return Type.ARRAY;
+    }
+
+    /**
+     * @hidden
+     * @return the internal array
+     */
+    public ArrayList<FieldValue> getArrayInternal() {
+        return array;
     }
 
     /**
@@ -608,5 +617,17 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
         }
 
         return size;
+    }
+
+    /**
+     * @hidden
+     * Sorts the elements of the array according to the given comparator.
+     *
+     * @param comparator The Comparator to use for comparing the array
+     * elements. It must not be null.
+     */
+    public void sort(Comparator<FieldValue> comparator) {
+        requireNonNull(comparator, "Comparator must be non-null");
+        array.sort(comparator);
     }
 }

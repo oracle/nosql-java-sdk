@@ -2,6 +2,117 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- Fixed an issue when stats collection is enabled debug logs were not 
+  logging.
+
+### Changed
+- Put and Put if-present can return the existing row when setReturnRow is 
+  set to true and row already exists.
+- Delete can return the deleted row when setReturnRow is set to true.
+
+### Added
+- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+
+## [5.4.15] 2024-06-05
+
+### Added
+- Cloud only: added new OCI regions (TYO, AHU, DAC, DOH, IZQ, UKY, XSP)
+- Cloud only: added use of ETag in AddReplicaRequest and DropReplicaRequest
+- Cloud only: added OKE workload identity authentication support
+ - SignatureProvider.createWithOkeWorkloadIdentity()
+ - SignatureProvider.createWithOkeWorkloadIdentity(String serviceAccountToken, Logger logger)
+ - SignatureProvider.createWithOkeWorkloadIdentity(File serviceAccountTokenFile, Logger logger)
+
+### Fixed
+- Changed handle close to not use the Netty "quiet period" when shutting down
+  the worker group. This makes handle close much faster as well as making it
+  faster to acquire authentication information in the cloud service when using a
+  method that uses an HTTP request such as Instance Principal authentication
+
+## [5.4.14] 2023-11-17
+
+### Added
+- Added SDK version number in exception messages
+
+### Changed
+- Modified internal query processing to better support elasticity operations
+- Update netty dependency to 4.1.101.Final
+
+
+## [5.4.13] 2023-09-25
+
+### Added
+- added support for array_collect() and count(distinct) in queries. These
+  require server side support which is only available in Oracle NoSQL releases
+  23.3 and higher and will not be immediately available in the cloud service
+
+- Cloud only: added support for replica (multi-region) tables
+  - Added new methods to NoSQLHandle
+    - NoSQLHandle.addReplica()
+    - NoSQLHandle.dropReplica()
+    - NoSQLHandle.getReplicaStats()
+  - Added new requests and result
+    - AddReplicaRequest
+    - DropReplicaRequest
+    - ReplicaStatsRequest, ReplicaStatsResult
+  - Added new information to TableResult
+    - isFrozen()
+    - isReplicated()
+    - isLocalReplicaInitialized()
+    - getReplicas()
+- Cloud only: added new OCI regions (BOG, OZZ, DRS)
+
+## [5.4.12] 2023-07-28
+
+### Added
+- Cloud only: added session token authentication support
+  - SignatureProvider.createWithSessionToken()
+  - SignatureProvider.createWithSessionToken(String profile)
+  - SignatureProvider.createWithSessionToken(String configFilePath, String profile)
+- Cloud only: added support to read region from system environment variable
+  OCI_REGION if using user principal or session token authentication
+- Cloud only: added new OCI regions (NAP, AVZ, AGA, VAP)
+
+### Changed
+- Moved a couple internal log messages to FINE instead of INFO
+- Cleaned up messaging when can't connect to server
+- Modified internal auth logic to avoid "inactive channel: retrying" messages
+
+## [5.4.11] 2023-06-06
+
+### Fixed
+- Changed internal IAM logic to close channel on SSL errors before doing internal retry
+
+## [5.4.10] 2023-04-25
+
+### Added
+- On-premises only: added support for setting namespace on a per-request basis
+- Cloud only: added new OCI regions (MTY, STR, BEG, VLL, YUM)
+
+### Changed
+- Allow a space in addition to a "T" to separate date and time in String
+ TimestampValue format
+- Code cleanup, removing unused/obsolete code and tests
+
+### Fixed
+- Internal: changed to use nanoTime() instead of currentTimeMillis() to avoid
+ possible issue if system clock rolls backwards
+- Additional internal per-request-iteration timeout corrections
+
+## [5.4.9] 2023-02-14
+
+### Added
+- On-premises only: added support for default namespace in NoSQLHandleConfig
+
+### Changed
+- Updated javadoc for QueryRequest try-with-resources
+
+### Fixed
+- Fixed timeout value sent to server on internal retries
+
 ## [5.4.8] 2023-01-05
 
 ### Fixed
@@ -11,6 +122,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Updated copyrights to 2023
+- Update netty dependency to 4.1.86.Final
 
 ## [5.4.7] 2022-12-06
 

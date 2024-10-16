@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -123,7 +123,7 @@ public class FuncMinMaxIter extends PlanIter {
             return;
         }
 
-        int cmp = Compare.compareAtomics(rcb, state.theMinMax, val, true);
+        int cmp = Compare.compareAtomicsTotalOrder(rcb, state.theMinMax, val);
 
         if (rcb.getTraceLevel() >= 3) {
             rcb.trace("Compared values: \n" + state.theMinMax + "\n" + val +

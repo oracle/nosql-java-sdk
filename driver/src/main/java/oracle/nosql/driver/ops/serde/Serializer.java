@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -33,4 +33,28 @@ public interface Serializer {
     Result deserialize(Request request,
                        ByteInputStream in,
                        short serialVersion) throws IOException;
+
+    /*
+     * The interface to serialize a query request. Same as above but
+     * with an added query version parameter.
+     */
+    default void serialize(Request request,
+                           short serialVersion,
+                           short queryVersion,
+                           ByteOutputStream out) throws IOException {
+        throw new IllegalArgumentException("Query serialization not " +
+            "supported for " + request.getClass().getName());
+    }
+
+    /*
+     * Deserialize a query response. Same as above but with an
+     * added query version parameter.
+     */
+    default Result deserialize(Request request,
+                               ByteInputStream in,
+                               short serialVersion,
+                               short queryVersion) throws IOException {
+        throw new IllegalArgumentException("Query deserialization not " +
+            "supported for " + request.getClass().getName());
+    }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -358,13 +358,25 @@ public class DocSnippets {
 
         /* Snippet start "Query iterable/iterator" */
 
-        QueryRequest qreq = new QueryRequest();
-        qreq.setStatement("select * from MyTable");
-
-        try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+        try (
+            QueryRequest qreq = new QueryRequest()
+                .setStatement("select * from MyTable");
+            QueryIterableResult qir = handle.queryIterable(qreq)) {
              for( MapValue row : qir) {
                  // do something with row
              }
+        }
+
+        /* ------ Snippet end -------*/
+
+        /* Snippet start "QueryIterableResult iterable/iterator" */
+
+        try (QueryRequest qreq = new QueryRequest()
+                 .setStatement("select * from foo") ) {
+
+            for (MapValue row : handle.queryIterable(qreq)) {
+              // do something with row
+            }
         }
 
         /* ------ Snippet end -------*/

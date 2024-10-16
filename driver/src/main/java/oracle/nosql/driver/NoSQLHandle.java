@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,8 +7,10 @@
 
 package oracle.nosql.driver;
 
+import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
+import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetRequest;
@@ -26,6 +28,8 @@ import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
+import oracle.nosql.driver.ops.ReplicaStatsRequest;
+import oracle.nosql.driver.ops.ReplicaStatsResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.SystemRequest;
@@ -128,16 +132,23 @@ public interface NoSQLHandle extends AutoCloseable {
      * on whether the {@link Version} of an existing row matches that supplied
      * by {@link DeleteRequest#setMatchVersion}.
      * <p>
-     * It is also possible, on failure, to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned
-     * if a delete operation fails because of a Version mismatch. The existing
-     * row information will only be returned if
-     * {@link DeleteRequest#setReturnRow} is true and the operation fails
-     * because {@link DeleteRequest#setMatchVersion} is used and the operation
+     * It is also possible to return information about the existing
+     * row. The row, including it's {@link Version} and modification time
+     * can be optionally returned.
+     * The existing row information will only be returned if
+     * {@link DeleteRequest#setReturnRow} is true and one of the following
+     * occurs:
+     * <ul>
+     * <li> The {@link DeleteRequest#setMatchVersion} is used and the operation
      * fails because the row exists and its version does not match.
+     * </li>
+     * <li> The {@link DeleteRequest#setMatchVersion} is not used and the
+     * operation succeeds provided that the server supports providing the
+     * existing row.
+     * </li>
+     * </ul>
      * Use of {@link DeleteRequest#setReturnRow} may result in additional
-     * consumed read capacity. If the operation is successful there will be
-     * no information returned about the previous row.
+     * consumed read capacity.
      *
      * @param request the input parameters for the operation
      *
@@ -200,22 +211,27 @@ public interface NoSQLHandle extends AutoCloseable {
      * {@link Version} matches that provided</li>
      * </ul>
      * <p>
-     * It is also possible, on failure, to return information about the existing
-     * row. The row, including it's {@link Version} can be optionally returned
-     * if a put operation fails because of a Version mismatch or if the
-     * operation fails because the row already exists. The existing row
-     * information will only be returned if {@link PutRequest#setReturnRow} is
-     * true and one of the following occurs:
+     * It is also possible to return information about the existing
+     * row. The existing row, including it's {@link Version} and modification
+     * time can be optionally returned.
+     * The existing row information will only be returned if
+     * {@link PutRequest#setReturnRow} is true and one of the following occurs:
      * <ul>
      * <li>The {@link Option#IfAbsent} is used and the operation fails because
      * the row already exists.</li>
      * <li>The {@link Option#IfVersion} is used and the operation fails because
      * the row exists and its version does not match.
      * </li>
+     * <li>The {@link Option#IfPresent} is used and the operation succeeds
+     * provided that the server supports providing the existing row.
+     * </li>
+     * <li>The {@link Option} is not used and put operation replaces the
+     * existing row provided that the server supports providing the existing
+     * row.
+     * </li>
      * </ul>
      * Use of {@link PutRequest#setReturnRow} may result in additional
-     * consumed read capacity. If the operation is successful there will be
-     * no information returned about the previous row.
+     * consumed read capacity.
      *
      * @param request the input parameters for the operation
      *
@@ -338,10 +354,10 @@ public interface NoSQLHandle extends AutoCloseable {
      * is necessary to close the QueryIterableResult or use the
      * try-with-resources statement:
      * <pre>
-     *    QueryRequest qreq = new QueryRequest()
-     *        .setStatement("select * from MyTable");
-     *
-     *    try (QueryIterableResult qir = handle.queryIterable(qreq)) {
+     *    try (
+     *        QueryRequest qreq = new QueryRequest()
+     *            .setStatement("select * from MyTable");
+     *        QueryIterableResult qir = handle.queryIterable(qreq)) {
      *        for( MapValue row : qir) {
      *            // do something with row
      *        }
@@ -621,7 +637,73 @@ public interface NoSQLHandle extends AutoCloseable {
                                  int pollIntervalMs);
 
     /**
-     * Returns an object that allows control over how statistics are collected.
+     * Cloud service only.
+     * <p>
+     * Add replica to a table.
+     * <p>
+     * This operation is implicitly asynchronous. The caller must poll using
+     * methods on {@link TableResult} to determine when it has completed.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for
+     * any other reason
+     *
+     * @since 5.4.13
+     */
+    TableResult addReplica(AddReplicaRequest request);
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Drop replica from a table.
+     * <p>
+     * This operation is implicitly asynchronous. The caller must poll using
+     * methods on {@link TableResult} to determine when it has completed.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for
+     * any other reason
+     *
+     * @since 5.4.13
+     */
+    TableResult dropReplica(DropReplicaRequest request);
+
+    /**
+     * Cloud service only.
+     * <p>
+     * Gets replica statistics information
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws TableNotFoundException if the specified table does not exist
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     *
+     * @since 5.4.13
+     */
+    ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request);
+
+    /**
+     * Returns an object that allows control over how SDK statistics
+     * are collected.
      *
      * @return the StatsControl object
      *

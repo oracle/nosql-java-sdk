@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -44,6 +44,7 @@ import com.sun.net.httpserver.HttpServer;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 
+@SuppressWarnings("restriction")
 public class InstancePrincipalsProviderTest extends DriverTestBase {
     private static final FreePortLocator portLocator =
         new FreePortLocator("localhost", 4242, 14000);
@@ -232,7 +233,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         assertTrue(authzString.contains("opc-obo-token"));
 
         HttpHeaders headers = new DefaultHttpHeaders();
-        sp.setRequiredHeaders(authzString, request, headers);
+        sp.setRequiredHeaders(authzString, request, headers, null/* content */);
         assertEquals(headers.get("opc-obo-token"), delegationToken);
     }
 
@@ -391,160 +392,6 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
         } catch (SecurityInfoNotReadyException iae) {
             assertThat(iae.getMessage(), "Error getting security token");
         }
-    }
-
-    @Test
-    public void testValidateKey()
-        throws Exception {
-
-        EXPIRING_TOKEN = true;
-
-        CertificateSupplier leaf = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?cert.pem"),
-            getURLDetails(base + "/instance?key.pem"),
-            (char[]) null);
-
-        CertificateSupplier inter = new DefaultCertificateSupplier(
-            getURLDetails(base + "/instance?intermediate.pem"),
-            null,
-            (char[]) null);
-
-        InstancePrincipalsProvider provider =
-            InstancePrincipalsProvider.builder()
-            .setFederationEndpoint(base)
-            .setLeafCertificateSupplier(leaf)
-            .setIntermediateCertificateSuppliers(Collections.singleton(inter))
-            .setTenantId(tenantId)
-            .build();
-        provider.setMinTokenLifetime(REFRESH_WINDOW_SEC * 1000 + 100);
-        provider.prepare(new NoSQLHandleConfig("http://test"));
-        try {
-            provider.getKeyId();
-            fail("expected");
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "less lifetime");
-        }
-    }
-
-    @Test
-    public void testRegionURI() {
-        for (Region r : Region.getOC1Regions()) {
-            assertEquals(r.endpoint(),
-                         "https://nosql." + r.getRegionId() +
-                         ".oci.oraclecloud.com");
-            assertEquals(Utils.getIAMURL(r.getRegionId()),
-                         "https://auth." + r.getRegionId() + ".oraclecloud.com");
-        }
-        for (Region r : Region.getGovRegions()) {
-            assertEquals(r.endpoint(),
-                         "https://nosql." + r.getRegionId() +
-                         ".oci.oraclegovcloud.com");
-            assertEquals(Utils.getIAMURL(r.getRegionId()),
-                         "https://auth." + r.getRegionId() +
-                         ".oraclegovcloud.com");
-        }
-        for (Region r : Region.getOC4Regions()) {
-            assertEquals(r.endpoint(),
-                         "https://nosql." + r.getRegionId() +
-                         ".oci.oraclegovcloud.uk");
-            assertEquals(Utils.getIAMURL(r.getRegionId()),
-                         "https://auth." + r.getRegionId() +
-                         ".oraclegovcloud.uk");
-        }
-        for (Region r : Region.getOC8Regions()) {
-            assertEquals(r.endpoint(),
-                         "https://nosql." + r.getRegionId() +
-                         ".oci.oraclecloud8.com");
-            assertEquals(Utils.getIAMURL(r.getRegionId()),
-                         "https://auth." + r.getRegionId() +
-                         ".oraclecloud8.com");
-        }
-
-        /* test IAM URI by airport code */
-        assertEquals(Utils.getIAMURL("jnb"),
-                    "https://auth.af-johannesburg-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("bom"),
-                    "https://auth.ap-mumbai-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("sin"),
-                    "https://auth.ap-singapore-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("icn"),
-                    "https://auth.ap-seoul-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("syd"),
-                    "https://auth.ap-sydney-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("nrt"),
-                    "https://auth.ap-tokyo-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("mel"),
-                    "https://auth.ap-melbourne-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("kix"),
-                    "https://auth.ap-osaka-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("hyd"),
-                    "https://auth.ap-hyderabad-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("yny"),
-                    "https://auth.ap-chuncheon-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("mrs"),
-                    "https://auth.eu-marseille-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("arn"),
-                    "https://auth.eu-stockholm-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("fra"),
-                    "https://auth.eu-frankfurt-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("zrh"),
-                    "https://auth.eu-zurich-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("lhr"),
-                    "https://auth.uk-london-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("ams"),
-                    "https://auth.eu-amsterdam-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("auh"),
-                    "https://auth.me-abudhabi-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("jed"),
-                    "https://auth.me-jeddah-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("dxb"),
-                    "https://auth.me-dubai-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("cwl"),
-                    "https://auth.uk-cardiff-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("iad"),
-                    "https://auth.us-ashburn-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("phx"),
-                    "https://auth.us-phoenix-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("sjc"),
-                    "https://auth.us-sanjose-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("yyz"),
-                    "https://auth.ca-toronto-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("yul"),
-                    "https://auth.ca-montreal-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("gru"),
-                    "https://auth.sa-saopaulo-1.oraclecloud.com");
-        assertEquals(Utils.getIAMURL("scl"),
-                    "https://auth.sa-santiago-1.oraclecloud.com");
-
-        assertEquals(Utils.getIAMURL("lfi"),
-                    "https://auth.us-langley-1.oraclegovcloud.com");
-        assertEquals(Utils.getIAMURL("luf"),
-                    "https://auth.us-luke-1.oraclegovcloud.com");
-
-        assertEquals(Utils.getIAMURL("ric"),
-                    "https://auth.us-gov-ashburn-1.oraclegovcloud.com");
-        assertEquals(Utils.getIAMURL("pia"),
-                    "https://auth.us-gov-chicago-1.oraclegovcloud.com");
-        assertEquals(Utils.getIAMURL("tus"),
-                    "https://auth.us-gov-phoenix-1.oraclegovcloud.com");
-
-        assertEquals(Utils.getIAMURL("ltn"),
-                    "https://auth.uk-gov-london-1.oraclegovcloud.uk");
-
-        assertEquals(Utils.getIAMURL("nja"),
-                     "https://auth.ap-chiyoda-1.oraclecloud8.com");
-
-        assertEquals(Utils.getIAMURL("mct"),
-                     "https://auth.me-dcc-muscat-1.oraclecloud9.com");
-
-        assertEquals(Utils.getIAMURL("wga"),
-                     "https://auth.ap-dcc-canberra-1.oraclecloud10.com");
     }
 
     private static class TestSupplier implements SessionKeyPairSupplier {

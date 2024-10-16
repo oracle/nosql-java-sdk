@@ -122,6 +122,9 @@ public class ProxyTestBase {
 
     protected NoSQLHandle handle;
 
+    /* serial version used at the proxy server */
+    protected int proxySerialVersion;
+
     @Rule
     public final TestRule watchman = new TestWatcher() {
 
@@ -273,6 +276,7 @@ public class ProxyTestBase {
         existingTables = new HashSet<String>();
         ListTablesRequest listTables = new ListTablesRequest();
         ListTablesResult lres = handle.listTables(listTables);
+        proxySerialVersion = lres.getServerSerialVersion();
         for (String tableName: lres.getTables()) {
             existingTables.add(tableName);
         }
@@ -581,8 +585,17 @@ public class ProxyTestBase {
     }
 
     protected static List<MapValue> doQuery(NoSQLHandle qHandle, String query) {
+        return doQuery(qHandle, query, null);
+    }
+
+    protected static List<MapValue> doQuery(NoSQLHandle qHandle,
+                                            String query,
+                                            String namespace) {
         try( QueryRequest queryRequest = new QueryRequest()) {
             queryRequest.setStatement(query);
+            if (namespace != null) {
+                queryRequest.setNamespace(namespace);
+            }
             List<MapValue> results = new ArrayList<MapValue>();
 
             do {
@@ -640,6 +653,10 @@ public class ProxyTestBase {
         String[] arr = version.split("\\.");
         if (arr == null || arr.length != 3) {
             return -1;
+        }
+        int off = arr[2].indexOf("-SNAPSHOT");
+        if (off > 0) {
+            arr[2] = arr[2].substring(0, off);
         }
         try {
             return (Integer.parseInt(arr[0]) * 1000000) +

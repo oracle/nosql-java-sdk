@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -15,7 +15,7 @@ package oracle.nosql.driver.util;
  *
  * Static methods for reading and writing packed integers.
  */
-class PackedInteger {
+public class PackedInteger {
 
     /**
      * The maximum number of bytes needed to store an int value (5).
@@ -178,8 +178,20 @@ class PackedInteger {
      */
     public static int getReadSortedIntLength(byte[] buf, int off) {
 
-        /* The first byte of the buf stores the length of the value part. */
-        int b1 = buf[off] & 0xff;
+        return getReadSortedIntLength(buf[off]);
+    }
+
+    /**
+     * Returns the number of bytes that would be read by {@link
+     * #readSortedInt} based on the initial byte of the buffer.
+     *
+     * @param value the byte containing the length
+     *
+     * @return the number of bytes that would be read.
+     */
+    public static int getReadSortedIntLength(byte value) {
+
+        int b1 = value & 0xff;
         if (b1 < 0x08) {
             return 1 + 0x08 - b1;
         }

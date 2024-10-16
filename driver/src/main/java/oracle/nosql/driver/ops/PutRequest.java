@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -268,11 +268,9 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * Returns whether information about the exist row should be returned on
-     * failure because of a version mismatch or failure of an "if absent"
-     * operation. If no option is set via {@link #setOption} or the option is
-     * {@link Option#IfPresent} the value of this parameter is ignored and there
-     * will not be any return information.
+     * Returns whether information about the existing row should be returned.
+     * See {@link PutRequest#setReturnRow} for details on the return
+     * information.
      *
      * @return true if information should be returned.
      */
@@ -295,9 +293,27 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * Sets whether information about the exist row should be returned on
-     * failure because of a version mismatch or failure of an "if absent"
-     * operation.
+     * Sets whether information about the existing row should be returned.
+     * The existing row information, including the value, Version, and
+     * modification time, will only be returned if
+     * {@link PutRequest#setReturnRow} is true and one of the following occurs:
+     * <ul>
+     * <li>The {@link Option#IfAbsent} is used and the operation fails because
+     * the row already exists.</li>
+     * <li>The {@link Option#IfVersion} is used and the operation fails because
+     * the row exists and its version does not match.
+     * </li>
+     * <li>The {@link Option#IfPresent} is used and the operation succeeds
+     * provided that the server supports providing the existing row.
+     * </li>
+     * <li>The {@link Option} is not used and put operation replaces the
+     * existing row provided that the server supports providing the existing
+     * row.
+     * </li>
+     * </ul>
+     *
+     * This setting is optional and defaults to false. If true the operation
+     * will incur additional cost.
      *
      * @param value set to true if information should be returned
      *
@@ -326,8 +342,8 @@ public class PutRequest extends WriteRequest {
 
     /**
      * Sets the request timeout value, in milliseconds. This overrides any
-     * default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * default value set in with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -338,6 +354,27 @@ public class PutRequest extends WriteRequest {
      */
     public PutRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name for the request
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public PutRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 

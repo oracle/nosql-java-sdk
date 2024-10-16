@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -39,6 +39,7 @@ import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
@@ -89,6 +90,12 @@ class Utils {
     /* 4k bytes */
     private static final int BUF_SIZE = 0x800;
 
+    /* fields in JWT token JSON used to check validity */
+    private static final String[] FIELDS = {
+        "exp", "jwk", "n", "e",
+        SignatureProvider.ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY,
+        SignatureProvider.ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY};
+
     /* Map used to lookup IAM URI */
     private static final Map<String, String> IAM_URI = new HashMap<>();
     private final static MessageFormat OC1_EP_BASE = new MessageFormat(
@@ -107,10 +114,36 @@ class Utils {
         "https://auth.{0}.oraclecloud10.com");
     private final static MessageFormat OC14_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud14.com");
+    private final static MessageFormat OC15_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud15.com");
     private final static MessageFormat OC16_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud16.com");
     private final static MessageFormat OC17_EP_BASE = new MessageFormat(
         "https://auth.{0}.oraclecloud17.com");
+    private final static MessageFormat OC19_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud.eu");
+    private final static MessageFormat OC20_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud20.com");
+    private final static MessageFormat OC21_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud21.com");
+    private final static MessageFormat OC22_EP_BASE = new MessageFormat(
+        "https://auth.{0}.psn-pco.it");
+    private final static MessageFormat OC23_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud23.com");
+    private final static MessageFormat OC24_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud24.com");
+    private final static MessageFormat OC25_EP_BASE = new MessageFormat(
+        "https://auth.{0}.nricloud.jp");
+    private final static MessageFormat OC26_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud26.com");
+    private final static MessageFormat OC27_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud27.com");
+    private final static MessageFormat OC28_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud28.com");
+    private final static MessageFormat OC29_EP_BASE = new MessageFormat(
+        "https://auth.{0}.oraclecloud29.com");
+    private final static MessageFormat OC31_EP_BASE = new MessageFormat(
+        "https://auth.{0}.sovereigncloud.nz");
 
     static {
         /* OC1 */
@@ -123,6 +156,7 @@ class Utils {
         IAM_URI.put("kix", OC1_EP_BASE.format(new Object[] {"ap-osaka-1"}));
         IAM_URI.put("icn", OC1_EP_BASE.format(new Object[] {"ap-seoul-1"}));
         IAM_URI.put("sin", OC1_EP_BASE.format(new Object[] {"ap-singapore-1"}));
+        IAM_URI.put("xsp", OC1_EP_BASE.format(new Object[] {"ap-singapore-2"}));
         IAM_URI.put("syd", OC1_EP_BASE.format(new Object[] {"ap-sydney-1"}));
         IAM_URI.put("nrt", OC1_EP_BASE.format(new Object[] {"ap-tokyo-1"}));
 
@@ -141,17 +175,22 @@ class Utils {
         IAM_URI.put("auh", OC1_EP_BASE.format(new Object[] {"me-abudhabi-1"}));
         IAM_URI.put("dxb", OC1_EP_BASE.format(new Object[] {"me-dubai-1"}));
         IAM_URI.put("jed", OC1_EP_BASE.format(new Object[] {"me-jeddah-1"}));
+        IAM_URI.put("ruh", OC1_EP_BASE.format(new Object[] {"me-riyadh-1"}));
 
         IAM_URI.put("qro", OC1_EP_BASE.format(new Object[] {"mx-queretaro-1"}));
+        IAM_URI.put("mty", OC1_EP_BASE.format(new Object[] {"mx-monterrey-1"}));
 
         IAM_URI.put("mtz", OC1_EP_BASE.format(new Object[] {"il-jerusalem-1"}));
 
+        IAM_URI.put("bog", OC1_EP_BASE.format(new Object[] {"sa-bogota-1"}));
         IAM_URI.put("gru", OC1_EP_BASE.format(new Object[] {"sa-saopaulo-1"}));
         IAM_URI.put("scl", OC1_EP_BASE.format(new Object[] {"sa-santiago-1"}));
         IAM_URI.put("vcp", OC1_EP_BASE.format(new Object[] {"sa-vinhedo-1"}));
+        IAM_URI.put("vap", OC1_EP_BASE.format(new Object[] {"sa-valparaiso-1"}));
 
         IAM_URI.put("phx", OC1_EP_BASE.format(new Object[] {"us-phoenix-1"}));
         IAM_URI.put("iad", OC1_EP_BASE.format(new Object[] {"us-ashburn-1"}));
+        IAM_URI.put("aga", OC1_EP_BASE.format(new Object[] {"us-saltlake-2"}));
         IAM_URI.put("sjc", OC1_EP_BASE.format(new Object[] {"us-sanjose-1"}));
         IAM_URI.put("ord", OC1_EP_BASE.format(new Object[] {"us-chicago-1"}));
 
@@ -192,12 +231,56 @@ class Utils {
         IAM_URI.put("dus", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-1"}));
         IAM_URI.put("dtm", OC14_EP_BASE.format(new Object[] {"eu-dcc-rating-2"}));
 
+        /* OC15 */
+        IAM_URI.put("dac", OC15_EP_BASE.format(new Object[] {"ap-dcc-gazipur-1"}));
+
         /* OC16 */
         IAM_URI.put("sgu", OC16_EP_BASE.format(new Object[] {"us-westjordan-1"}));
 
         /* OC17 */
         IAM_URI.put("ifp", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-1"}));
         IAM_URI.put("gcn", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-2"}));
+        IAM_URI.put("yum", OC17_EP_BASE.format(new Object[] {"us-dcc-phoenix-4"}));
+
+        /* OC19 */
+        IAM_URI.put("str", OC19_EP_BASE.format(new Object[] {"eu-frankfurt-2"}));
+        IAM_URI.put("vll", OC19_EP_BASE.format(new Object[] {"eu-madrid-2"}));
+
+        /* OC20 */
+        IAM_URI.put("beg", OC20_EP_BASE.format(new Object[] {"eu-jovanovac-1"}));
+
+        /* OC21 */
+        IAM_URI.put("doh", OC21_EP_BASE.format(new Object[] {"me-dcc-doha-1"}));
+
+        /* OC22 */
+        IAM_URI.put("nap", OC22_EP_BASE.format(new Object[] {"eu-dcc-rome-1"}));
+
+        /* OC23 */
+        IAM_URI.put("ebb", OC23_EP_BASE.format(new Object[] {"us-somerset-1"}));
+        IAM_URI.put("ebl", OC23_EP_BASE.format(new Object[] {"us-thames-1"}));
+
+        /* OC24 */
+        IAM_URI.put("avz", OC24_EP_BASE.format(new Object[] {"eu-dcc-zurich-1"}));
+
+        /* OC25 */
+        IAM_URI.put("tyo", OC25_EP_BASE.format(new Object[] {"ap-dcc-tokyo-1"}));
+        IAM_URI.put("uky", OC25_EP_BASE.format(new Object[] {"ap-dcc-osaka-1"}));
+
+        /* OC26 */
+        IAM_URI.put("ahu", OC26_EP_BASE.format(new Object[] {"me-abudhabi-3"}));
+
+        /* OC27 */
+        IAM_URI.put("ozz", OC27_EP_BASE.format(new Object[] {"us-dcc-swjordan-1"}));
+
+        /* OC28 */
+        IAM_URI.put("drs", OC28_EP_BASE.format(new Object[] {"us-dcc-swjordan-2"}));
+
+        /* OC29 */
+        IAM_URI.put("rkt", OC29_EP_BASE.format(new Object[] {"me-abudhabi-2"}));
+        IAM_URI.put("shj", OC29_EP_BASE.format(new Object[] {"me-abudhabi-4"}));
+
+        /* OC31 */
+        IAM_URI.put("izq", OC31_EP_BASE.format(new Object[] {"ap-hobsonville-1"}));
     }
 
     static String getIAMURL(String regionIdOrCode) {
@@ -227,11 +310,50 @@ class Utils {
             if (Region.isOC14Region(regionIdOrCode)) {
                 return OC14_EP_BASE.format(new Object[] {regionIdOrCode});
             }
+            if (Region.isOC15Region(regionIdOrCode)) {
+                return OC15_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
             if (Region.isOC16Region(regionIdOrCode)) {
                 return OC16_EP_BASE.format(new Object[] {regionIdOrCode});
             }
             if (Region.isOC17Region(regionIdOrCode)) {
                 return OC17_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC19Region(regionIdOrCode)) {
+                return OC19_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC20Region(regionIdOrCode)) {
+                return OC20_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC21Region(regionIdOrCode)) {
+                return OC21_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC22Region(regionIdOrCode)) {
+                return OC22_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC23Region(regionIdOrCode)) {
+                return OC23_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC24Region(regionIdOrCode)) {
+                return OC24_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC25Region(regionIdOrCode)) {
+                return OC25_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC26Region(regionIdOrCode)) {
+                return OC26_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC27Region(regionIdOrCode)) {
+                return OC27_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC28Region(regionIdOrCode)) {
+                return OC28_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC29Region(regionIdOrCode)) {
+                return OC29_EP_BASE.format(new Object[] {regionIdOrCode});
+            }
+            if (Region.isOC31Region(regionIdOrCode)) {
+                return OC31_EP_BASE.format(new Object[] {regionIdOrCode});
             }
         }
 
@@ -511,6 +633,17 @@ class Utils {
         }
     }
 
+    static String computeBodySHA256(byte[] body) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(body);
+            byte[] hash = digest.digest();
+            return new String(Base64.getEncoder().encodeToString(hash));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algorithm SHA-256 unavailable", e);
+        }
+    }
+
     static JsonParser createParser(String json)
         throws IOException {
 
@@ -557,6 +690,113 @@ class Utils {
             }
         }
         return null;
+    }
+
+    /*
+     * Parse JSON response that only has one field token.
+     * { "token": "...."}
+     */
+    static String parseTokenResponse(String response) {
+        try {
+            JsonParser parser = createParser(response);
+            if (parser.getCurrentToken() == null) {
+                parser.nextToken();
+            }
+            while (parser.getCurrentToken() != null) {
+                String field = findField(response, parser, "token");
+                if (field != null) {
+                    parser.nextToken();
+                    return parser.getText();
+                }
+            }
+            throw new IllegalStateException(
+                "Unable to find security token in " + response);
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                "Error parsing security token " + response +
+                    " " + ioe.getMessage());
+        }
+    }
+
+    /*
+     * Parse security token JSON response get fields expiration time,
+     * modulus and public exponent of JWK, only used for security token
+     * validity check, ignores other fields.
+     *
+     * Response:
+     * {
+     *  "exp" : 1234123,
+     *  "jwk" : {
+     *    "e": "xxxx",
+     *    "n": "xxxx",
+     *    ...
+     *  }
+     *  ...
+     * }
+     */
+    static Map<String, String> parseToken(String token) {
+        if (token == null) {
+            return null;
+        }
+        String[] jwt = splitJWT(token);
+        String claimJson = new String(Base64.getUrlDecoder().decode(jwt[1]),
+            StandardCharsets.UTF_8);
+
+        try {
+            JsonParser parser = createParser(claimJson);
+            Map<String, String> results = new HashMap<>();
+            parse(token, parser, results);
+
+            String jwkString = results.get("jwk");
+            if (jwkString == null) {
+                return results;
+            }
+            parser = createParser(jwkString);
+            parse(token, parser, results);
+
+            return results;
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                "Error parsing security token "+ ioe.getMessage());
+        }
+    }
+
+    private static void parse(String json,
+                              JsonParser parser,
+                              Map<String, String> reults)
+        throws IOException {
+
+        if (parser.getCurrentToken() == null) {
+            parser.nextToken();
+        }
+        while (parser.getCurrentToken() != null) {
+            String field = findField(json, parser, FIELDS);
+            if (field != null) {
+                parser.nextToken();
+                reults.put(field, parser.getText());
+            }
+        }
+    }
+
+    private static String[] splitJWT(String jwt) {
+        final int dot1 = jwt.indexOf(".");
+        final int dot2 = jwt.indexOf(".", dot1 + 1);
+        final int dot3 = jwt.indexOf(".", dot2 + 1);
+
+        if (dot1 == -1 || dot2 == -1 || dot3 != -1) {
+            throw new IllegalArgumentException(
+                "Given string is not in the valid access token format");
+        }
+
+        final String[] parts = new String[3];
+        parts[0] = jwt.substring(0, dot1);
+        parts[1] = jwt.substring(dot1 + 1, dot2);
+        parts[2] = jwt.substring(dot2 + 1);
+        return parts;
+    }
+
+    static String generateOpcRequestId() {
+        return UUID.randomUUID().toString().replace("-", "").toUpperCase();
     }
 
     static void logTrace(Logger logger, String message) {

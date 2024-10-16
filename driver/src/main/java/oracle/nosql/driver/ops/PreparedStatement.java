@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import oracle.nosql.driver.query.PlanIter;
-import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.values.FieldValue;
 
 /**
@@ -34,11 +33,6 @@ public class PreparedStatement {
     private final String queryPlan;
 
     private final String querySchema;
-
-    /*
-     * Applicable to advanced queries only.
-     */
-    private volatile TopologyInfo topologyInfo;
 
     /*
      * The serialized PreparedStatement created at the backend store. It is
@@ -114,7 +108,6 @@ public class PreparedStatement {
      * @param sqlText the query
      * @param queryPlan the query plan
      * @param querySchema the query schema
-     * @param ti the topo info
      * @param proxyStatement proxy statement
      * @param driverPlan the portion of the query plan executed on driver
      * @param numIterators num iterators in plan
@@ -128,7 +121,6 @@ public class PreparedStatement {
         String sqlText,
         String queryPlan,
         String querySchema,
-        TopologyInfo ti,
         byte[] proxyStatement,
         PlanIter driverPlan,
         int numIterators,
@@ -147,7 +139,6 @@ public class PreparedStatement {
         this.sqlText = sqlText;
         this.queryPlan = queryPlan;
         this.querySchema = querySchema;
-        this.topologyInfo = ti;
         this.proxyStatement = proxyStatement;
         this.driverQueryPlan = driverPlan;
         this.numIterators = numIterators;
@@ -170,7 +161,6 @@ public class PreparedStatement {
         return new PreparedStatement(sqlText,
                                      queryPlan,
                                      querySchema,
-                                     topologyInfo,
                                      proxyStatement,
                                      driverQueryPlan,
                                      numIterators,
@@ -357,44 +347,6 @@ public class PreparedStatement {
      */
     public int numIterators() {
         return numIterators;
-    }
-
-    /**
-     * @hidden
-     * @return topo seq num
-     */
-    public synchronized int topologySeqNum() {
-        return (topologyInfo == null ? -1 : topologyInfo.getSeqNum());
-    }
-
-    /**
-     * @hidden
-     * @param ti the topo info
-     * @return this
-     */
-    public synchronized PreparedStatement setTopologyInfo(TopologyInfo ti) {
-
-        if (ti == null) {
-            return this;
-        }
-
-        if (topologyInfo == null) {
-            topologyInfo = ti;
-            return this;
-        }
-
-        if (topologyInfo.getSeqNum() < ti.getSeqNum()) {
-            topologyInfo = ti;
-        }
-        return this;
-    }
-
-    /**
-     * @hidden
-     * @return top info
-     */
-    public TopologyInfo topologyInfo() {
-        return topologyInfo;
     }
 
     /**

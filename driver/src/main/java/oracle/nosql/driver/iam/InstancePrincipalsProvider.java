@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,15 +7,10 @@
 
 package oracle.nosql.driver.iam;
 
-import static oracle.nosql.driver.iam.Utils.findField;
 import static oracle.nosql.driver.iam.Utils.getIAMURL;
-import static oracle.nosql.driver.iam.Utils.logTrace;
-import static oracle.nosql.driver.util.HttpConstants.APPLICATION_JSON;
 import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
-import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -26,20 +21,12 @@ import java.util.logging.Logger;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
-import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
+import oracle.nosql.driver.iam.InstanceMetadataHelper.InstanceMetadata;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
-import oracle.nosql.driver.util.HttpRequestUtil;
-import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
-
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-
-import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.HttpHeaders;
 
 /**
  * @hidden
@@ -58,6 +45,12 @@ public class InstancePrincipalsProvider
     protected final DefaultSessionKeySupplier sessionKeySupplier;
     private final Region region;
 
+    /**
+     * Constructor that accepts token and key pair suppliers and region
+     * @param tokenSupplier the SecurityTokenSupplier
+     * @param keyPairSupplier the SessionKeyPairSupplier
+     * @param region the region
+     */
     public InstancePrincipalsProvider(SecurityTokenSupplier tokenSupplier,
                                       SessionKeyPairSupplier keyPairSupplier,
                                       Region region) {
@@ -104,6 +97,10 @@ public class InstancePrincipalsProvider
         tokenSupplier.setMinTokenLifetime(lifetimeMS);
     }
 
+    /**
+     * Creates a new builder for InstancePrincipalsProvider
+     * @return the builder
+     */
     public static InstancePrincipalsProviderBuilder builder() {
         return new InstancePrincipalsProviderBuilder();
     }
@@ -115,32 +112,19 @@ public class InstancePrincipalsProvider
      * Builder of InstancePrincipalsProvider
      */
     public static class InstancePrincipalsProviderBuilder {
-        private static final JsonFactory factory = new JsonFactory();
-
-        /* Instance metadata service base URL */
-        private static final String METADATA_SERVICE_BASE_URL =
-            "http://169.254.169.254/opc/v2/";
-        private static final String FALLBACK_METADATA_SERVICE_URL =
-            "http://169.254.169.254/opc/v1/";
-
-        /* The authorization header need to send to metadata service since V2 */
-        private static final String AUTHORIZATION_HEADER_VALUE = "Bearer Oracle";
-        private static final String METADATA_SERVICE_HOST =
-            "169.254.169.254";
-
         /* The default value for HTTP request timeouts in milliseconds */
-        private static final int DEFAULT_TIMEOUT_MS = 120_000;
+        private static final int DEFAULT_TIMEOUT_MS = 5_000;
 
         /* The default purpose value in federation requests against IAM */
         private static final String DEFAULT_PURPOSE = "DEFAULT";
 
-        /* Base metadata service URL */
-        private String baseMetadataURL = METADATA_SERVICE_BASE_URL;
-
         /*
-         * IAM federation endpoint, or null if decting from instance metadata.
+         * IAM federation endpoint, or null if detecting from instance metadata.
          */
         private String federationEndpoint;
+
+        /* Instance metadata */
+        private InstanceMetadata instanceMetadata;
 
         /*
          * The leaf certificate, or null if detecting from instance metadata.
@@ -166,14 +150,15 @@ public class InstancePrincipalsProvider
         private Region region;
         private Logger logger;
 
-        public String getBaseMetadataURL() {
-            return baseMetadataURL;
-        }
-
         public String getFederationEndpoint() {
             return federationEndpoint;
         }
 
+        /**
+         * @hidden
+         * @param federationEndpoint the endpoint
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setFederationEndpoint(String federationEndpoint) {
 
@@ -185,6 +170,11 @@ public class InstancePrincipalsProvider
             return leafCertificateSupplier;
         }
 
+        /**
+         * @hidden
+         * @param supplier the supplier
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setLeafCertificateSupplier(CertificateSupplier supplier) {
 
@@ -196,6 +186,11 @@ public class InstancePrincipalsProvider
             return tenantId;
         }
 
+        /**
+         * @hidden
+         * @param tenantId the tenant
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setTenantId(String tenantId) {
             this.tenantId = tenantId;
             return this;
@@ -205,6 +200,11 @@ public class InstancePrincipalsProvider
             return purpose;
         }
 
+        /**
+         * @hidden
+         * @param purpose the purpose
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setPurpose(String purpose) {
             this.purpose = purpose;
             return this;
@@ -214,6 +214,11 @@ public class InstancePrincipalsProvider
             return sessSupplier;
         }
 
+        /**
+         * @hidden
+         * @param sessSupplier the supplier
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setSessionKeyPairSupplier(SessionKeyPairSupplier sessSupplier) {
             this.sessSupplier = sessSupplier;
@@ -224,6 +229,11 @@ public class InstancePrincipalsProvider
             return timeout;
         }
 
+        /**
+         * @hidden
+         * @param timeout the timeout
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setTimeout(int timeout) {
             this.timeout = timeout;
             return this;
@@ -233,6 +243,11 @@ public class InstancePrincipalsProvider
             return logger;
         }
 
+        /**
+         * @hidden
+         * @param logger the logger
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setLogger(Logger logger) {
             this.logger = logger;
             return this;
@@ -242,6 +257,11 @@ public class InstancePrincipalsProvider
             return intermediateCertificateSuppliers;
         }
 
+        /**
+         * @hidden
+         * @param suppliers suppliers
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder
             setIntermediateCertificateSuppliers(
                 Set<CertificateSupplier> suppliers) {
@@ -249,15 +269,28 @@ public class InstancePrincipalsProvider
             return this;
         }
 
+        /**
+         * Returns the region if set
+         * @return the region or null if not set
+         */
         public Region getRegion() {
             return region;
         }
 
+        /**
+         * Sets a region
+         * @param r the region
+         * @return this
+         */
         public InstancePrincipalsProviderBuilder setRegion(Region r) {
             this.region = r;
             return this;
         }
 
+        /**
+         * Builds the InstancePrincipalsProvider instance
+         * @return the instance
+         */
         public InstancePrincipalsProvider build() {
             if (logger == null) {
                 logger = Logger.getLogger(getClass().getName());
@@ -289,91 +322,15 @@ public class InstancePrincipalsProvider
                 return;
             }
 
-            String instanceMDURL = getInstanceMetadaURL();
-            logTrace(logger, "Detecting IAM endpoint using " + instanceMDURL);
-            HttpClient client = null;
-            try {
-                client = HttpClient.createMinimalClient(METADATA_SERVICE_HOST,
-                                                        80,
-                                                        null,
-                                                        0,
-                                                        "InstanceMDClient",
-                                                        logger);
-
-                HttpResponse response = HttpRequestUtil.doGetRequest
-                    (client, instanceMDURL, headers(), timeout, logger);
-
-                int status = response.getStatusCode();
-                if (status == 404) {
-                    logTrace(logger, "Falling back to v1 metadata URL, " +
-                             "resource not found from v2");
-                    this.baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
-                    instanceMDURL = getInstanceMetadaURL();
-                    response = HttpRequestUtil.doGetRequest
-                        (client, instanceMDURL, headers(), timeout, logger);
-                    if (response.getStatusCode() != 200) {
-                        throw new IllegalStateException(
-                            String.format("Unable to get federation URL from" +
-                            "instance metadata " + METADATA_SERVICE_BASE_URL +
-                            " or fallback to " + FALLBACK_METADATA_SERVICE_URL +
-                            ", status code: %d, output: %s",
-                            response.getOutput()));
-                    }
-                } else if (status != 200) {
-                    throw new IllegalStateException(
-                        String.format("Unable to get federation URL from" +
-                        "instance metadata " + METADATA_SERVICE_BASE_URL +
-                        ", status code: %d, output: %s",
-                        response.getStatusCode(),
-                        response.getOutput()));
-                }
-
-                logTrace(logger, "Instance metadata " + response.getOutput());
-                String insRegion = findRegion(response.getOutput());
-                logTrace(logger, "Instance region " + insRegion);
-
-                federationEndpoint = getIAMURL(insRegion);
-                if (federationEndpoint == null) {
-                    throw new IllegalArgumentException(
-                        "Unable to find IAM URL for unregistered region " +
-                        insRegion + ", specify the IAM URL instead");
-                }
-            } finally {
-                if (client != null) {
-                    client.shutdown();
-                }
+            final String insRegion = getInstanceMetadata().getRegion();
+            federationEndpoint = getIAMURL(insRegion);
+            if (region == null) {
+                region = Region.fromRegionId(insRegion);
             }
-        }
-
-        private String getInstanceMetadaURL() {
-            return getBaseMetadataURL() + "instance/";
-        }
-
-        private HttpHeaders headers() {
-            return new DefaultHttpHeaders()
-                .set(CONTENT_TYPE, APPLICATION_JSON)
-                .set(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
-        }
-
-        private String findRegion(String response) {
-            try {
-                JsonParser parser = factory.createParser(response);
-                if (parser.getCurrentToken() == null) {
-                    parser.nextToken();
-                }
-                while (parser.getCurrentToken() != null) {
-                    String field = findField(response, parser, "region");
-                    if (field != null) {
-                        parser.nextToken();
-                        return parser.getText();
-                    }
-                }
-                throw new IllegalStateException(
-                    "Unable to find region in instance metadata " + response);
-            } catch (IOException ioe) {
-                throw new IllegalStateException(
-                    "Error parsing instance metadata in response " +
-                    response+ " " + ioe.getMessage());
+            if (federationEndpoint == null) {
+                throw new IllegalArgumentException(
+                    "Unable to find IAM URL for unregistered region " +
+                    region + ", specify the IAM URL instead");
             }
         }
 
@@ -385,9 +342,9 @@ public class InstancePrincipalsProvider
             try {
                 if (leafCertificateSupplier == null) {
                     leafCertificateSupplier = new DefaultCertificateSupplier(
-                        getURLDetails(getBaseMetadataURL() +
+                        getURLDetails(getInstanceMetadata().getBaseURL() +
                                       "identity/cert.pem"),
-                        getURLDetails(getBaseMetadataURL() +
+                        getURLDetails(getInstanceMetadata().getBaseURL() +
                                       "identity/key.pem"),
                         (char[]) null);
                 }
@@ -402,22 +359,31 @@ public class InstancePrincipalsProvider
 
                     intermediateCertificateSuppliers.add(
                         new DefaultCertificateSupplier(
-                            getURLDetails(getBaseMetadataURL() +
+                            getURLDetails(getInstanceMetadata().getBaseURL() +
                                           "identity/intermediate.pem"),
                             null,
                             (char[]) null));
                 }
             } catch (MalformedURLException ex) {
                 throw new IllegalArgumentException(
-                     "The instance metadata service url is invalid.", ex);
+                    "The instance metadata service url is invalid.", ex);
             }
         }
 
         private URLResourceDetails getURLDetails(String url)
             throws MalformedURLException {
 
-            return new URLResourceDetails(new URL(url))
-                    .addHeader(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
+            return new URLResourceDetails(new URL(url)).addHeader(
+                AUTHORIZATION,
+                InstanceMetadataHelper.AUTHORIZATION_HEADER_VALUE);
+        }
+
+        private InstanceMetadata getInstanceMetadata() {
+            if (instanceMetadata == null) {
+                instanceMetadata = InstanceMetadataHelper
+                    .fetchMetadata(timeout, logger);
+            }
+            return instanceMetadata;
         }
     }
 }

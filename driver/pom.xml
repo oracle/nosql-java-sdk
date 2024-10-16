@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.8</version>
+  <version>5.4.15</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -43,12 +43,12 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-    <copyright>Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.</copyright>
+    <copyright>Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.86.Final</netty.version>
-    <jackson.version>2.13.2</jackson.version>
-    <bouncy.version>1.70</bouncy.version>
+    <netty.version>4.1.108.Final</netty.version>
+    <jackson.version>2.15.2</jackson.version>
+    <bouncy.version>1.78</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -142,7 +142,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          SessionTokenProviderTest.java
         </included.tests>
       </properties>
     </profile>
@@ -189,26 +190,14 @@
     <!-- Bouncycastle - request signing in cloud -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
+      <artifactId>bcprov-jdk18on</artifactId>
       <version>${bouncy.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk15on</artifactId>
+      <artifactId>bcpkix-jdk18on</artifactId>
       <version>${bouncy.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- test -->
@@ -218,6 +207,7 @@
       <version>4.13.1</version>
       <scope>test</scope>
     </dependency>
+
   </dependencies>
 
   <build>
@@ -225,15 +215,22 @@
     <plugins>
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.3.1</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
+        <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
           <source>1.8</source>
           <target>1.8</target>
+          <showDeprecation>true</showDeprecation>
+          <showWarnings>true</showWarnings>
+          <compilerArgument>-Xlint:all</compilerArgument>
           <!-- this is parameterized to allow it to be overridden -->
           <executable>${javac}</executable>
         </configuration>
@@ -241,7 +238,7 @@
       <plugin>
         <!-- test plugin -->
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M5</version>
+        <version>3.1.2</version>
         <configuration>
           <!-- uncomment below to write stdout to files
                in target/surefire-reports -->
@@ -263,7 +260,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.0</version>
         <configuration>
           <archive>
             <manifest>
@@ -272,7 +269,8 @@
               <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
               <addBuildEnvironmentEntries>true</addBuildEnvironmentEntries>
               <addClasspath>true</addClasspath>
-              <!--  drop version from dependent jar files in manifest class path -->
+              <!--  drop version from dependent jar files in manifest class path
+              -->
               <classpathLayoutType>custom</classpathLayoutType>
               <customClasspathLayout>
                 $${artifact.artifactId}.$${artifact.extension}
@@ -289,7 +287,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>buildnumber-maven-plugin</artifactId>
-        <version>1.4</version>
+        <version>3.2.0</version>
         <executions>
           <execution>
             <phase>validate</phase>
@@ -308,17 +306,13 @@
       </plugin>
       <plugin>
         <artifactId>maven-install-plugin</artifactId>
-        <version>3.0.0-M1</version>
-      </plugin>
-      <plugin>
-        <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.1</version>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
@@ -334,12 +328,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.5.0</version>
         <configuration>
+          <quiet>true</quiet>
+          <!-- consider this: <doclint>-missing</doclint> -->
           <source>8</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>
-          <detectJavaApiLink>true</detectJavaApiLink>
           <!-- exclude these packages.
                TODO: the this list should include
                oracle.nosql.driver.ops.serde. The problem is that if added
@@ -347,9 +342,8 @@
                May need to post-process the doc to remove the package and link.
           -->
           <excludePackageNames>
-            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde.nson
+            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde;oracle.nosql.driver.ops.serde.nson
           </excludePackageNames>
-          <stylesheetfile>${basedir}/../doc/style.css</stylesheetfile>
           <show>public</show>
           <header>
             <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
@@ -358,10 +352,7 @@
           <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
-            <additionalOption>--frames</additionalOption>
           </additionalOptions>
-          <!-- below option makes the search bar work correctly -->
-          <additionalJOption>--no-module-directories</additionalJOption>
           <!-- put output in target/apidocs -->
           <reportOutputDirectory>
             ${project.build.directory}/apidocs
@@ -383,6 +374,8 @@
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
+          <!-- suppress warning about long paths in tarball -->
+          <tarLongFileMode>gnu</tarLongFileMode>
           <!--
               Drop the version on the name of the tar.gz and zip files generated.
               Add it to the archive name when released.
@@ -391,7 +384,7 @@
           <!-- assembly id is "sdk," don't append it to the archive names -->
           <appendAssemblyId>false</appendAssemblyId>
           <!-- don't deploy at this time -->
-          <attach>false</attach>
+          <attach>true</attach>
           <descriptors>
             <descriptor>src/main/assembly/sdk.xml</descriptor>
           </descriptors>
@@ -411,8 +404,18 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
         <executions>
+          <execution>
+            <id>Generate SDK Version strings</id>
+            <phase>generate-sources</phase>
+            <configuration>
+              <executable>${basedir}/scripts/generate_version_strings.sh</executable>
+            </configuration>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
           <execution>
             <id>human-readable NSON string generation</id>
             <phase>generate-sources</phase>

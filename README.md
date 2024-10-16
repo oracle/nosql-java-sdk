@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.8</version>
+  <version>5.4.15</version>
 </dependency>
 ```
 
@@ -181,7 +181,7 @@ is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -243,13 +243,15 @@ public class Quickstart {
     private String endpoint;
     private String service;
 
-    /* required for Instance/Resource Principal auth */
+    /* required for Instance/Resource Principal auth and OKE workload identity */
     private String compartment = null; // an OCID
 
     /* alternative cloud authorization mechanisms */
     private final static boolean useUserPrincipal = true;
     private final static boolean useInstancePrincipal = false;
     private final static boolean useResourcePrincipal = false;
+    private final static boolean useSessionToken = false;
+    private final static boolean useOkeWorkloadIdentity = false;
 
     private Quickstart(String[] args) {
         /*
@@ -327,6 +329,12 @@ public class Quickstart {
                        privateKeyFile, // File
                        passphrase);  // char[]
                     */
+                } else if (useSessionToken) {
+                    /*
+                     * There are additional constructors for Session Token,
+                     * see the javadoc
+                     */
+                    authProvider = SignatureProvider.createWithSessionToken();
                 } else {
                     if (compartment == null) {
                         throw new IllegalArgumentException(
@@ -343,6 +351,9 @@ public class Quickstart {
                     } else if (useResourcePrincipal) {
                         authProvider =
                             SignatureProvider.createWithResourcePrincipal();
+                    } else if (useOkeWorkloadIdentity) {
+                        authProvider =
+                            SignatureProvider.createWithOkeWorkloadIdentity();
                     } else {
                         throw new IllegalArgumentException(
                             "Authorization method is required");
@@ -437,15 +448,14 @@ public class Quickstart {
 
             /*
              * Perform a query using iterable and iterator
-             */
-            QueryRequest queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
-
-            /*
+             *
              * To ensure the query resources are closed properly, use
              * try-with-resources statement.
              */
-            try (QueryIterableResult results =
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName);
+                QueryIterableResult results =
                     handle.queryIterable(queryRequest)) {
                 System.out.println("Query results:");
                 for (MapValue res : results) {
@@ -456,21 +466,23 @@ public class Quickstart {
             /*
              * Perform a query using partial results
              */
-            queryRequest = new QueryRequest()
-                .setStatement("select * from " + tableName);
+            try (
+                QueryRequest queryRequest = new QueryRequest()
+                    .setStatement("select * from " + tableName) ) {
 
-            /*
-             * Because a query can return partial results execution must occur
-             * in a loop, accumulating or processing results
-             */
-            ArrayList<MapValue> results = new ArrayList<MapValue>();
-            do {
-                QueryResult queryResult = handle.query(queryRequest);
-                results.addAll(queryResult.getResults());
-            } while (!queryRequest.isDone());
-            System.out.println("Query results again:");
-            for (MapValue res : results) {
-                System.out.println("\t" + res);
+                /*
+                 * Because a query can return partial results execution must occur
+                 * in a loop, accumulating or processing results
+                 */
+                ArrayList<MapValue> results = new ArrayList<MapValue>();
+                do {
+                    QueryResult queryResult = handle.query(queryRequest);
+                    results.addAll(queryResult.getResults());
+                } while (!queryRequest.isDone());
+                System.out.println("Query results again:");
+                for (MapValue res : results) {
+                    System.out.println("\t" + res);
+                }
             }
 
             /*
@@ -590,7 +602,7 @@ started on a different host or port adjust the endpoint accordingly.
 
     $ java -cp .:../lib/nosqldriver.jar BasicTableExample localhost:8080
 
-## Licenses
+## License
 
 See the [LICENSE](LICENSE.txt) file.
 

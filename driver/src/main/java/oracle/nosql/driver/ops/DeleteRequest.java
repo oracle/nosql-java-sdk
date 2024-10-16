@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -131,8 +131,9 @@ public class DeleteRequest extends WriteRequest {
     }
 
     /**
-     * Returns whether information about the existing row should be returned on
-     * failure because of a version mismatch.
+     * Returns whether information about the existing row should be returned.
+     * See {@link DeleteRequest#setReturnRow} for details about what information
+     * is returned.
      *
      * @return true if information should be returned.
      */
@@ -194,10 +195,21 @@ public class DeleteRequest extends WriteRequest {
     }
 
     /**
-     * Sets whether information about the existing row should be returned on
-     * failure because of a version mismatch. If a match version has not been
-     * set via {@link #setMatchVersion} this parameter is ignored and there
-     * will be no return information. This parameter is optional and defaults
+     * Sets whether information about the existing row should be returned.
+     * The existing row information, including the value, version, and
+     * modification time, will only be returned if
+     * {@link DeleteRequest#setReturnRow} is true and one of the following
+     * occurs:
+     * <ul>
+     * <li> The {@link DeleteRequest#setMatchVersion} is used and the operation
+     * fails because the row exists and its version does not match.
+     * </li>
+     * <li> The {@link DeleteRequest#setMatchVersion} is not used and the
+     * operation succeeds provided that the server supports providing the
+     * existing row.
+     * </li>
+     * </ul>
+     * This parameter is optional and defaults
      * to false. It's use may incur additional cost.
      *
      * @param value set to true if information should be returned
@@ -211,8 +223,8 @@ public class DeleteRequest extends WriteRequest {
 
     /**
      * Sets the optional request timeout value, in milliseconds. This overrides
-     * any default value set in {@link NoSQLHandleConfig}. The value must be
-     * positive.
+     * any default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
+     * The value must be positive.
      *
      * @param timeoutMs the timeout value, in milliseconds
      *
@@ -223,6 +235,27 @@ public class DeleteRequest extends WriteRequest {
      */
     public DeleteRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
+        return this;
+    }
+
+    /**
+     * Sets the optional namespace.
+     * On-premises only.
+     *
+     * This overrides any default value set with
+     * {@link NoSQLHandleConfig#setDefaultNamespace}.
+     * Note: if a namespace is specified in the table name for the request
+     * (using the namespace:tablename format), that value will override this
+     * setting.
+     *
+     * @param namespace the namespace to use for the operation
+     *
+     * @return this
+     *
+     * @since 5.4.10
+     */
+    public DeleteRequest setNamespace(String namespace) {
+        super.setNamespaceInternal(namespace);
         return this;
     }
 

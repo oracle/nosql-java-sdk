@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -45,6 +45,12 @@ public interface SerializerFactory {
 
     Serializer createMultiDeleteSerializer();
 
+    Serializer createAddReplicaSerializer();
+
+    Serializer createDropReplicaSerializer();
+
+    Serializer createGetReplicaStatsSerializer();
+
     /* deserializers */
     Serializer createDeleteDeserializer();
 
@@ -73,6 +79,12 @@ public interface SerializerFactory {
     Serializer createWriteMultipleDeserializer();
 
     Serializer createMultiDeleteDeserializer();
+
+    Serializer createAddReplicaDeserializer();
+
+    Serializer createDropReplicaDeserializer();
+
+    Serializer createGetReplicaStatsDeserializer();
 
     /*
      * These methods encapsulate differences in serializer streams

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -39,9 +39,11 @@ public class TimestampUtil {
 
     /*
      * The separator to conjunct components to a string, these are used parse a
-     * string in default pattern.
+     * string in default pattern. Allow ' ' in place of 'T' by default, which is
+     * allowed by the spec
      */
-    private final static char compSeparators[] = {'-', '-', 'T', ':', ':', '.'};
+    private final static char compSep[] = {'-', '-', 'T', ':', ':', '.'};
+    private final static char compSep1[] = {'-', '-', ' ', ':', ':', '.'};
 
     /*
      * The name of components.
@@ -242,7 +244,7 @@ public class TimestampUtil {
                     ++ndigits;
                     break;
                 default:
-                    if (ch == compSeparators[comp]) {
+                    if (ch == compSep[comp] || ch == compSep1[comp])  {
                         checkAndSetValue(comps, comp, val, ndigits, ts);
                         ++comp;
                         val = 0;

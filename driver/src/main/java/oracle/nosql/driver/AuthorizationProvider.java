@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -63,10 +63,13 @@ public interface AuthorizationProvider {
      * @param request the request being processed
      *
      * @param headers the HTTP headers
+     *
+     * @param content the request content bytes
      */
     public default void setRequiredHeaders(String authString,
                                            Request request,
-                                           HttpHeaders headers) {
+                                           HttpHeaders headers,
+                                           byte[] content) {
         if (authString != null) {
             headers.set(AUTHORIZATION, authString);
         }
@@ -76,5 +79,15 @@ public interface AuthorizationProvider {
      * Invalidate any cached authorization strings.
      */
     public default void flushCache() {
+    }
+
+    /**
+     * Indicates whether or not the instance is used for the cloud
+     * service
+     *
+     * @return false by default
+     */
+    public default boolean forCloud() {
+        return false;
     }
 }

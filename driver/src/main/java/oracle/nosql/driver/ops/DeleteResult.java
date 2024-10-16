@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -15,10 +15,11 @@ import oracle.nosql.driver.values.MapValue;
  * Represents the result of a {@link NoSQLHandle#delete} operation.
  * <p>
  * If the delete succeeded {@link #getSuccess} returns true.
- * Information about the existing row on failure may be
- * available using {@link #getExistingValue} and
- *.{@link #getExistingVersion}, depending on the use of
- * {@link DeleteRequest#setReturnRow}.
+ * Information about the existing row may be
+ * available using {@link #getExistingValue},
+ *.{@link #getExistingVersion} and {@link #getExistingModificationTime},
+ * depending on the use of {@link DeleteRequest#setReturnRow} and the result
+ * of the operation.
  * @see NoSQLHandle#delete
  */
 public class DeleteResult extends WriteResult {
@@ -34,10 +35,9 @@ public class DeleteResult extends WriteResult {
     }
 
     /**
-     * Returns the existing row {@link Version} if available. It will be
-     * available if the target row exists and the operation failed because of a
-     * {@link Version} mismatch and the corresponding {@link DeleteRequest} the
-     * method {@link DeleteRequest#setReturnRow} was called with a true value.
+     * Returns the existing row {@link Version} if available. This value will
+     * only be available if the conditions specified in
+     * {@link DeleteRequest#setReturnRow} are met.
      *
      * @return the Version
      */
@@ -46,10 +46,9 @@ public class DeleteResult extends WriteResult {
     }
 
     /**
-     * Returns the existing row value if available. It will be available if the
-     * target row exists and the operation failed because of a {@link Version}
-     * mismatch and the corresponding {@link DeleteRequest} the method {@link
-     * DeleteRequest#setReturnRow} was called with a true value.
+     * Returns the existing row value if available. This value will
+     * only be available if the conditions specified in
+     * {@link DeleteRequest#setReturnRow} are met.
      *
      * @return the value
      */
@@ -58,10 +57,9 @@ public class DeleteResult extends WriteResult {
     }
 
     /**
-     * Returns the existing modification time if available. This is available
-     * only if the target row exists and the operation failed because of a
-     * {@link Version} mismatch and the corresponding {@link DeleteRequest}
-     * method {@link DeleteRequest#setReturnRow} was called with a true value.
+     * Returns the existing modification time if available. This value will
+     * only be available if the conditions specified in
+     * {@link DeleteRequest#setReturnRow} are met.
      *
      * @return the modification time in milliseconds since Jan 1, 1970
      *

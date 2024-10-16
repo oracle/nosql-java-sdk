@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -107,7 +107,7 @@
  * both the SDK and the underlying Netty networking at level FINE. It will
  * log to both the console and a local file called "driver.log."
  * <pre>
-handlers=java.util.logging.FileHandler, java.util.logging.ConsoleHandler
+handlers=java.util.logging.FileHandler,java.util.logging.ConsoleHandler
 
 # File config
 java.util.logging.FileHandler.level=ALL
@@ -143,19 +143,19 @@ io.netty.level=FINE
  *
  * Collection of stats are controlled by the following system
  * properties:<ol><li>
- *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]
- *   Specifies the stats profile: <i>none</i> - disabled,
- *      <i>regular</i> - per request: counters, errors, latencies, delays, retries
- *      <i>more</i> - stats above with 95th and 99th percentile latencies
- *      <i>all</i> - stats above with per query information.</li><li>
+ *   {@code -Dcom.oracle.nosql.sdk.nosqldriver.stats.profile=[none|regular|more|all]}<br>
+ *   Specifies the stats profile:<br> <i>none</i> - disabled<br>
+ *      <i>regular</i> - per request: counters, errors, latencies, delays, retries<br>
+ *      <i>more</i> - stats above with 95th and 99th percentile latencies<br>
+ *      <i>all</i> - stats above with per query information</li><li>
  *
- *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.interval=600 Interval in
- *   seconds to log the stats, by default is 10 minutes.</li><li>
+ *   {@code -Dcom.oracle.nosql.sdk.nosqldriver.stats.interval=600}<br> Interval in
+ *   seconds to log the stats, default value is 600 seconds (10 minutes)</li><li>
  *
- *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true Option
+ *   {@code -Dcom.oracle.nosql.sdk.nosqldriver.stats.pretty-print=true}<br> Option
  *   to enable pretty printing of the JSON data, default value is false</li><li>
  *
- *   -Dcom.oracle.nosql.sdk.nosqldriver.stats.enable-log=false Option
+ *   {@code -Dcom.oracle.nosql.sdk.nosqldriver.stats.enable-log=false}<br> Option
  *   to turn on logging automatically if stats are enabled, default value is
  *   true</li>
  *   </ol><p>

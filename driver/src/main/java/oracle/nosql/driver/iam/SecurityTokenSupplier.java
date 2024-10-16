@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -14,7 +14,7 @@ import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
@@ -173,18 +173,7 @@ class SecurityTokenSupplier {
             }
         }
         SecurityToken token = getSecurityTokenFromIAM();
-        token.validate(minTokenLifetime);
-
-        /*
-         * Allow logging of token expiration details
-         */
-        long tokenLifetime = token.getExpiryMS() - token.getCreationTime();
-        logTrace(logger, "New security token: lifetime=" + tokenLifetime +
-                 ", expiry=" + token.getExpiryMS() + ", creation=" +
-                 token.getCreationTime());
-        if (tokenLifetime < minTokenLifetime) {
-            logTrace(logger, "token:\n" + token.getSecurityToken());
-        }
+        token.validate(minTokenLifetime, logger);
 
         return token.getSecurityToken();
     }
@@ -232,7 +221,7 @@ class SecurityTokenSupplier {
 
             return new SecurityToken(securityToken, keyPairSupplier);
         } catch (Exception e) {
-            throw new SecurityInfoNotReadyException(e.getMessage());
+            throw new SecurityInfoNotReadyException(e.getMessage(), e);
         }
     }
 
@@ -250,12 +239,6 @@ class SecurityTokenSupplier {
     }
 
     static class SecurityToken {
-        /* fields in security token JSON used to check validity */
-        private static final String[] FIELDS = {
-            "exp", "jwk", "n", "e",
-            ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY,
-            ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY};
-
         private final SessionKeyPairSupplier keyPairSupplier;
         private final String securityToken;
         private final Map<String, String> tokenClaims;
@@ -266,7 +249,7 @@ class SecurityTokenSupplier {
             this.securityToken = token;
             this.keyPairSupplier = supplier;
             this.creationTime = System.currentTimeMillis();
-            this.tokenClaims = parseToken(token);
+            this.tokenClaims = Utils.parseToken(token);
         }
 
         String getSecurityToken() {
@@ -289,7 +272,7 @@ class SecurityTokenSupplier {
          * Validate the token.
          * Throws IAE if any validation fails.
          */
-        void validate(long minTokenLifetime) {
+        void validate(long minTokenLifetime, Logger logger) {
             if (tokenClaims == null) {
                 throw new IllegalArgumentException(
                     "No security token cached");
@@ -308,8 +291,17 @@ class SecurityTokenSupplier {
 
             /*
              * Note: expiry check removed, as some tokens may have very short
-             * expirations.
+             * expirations, but allow logging of token expiration details
              */
+            long tokenLifetime = getExpiryMS() - getCreationTime();
+            logTrace(logger, "New security token: lifetime=" + tokenLifetime +
+                     ", expiry=" + getExpiryMS() + ", creation=" +
+                     getCreationTime());
+            if (tokenLifetime < minTokenLifetime) {
+                logTrace(logger, "Security token has shorter lifetime" +
+                         "than expected minimal token lifetime, token:\n" +
+                         getSecurityToken());
+            }
 
             /*
              * Next compare the public key inside the JWT is the same
@@ -347,8 +339,8 @@ class SecurityTokenSupplier {
 
         /**
          * Checks if two public keys are equal
-         * @param a one public key
-         * @param b the other one
+         * @param actual one public key
+         * @param expect the other one
          * @return true if the same
          */
         private boolean isEqualPublicKey(RSAPublicKey actual,
@@ -361,83 +353,6 @@ class SecurityTokenSupplier {
             String expectKey = Utils.base64EncodeNoChunking(expect);
 
             return actualKey.equals(expectKey);
-        }
-
-        /*
-         * Parse security token JSON response get fields expiration time,
-         * modulus and public exponent of JWK, only used for security token
-         * validity check, ignores other fields.
-         *
-         * Response:
-         * {
-         *  "exp" : 1234123,
-         *  "jwk" : {
-         *    "e": "xxxx",
-         *    "n": "xxxx",
-         *    ...
-         *  }
-         *  ...
-         * }
-         */
-        static Map<String, String> parseToken(String token) {
-            if (token == null) {
-                return null;
-            }
-            String[] jwt = splitJWT(token);
-            String claimJson = new String(Base64.getUrlDecoder().decode(jwt[1]),
-                                          Charset.forName("UTF-8"));
-
-            try {
-                JsonParser parser = createParser(claimJson);
-                Map<String, String> results = new HashMap<>();
-                parse(token, parser, results);
-
-                String jwkString = results.get("jwk");
-                if (jwkString == null) {
-                    return results;
-                }
-                parser = createParser(jwkString);
-                parse(token, parser, results);
-
-                return results;
-            } catch (IOException ioe) {
-                throw new IllegalStateException(
-                    "Error parsing security token "+ ioe.getMessage());
-            }
-        }
-
-        private static void parse(String json,
-                                  JsonParser parser,
-                                  Map<String, String> reults)
-            throws IOException {
-
-            if (parser.getCurrentToken() == null) {
-                parser.nextToken();
-            }
-            while (parser.getCurrentToken() != null) {
-                String field = findField(json, parser, FIELDS);
-                if (field != null) {
-                    parser.nextToken();
-                    reults.put(field, parser.getText());
-                }
-            }
-        }
-
-        private static String[] splitJWT(String jwt) {
-            final int dot1 = jwt.indexOf(".");
-            final int dot2 = jwt.indexOf(".", dot1 + 1);
-            final int dot3 = jwt.indexOf(".", dot2 + 1);
-
-            if (dot1 == -1 || dot2 == -1 || dot3 != -1) {
-                throw new IllegalArgumentException(
-                    "Given string is not in the valid access token format");
-            }
-
-            final String[] parts = new String[3];
-            parts[0] = jwt.substring(0, dot1);
-            parts[1] = jwt.substring(dot1 + 1, dot2);
-            parts[2] = jwt.substring(dot2 + 1);
-            return parts;
         }
     }
 
@@ -457,5 +372,24 @@ class SecurityTokenSupplier {
          * throw an error otherwise.
          */
         void setMinTokenLifetime(long lifeTimeMS);
+
+        /**
+         * @hidden
+         * Prepare the provider. This method can be used to configure the
+         * service URL, does http client warm-up. This method is usually
+         * called when the NoSQLHandle is created. Does nothing by default.
+         */
+        default void prepare(NoSQLHandleConfig config) {
+        }
+
+        /**
+         * @hidden
+         * Close the provider. This method can be used to cleanup the resources
+         * used by the provider, such as close the http client. This method
+         * is usually called when the NoSQLHandle is closed. Does nothing by
+         * default.
+         */
+        default void close() {
+        }
     }
 }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -42,8 +42,10 @@ public class StatsControlImpl
         this.statsHandler = config.getStatsHandler();
 
         if (profile != Profile.NONE) {
-            if (config.getStatsEnableLog() &&
-                logger.getLevel().intValue() > Level.INFO.intValue()) {
+            /* when stats collection is enabled set log level to INFO if it
+             * is not set.
+             */
+            if (config.getStatsEnableLog() && !logger.isLoggable(Level.INFO)) {
                 logger.setLevel(Level.INFO);
             }
             logger.log(Level.INFO, LOG_PREFIX +

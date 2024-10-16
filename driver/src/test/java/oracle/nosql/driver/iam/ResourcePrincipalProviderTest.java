@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -146,7 +146,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
             keyFile.toAbsolutePath().toString(), null);
         ResourcePrincipalTokenSupplier supplier =
-            new FixedSecurityTokenSupplier(keySupplier, token);
+            new FixedSecurityTokenSupplier(keySupplier, token, null);
         assertEquals(supplier.getSecurityToken(), token);
         assertEquals(supplier.getStringClaim(
                      ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
@@ -182,7 +182,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
             keyFile.toAbsolutePath().toString(), null);
         ResourcePrincipalTokenSupplier tokenSupplier =
-            new FixedSecurityTokenSupplier(keySupplier, token);
+            new FixedSecurityTokenSupplier(keySupplier, token, null);
         ResourcePrincipalProvider rpProvider =
             new ResourcePrincipalProvider(tokenSupplier,
                                           keySupplier,
@@ -206,37 +206,5 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         assertEquals(provider.getResourcePrincipalClaim(
                      ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
                      "tenantId");
-    }
-
-    @Test
-    public void testValidateKey()
-        throws Exception {
-
-        int refreshWindowSec = 1;
-        String token = expiringToken(TOKEN,
-                                     refreshWindowSec,
-                                     keypair.getPublicKey());
-        Path keyFile = Files.write(Paths.get(getTestDir(), "key.pem"),
-                                   keypair.getKey().getBytes(),
-                                   StandardOpenOption.CREATE);
-        SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
-            keyFile.toAbsolutePath().toString(), null);
-        File tokenFile = new File(getTestDir(), "token");
-        Files.write(tokenFile.toPath(), token.getBytes());
-        FileSecurityTokenSupplier fileSupplier =
-            new FileSecurityTokenSupplier(keySupplier,
-                                          tokenFile.getAbsolutePath(),
-                                          null);
-        ResourcePrincipalProvider rpProvider =
-            new ResourcePrincipalProvider(fileSupplier,
-                                          keySupplier,
-                                          Region.US_ASHBURN_1);
-        rpProvider.setMinTokenLifetime((refreshWindowSec * 1000) + 100);
-        try {
-            rpProvider.getKeyId();
-            fail("expected");
-        } catch (IllegalArgumentException iae) {
-            assertThat(iae.getMessage(), "less lifetime");
-        }
     }
 }

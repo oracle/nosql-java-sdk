@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -63,20 +63,43 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Statistics configuration, optional.
      */
+    /**
+     * Java property string for acquiring a non-default stats profile
+     */
     public static final String STATS_PROFILE_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.profile";
+    /**
+     * Java property string for acquiring a non-default stats interval
+     */
     public static final String STATS_INTERVAL_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.interval";
+    /**
+     * Java property string for acquiring a non-default stats print mode
+     */
     public static final String STATS_PRETTY_PRINT_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.pretty-print";
+    /**
+     * Java property string for acquiring a non-default stats log enabling
+     */
     public static final String STATS_ENABLE_LOG_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
 
-    /* Statistics logging interval in seconds. Default 600 sec, ie. 10 min. */
+    /**
+     * Statistics logging interval in seconds. Default 600 sec, ie. 10 min.
+     */
     public static final int DEFAULT_STATS_INTERVAL = 600;
+    /**
+     * Default profile for stats
+     */
     public static final StatsControl.Profile DEFAULT_STATS_PROFILE =
         StatsControl.Profile.NONE;
+    /**
+     * Default printing mode for stats
+     */
     public static final boolean DEFAULT_STATS_PRETTY_PRINT = false;
+    /**
+     * Default enabling of log for stats
+     */
     public static final boolean DEFAULT_ENABLE_LOG = true;
 
 
@@ -205,7 +228,7 @@ public class NoSQLHandleConfig implements Cloneable {
     private String compartment;
 
     /**
-     * On-premise only.
+     * On-premises only.
      *
      * The default namespace to use for all requests. If this is null (the
      * default), no namespace is used unless specified in table names in
@@ -1087,9 +1110,9 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
+     * Set the default namespace to use for the handle.
      *
-     * On-premise only.
+     * On-premises only.
      *
      * Sets the default namespace to use for requests sent using the
      * handle. This is an optional convenience method to avoid having to
@@ -1098,9 +1121,14 @@ public class NoSQLHandleConfig implements Cloneable {
      * Any non-namespace qualified table name in requests and/or SQL
      * statements will be resolved/qualified to the specified namespace.
      *
-     * @param namespace the default namespace to use
+     * This value can be overridden on a per-request basis by calling
+     * setNamespace() on individual requests.
+     *
+     * @param defaultNamespace the default namespace to use
      *
      * @return this
+     *
+     * @since 5.4.10
      */
     public NoSQLHandleConfig setDefaultNamespace(String defaultNamespace) {
         this.defaultNamespace = defaultNamespace;
@@ -1108,13 +1136,15 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
+     * Get the default namespace.
      *
-     * On-premise only.
+     * On-premises only.
      *
      * Returns the default namespace to use for requests or null if not set.
      *
      * @return the default namespace
+     *
+     * @since 5.4.10
      */
     public String getDefaultNamespace() {
         return defaultNamespace;

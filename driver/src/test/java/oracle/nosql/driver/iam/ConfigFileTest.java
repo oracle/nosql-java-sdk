@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -233,6 +233,7 @@ public class ConfigFileTest extends DriverTestBase {
         hconfig = new NoSQLHandleConfig(Region.ME_JEDDAH_1, provider);
         assertEquals(hconfig.getServiceURL().toString(),
                      Region.ME_JEDDAH_1.endpoint() + ":443/");
+        assertNull(provider.getRegion());
 
         config = new File(getTestDir(), "mismatchregion_profile");
         try (PrintWriter writer = new PrintWriter(config)) {

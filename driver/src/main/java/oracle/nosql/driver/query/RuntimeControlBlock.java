@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2023 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,6 +8,8 @@
 package oracle.nosql.driver.query;
 
 import java.math.MathContext;
+import java.time.temporal.ChronoUnit;
+import java.time.Clock;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.http.Client;
@@ -27,6 +29,8 @@ public class RuntimeControlBlock {
      * Client, the QueryRequest, and the PreparedStatement.
      */
     private final QueryDriver theQueryDriver;
+
+    private final TopologyInfo theBaseTopo;
 
     /*
      * An array storing the values of the extenrnal variables set for the
@@ -76,6 +80,8 @@ public class RuntimeControlBlock {
      */
     long theMemoryConsumption;
 
+    private final StringBuilder theTraceBuilder = new StringBuilder();
+
     public RuntimeControlBlock(
         QueryDriver driver,
         PlanIter rootIter,
@@ -90,6 +96,7 @@ public class RuntimeControlBlock {
         theIteratorStates = new PlanIterState[numIters];
         theRegisters = new FieldValue[numRegs];
         theExternalVars = externalVars;
+        theBaseTopo = getClient().getTopology();
     }
 
     public int getTraceLevel() {
@@ -97,8 +104,27 @@ public class RuntimeControlBlock {
     }
 
     public void trace(String msg) {
-        /* TODO: think about logging */
-        System.out.println("D-QUERY: " + msg);
+        if (getRequest().getLogFileTracing()) {
+            System.out.println(
+                Clock.systemUTC().instant().
+                truncatedTo(ChronoUnit.MILLIS) +
+                " DRIVER " + getRequest().getQueryName() +
+                "(" + Thread.currentThread().getId() +
+                ") : " + msg);
+        } else {
+            String time = Clock.systemUTC().instant().
+                          truncatedTo(ChronoUnit.MILLIS).toString();
+            time = time.substring(11);
+            theTraceBuilder.append(time);
+            theTraceBuilder.append(" (").
+                append(Thread.currentThread().getId()).
+                append(") :\n");
+            theTraceBuilder.append(msg).append("\n");
+        }
+    }
+
+    String getQueryTrace() {
+        return theTraceBuilder.toString();
     }
 
     public Client getClient() {
@@ -109,8 +135,8 @@ public class RuntimeControlBlock {
         return theQueryDriver.getRequest();
     }
 
-    TopologyInfo getTopologyInfo() {
-        return theQueryDriver.getTopologyInfo();
+    TopologyInfo getBaseTopo() {
+        return theBaseTopo;
     }
 
     Consistency getConsistency() {
