@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.15</version>
+  <version>5.4.16</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -155,6 +155,68 @@
         <maven.javadoc.skip>true</maven.javadoc.skip>
       </properties>
     </profile>
+
+        <!-- The profile to run eclipse compiler check -->
+    <!--
+      It sets the compiler output directory to target/ecj-target, making sure that
+      we don't accidentally use ecj compiled classes in release package.
+      It also triggers `clean` phase automatically.
+    -->
+    <profile>
+      <id>warnings</id>
+      <build>
+        <directory>${project.basedir}/target/ecj-target</directory>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.11.0</version>
+              <configuration>
+                <compilerId>eclipse</compilerId>
+                <fork>true</fork>
+                <debug>false</debug>
+                <failOnWarning>false</failOnWarning>
+                <compilerArgs>
+                  <arg>-properties</arg>
+                  <arg>${maven.multiModuleProjectDirectory}/.settings/org.eclipse.jdt.core.prefs</arg>
+                  <arg>-enableJavadoc</arg>
+                  <arg>-Xemacs</arg>
+                </compilerArgs>
+              </configuration>
+
+              <dependencies>
+                <dependency>
+                  <groupId>org.codehaus.plexus</groupId>
+                  <artifactId>plexus-compiler-eclipse</artifactId>
+                  <version>2.13.0</version>
+                </dependency>
+
+                <dependency>
+                  <groupId>org.eclipse.jdt</groupId>
+                  <artifactId>ecj</artifactId>
+                  <version>3.34.0</version>
+                </dependency>
+              </dependencies>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>auto-clean</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>clean</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
   <dependencies>
 
@@ -349,7 +411,6 @@
             <![CDATA[<b>Oracle NoSQL Database</b><br><font size=\"-1\"> Version ${project.version} ${maven.build.timestamp}</font>]]>
           </header>
           <bottom><![CDATA[<font size=1>${copyright}</font>]]> </bottom>
-          <link>${java.apidoc}</link>
           <additionalOptions>
             <additionalOption>-author</additionalOption>
           </additionalOptions>

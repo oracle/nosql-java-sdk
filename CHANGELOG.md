@@ -5,16 +5,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
-- Fixed an issue when stats collection is enabled debug logs were not 
+- Fixed an issue when stats collection is enabled debug logs were not
   logging.
+- Cloud only: fixed OkeWorkloadIdentity so that it will honor region information
+  provided by the environment variable, OCI_REGION_METADATA, which is necessary
+  for services that do not have access to an Instance Metadata Service to
+  provide local region information.
+- Cloud only: fixed a compatibility issue introduced in 5.4.15 regarding use of
+  the Bouncy Castle artifacts. This would turn up when using Instance Principal
+  authentication
 
 ### Changed
-- Put and Put if-present can return the existing row when setReturnRow is 
+- Put and Put if-present can return the existing row when setReturnRow is
   set to true and row already exists.
 - Delete can return the deleted row when setReturnRow is set to true.
+- Cloud only: refactored how the Region class operations to allow applications
+  to add regions dynamically via a configuration file
+  (~/.oci/regions-config.jsonc) or environment variable (OCI_REGION_METADATA)
 
 ### Added
 - Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+- Cloud only: refactored how the Region class is managed, allowing dynamic
+  addition of regions not yet known to the system
 
 ## [5.4.15] 2024-06-05
 

@@ -21,7 +21,6 @@ import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
-import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.query.VirtualScan;
 
 /**
