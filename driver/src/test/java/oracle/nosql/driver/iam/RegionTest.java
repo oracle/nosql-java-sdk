@@ -68,6 +68,9 @@ public class RegionTest extends DriverTestBase {
         /* good, existing region */
         assertNotNull(Region.fromRegionId("us-ashburn-1"));
 
+        /* re-read env var, as previous tests may have set one-time-use flag */
+        Region.readEnvVar();
+
         /* this was added by env var, see static init above */
         assertNotNull(Region.fromRegionId("us-nowhere-1"));
 
