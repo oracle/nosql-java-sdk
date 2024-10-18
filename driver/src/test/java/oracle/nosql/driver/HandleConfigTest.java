@@ -129,7 +129,7 @@ public class HandleConfigTest {
     private void validate(Region region, String protocol,
                           String host, int port) {
         NoSQLHandleConfig config = new NoSQLHandleConfig(region, null);
-        URL configURL = config.ngetServiceURL();
+        URL configURL = config.getServiceURL();
         assertEquals(protocol, configURL.getProtocol());
         assertEquals(host, configURL.getHost());
         assertEquals(port, configURL.getPort());
