@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.util;
 
+import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.headersFactory;
+import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.trailersFactory;
 import static io.netty.handler.codec.http.HttpMethod.DELETE;
 import static io.netty.handler.codec.http.HttpMethod.GET;
 import static io.netty.handler.codec.http.HttpMethod.POST;
@@ -18,7 +20,7 @@ import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
@@ -339,7 +341,8 @@ public class HttpRequestUtil {
         final FullHttpRequest request =
             new DefaultFullHttpRequest(HTTP_1_1, method, requestURI,
                                        buffer,
-                                       false /* Don't validate hdrs */);
+                                       headersFactory().withValidation(false),
+                                       trailersFactory().withValidation(false));
         request.headers().add(headers);
         request.headers().setInt(CONTENT_LENGTH, buffer.readableBytes());
         return request;
@@ -350,7 +353,8 @@ public class HttpRequestUtil {
      */
     private static void addRequiredHeaders(FullHttpRequest request) {
         try {
-            final String host = new URL(request.uri()).getHost();
+            final String host =
+                URI.create(request.uri()).toURL().getHost();
             request.headers().add(HttpHeaderNames.HOST, host);
             request.headers().add(HttpConstants.USER_AGENT,
                                   HttpConstants.userAgent);

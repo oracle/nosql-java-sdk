@@ -35,6 +35,8 @@ import oracle.nosql.driver.Region;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import oracle.nosql.driver.values.FieldValue;
+import oracle.nosql.driver.values.MapValue;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
@@ -65,10 +67,23 @@ class OkeWorkloadIdentityProvider
     private static final String KUBERNETES_SERVICE_HOST =
         "KUBERNETES_SERVICE_HOST";
 
+    /* Environment variable that may contain instance/region metadata:
+     * format is JSON if it is set:
+     * {
+     *  "realmKey":"OC1",
+     *  "realmDomainComponent":"oraclecloud.com",
+     *  "regionKey":"IAD",
+     *  "regionIdentifier":"us-ashburn-1"
+     * }
+     */
+    private static final String OCI_REGION_METADATA = "OCI_REGION_METADATA";
+    private static final String REGION_ID = "regionIdentifier";
+
     /* Kubernetes proxymux port */
     private static final int PROXYMUX_SERVER_PORT = 12250;
     private static final String OPC_REQUEST_ID_HEADER = "opc-request-id";
     private static final String JWT_FORMAT = "Bearer %s";
+    private static final int timeoutMs = 5_000;
 
     /* Default path for service account token */
     static final String KUBERNETES_SERVICE_ACCOUNT_TOKEN_PATH =
@@ -81,7 +96,6 @@ class OkeWorkloadIdentityProvider
     private final URI tokenURL;
     private final Region region;
     private final Logger logger;
-    private final int timeoutMs = 5_000;
     private long minTokenLifetime;
     private HttpClient okeTokenClient;
 
@@ -110,9 +124,7 @@ class OkeWorkloadIdentityProvider
         this.logger = (logger != null) ?
             logger : Logger.getLogger(getClass().getName());
         this.tokenURL = getURL();
-        final InstanceMetadataHelper.InstanceMetadata instanceMetadata =
-            InstanceMetadataHelper.fetchMetadata(timeoutMs, logger);
-        this.region = Region.fromRegionId(instanceMetadata.getRegion());
+        this.region = getRegionFromInstance(logger);
     }
 
     @Override
@@ -297,5 +309,33 @@ class OkeWorkloadIdentityProvider
             .set(CONTENT_TYPE, APPLICATION_JSON)
             .set(OPC_REQUEST_ID_HEADER, opcRequestId)
             .set(AUTHORIZATION, String.format(JWT_FORMAT, token));
+    }
+
+    private static Region getRegionFromInstance(Logger logger) {
+        String regionId = null;
+        /*
+         * A number of serverless services (OMK, Container instances,
+         * virtual nodes, ...) do not have an IMDS (Instance Metadata Service)
+         * which allows fetching of instance info from a URL. These instead
+         * use the OCI_REGION_METADATA environment variable to inject this
+         * information into the runtime environment. Check that first.
+         */
+        String regionMetadata = System.getenv(OCI_REGION_METADATA);
+        if (regionMetadata != null) {
+            /* use value classes as convenience to parse and use JSON */
+            FieldValue jsonMetadata =
+                FieldValue.createFromJson(regionMetadata, null);
+            if (!(jsonMetadata instanceof MapValue)) {
+                throw new IllegalArgumentException(
+                    "Invalid format of OCI_REGION_METADATA: " + regionMetadata);
+            }
+            regionId = ((MapValue)jsonMetadata).getString(REGION_ID);
+        } else {
+            /* use the IMDS */
+            final InstanceMetadataHelper.InstanceMetadata instanceMetadata =
+                InstanceMetadataHelper.fetchMetadata(timeoutMs, logger);
+            regionId = instanceMetadata.getRegion();
+        }
+        return Region.fromRegionId(regionId);
     }
 }

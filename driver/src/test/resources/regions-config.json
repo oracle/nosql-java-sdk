@@ -1,0 +1,5 @@
+[
+  {"regionKey": "jnb", "realmKey": "oc77", "regionIdentifier": "af-newregion-1", "realmDomainComponent": "oraclecloud77.com"},
+  {"regionKey": "yny", "realmKey": "oc77", "regionIdentifier": "af-newregion-2", "realmDomainComponent": "oraclecloud77.com"},
+  {"regionKey": "hyd", "realmKey": "oc77", "regionIdentifier": "af-newregion-3", "realmDomainComponent": "oraclecloud77.com"}
+]

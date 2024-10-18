@@ -1420,7 +1420,7 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @since 5.2.30
      */
-    public NoSQLHandleConfig setStatsInterval(int statsInterval) {
+    public final NoSQLHandleConfig setStatsInterval(int statsInterval) {
         if (statsInterval < 1) {
             throw new IllegalArgumentException("Stats interval can not be " +
                 "less than 1 second.");
@@ -1450,7 +1450,7 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @since 5.2.30
      */
-    public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
+    public final NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
     {
         this.statsProfile = statsProfile;
         return this;

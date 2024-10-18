@@ -76,7 +76,7 @@ public class SimpleRateLimiter implements RateLimiter {
     }
 
     @Override
-    public synchronized void setLimitPerSecond(double rateLimitPerSec) {
+    public final synchronized void setLimitPerSecond(double rateLimitPerSec) {
         if (rateLimitPerSec <= 0.0) {
             this.nanosPerUnit = 0;
         } else {
@@ -109,13 +109,13 @@ public class SimpleRateLimiter implements RateLimiter {
     }
 
     @Override
-    public void setDuration(double durationSecs) {
+    public final void setDuration(double durationSecs) {
         this.durationNanos = (long)(durationSecs * 1_000_000_000.0);
         enforceMinimumDuration();
     }
 
     @Override
-    public void reset() {
+    public final void reset() {
         lastNano = System.nanoTime();
     }
 

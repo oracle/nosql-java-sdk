@@ -9,7 +9,6 @@ package oracle.nosql.driver.query;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 
 import oracle.nosql.driver.query.PlanIterState.StateEnum;
 import oracle.nosql.driver.util.ByteInputStream;
