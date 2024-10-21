@@ -32,6 +32,7 @@ import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.util.HttpRequestUtil;
@@ -222,6 +223,16 @@ class OkeWorkloadIdentityProvider
         final byte[] payloadByte = new byte[buf.remaining()];
         buf.get(payloadByte);
 
+        try {
+            return getSecurityTokenFromProxymux(requestId, saToken, payloadByte);
+        } catch (Exception e) {
+            throw new SecurityInfoNotReadyException(e.getMessage(), e);
+        }
+    }
+
+    private String getSecurityTokenFromProxymux(String requestId,
+                                                String saToken,
+                                                byte[] payloadByte) {
         HttpRequestUtil.HttpResponse response = HttpRequestUtil.doPostRequest(
             okeTokenClient, tokenURL.toString(), headers(saToken, requestId),
             payloadByte, timeoutMs, logger);

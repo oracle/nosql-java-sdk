@@ -48,7 +48,7 @@
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.108.Final</netty.version>
     <jackson.version>2.15.2</jackson.version>
-    <bouncy.version>1.78</bouncy.version>
+    <oci.java.sdk.version>3.51.0</oci.java.sdk.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -249,17 +249,17 @@
       <version>${netty.version}</version>
     </dependency>
 
-    <!-- Bouncycastle - request signing in cloud -->
+    <!-- oci-java-sdk-common-httpclient - request signing in cloud -->
     <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk18on</artifactId>
-      <version>${bouncy.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk18on</artifactId>
-      <version>${bouncy.version}</version>
+      <groupId>com.oracle.oci.sdk</groupId>
+      <artifactId>oci-java-sdk-common-httpclient</artifactId>
+      <version>${oci.java.sdk.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!-- test -->
