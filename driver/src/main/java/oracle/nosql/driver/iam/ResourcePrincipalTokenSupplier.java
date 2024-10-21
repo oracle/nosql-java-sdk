@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.logging.Logger;
 
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 
 /**
@@ -91,11 +92,15 @@ abstract class ResourcePrincipalTokenSupplier {
             logTrace(logger, "Refreshing session keys");
             sessionKeyPairSupplier.refreshKeys();
 
-            logTrace(logger, "Getting security token from file.");
-            SecurityToken token = getSecurityTokenFromFile();
-            token.validate(minTokenLifetime, logger);
-            securityToken = token;
-            return securityToken.getSecurityToken();
+            try {
+                logTrace(logger, "Getting security token from file.");
+                SecurityToken token = getSecurityTokenFromFile();
+                token.validate(minTokenLifetime, logger);
+                securityToken = token;
+                return securityToken.getSecurityToken();
+            } catch (Exception e) {
+                throw new SecurityInfoNotReadyException(e.getMessage(), e);
+            }
         }
 
         SecurityToken getSecurityTokenFromFile() {

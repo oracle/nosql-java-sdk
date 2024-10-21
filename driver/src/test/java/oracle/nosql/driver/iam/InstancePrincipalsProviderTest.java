@@ -25,7 +25,6 @@ import java.util.Collections;
 import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.FreePortLocator;
 import oracle.nosql.driver.NoSQLHandleConfig;
-import oracle.nosql.driver.Region;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.iam.CertificateSupplier.DefaultCertificateSupplier;
 import oracle.nosql.driver.iam.CertificateSupplier.URLResourceDetails;
@@ -95,6 +94,7 @@ public class InstancePrincipalsProviderTest extends DriverTestBase {
     @AfterClass
     public static void staticTearDown() {
         server.stop(0);
+        clearTestDirectory();
     }
 
     @Before

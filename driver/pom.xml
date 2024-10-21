@@ -48,7 +48,6 @@
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.108.Final</netty.version>
     <jackson.version>2.15.2</jackson.version>
-    <bouncy.version>1.78</bouncy.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -247,19 +246,6 @@
       <groupId>io.netty</groupId>
       <artifactId>netty-handler-proxy</artifactId>
       <version>${netty.version}</version>
-    </dependency>
-
-    <!-- Bouncycastle - request signing in cloud -->
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk18on</artifactId>
-      <version>${bouncy.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.bouncycastle</groupId>
-      <artifactId>bcpkix-jdk18on</artifactId>
-      <version>${bouncy.version}</version>
     </dependency>
 
     <!-- test -->

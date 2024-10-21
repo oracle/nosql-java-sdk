@@ -164,13 +164,10 @@ class SecurityTokenSupplier {
                 }
             }
         }
-        SecurityToken token = getSecurityTokenFromIAM();
-        token.validate(minTokenLifetime, logger);
-
-        return token.getSecurityToken();
+        return getSecurityTokenFromIAM();
     }
 
-    private SecurityToken getSecurityTokenFromIAM() {
+    private String getSecurityTokenFromIAM() {
         KeyPair keyPair = keyPairSupplier.getKeyPair();
         requireNonNullIAE(keyPair, "Keypair for session not provided");
 
@@ -211,7 +208,9 @@ class SecurityTokenSupplier {
                 Utils.base64EncodeNoChunking(certificateAndKeyPair),
                 intermediateStrings);
 
-            return new SecurityToken(securityToken, keyPairSupplier);
+            SecurityToken st = new SecurityToken(securityToken, keyPairSupplier);
+            st.validate(minTokenLifetime, logger);
+            return st.getSecurityToken();
         } catch (Exception e) {
             throw new SecurityInfoNotReadyException(e.getMessage(), e);
         }

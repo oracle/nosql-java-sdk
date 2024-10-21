@@ -9,11 +9,9 @@ package oracle.nosql.driver.iam;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -40,19 +38,20 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.UUID;
 
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
+import javax.security.auth.x500.X500Principal;
+
+import oracle.nosql.driver.iam.pki.Pem;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
-import org.bouncycastle.asn1.x500.RDN;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x500.style.BCStyle;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
  * @hidden
@@ -128,9 +127,9 @@ class Utils {
     }
 
     /**
-     * Creates a keyId from an {@link AuthenticationDetailsProvider}.
+     * Creates a keyId from an {@link UserAuthenticationProfileProvider}.
      *
-     * @param provider
+     * @param prov
      * @return The keyId used to sign requests
      */
     static String createKeyId(UserAuthenticationProfileProvider prov) {
@@ -202,17 +201,7 @@ class Utils {
      * @return A new input stream
      */
     static byte[] toByteArray(RSAPrivateKey key) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (JcaPEMWriter writer = new JcaPEMWriter(
-                 new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
-
-            writer.writeObject(key);
-            writer.flush();
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to write PEM object", e);
-        }
-
-        return baos.toByteArray();
+        return Pem.encoder().with(Pem.Format.LEGACY).encode(key);
     }
 
     /**
@@ -228,7 +217,7 @@ class Utils {
 
    /**
     * Base64 encodes a X509Certificate with no chunking.
-    * @param certificate The certificate
+    * @param keyPair The certificate
     * @return Base64 representation
     */
     static String base64EncodeNoChunking(X509CertificateKeyPair keyPair) {
@@ -241,7 +230,7 @@ class Utils {
 
     /**
      * Gets the fingerprint of a certificate using SHA-256.
-     * @param certificate the certificate
+     * @param keyPair the certificate
      * @return Fingerprint of the certificate
      * @throws Error if there is an error
      */
@@ -303,6 +292,9 @@ class Utils {
 
     /**
      * Get the tenant id from the given X509 certificate.
+     * See com.oracle.bmc.auth.internal.AuthUtils::getTenantIdFromCertificate
+     * for reference.
+     *
      * @param certificate the given certificate.
      * @return the tenant id.
      */
@@ -310,12 +302,11 @@ class Utils {
         requireNonNullIAE(certificate,
                           "Unable to get tenant id, certificate is null");
 
-        X500Name name = new X500Name(
-            certificate.getSubjectX500Principal().getName());
-
-        String tenantId = getValue(name, BCStyle.OU, "opc-tenant");
+        X500Principal principal = certificate.getSubjectX500Principal();
+        String name = principal.getName();
+        String tenantId = getValue(name, "OU", "opc-tenant");
         if (tenantId == null) {
-            tenantId = getValue(name, BCStyle.O, "opc-identity");
+            tenantId = getValue(name, "OU", "opc-identity");
         }
 
         if (tenantId != null) {
@@ -326,20 +317,34 @@ class Utils {
             "does not contain tenant id.");
     }
 
-    private static String getValue(X500Name name,
-                                   ASN1ObjectIdentifier id,
-                                   String key) {
-        String prefix = key + ":";
-        for (RDN rdn : name.getRDNs(id)) {
-            for (AttributeTypeAndValue typeAndValue : rdn.getTypesAndValues()) {
-                String value = typeAndValue.getValue().toString();
+    private static String getValue(String name, String type, String key) {
+        try {
+            final LdapName ldapName = new LdapName(name);
+            final String prefix = key + ":";
 
-                if (value.startsWith(prefix)) {
-                    return value.substring(prefix.length());
+            for (Rdn rdn : ldapName.getRdns()) {
+                final String rdnType = rdn.getType();
+                if (type.equalsIgnoreCase(rdnType)) {
+                    final Attribute attribute = rdn.toAttributes().get(type);
+                    if (attribute != null) {
+                        final NamingEnumeration<?> values = attribute.getAll();
+                        while (values.hasMore()) {
+                            final Object value = values.next();
+                            if (value != null) {
+                                final String text = value.toString().trim();
+                                if (text.startsWith(prefix)) {
+                                    return text.substring(prefix.length());
+                                }
+                            }
+                        }
+                    }
                 }
             }
+            return null;
+        } catch (NamingException e) {
+            throw new IllegalStateException(
+                "Error parsing the certificate name", e);
         }
-        return null;
     }
 
     static String readStream(InputStream inputStream)
