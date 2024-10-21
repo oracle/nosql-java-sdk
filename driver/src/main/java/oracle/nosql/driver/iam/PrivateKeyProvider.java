@@ -15,9 +15,9 @@ import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 
-import com.oracle.bmc.http.client.pki.Pem;
-import com.oracle.bmc.http.client.pki.PemEncryptionException;
-import com.oracle.bmc.http.client.pki.PemException;
+import oracle.nosql.driver.iam.pki.Pem;
+import oracle.nosql.driver.iam.pki.PemEncryptionException;
+import oracle.nosql.driver.iam.pki.PemException;
 
 /**
  * @hidden

@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Cloud only: fixed a compatibility issue introduced in 5.4.15 regarding use of
   the Bouncy Castle artifacts. This would turn up when using Instance Principal
   authentication, the bouncy castle artifacts have been removed and replaced
-  with oci-java-sdk-common-httpclient.
+  with standard Java JCE APIs.
 
 ### Changed
 - Put and Put if-present can return the existing row when setReturnRow is

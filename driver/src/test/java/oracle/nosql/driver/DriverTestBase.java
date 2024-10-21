@@ -25,7 +25,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 
-import com.oracle.bmc.http.client.pki.Pem;
+import oracle.nosql.driver.iam.pki.Pem;
 import com.sun.net.httpserver.HttpExchange;
 
 /**

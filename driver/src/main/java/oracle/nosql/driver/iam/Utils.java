@@ -45,7 +45,7 @@ import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import javax.security.auth.x500.X500Principal;
 
-import com.oracle.bmc.http.client.pki.Pem;
+import oracle.nosql.driver.iam.pki.Pem;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
 import com.fasterxml.jackson.core.JsonFactory;
