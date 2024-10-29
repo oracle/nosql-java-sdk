@@ -182,7 +182,10 @@ public class Region {
     public static final Region ME_ABUDHABI_2 = register("me-abudhabi-2", Realm.OC29, "rkt");
     public static final Region ME_ABUDHABI_4 = register("me-abudhabi-4", Realm.OC29, "shj");
     public static final Region AP_HOBSONVILLE_1 = register("ap-hobsonville-1", Realm.OC31, "izq");
+    public static final Region AP_SILVERDALE_1 = register("ap-silverdale-1", Realm.OC31, "jjt");
     public static final Region AP_SUWON_1 = register("ap-suwon-1", Realm.OC35, "dln");
+    public static final Region AP_SEOUL_2 = register("ap-seoul-2", Realm.OC35, "dtz");
+    public static final Region AP_CHUNCHEON_2 = register("ap-chuncheon-2", Realm.OC35, "bno");
     /* Known Regions end generated code */
 
     /* instance state */
