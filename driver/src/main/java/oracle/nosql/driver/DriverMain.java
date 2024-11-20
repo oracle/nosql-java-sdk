@@ -14,11 +14,11 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
 /**
- * @hidden
- *
  * A simple main for the driver jar file. At this time it only handles a
  * "version" command. If it ever is extended for other arguments it should
  * be better abstracted for multiple commands
+ *
+ * @hidden
  */
 public class DriverMain {
 

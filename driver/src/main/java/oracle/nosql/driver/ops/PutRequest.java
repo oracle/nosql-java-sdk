@@ -438,13 +438,13 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * @hidden
      * Internal use only
      *
      * Validates the state of the object when complete.
      *
      * @throws IllegalArgumentException if the state is incomplete or
      * invalid.
+     * @hidden
      */
     @Override
     public void validate() {
@@ -478,11 +478,10 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * @hidden
-     *
      * Returns true if the operation should update the ttl.
      * @return true if the operation should update the ttl on the row if
      * it already exists
+     * @hidden
      */
     public boolean getUpdateTTL() {
         return(updateTTL || ttl != null);

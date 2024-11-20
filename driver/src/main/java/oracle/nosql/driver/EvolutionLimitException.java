@@ -18,9 +18,10 @@ public class EvolutionLimitException extends ResourceLimitException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      *
      * @param msg the exception message
+     * @hidden
      */
     public EvolutionLimitException(String msg) {
         super(msg);

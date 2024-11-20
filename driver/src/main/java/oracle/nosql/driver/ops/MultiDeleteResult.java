@@ -93,9 +93,10 @@ public class MultiDeleteResult extends Result {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param nDeleted num deleted
      * @return this
+     * @hidden
      */
     public MultiDeleteResult setNumDeletions(int nDeleted) {
         this.nDeleted = nDeleted;
@@ -103,9 +104,10 @@ public class MultiDeleteResult extends Result {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param continuationKey the continuation key
      * @return this
+     * @hidden
      */
     public MultiDeleteResult setContinuationKey(byte[] continuationKey) {
         this.continuationKey = continuationKey;

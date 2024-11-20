@@ -60,9 +60,10 @@ public class QueryIterableResult
     private int readKB, readUnits, writeKB, writeUnits;
 
     /**
-     * @hidden
+     * Internal use only
      * @param request the request used
      * @param handle the NoSQL handle
+     * @hidden
      */
     public QueryIterableResult(QueryRequest request, NoSQLHandle handle) {
         assert request != null : "request should not be null";
@@ -102,7 +103,7 @@ public class QueryIterableResult
     }
 
     /*
-     * @hidden Used internally to remove tracking of unclosed iterators
+     * Used internally to remove tracking of unclosed iterators
      * resources.
      */
     private void removeTracking(QueryResultIterator iter) {

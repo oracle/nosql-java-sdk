@@ -536,9 +536,9 @@ public class PathFinder implements FieldValueEventHandler {
     }
 
     /**
-     * @hidden
      * A function that is called when a path has been found. It is passed
      * the PathFinder instance and the path that was found.
+     * @hidden
      */
     @FunctionalInterface
     public interface PathFinderCallback {

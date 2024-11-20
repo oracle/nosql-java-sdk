@@ -7,6 +7,10 @@
 
 package oracle.nosql.driver.iam.pki;
 
+/**
+ * Internal use
+ * @hidden
+ */
 public class PemException extends IllegalStateException {
 
     PemException(final String message) {

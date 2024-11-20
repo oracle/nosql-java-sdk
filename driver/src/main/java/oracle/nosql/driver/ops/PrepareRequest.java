@@ -134,8 +134,9 @@ public class PrepareRequest extends Request {
     }
 
     /**
-     * @return whether the string value of the query execution plan should
+     * Returns whether the string value of the query execution plan should
      * be included in the {@link PrepareResult}.
+     * @return the value
      */
     public boolean getQueryPlan() {
         return getQueryPlan;
@@ -156,8 +157,9 @@ public class PrepareRequest extends Request {
     }
 
     /**
-     * @return whether the JSON value of the query result schema should
+     * Returns whether the JSON value of the query result schema should
      * be included in the {@link PrepareResult}.
+     * @return the value
      * @since 5.4
      */
     public boolean getQuerySchema() {

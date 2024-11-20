@@ -16,8 +16,9 @@ public class InvalidAuthorizationException extends NoSQLException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
+     * @hidden
      */
     public InvalidAuthorizationException(String msg) {
         super(msg);

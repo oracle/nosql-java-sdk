@@ -16,8 +16,9 @@ public class IndexExistsException extends ResourceExistsException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
+     * @hidden
      */
     public IndexExistsException(String msg) {
         super(msg);

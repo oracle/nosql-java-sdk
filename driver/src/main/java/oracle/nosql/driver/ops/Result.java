@@ -50,32 +50,36 @@ public class Result {
     protected Result() {}
 
     /**
-     * @hidden
+     * internal use only
      * @return the read units
+     * @hidden
      */
     public int getReadUnitsInternal() {
         return readUnits;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the read KB
+     * @hidden
      */
     public int getReadKBInternal() {
         return readKB;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the write KB
+     * @hidden
      */
     public int getWriteKBInternal() {
         return writeKB;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the write units
+     * @hidden
      */
     public int getWriteUnitsInternal() {
         return writeKB;
@@ -96,9 +100,10 @@ public class Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param readKB the read KB
      * @return this
+     * @hidden
      */
     public Result setReadKB(int readKB) {
         this.readKB = readKB;
@@ -106,9 +111,10 @@ public class Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param readUnits the read units
      * @return this
+     * @hidden
      */
     public Result setReadUnits(int readUnits) {
         this.readUnits = readUnits;
@@ -116,9 +122,10 @@ public class Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param writeKB the write KB
      * @return this
+     * @hidden
      */
     public Result setWriteKB(int writeKB) {
         this.writeKB = writeKB;
@@ -126,9 +133,10 @@ public class Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param delayMs the delay in milliseconds
      * @return this
+     * @hidden
      */
     public Result setRateLimitDelayedMs(int delayMs) {
         this.rateLimitDelayedMs = delayMs;
@@ -147,44 +155,47 @@ public class Result {
     }
 
     /**
-     * @hidden
      * internal use only
      * @param rs the stats object to use
+     * @hidden
      */
     public void setRetryStats(RetryStats rs) {
         retryStats = rs;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the current topology info
+     * @hidden
      */
     public TopologyInfo getTopology() {
         return topology;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param ti the current topology info
+     * @hidden
      */
     public void setTopology(TopologyInfo ti) {
         topology = ti;
     }
 
     /**
-     * @hidden
      * Returns the server protocol serial version or 0 if not available.
      * This is a new feature not supported in older servers.
      *
      * @return the serial version of the server
+     * @hidden
      */
     public int getServerSerialVersion() {
         return serialVersion;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param version the server's serial version
+     * @hidden
      */
     public void setServerSerialVersion(int version) {
         serialVersion = version;

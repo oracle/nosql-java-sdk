@@ -119,9 +119,10 @@ public class DeleteResult extends WriteResult {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param success true if the operation succeeded
      * @return this
+     * @hidden
      */
     public DeleteResult setSuccess(boolean success) {
         this.success = success;

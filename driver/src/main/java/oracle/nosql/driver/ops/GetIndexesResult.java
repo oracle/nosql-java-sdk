@@ -31,9 +31,10 @@ public class GetIndexesResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param indexes the indexes
      * @return this
+     * @hidden
      */
     public GetIndexesResult setIndexes(IndexInfo[] indexes) {
         this.indexes = indexes;
@@ -65,10 +66,11 @@ public class GetIndexesResult extends Result {
         private String[] fieldTypes;
 
         /**
-         * @hidden
+         * internal use only
          * @param indexName the index
          * @param fieldNames the fields
          * @param fieldTypes the types
+         * @hidden
          */
         public IndexInfo(String indexName,
                          String[] fieldNames,

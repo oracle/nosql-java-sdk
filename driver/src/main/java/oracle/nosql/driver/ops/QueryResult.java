@@ -88,17 +88,19 @@ public class QueryResult extends Result {
     private Map<String, String> queryTraces;
 
     /**
-     * @hidden
+     * internal use only
      * @param req the request used
+     * @hidden
      */
     public QueryResult(QueryRequest req) {
         this(req, true);
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param req the request used
      * @param computed whether query has been computed or not
+     * @hidden
      */
     public QueryResult(QueryRequest req, boolean computed) {
         super();
@@ -107,9 +109,10 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param v set value of computed
      * @return this
+     * @hidden
      */
     public QueryResult setComputed(boolean v) {
         isComputed = v;
@@ -117,25 +120,28 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the original query request
+     * @hidden
      */
     public QueryRequest getRequest() {
         return request;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return whether the limit has been reached
+     * @hidden
      */
     public boolean reachedLimit() {
         return reachedLimit;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param v whether the limit has been reached
      * @return this
+     * @hidden
      */
     public QueryResult setReachedLimit(boolean v) {
         reachedLimit = v;
@@ -143,9 +149,10 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param pids partition ids
      * @return this
+     * @hidden
      */
     public QueryResult setPids(int[] pids) {
         this.pids = pids;
@@ -153,26 +160,29 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the number of partition ids
+     * @hidden
      */
     public int getNumPids() {
         return (pids == null ? 0 : pids.length);
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param i the index to use
      * @return the partition id at index i
+     * @hidden
      */
     public int getPid(int i) {
         return pids[i];
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param v the array of number of results per partition
      * @return this
+     * @hidden
      */
     public QueryResult setNumResultsPerPid(int[] v) {
         numResultsPerPid = v;
@@ -180,27 +190,30 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param i the index to use
      * @return the number of results for the specified partition
+     * @hidden
      */
     public int getNumPartitionResults(int i) {
         return numResultsPerPid[i];
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param i the index to use
      * @return the continuation key for the specified partition
+     * @hidden
      */
     public byte[] getPartitionContKey(int i) {
         return continuationKeys[i];
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param keys array of continuation keys
      * @return this
+     * @hidden
      */
     public QueryResult setPartitionContKeys(byte[][] keys) {
         continuationKeys = keys;
@@ -208,9 +221,10 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param v value to set
      * @return this;
+     * @hidden
      */
     public QueryResult setIsInPhase1(boolean v) {
         isInPhase1 = v;
@@ -218,8 +232,9 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return true if the query is in phase 1
+     * @hidden
      */
     public boolean isInPhase1() {
         return isInPhase1;
@@ -240,8 +255,9 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return query results
+     * @hidden
      */
     public List<MapValue> getResultsInternal() {
         return results;
@@ -259,9 +275,10 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param results the results
      * @return this
+     * @hidden
      */
     public QueryResult setResults(List<MapValue> results) {
         this.results = results;
@@ -281,9 +298,10 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param continuationKey the continuation key
      * @return this
+     * @hidden
      */
     public QueryResult setContinuationKey(byte[] continuationKey) {
         this.continuationKey = continuationKey;
@@ -291,32 +309,36 @@ public class QueryResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the array of virtual scans
+     * @hidden
      */
     public VirtualScan[] getVirtualScans() {
         return virtualScans;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param vs the array of virtual scans
+     * @hidden
      */
     public void setVirtualScans(VirtualScan[] vs) {
         virtualScans = vs;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param traces the traces to set
+     * @hidden
      */
     public void setQueryTraces(Map<String, String> traces) {
         queryTraces = traces;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the traces set
+     * @hidden
      */
     public Map<String, String> getQueryTraces() {
         return queryTraces;

@@ -152,9 +152,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
      * Creates an internal QueryRequest out of the application-provided request.
      * @return a copy of the instance in a new object
+     * @hidden
      */
     public QueryRequest copyInternal() {
 
@@ -181,9 +181,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
      * Creates a copy that starts fresh from the beginning.
      * @return a copy of the instance in a new object
+     * @hidden
      */
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
@@ -197,18 +197,19 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
-     *
+     * internal use only
      * @return the internal QueryDriver instance
+     * @hidden
      */
     public QueryDriver getDriver() {
         return driver;
     }
 
     /**
-     * @hidden
+     * internal use only
      *
      * @param driver an internal QueryDriver instance
+     * @hidden
      */
     public void setDriver(QueryDriver driver) {
 
@@ -221,25 +222,28 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      *
      * @return true if there is a QueryDriver instance
+     * @hidden
      */
     public boolean hasDriver() {
         return driver != null;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return true if the query has been prepared
+     * @hidden
      */
     public boolean isPrepared() {
         return preparedStatement != null;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return true if the query is a simple query
+     * @hidden
      */
     public boolean isSimpleQuery() {
         return preparedStatement.isSimpleQuery();
@@ -276,42 +280,46 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the shard id
+     * @hidden
      */
     public int getShardId() {
         return shardId;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param id the shard id
+     * @hidden
      */
     public void setShardId(int id) {
         shardId = id;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param vs the virtual scan
+     * @hidden
      */
     public void setVirtualScan(VirtualScan vs) {
         virtualScan = vs;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the virtual scan
+     * @hidden
      */
     public VirtualScan getVirtualScan() {
         return virtualScan;
     }
 
     /**
-     * @hidden
-     *
+     * internal use only
      * @param level trace level
      * @return this
+     * @hidden
      */
     public QueryRequest setTraceLevel(int level) {
 
@@ -323,22 +331,22 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
-     *
+     * internal use only
      * @return trace level
+     * @hidden
      */
     public int getTraceLevel() {
         return traceLevel;
     }
 
     /**
-     * @hidden
      * Set a symbolic name for this query. This name will appear in query logs
      * if query tracing has been turned on.
      *
      * @param name the query name
      *
      * @return this
+     * @hidden
      */
     public QueryRequest setQueryName(String name) {
         queryName = name;
@@ -346,17 +354,16 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
      * Returns the query name
      *
      * @return the query name, or null if it has not been set
+     * @hidden
      */
     public String getQueryName() {
         return queryName;
     }
 
     /**
-     * @hidden
      * If the logFileTracing parameter is set to true, log records produced
      * during query execution tracing will be written to the log files.
      * Otherwise, they are shipped by the servers to the driver, where they
@@ -364,6 +371,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      *
      * @param value tracing log files setting
      * @return this
+     * @hidden
      */
     public QueryRequest setLogFileTracing(boolean value) {
         logFileTracing = value;
@@ -371,16 +379,18 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return if log file tracing is enabled
+     * @hidden
      */
     public boolean getLogFileTracing() {
         return logFileTracing;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param traces the query traces to add
+     * @hidden
      */
     public void addQueryTraces(Map<String, String> traces) {
 
@@ -395,8 +405,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param out the stream to print to
+     * @hidden
      */
     public void printTrace(PrintStream out) {
 
@@ -428,16 +439,17 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the current batch counter
+     * @hidden
      */
     public int getBatchCounter() {
         return batchCounter;
     }
 
     /**
-     * @hidden
      * Increment the current batch counter
+     * @hidden
      */
     public void incBatchCounter() {
         ++batchCounter;
@@ -602,7 +614,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
      * On-premises only.
      *
      * Sets the maximum number of memory bytes that may be consumed by an
@@ -611,6 +622,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * @param maxBytes the value to use in bytes
      *
      * @return this
+     * @hidden
      */
     public QueryRequest setMaxServerMemoryConsumption(long maxBytes) {
         if (maxBytes < 0) {
@@ -621,8 +633,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return max server memory consumption
+     * @hidden
      */
     public long getMaxServerMemoryConsumption() {
         return maxServerMemoryConsumption;
@@ -753,17 +766,19 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the continuation key
+     * @hidden
      */
     public byte[] getContKey() {
         return continuationKey;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param continuationKey the key
      * @return this
+     * @hidden
      */
     public QueryRequest setContKey(byte[] continuationKey) {
 
@@ -907,10 +922,10 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
      *
      * Return consistency if non-null. If null, return the default
      * Consistency from the config object
+     * @hidden
      */
     @Override
     public Request setDefaults(NoSQLHandleConfig config) {
@@ -953,16 +968,18 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param v the test mode
+     * @hidden
      */
     public void setInTestMode(boolean v) {
         inTestMode = v;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the current test mode
+     * @hidden
      */
     public boolean inTestMode() {
         return inTestMode;

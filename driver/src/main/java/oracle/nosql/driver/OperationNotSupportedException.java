@@ -16,8 +16,9 @@ public class OperationNotSupportedException extends NoSQLException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * Internal use only
      * @param msg the exception message
+     * @hidden
      */
     public OperationNotSupportedException(String msg) {
         super(msg);
