@@ -324,11 +324,11 @@ public class WriteMultipleRequest extends DurableRequest {
     }
 
     /**
-     * @hidden
      * Internal use only
      *
      * A wrapper of WriteRequest that contains an additional flag
      * abortIfUnsuccessful.
+     * @hidden
      */
     public static class OperationRequest {
         private final boolean abortIfUnsuccessful;

@@ -28,8 +28,9 @@ public class ReadThrottlingException extends ThrottlingException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * Internal use only
      * @param msg the exception message
+     * @hidden
      */
     public ReadThrottlingException(String msg) {
         super(msg);

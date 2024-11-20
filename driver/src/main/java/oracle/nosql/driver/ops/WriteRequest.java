@@ -27,8 +27,9 @@ public abstract class WriteRequest extends DurableRequest {
     /* getters are public for access by serializers */
 
     /**
-     * @hidden
+     * internal use only
      * @return true if there is a return row
+     * @hidden
      */
     public boolean getReturnRowInternal() {
         return returnRow;

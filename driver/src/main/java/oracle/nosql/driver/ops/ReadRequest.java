@@ -22,8 +22,9 @@ public abstract class ReadRequest extends Request {
     protected ReadRequest() {}
 
     /**
-     * @hidden
+     * internal use only
      * @return the Consistency
+     * @hidden
      */
     public Consistency getConsistencyInternal() {
         return consistency;
@@ -37,10 +38,10 @@ public abstract class ReadRequest extends Request {
     }
 
     /**
-     * @hidden
      *
      * Return consistency if non-null. If null, return the default
      * Consistency from the config object
+     * @hidden
      */
     @Override
     public Request setDefaults(NoSQLHandleConfig config) {

@@ -10,11 +10,11 @@ package oracle.nosql.driver.iam;
 import java.io.InputStream;
 
 /**
- * @hidden
  * Internal use only
  * <p>
  * The provider to supplies key id and private key that are used to generate
  * request signature.
+ * @hidden
  */
 public interface AuthenticationProfileProvider {
 

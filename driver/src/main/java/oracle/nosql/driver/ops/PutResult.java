@@ -38,9 +38,10 @@ public class PutResult extends WriteResult {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param version the version
      * @return this
+     * @hidden
      */
     public PutResult setVersion(Version version) {
         this.version = version;
@@ -142,9 +143,10 @@ public class PutResult extends WriteResult {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param value the value
      * @return this
+     * @hidden
      */
     public PutResult setGeneratedValue(FieldValue value) {
         this.generatedValue = value;

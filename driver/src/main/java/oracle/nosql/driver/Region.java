@@ -278,9 +278,9 @@ public class Region {
     }
 
     /**
-     * @hidden
      * Returns the Endpoint for this region for the named service.
      * @return Service Endpoint
+     * @hidden
      */
     public String endpointForService(String service, String format) {
         /*
@@ -291,9 +291,9 @@ public class Region {
     }
 
     /**
-     * hidden
      * Returns the format for the auth endpoint
      * @return the format
+     * @hidden
      */
     public static String getAuthEndpointFormat() {
         return authEndpointFormat;
@@ -391,8 +391,7 @@ public class Region {
         }
     }
 
-    /**
-     * @hidden
+    /*
      * public for testing
      */
     public static void readEnvVar() {
@@ -413,14 +412,13 @@ public class Region {
         }
     }
 
-    /** Registers region and sets hasUsedConfigFile status to true. */
+    /* Registers region and sets hasUsedConfigFile status to true. */
     private static void readRegionConfigFile() {
         hasUsedConfigFile = true;
         readRegionConfigFile(REGIONS_CONFIG_FILE_PATH);
     }
 
-    /**
-     * @hidden
+    /*
      * this is public for testing purposes only
      */
     public static void readRegionConfigFile(String fileName) {
@@ -485,9 +483,7 @@ public class Region {
         }
     }
 
-    /**
-     * @hidden
-     *
+    /*
      * Realm is internal use for now
      */
     static class Realm {
@@ -626,14 +622,15 @@ public class Region {
     }
 
     /**
-     * @hidden
      * Internal use only
+     * @hidden
      */
     public interface RegionProvider {
 
         /**
-         * @hidden
+         * Returns region
          * @return the Region to use for NoSQLHandle
+         * @hidden
          */
         Region getRegion();
     }

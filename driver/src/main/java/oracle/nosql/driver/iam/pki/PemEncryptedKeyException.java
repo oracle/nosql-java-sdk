@@ -8,6 +8,9 @@
 package oracle.nosql.driver.iam.pki;
 
 public class PemEncryptedKeyException extends PemEncryptionException {
+    /**
+     * @hidden
+     */
     PemEncryptedKeyException() {
         super("Private Key is encrypted, but no passphrase configured");
     }

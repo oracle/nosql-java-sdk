@@ -17,18 +17,19 @@ public class NoSQLException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the message
+     * @hidden
      */
     public /*protected*/ NoSQLException(String msg) {
         super(msg + " (" + SDKVersion.VERSION + ")");
     }
 
     /**
-     * @hidden
-     *
+     * internal use only
      * @param msg the message
      * @param cause the cause
+     * @hidden
      */
     public /*protected*/ NoSQLException(String msg, Throwable cause) {
         super(msg + " (" + SDKVersion.VERSION + ")", cause);

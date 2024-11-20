@@ -42,9 +42,10 @@ public class ListTablesResult extends Result {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param tables the tables
      * @return this
+     * @hidden
      */
     public ListTablesResult setTables(String[] tables) {
         this.tables = tables;
@@ -52,9 +53,10 @@ public class ListTablesResult extends Result {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param lastIndexReturned the index
      * @return this
+     * @hidden
      */
     public ListTablesResult setLastIndexReturned(int lastIndexReturned) {
         this.lastIndexReturned = lastIndexReturned;

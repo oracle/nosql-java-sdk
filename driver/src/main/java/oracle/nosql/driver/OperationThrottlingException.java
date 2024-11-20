@@ -25,8 +25,9 @@ public class OperationThrottlingException extends ThrottlingException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * Internal use only
      * @param msg the exception message
+     * @hidden
      */
     public OperationThrottlingException(String msg) {
         super(msg);

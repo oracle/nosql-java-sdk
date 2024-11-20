@@ -294,9 +294,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param operationId the operation id
      * @return this
+     * @hidden
      */
     public TableResult setOperationId(String operationId) {
         this.operationId = operationId;
@@ -304,9 +305,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param state the table state
      * @return this
+     * @hidden
      */
     public TableResult setState(State state) {
         this.state = state;
@@ -314,9 +316,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param value the compartment OCID
      * @return this
+     * @hidden
      */
     public TableResult setCompartmentId(String value) {
         this.compartmentOrNamespace = value;
@@ -324,9 +327,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param value the namespace
      * @return this
+     * @hidden
      */
     public TableResult setNamespace(String value) {
         this.compartmentOrNamespace = value;
@@ -334,9 +338,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param value the OCID
      * @return this
+     * @hidden
      */
     public TableResult setTableId(String value) {
         this.tableOcid = value;
@@ -344,9 +349,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param tableName the table name
      * @return this
+     * @hidden
      */
     public TableResult setTableName(String tableName) {
         this.tableName = tableName;
@@ -354,9 +360,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param schema the schema
      * @return this
+     * @hidden
      */
     public TableResult setSchema(String schema) {
         this.schema = schema;
@@ -364,9 +371,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param ddl the ddl
      * @return this
+     * @hidden
      */
     public TableResult setDdl(String ddl) {
         this.ddl = ddl;
@@ -374,9 +382,10 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param limits table limits
      * @return this
+     * @hidden
      */
     public TableResult setTableLimits(TableLimits limits) {
         this.limits = limits;
@@ -384,10 +393,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param tags the tags
      * @return this
      * @since 5.4
+     * @hidden
      */
     public TableResult setFreeFormTags(FreeFormTags tags) {
         this.freeFormTags = tags;
@@ -395,10 +405,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param tags the tags
      * @return this
      * @since 5.4
+     * @hidden
      */
     public TableResult setDefinedTags(DefinedTags tags) {
         this.definedTags = tags;
@@ -406,10 +417,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param matchETag the matchETag
      * @return this
      * @since 5.4
+     * @hidden
      */
     public TableResult setMatchETag(String matchETag) {
         this.matchETag = matchETag;
@@ -417,10 +429,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param frozen true if frozen
      * @return this
      * @since 5.4.13
+     * @hidden
      */
     public TableResult setIsFrozen(boolean frozen) {
         this.isFrozen = frozen;
@@ -428,10 +441,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param initialized the flag
      * @return this
      * @since 5.4.13
+     * @hidden
      */
     public TableResult setLocalReplicaInitialized(boolean initialized) {
         this.isLocalReplicaInitialized = initialized;
@@ -439,10 +453,11 @@ public class TableResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param replicas the Replica array
      * @return this
      * @since 5.4.13
+     * @hidden
      */
     public TableResult setReplicas(Replica[] replicas) {
         this.replicas = replicas;
@@ -840,9 +855,10 @@ public class TableResult extends Result {
         }
 
         /**
-         * @hidden
+         * internal use only
          * @param replicaName the replica name
          * @return this
+         * @hidden
          */
         public Replica setReplicaName(String replicaName) {
             this.replicaName = replicaName;
@@ -850,9 +866,10 @@ public class TableResult extends Result {
         }
 
         /**
-         * @hidden
+         * internal use only
          * @param tableOcid the OCID of remote replica table
          * @return this
+         * @hidden
          */
         public Replica setTableId(String tableOcid) {
             this.tableOcid = tableOcid;
@@ -860,9 +877,10 @@ public class TableResult extends Result {
         }
 
         /**
-         * @hidden
+         * internal use only
          * @param writeUnits the write units of remote replica table
          * @return this
+         * @hidden
          */
         public Replica setWriteUnits(int writeUnits) {
             this.writeUnits = writeUnits;
@@ -870,9 +888,10 @@ public class TableResult extends Result {
         }
 
         /**
-         * @hidden
+         * internal use only
          * @param mode the capacity mode of remote replica table
          * @return this
+         * @hidden
          */
         public Replica setCapacityMode(CapacityMode mode) {
             this.mode = mode;
@@ -880,9 +899,10 @@ public class TableResult extends Result {
         }
 
         /**
-         * @hidden
+         * internal use only
          * @param state the state of remote replication table
          * @return this
+         * @hidden
          */
         public Replica setState(State state) {
             this.state = state;

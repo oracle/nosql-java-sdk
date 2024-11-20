@@ -91,7 +91,6 @@ public class GetResult extends Result {
     }
 
     /**
-     * @hidden
      * Internal use only.
      *
      * Sets the value of this object
@@ -99,6 +98,7 @@ public class GetResult extends Result {
      * @param value the value of the row
      *
      * @return this
+     * @hidden
      */
     public GetResult setValue(MapValue value) {
         this.value = value;
@@ -106,7 +106,6 @@ public class GetResult extends Result {
     }
 
     /**
-     * @hidden
      * Internal use only.
      *
      * Sets the expiration time.
@@ -114,6 +113,7 @@ public class GetResult extends Result {
      * @param expirationTime the expiration time
      *
      * @return this
+     * @hidden
      */
     public GetResult setExpirationTime(long expirationTime) {
         this.expirationTime = expirationTime;
@@ -121,7 +121,6 @@ public class GetResult extends Result {
     }
 
     /**
-     * @hidden
      * Internal use only.
      *
      * Sets the modification time.
@@ -129,6 +128,7 @@ public class GetResult extends Result {
      * @param modificationTime the modification time
      *
      * @return this
+     * @hidden
      */
     public GetResult setModificationTime(long modificationTime) {
         this.modificationTime = modificationTime;
@@ -136,7 +136,6 @@ public class GetResult extends Result {
     }
 
     /**
-     * @hidden
      * Internal use only.
      *
      * Sets the version.
@@ -144,6 +143,7 @@ public class GetResult extends Result {
      * @param version the version
      *
      * @return this
+     * @hidden
      */
     public GetResult setVersion(Version version) {
         this.version = version;
@@ -200,9 +200,9 @@ public class GetResult extends Result {
     }
 
     /**
-     * @hidden
      * for internal use
      * @param client the Client
+     * @hidden
      */
     public void setClient(Client client) {
         this.client = client;

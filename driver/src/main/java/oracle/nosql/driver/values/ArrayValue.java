@@ -51,8 +51,9 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the internal array
+     * @hidden
      */
     public ArrayList<FieldValue> getArrayInternal() {
         return array;
@@ -602,6 +603,7 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
+     * internal use only
      * @hidden
      */
     @Override
@@ -620,11 +622,11 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
-     * @hidden
      * Sorts the elements of the array according to the given comparator.
      *
      * @param comparator The Comparator to use for comparing the array
      * elements. It must not be null.
+     * @hidden
      */
     public void sort(Comparator<FieldValue> comparator) {
         requireNonNull(comparator, "Comparator must be non-null");

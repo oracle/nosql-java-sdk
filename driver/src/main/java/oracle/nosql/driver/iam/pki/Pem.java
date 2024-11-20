@@ -50,7 +50,7 @@ import javax.crypto.spec.PBEKeySpec;
 /**
  * Services for working with PEM encoded private keys, public keys and certificates.
  *
- * <h3>Read a public key</h3>
+ * Read a public key
  *
  * <pre>
  * PublicKey readPublicKey(Path path) {
@@ -61,7 +61,7 @@ import javax.crypto.spec.PBEKeySpec;
  * }
  * </pre>
  *
- * <h3>Read an unencrypted private key</h3>
+ * Read an unencrypted private key
  *
  * <pre>
  * PrivateKey readPrivateKey(Path path) {
@@ -72,7 +72,7 @@ import javax.crypto.spec.PBEKeySpec;
  * }
  * </pre>
  *
- * <h3>Read an encrypted private key</h3>
+ * Read an encrypted private key
  *
  * <pre>
  * PrivateKey readPrivateKey(Path path, char[] passphrase) {
@@ -84,7 +84,7 @@ import javax.crypto.spec.PBEKeySpec;
  * }
  * </pre>
  *
- * <h3>Write a public key</h3>
+ * Write a public key
  *
  * <pre>
  * void writePublicKey(Path path,final PublicKey publicKey) {
@@ -95,7 +95,7 @@ import javax.crypto.spec.PBEKeySpec;
  * }
  * </pre>
  *
- * <h3>Write an unencrypted private key</h3>
+ * Write an unencrypted private key
  *
  * <pre>
  * void writePrivateKey(Path path,final PrivateKey privateKey) {
@@ -106,7 +106,7 @@ import javax.crypto.spec.PBEKeySpec;
  * }
  * </pre>
  *
- * <h3>Write an encrypted private key in PKCS1 format</h3>
+ * Write an encrypted private key in PKCS1 format
  *
  * <pre>
  * void writePkcs1PrivateKey(Path path,final PrivateKey privateKey, char[] passphrase) {
@@ -545,6 +545,9 @@ public abstract class Pem {
                     builder.ownsPassphrase);
         }
 
+        /**
+         * @hidden
+         */
         public Encryption(
                 String algorithm,
                 int keySize,
@@ -1186,6 +1189,7 @@ public abstract class Pem {
          *
          * @param output The byte stream
          * @param privateKey The private key
+         * @return the channel
          * @throws IOException if an error occurs writing to the stream
          */
         public WritableByteChannel write(
@@ -1204,6 +1208,7 @@ public abstract class Pem {
          *
          * @param output The byte stream
          * @param publicKey The public key
+         * @return the channel
          * @throws IOException if an error occurs writing to the stream
          */
         public WritableByteChannel write(
@@ -1218,6 +1223,7 @@ public abstract class Pem {
          *
          * @param output The byte stream
          * @param certificate The certificate
+         * @return the channel
          * @throws IOException if an error occurs writing to the stream
          */
         public WritableByteChannel write(
