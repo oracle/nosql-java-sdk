@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [5.4.16] 2024-11-21
 
 ### Fixed
 - Fixed an issue when stats collection is enabled debug logs were not
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   provide local region information.
 - Cloud only: fixed a compatibility issue introduced in 5.4.15 regarding use of
   the Bouncy Castle artifacts. This would turn up when using Instance Principal
-  authentication, the bouncy castle artifacts have been removed and replaced
+  authentication. The bouncy castle artifacts have been removed and replaced
   with standard Java JCE APIs.
 
 ### Changed
@@ -22,10 +22,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Delete can return the deleted row when setReturnRow is set to true.
 - Cloud only: refactored how the Region class operations to allow applications
   to add regions dynamically via a configuration file
-  (~/.oci/regions-config.jsonc) or environment variable (OCI_REGION_METADATA)
+  (~/.oci/regions-config.json) or environment variable (OCI_REGION_METADATA)
 
 ### Added
-- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL, JJT, DLN, DTZ)
 - Cloud only: refactored how the Region class is managed, allowing dynamic
   addition of regions not yet known to the system
 
