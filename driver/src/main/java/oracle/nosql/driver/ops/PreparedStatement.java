@@ -99,7 +99,6 @@ public class PreparedStatement {
     private final byte OPCODE_SELECT = 5;
 
     /**
-     * @hidden
      * Constructs a PreparedStatement. Construction is hidden to eliminate
      * application access to the underlying byte[], reducing the chance of
      * corruption.
@@ -116,6 +115,7 @@ public class PreparedStatement {
      * @param namespace namespace, if any, from deserialization
      * @param tableName table name, if any, from deserialization
      * @param operation operation code for the query
+     * @hidden
      */
     public PreparedStatement(
         String sqlText,
@@ -213,8 +213,9 @@ public class PreparedStatement {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return the bound variables
+     * @hidden
      */
     public FieldValue[] getVariableValues() {
 
@@ -295,20 +296,21 @@ public class PreparedStatement {
     }
 
     /**
-     * @hidden
      *
      * Returns the serialized query. The byte array returned is opaque to
      * applications and is interpreted by the server for query execution.
      *
      * @return the serialized query
+     * @hidden
      */
     public final byte[] getStatement() {
         return proxyStatement;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return the driver portion of the query plan as a string
+     * @hidden
      */
     public String printDriverPlan() {
         if (driverQueryPlan != null) {
@@ -318,56 +320,63 @@ public class PreparedStatement {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return the driver portion of the query plan
+     * @hidden
      */
     public PlanIter driverPlan() {
         return driverQueryPlan;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return true if the query is simple
+     * @hidden
      */
     public boolean isSimpleQuery() {
         return driverQueryPlan == null;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return num registers
+     * @hidden
      */
     public int numRegisters() {
         return numRegisters;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return num iterators
+     * @hidden
      */
     public int numIterators() {
         return numIterators;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return namespace from prepared statement, if any
+     * @hidden
      */
     public String getNamespace() {
         return namespace;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return table name from prepared statement, if any
+     * @hidden
      */
     public String getTableName() {
         return tableName;
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return true if the query does writes
+     * @hidden
      */
     public boolean doesWrites() {
         /* if it's not SELECT, it does writes */

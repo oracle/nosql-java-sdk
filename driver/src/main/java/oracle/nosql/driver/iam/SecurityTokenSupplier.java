@@ -7,19 +7,13 @@
 
 package oracle.nosql.driver.iam;
 
-import static oracle.nosql.driver.iam.Utils.createParser;
-import static oracle.nosql.driver.iam.Utils.findField;
 import static oracle.nosql.driver.iam.Utils.logTrace;
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
-import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Base64;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -32,9 +26,7 @@ import javax.security.auth.Refreshable;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.iam.SignatureProvider.ResourcePrincipalClaimKeys;
 
-import com.fasterxml.jackson.core.JsonParser;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 
@@ -172,13 +164,10 @@ class SecurityTokenSupplier {
                 }
             }
         }
-        SecurityToken token = getSecurityTokenFromIAM();
-        token.validate(minTokenLifetime, logger);
-
-        return token.getSecurityToken();
+        return getSecurityTokenFromIAM();
     }
 
-    private SecurityToken getSecurityTokenFromIAM() {
+    private String getSecurityTokenFromIAM() {
         KeyPair keyPair = keyPairSupplier.getKeyPair();
         requireNonNullIAE(keyPair, "Keypair for session not provided");
 
@@ -219,7 +208,9 @@ class SecurityTokenSupplier {
                 Utils.base64EncodeNoChunking(certificateAndKeyPair),
                 intermediateStrings);
 
-            return new SecurityToken(securityToken, keyPairSupplier);
+            SecurityToken st = new SecurityToken(securityToken, keyPairSupplier);
+            st.validate(minTokenLifetime, logger);
+            return st.getSecurityToken();
         } catch (Exception e) {
             throw new SecurityInfoNotReadyException(e.getMessage(), e);
         }

@@ -29,12 +29,12 @@ import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
 
 /**
- * @hidden
  * Internal use only
  * <p>
  * The authentication profile provider used to call service API from OCI
  * compute instance. It authenticates with instance principal and uses security
  * token issued by IAM to do the actual request signing.
+ * @hidden
  */
 public class InstancePrincipalsProvider
     implements AuthenticationProfileProvider,
@@ -106,10 +106,10 @@ public class InstancePrincipalsProvider
     }
 
     /**
-     * @hidden
      * Cloud service only.
      * <p>
      * Builder of InstancePrincipalsProvider
+     * @hidden
      */
     public static class InstancePrincipalsProviderBuilder {
         /* The default value for HTTP request timeouts in milliseconds */

@@ -36,9 +36,10 @@ public class PrepareResult extends Result {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @param stmt the prepared statement
      * @return this
+     * @hidden
      */
     public PrepareResult setPreparedStatement(PreparedStatement stmt) {
 

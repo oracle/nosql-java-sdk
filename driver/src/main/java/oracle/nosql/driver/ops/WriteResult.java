@@ -24,25 +24,27 @@ public class WriteResult extends Result {
     protected WriteResult() {}
 
     /**
-     * @hidden
      * getters are internal for delegation from sub-classes
      * @return the Version or null
+     * @hidden
      */
     public Version getExistingVersionInternal() {
         return existingVersion;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the value or null
+     * @hidden
      */
     public MapValue getExistingValueInternal() {
         return existingValue;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the modification time
+     * @hidden
      */
     public long getExistingModificationTimeInternal() {
         if (existingModificationTime < 0 && client != null) {
@@ -58,9 +60,10 @@ public class WriteResult extends Result {
      */
 
     /**
-     * @hidden
+     * internal use only
      * @param existingVersion the version
      * @return this
+     * @hidden
      */
     public WriteResult setExistingVersion(Version existingVersion) {
         this.existingVersion = existingVersion;
@@ -68,9 +71,10 @@ public class WriteResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param existingValue the value
      * @return this
+     * @hidden
      */
     public WriteResult setExistingValue(MapValue existingValue) {
         this.existingValue = existingValue;
@@ -78,9 +82,10 @@ public class WriteResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param existingModificationTime the modification time
      * @return this
+     * @hidden
      */
     public WriteResult setExistingModificationTime(
         long existingModificationTime) {
@@ -89,9 +94,9 @@ public class WriteResult extends Result {
     }
 
     /**
-     * @hidden
      * for internal use
      * @param client the client
+     * @hidden
      */
     public void setClient(Client client) {
         this.client = client;

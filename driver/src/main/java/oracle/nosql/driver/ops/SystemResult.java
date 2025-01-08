@@ -109,13 +109,13 @@ public class SystemResult extends Result {
     }
 
     /**
-     * @hidden
      * Sets the statement to use for the operation. This parameter is
      * required.
      *
      * @param statement the statement
      *
      * @return this
+     * @hidden
      */
     public SystemResult setStatement(String statement) {
         this.statement = statement;
@@ -123,9 +123,10 @@ public class SystemResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param operationId the operation id
      * @return this
+     * @hidden
      */
     public SystemResult setOperationId(String operationId) {
         this.operationId = operationId;
@@ -133,9 +134,10 @@ public class SystemResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param resultString the result string
      * @return this
+     * @hidden
      */
     public SystemResult setResultString(String resultString) {
         this.resultString = resultString;
@@ -143,9 +145,10 @@ public class SystemResult extends Result {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param state the state
      * @return this
+     * @hidden
      */
     public SystemResult setState(State state) {
         this.state = state;

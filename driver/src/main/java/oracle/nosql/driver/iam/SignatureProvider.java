@@ -161,11 +161,11 @@ public class SignatureProvider
     private Logger logger;
 
     /**
-     * @hidden
      * A callback interface called when the signature is refreshed. This
      * allows the application to perform an operation or 2 that can be used
      * to refresh the server-side authorization information out of its main
      * request path, reducing average latency
+     * @hidden
      */
     @FunctionalInterface
     public interface OnSignatureRefresh {
@@ -952,7 +952,6 @@ public class SignatureProvider
     }
 
     /**
-     * @hidden
      * Internal use only.
      * <p>
      * Prepare SignatureProvider with given NoSQLHandleConfig. It configures
@@ -960,6 +959,7 @@ public class SignatureProvider
      * method should be called when the NoSQLHandle is created.
      * @param config the configuration
      * @return this
+     * @hidden
      */
     public SignatureProvider prepare(NoSQLHandleConfig config) {
         URL serviceURL = config.getServiceURL();
@@ -1298,23 +1298,23 @@ public class SignatureProvider
     }
 
     /**
-     * @hidden
      * Internal use only.
      * <p>
      * Sets a signature refresh callback to be called when the signature
      * is refreshed
      * @param onSigRefresh the callback
+     * @hidden
      */
     public void setOnSignatureRefresh(OnSignatureRefresh onSigRefresh) {
         this.onSigRefresh = onSigRefresh;
     }
 
     /**
-     * @hidden
      * Internal use only.
      * <p>
      * Returns the signature refresh callback, or null if not set
      * @return the callback or null
+     * @hidden
      */
     public OnSignatureRefresh getOnSignatureRefresh() {
         return onSigRefresh;

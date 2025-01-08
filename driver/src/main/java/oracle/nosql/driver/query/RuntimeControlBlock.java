@@ -127,7 +127,7 @@ public class RuntimeControlBlock {
         return theTraceBuilder.toString();
     }
 
-    public Client getClient() {
+    public final Client getClient() {
         return theQueryDriver.getClient();
     }
 

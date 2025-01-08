@@ -90,20 +90,25 @@ public abstract class Request {
      */
     private String oboToken;
 
+    /**
+     * Construct a request
+     * @hidden
+     */
     protected Request() {}
 
     /**
-     * @hidden
+     * Returns timeout
      * @return the timeout in seconds
+     * @hidden
      */
     public int getTimeoutInternal() {
         return timeoutMs;
     }
 
     /**
-     * @hidden
      * this is public to allow access from Client during refresh
      * @param timeoutMs the request timeout, in milliseconds
+     * @hidden
      */
     public void setTimeoutInternal(int timeoutMs) {
         if (timeoutMs <= 0) {
@@ -113,7 +118,6 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * Internal use only.
      *
      * Sets default values in a request based on the specified config
@@ -122,6 +126,7 @@ public abstract class Request {
      * @param config the configuration object to use to get default values
      *
      * @return this
+     * @hidden
      */
     public Request setDefaults(NoSQLHandleConfig config) {
         if (timeoutMs == 0) {
@@ -131,45 +136,48 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * Return if this request should be retried.
      *
      * @return true if the request should be retried
+     * @hidden
      */
     public boolean shouldRetry() {
         return true;
     }
 
     /**
-     * @hidden
+     * is the request a query?
      * @return true if the request is a query
+     * @hidden
      */
     public boolean isQueryRequest() {
         return false;
     }
 
     /**
-     * @hidden
+     * does reads?
      * @return true if the request expects to do reads (incur read units)
+     * @hidden
      */
     public boolean doesReads() {
         return false;
     }
 
     /**
-     * @hidden
+     * does writes?
      * @return true if the request expects to do writes (incur write units)
+     * @hidden
      */
     public boolean doesWrites() {
         return false;
     }
 
     /**
-     * @hidden
      * Internal use only
      * Sets the compartment id or name to use for the operation.
      *
      * @param compartment the compartment id
+     * @hidden
      */
     public void setCompartmentInternal(String compartment) {
         this.compartment = compartment;
@@ -187,11 +195,11 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * Sets the table name to use for the operation.
      *
      * @param tableName the table name
+     * @hidden
      */
     protected void setTableNameInternal(String tableName) {
         this.tableName = tableName;
@@ -207,13 +215,13 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * Sets the namespace to use for the operation.
      *
      * @param namespace the namespace name
      *
      * @since 5.4.10
+     * @hidden
      */
     protected void setNamespaceInternal(String namespace) {
         this.namespace = namespace;
@@ -296,7 +304,6 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * Internal use only
      *
      * This method is called just before a request is sent in order to validate
@@ -307,12 +314,11 @@ public abstract class Request {
      * IllegalArgumentException. This method only needs to validate parameters
      * to the point where serialization will work correctly. The proxy will
      * perform additional validatation if required.
-     *
+     * @hidden
      */
     public abstract void validate();
 
     /**
-     * @hidden
      * Internal use only
      *
      * Returns an object that can serialize this request type.
@@ -320,12 +326,12 @@ public abstract class Request {
      * @param factory a factory instance used to construct the serializer
      *
      * @return an object used to serialize this request
+     * @hidden
      */
     public abstract Serializer createSerializer(
         SerializerFactory factory);
 
     /**
-     * @hidden
      * Internal use only
      *
      * Returns an object that can serialize this request type.
@@ -333,22 +339,25 @@ public abstract class Request {
      * @param factory a factory instance used to construct the serializer
      *
      * @return an object used to de-serialize this request
+     * @hidden
      */
     public abstract Serializer createDeserializer(
         SerializerFactory factory);
 
     /**
-     * @hidden
+     * request size
      * @return the value
+     * @hidden
      */
     public boolean getCheckRequestSize() {
         return checkRequestSize;
     }
 
     /**
-     * @hidden
+     * value size
      * @param value the value
      * @return the value
+     * @hidden
      */
     public Request setCheckRequestSize(boolean value) {
         checkRequestSize = value;
@@ -368,23 +377,23 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * This is typically set by internal request processing when the
      * first retry is attempted. It is used/updated thereafter on
      * subsequent retry attempts.
      * @param rs the stats object to use
+     * @hidden
      */
     public void setRetryStats(RetryStats rs) {
         retryStats = rs;
     }
 
     /**
-     * @hidden
      * internal use only
      * This adds (or increments) a class type to the list of exceptions
      * that were processed during retries of a single request operation.
      * @param re class of exception to add to retry stats
+     * @hidden
      */
     public void addRetryException(Class<? extends Throwable> re) {
         if (retryStats == null) {
@@ -394,11 +403,11 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * This adds time to the total time spent processing retries during
      * a single request processing operation.
      * @param millis time to add to retry delay value
+     * @hidden
      */
     public void addRetryDelayMs(int millis) {
         if (retryStats == null) {
@@ -408,9 +417,9 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * @return time spent in retries, in milliseconds
+     * @hidden
      */
     public int getRetryDelayMs() {
         if (retryStats == null) {
@@ -420,9 +429,9 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * Increments the number of retries during the request operation.
+     * @hidden
      */
     public void incrementRetries() {
         if (retryStats == null) {
@@ -432,9 +441,9 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * @return number of retries
+     * @hidden
      */
     public int getNumRetries() {
         if (retryStats == null) {
@@ -444,27 +453,27 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * @param nanos start nanos of request processing
+     * @hidden
      */
     public void setStartNanos(long nanos) {
         startNanos = nanos;
     }
 
     /**
-     * @hidden
      * internal use only
      * @return start nanos of request processing
+     * @hidden
      */
     public long getStartNanos() {
         return startNanos;
     }
 
     /**
-     * @hidden
      * Sets a delay used in rate limiting
      * @param rateLimitDelayedMs delay in ms
+     * @hidden
      */
     public void setRateLimitDelayedMs(int rateLimitDelayedMs) {
         this.rateLimitDelayedMs = rateLimitDelayedMs;
@@ -485,34 +494,36 @@ public abstract class Request {
     }
 
     /**
-     * @hidden
      * internal use only
      * @param value true or false
+     * @hidden
      */
     public void setIsRefresh(boolean value) {
         isRefresh = value;
     }
 
     /**
-     * @hidden
      * internal use only
      * @return is refresh
+     * @hidden
      */
     public boolean getIsRefresh() {
         return isRefresh;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the topo sequence number
+     * @hidden
      */
     public int topoSeqNum() {
         return topoSeqNum;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param n the topo sequence number
+     * @hidden
      */
     public void setTopoSeqNum(int n) {
         if (topoSeqNum < 0) {
@@ -528,74 +539,76 @@ public abstract class Request {
     public abstract String getTypeName();
 
     /**
-     * @hidden
      * Cloud only
      * If using DRL, return immediate throttling error if the
      * table is currently over its configured throughput limit.
      * Otherwise, allow DRL to delay request processing to match
      * table limits (default).
      * @param preferThrottling if throttling is preferred
+     * @hidden
      */
     public void setPreferThrottling(boolean preferThrottling) {
         this.preferThrottling = preferThrottling;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return true if throttling is preferred
+     * @hidden
      */
     public boolean getPreferThrottling() {
         return preferThrottling;
     }
 
     /**
-     * @hidden
      * Cloud only
      * Opt-in to using Distributed Rate Limiting (DRL). This setting
      * will eventually be deprecated, as all requests will eventually
      * use DRL unconditionally in the cloud.
      * @param drlOptIn opt in to using DRL in the cloud
+     * @hidden
      */
     public void setDRLOptIn(boolean drlOptIn) {
         this.drlOptIn = drlOptIn;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return true if opted in to using DRL in the cloud
+     * @hidden
      */
     public boolean getDRLOptIn() {
         return drlOptIn;
     }
 
     /**
-     * @hidden
      * This is only required by Java SDK for internal cross-region request, not
      * by other drivers.
      *
      * @param token the on-behalf-of token
+     * @hidden
      */
     public void setOboTokenInternal(String token) {
         oboToken = token;
     }
 
     /**
-     * @hidden
      * This is only required by Java SDK for internal cross-region request, not
      * by other drivers.
      *
      * @return the on-behalf-of token
+     * @hidden
      */
     public String getOboToken() {
         return oboToken;
     }
 
     /**
-     * @hidden
      * Copy internal fields to another Request object.
      * Use direct member assignment to avoid value checks that only apply
      * to user-based assignments.
      * @param other the Request object to copy to.
+     * @hidden
      */
     public void copyTo(Request other) {
         other.timeoutMs = this.timeoutMs;

@@ -8,40 +8,25 @@
 package oracle.nosql.driver;
 
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.StringWriter;
-import java.math.BigInteger;
 import java.net.HttpURLConnection;
+import java.nio.channels.WritableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.Provider;
+import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.interfaces.RSAPublicKey;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Base64.Encoder;
-import java.util.Date;
 
+import oracle.nosql.driver.iam.pki.Pem;
 import com.sun.net.httpserver.HttpExchange;
-
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMEncryptor;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.bouncycastle.openssl.jcajce.JcaPKCS8Generator;
-import org.bouncycastle.openssl.jcajce.JcePEMEncryptorBuilder;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 /**
  * A common base for driver tests. It is empty at this point but may
@@ -70,6 +55,14 @@ public class DriverTestBase {
      */
     protected static String getTestDir() {
         return ".";
+    }
+
+    /*
+     * Tests are run from driver/target/test-run, return the relative path
+     * to the test resources directory
+     */
+    protected static String getResourcesDir() {
+        return "../../src/test/resources/";
     }
 
     protected static void clearTestDirectory() {
@@ -154,27 +147,19 @@ public class DriverTestBase {
         KeyPairGenerator keygen = KeyPairGenerator.getInstance("RSA");
         keygen.initialize(2048);
         KeyPair keypair = keygen.generateKeyPair();
-        PEMEncryptor pemEncryptor = null;
-
-        if (passphrase != null) {
-            JcePEMEncryptorBuilder builder =
-                new JcePEMEncryptorBuilder("DES-EDE3-CBC");
-            builder.setSecureRandom(new SecureRandom());
-            builder.setProvider(getBouncyCastleProvider());
-            pemEncryptor = builder.build(passphrase);
-        }
 
         File keyFile = new File(getTestDir(), name);
-        try (FileWriter privateWrite = new FileWriter(keyFile);
-            JcaPEMWriter privatePemWriter = new JcaPEMWriter(privateWrite); ) {
+        if (!keyFile.exists()) {
+            keyFile.createNewFile();
+        }
+        try (WritableByteChannel pem = Files.newByteChannel(
+                keyFile.toPath(), StandardOpenOption.WRITE)) {
+            Pem.Encoder encoder = (passphrase == null) ?
+                Pem.encoder().with(Pem.Format.LEGACY) :
+                Pem.encoder().with(Pem.Format.LEGACY)
+                    .with(Pem.Passphrase.of(passphrase));
 
-            if (pemEncryptor != null) {
-                privatePemWriter
-                    .writeObject(keypair.getPrivate(), pemEncryptor);
-            }
-            else {
-                privatePemWriter.writeObject(keypair.getPrivate());
-            }
+            encoder.write(pem, keypair.getPrivate());
         }
         return keyFile.getAbsolutePath();
     }
@@ -189,48 +174,49 @@ public class DriverTestBase {
     protected static KeyPairInfo generateKeyPair()
         throws Exception {
 
-        KeyPairGenerator keygen = KeyPairGenerator.getInstance("RSA");
-        keygen.initialize(2048);
-        KeyPair keypair = keygen.generateKeyPair();
+        final File keyStoreFile = new File(getTestDir(), "keystore");
+        final String pwd = "123456";
+        final String alias = "test";
 
-        JcaPKCS8Generator gen = new JcaPKCS8Generator(keypair.getPrivate(),
-                                                      null);
-        StringWriter sw = new StringWriter();
-        try (JcaPEMWriter pw = new JcaPEMWriter(sw)) {
-            pw.writeObject(gen.generate());
+        String[] keyStoreCmds = new String[] {
+            "keytool",
+            "-genkeypair",
+            "-keystore", keyStoreFile.getAbsolutePath(),
+            "-storetype", "PKCS12",
+            "-storepass", pwd,
+            "-keypass", pwd,
+            "-alias", alias,
+            "-dname", "OU=opc-tenant:TestTenant",
+            "-keyAlg", "RSA",
+            "-keysize", 2048 + "",
+            "-validity", 365 + ""};
+
+        Process proc = Runtime.getRuntime().exec(keyStoreCmds);
+        boolean done = false;
+        int returnCode = 0;
+        while (!done) {
+            returnCode = proc.waitFor();
+            done = true;
         }
 
-        String key = sw.toString();
-
-        X500Name name = new X500Name("OU=opc-tenant:TestTenant");
-        SubjectPublicKeyInfo subPubKeyInfo = SubjectPublicKeyInfo
-            .getInstance(keypair.getPublic().getEncoded());
-        Date start = new Date();
-        Date until = Date.from(LocalDate.now().plus(3650, ChronoUnit.DAYS)
-                         .atStartOfDay().toInstant(ZoneOffset.UTC));
-        X509v3CertificateBuilder builder = new X509v3CertificateBuilder(
-            name,
-            new BigInteger(10, new SecureRandom()),
-            start,
-            until,
-            name,
-            subPubKeyInfo
-        );
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
-            .setProvider(new BouncyCastleProvider())
-            .build(keypair.getPrivate());
-        X509CertificateHolder holder = builder.build(signer);
-
-        Certificate cert = new JcaX509CertificateConverter()
-            .setProvider(new BouncyCastleProvider()).getCertificate(holder);
-
-        sw = new StringWriter();
-        try (JcaPEMWriter pw = new JcaPEMWriter(sw)) {
-            pw.writeObject(cert);
+        if (returnCode != 0) {
+            throw new IllegalStateException(
+                "Error generating keystore:" + returnCode);
         }
-        String certString = sw.toString();
 
-        return new KeyPairInfo(key, certString, keypair);
+        KeyStore keystore = KeyStore.getInstance("PKCS12");
+        keystore.load(new FileInputStream(keyStoreFile), pwd.toCharArray());
+        KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry)
+            keystore.getEntry(
+                alias, new KeyStore.PasswordProtection(pwd.toCharArray()));
+        PrivateKey pk = entry.getPrivateKey();
+        Certificate cert = entry.getCertificate();
+        KeyPair keyPair = new KeyPair(cert.getPublicKey(), pk);
+
+        return new KeyPairInfo(
+            new String(Pem.encoder().with(Pem.Format.LEGACY).encode(pk)),
+            Pem.encoder().with(Pem.Format.LEGACY).encode(cert),
+            keyPair);
     }
 
     /**
@@ -244,15 +230,6 @@ public class DriverTestBase {
             throw new IllegalArgumentException(
                 content + " doesn't contains " + expected);
         }
-    }
-
-    private static Provider getBouncyCastleProvider()
-        throws Exception {
-
-        Class<?> providerClass = Class.forName(
-            "org.bouncycastle.jce.provider.BouncyCastleProvider");
-        return (Provider)providerClass
-            .getDeclaredConstructor().newInstance();
     }
 
     protected static class KeyPairInfo {

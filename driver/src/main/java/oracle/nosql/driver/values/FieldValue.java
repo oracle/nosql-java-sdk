@@ -108,7 +108,7 @@ public abstract class FieldValue implements Comparable<FieldValue> {
         JSON_NULL,
         /** A null value, used only by index keys */
         NULL,
-        /** @hidden An empty, or missing value, used only by index keys */
+        /** An empty, or missing value, used only by index keys @hidden */
         EMPTY;
     }
 
@@ -393,13 +393,12 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     }
 
     /**
-     * @hidden
-     *
      * Casts to EmptyValue.
      *
      * @return a EmptyValue
      *
      * @throws ClassCastException if this is not a EmptyValue
+     * @hidden
      */
     public EmptyValue asEmpty() {
         return (EmptyValue) this;
@@ -557,16 +556,18 @@ public abstract class FieldValue implements Comparable<FieldValue> {
 
 
     /**
-     * @hidden
+     * Is empty?
      * @return true if is empty
+     * @hidden
      */
     public boolean isEMPTY() {
         return this == EmptyValue.getInstance();
     }
 
     /**
-     * @hidden
+     * Is special?
      * @return true if is NULL, json null, or empty
+     * @hidden
      */
     public boolean isSpecialValue() {
         Type type = getType();
@@ -633,8 +634,9 @@ public abstract class FieldValue implements Comparable<FieldValue> {
     }
 
     /**
-     * @hidden
+     * Size
      * @return size of value in bytes
+     * @hidden
      */
     public abstract long sizeof();
 

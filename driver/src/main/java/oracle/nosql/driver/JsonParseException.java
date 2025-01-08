@@ -26,17 +26,19 @@ public class JsonParseException extends NoSQLException {
     private JsonLocation location;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
+     * @hidden
      */
     public JsonParseException(String msg) {
         super(msg);
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
      * @param location the exception location in the input
+     * @hidden
      */
     public JsonParseException(String msg, JsonLocation location) {
         super(msg);
@@ -79,8 +81,9 @@ public class JsonParseException extends NoSQLException {
     }
 
     /**
-     * @hidden
+     * Internal use only
      * @return the location of the exception in the input
+     * @hidden
      */
     public JsonLocation getLocation() {
         return location;

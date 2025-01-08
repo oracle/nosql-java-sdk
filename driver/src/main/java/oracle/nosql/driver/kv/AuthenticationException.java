@@ -27,17 +27,19 @@ public class AuthenticationException extends NoSQLException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
+     * @hidden
      */
     public AuthenticationException(String msg) {
         super(msg);
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
      * @param cause the cause
+     * @hidden
      */
     public AuthenticationException(String msg, Throwable cause) {
         super(msg, cause);

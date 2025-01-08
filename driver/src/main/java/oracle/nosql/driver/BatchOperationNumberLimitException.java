@@ -19,8 +19,9 @@ public class BatchOperationNumberLimitException extends ResourceLimitException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the message
+     * @hidden
      */
     public BatchOperationNumberLimitException(String msg) {
         super(msg);

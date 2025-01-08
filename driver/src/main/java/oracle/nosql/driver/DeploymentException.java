@@ -20,8 +20,9 @@ public class DeploymentException extends ResourceLimitException {
     private static final long serialVersionUID = 1L;
 
     /**
-     * @hidden
+     * internal use only
      * @param msg the exception message
+     * @hidden
      */
     public DeploymentException(String msg) {
         super(msg);

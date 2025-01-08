@@ -427,12 +427,12 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
-     *
+     * internal use only
      * @param endpoint the endpoint to use
      * @param path the path to use
      * @return the constructed URL
      * Return a URL from an endpoint string
+     * @hidden
      */
     public static URL createURL(String endpoint, String path) {
         requireNonNull(endpoint,
@@ -767,8 +767,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
-     *
      * Sets an inactivity period, in seconds, used to time out idle connections
      * in the connection pool. This setting allows unused connections to be
      * reclaimed when the system goes idle, reducing resource use. If 0 for
@@ -780,6 +778,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @return this
      *
      * @since 5.3.2
+     * @hidden
      */
     public NoSQLHandleConfig setConnectionPoolInactivityPeriod(
         int poolInactivityPeriod) {
@@ -834,7 +833,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Sets the maximum size in bytes of http chunks.
      * If not set, or set to zero, the default value of 64KB is used.
      *
@@ -842,6 +840,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * http chunks. Pass zero to use the default.
      *
      * @return this
+     * @hidden
      */
     public NoSQLHandleConfig setMaxChunkSize(int maxChunkSize) {
         if (maxChunkSize < 0) {
@@ -854,10 +853,10 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Returns the maximum size, in bytes, of any http chunk
      *
      * @return the size
+     * @hidden
      */
     public int getMaxChunkSize() {
         return maxChunkSize;
@@ -892,7 +891,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Returns the inactivity period, in seconds, to use to time out idle
      * connections. This allows the connection pool to shrink after a period
      * of inactivity, reducing resource use.
@@ -900,6 +898,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @return the inactivity period, or 0 if not set
      *
      * @since 5.3.2
+     * @hidden
      */
     public int getConnectionPoolInactivityPeriod() {
         return connectionPoolInactivityPeriod;
@@ -976,9 +975,9 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Internal use only
      * @return true if rate limiting is enabled
+     * @hidden
      */
     public boolean getRateLimitingEnabled() {
         return rateLimitingEnabled;
@@ -1007,9 +1006,9 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Internal use only
      * @return the default percentage
+     * @hidden
      */
     public double getDefaultRateLimitingPercentage() {
         if (defaultRateLimiterPercentage == 0.0) {
@@ -1354,49 +1353,50 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
      * Returns a proxy host, or null if not configured
      *
      * @return the host, or null
+     * @hidden
      */
     public String getProxyHost() {
         return proxyHost;
     }
 
     /**
-     * @hidden
      * Returns a proxy user name, or null if not configured
      *
      * @return the user name, or null
+     * @hidden
      */
     public String getProxyUsername() {
         return proxyUsername;
     }
 
     /**
-     * @hidden
      * Returns a proxy password, or null if not configured
      *
      * @return the password, or null
+     * @hidden
      */
     public String getProxyPassword() {
         return proxyPassword;
     }
 
     /**
-     * @hidden
      * Returns a proxy port, or 0 if not configured
      *
      * @return the proxy port
+     * @hidden
      */
     public int getProxyPort() {
         return proxyPort;
     }
 
     /**
-     * @hidden
+     * internal use only
      * @param sslCtx the SSL context to set
      * @return this
+     * @hidden
      */
     public NoSQLHandleConfig setSslContext(SslContext sslCtx) {
         this.sslCtx = sslCtx;
@@ -1404,8 +1404,9 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
+     * internal use only
      * @return the SSL context
+     * @hidden
      */
     public SslContext getSslContext() {
         return sslCtx;
@@ -1420,7 +1421,7 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @since 5.2.30
      */
-    public NoSQLHandleConfig setStatsInterval(int statsInterval) {
+    public final NoSQLHandleConfig setStatsInterval(int statsInterval) {
         if (statsInterval < 1) {
             throw new IllegalArgumentException("Stats interval can not be " +
                 "less than 1 second.");
@@ -1450,7 +1451,7 @@ public class NoSQLHandleConfig implements Cloneable {
      *
      * @since 5.2.30
      */
-    public NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
+    public final NoSQLHandleConfig setStatsProfile(StatsControl.Profile statsProfile)
     {
         this.statsProfile = statsProfile;
         return this;
@@ -1549,8 +1550,6 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
-     *
      * Cloud service only.
      * Turns on, or off internal, automatic refresh of auth information based on
      * tracked requests. This is present in case the refresh really isn't
@@ -1561,6 +1560,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @return this
      *
      * @since 5.3.2
+     * @hidden
      */
     public NoSQLHandleConfig setAuthRefresh(boolean value) {
         this.authRefresh = value;
@@ -1568,14 +1568,13 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
-     * @hidden
-     *
      * Cloud service only.
      * Returns the state of the authRefresh flag
      *
      * @return true if auth refresh is enabled
      *
      * @since 5.3.2
+     * @hidden
      */
     public boolean getAuthRefresh() {
         return authRefresh;
