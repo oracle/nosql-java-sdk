@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Added
 - Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
+- PrepareQueryException. This exception is thrown if a prepared query is
+  executed after (a) the index used by the query has been dropped and then
+  re-created with a different schema, or (b) one or more of the referenced
+  tables has been altered (via the alter table statement).
 
 ## [5.4.15] 2024-06-05
 
