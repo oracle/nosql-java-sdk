@@ -889,7 +889,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     writeMapField(ns, QUERY_NAME, rq.getQueryName());
                 }
                 if (rq.getVirtualScan() != null) {
-                    writeVirtualScan(ns, rq.getVirtualScan());
+                    writeVirtualScan(ns, rq.getVirtualScan(), queryVersion);
                 }
             }
 
@@ -898,11 +898,26 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         private static void writeVirtualScan(NsonSerializer ns,
-                                             VirtualScan vs)
+                                             VirtualScan vs,
+                                             short queryVersion)
             throws IOException {
+
             startMap(ns, VIRTUAL_SCAN);
             writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
             writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
+
+            if (queryVersion <= QueryDriver.QUERY_V4 && vs.isFirstBatch()) {
+                writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
+                writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
+                writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
+
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY, vs.descResumeKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_TABLES, vs.joinPathTables());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_KEY, vs.joinPathKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY, vs.joinPathSecKey());
+                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED, vs.joinPathMatched());
+            }
+
             endMap(ns, VIRTUAL_SCAN);
         }
 
@@ -1105,6 +1120,14 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             int sid = -1;
             int pid = -1;
+            byte[] primKey = null;
+            byte[] secKey = null;
+            boolean moveAfter = true;
+            byte[] descResumeKey = null;
+            int[] joinPathTables = null;
+            byte[] joinPathKey = null;
+            byte[] joinPathSecKey = null;
+            boolean joinPathMatched = false;
 
             MapWalker walker = getMapWalker(in);
 
@@ -1115,12 +1138,30 @@ public class NsonSerializerFactory implements SerializerFactory {
                     sid = Nson.readNsonInt(in);
                 } else if (name.equals(VIRTUAL_SCAN_PID)) {
                     pid = Nson.readNsonInt(in);
+                } else if (name.equals(VIRTUAL_SCAN_PRIM_KEY)) {
+                    primKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_SEC_KEY)) {
+                    secKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_MOVE_AFTER)) {
+                    moveAfter = Nson.readNsonBoolean(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY)) {
+                    descResumeKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_TABLES)) {
+                    joinPathTables = Nson.readIntArray(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_KEY)) {
+                    joinPathKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_SEC_KEY)) {
+                    joinPathSecKey = Nson.readNsonBinary(in);
+                } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_MATCHED)) {
+                    joinPathMatched = Nson.readNsonBoolean(in);
                 } else {
                     skipUnknownField(walker, name);
                 }
             }
 
-            return new VirtualScan(pid, sid);
+            return new VirtualScan(pid, sid, primKey, secKey, moveAfter,
+                                   descResumeKey, joinPathTables, joinPathKey,
+                                   joinPathSecKey, joinPathMatched);
         }
 
         private static void readPhase1Results(byte[] arr, QueryResult result)
