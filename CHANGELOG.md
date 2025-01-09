@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+- PrepareQueryException. This exception is thrown if a prepared query is
+  executed after (a) the index used by the query has been dropped and then
+  re-created with a different schema, or (b) one or more of the referenced
+  tables has been altered (via the alter table statement). It is only used
+  with server 25.1 or higher that supports it.
+
 ## [5.4.16] 2024-11-21
 
 ### Fixed
@@ -25,11 +32,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   (~/.oci/regions-config.json) or environment variable (OCI_REGION_METADATA)
 
 ### Added
-- Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL)
-- PrepareQueryException. This exception is thrown if a prepared query is
-  executed after (a) the index used by the query has been dropped and then
-  re-created with a different schema, or (b) one or more of the referenced
-  tables has been altered (via the alter table statement).
 - Cloud only: added new OCI regions (RKT, SHJ, RUH, EBB, EBL, JJT, DLN, DTZ)
 - Cloud only: refactored how the Region class is managed, allowing dynamic
   addition of regions not yet known to the system
