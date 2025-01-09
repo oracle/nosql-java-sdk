@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.16</version>
+  <version>5.4.17-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -390,7 +390,7 @@
                May need to post-process the doc to remove the package and link.
           -->
           <excludePackageNames>
-            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde;oracle.nosql.driver.ops.serde.nson
+            oracle.nosql.driver.http;oracle.nosql.driver.httpclient;oracle.nosql.driver.query;oracle.nosql.driver.util;oracle.nosql.driver.ops.serde;oracle.nosql.driver.ops.serde.nson;oracle.nosql.driver.iam.pki
           </excludePackageNames>
           <show>public</show>
           <header>
