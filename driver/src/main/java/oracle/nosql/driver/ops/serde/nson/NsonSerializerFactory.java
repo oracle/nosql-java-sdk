@@ -889,7 +889,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     writeMapField(ns, QUERY_NAME, rq.getQueryName());
                 }
                 if (rq.getVirtualScan() != null) {
-                    writeVirtualScan(ns, rq.getVirtualScan());
+                    writeVirtualScan(ns, rq.getVirtualScan(), queryVersion);
                 }
             }
 
@@ -898,13 +898,15 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         private static void writeVirtualScan(NsonSerializer ns,
-                                             VirtualScan vs)
+                                             VirtualScan vs,
+                                             short queryVersion)
             throws IOException {
+
             startMap(ns, VIRTUAL_SCAN);
             writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
             writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
 
-            if (vs.isFirstBatch()) {
+            if (queryVersion <= QueryDriver.QUERY_V4 && vs.isFirstBatch()) {
                 writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
                 writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
                 writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
@@ -915,6 +917,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY, vs.joinPathSecKey());
                 writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED, vs.joinPathMatched());
             }
+
             endMap(ns, VIRTUAL_SCAN);
         }
 

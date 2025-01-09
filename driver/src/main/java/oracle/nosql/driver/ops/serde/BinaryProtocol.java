@@ -39,6 +39,7 @@ import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_NOT_SUPPORTED;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
 import static oracle.nosql.driver.util.BinaryProtocol.READ_LIMIT_EXCEEDED;
+import static oracle.nosql.driver.util.BinaryProtocol.RECOMPILE_QUERY;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT_EXCEEDED;
 import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_TIMEOUT;
@@ -85,6 +86,7 @@ import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.OperationThrottlingException;
+import oracle.nosql.driver.PrepareQueryException;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
 import oracle.nosql.driver.RequestTimeoutException;
@@ -492,6 +494,8 @@ public class BinaryProtocol extends Nson {
             return new TableNotReadyException(msg);
         case ETAG_MISMATCH:
             return new IllegalArgumentException(msg);
+        case RECOMPILE_QUERY:
+            return new PrepareQueryException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);

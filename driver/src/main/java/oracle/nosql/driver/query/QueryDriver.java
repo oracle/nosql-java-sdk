@@ -35,7 +35,10 @@ public class QueryDriver {
     /* added query name in QueryRequest */
     public static short QUERY_V4 = 4;
 
-    public static short QUERY_VERSION = QUERY_V4;
+    /* Changed VirtualScan info exchanged between sdk and proxy */
+    public static final short QUERY_V5 = 5;
+
+    public static final short QUERY_VERSION = QUERY_V5;
 
     private static final int BATCH_SIZE = 100;
 

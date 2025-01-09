@@ -11,7 +11,9 @@ package oracle.nosql.driver.query;
 public class VirtualScan {
 
     final private int theSID;
+
     final private int thePID;
+
     final private byte[] thePrimResumeKey;        
     final private byte[] theSecResumeKey;
     final private boolean theMoveAfterResumeKey;
@@ -62,7 +64,7 @@ public class VirtualScan {
     public byte[] primKey() {
         return thePrimResumeKey;
     }
-    
+
     public boolean moveAfterResumeKey() {
         return theMoveAfterResumeKey;
     }
@@ -99,51 +101,8 @@ public class VirtualScan {
         sb.append("sid/pid = ").append(theSID).append("/").append(thePID);
         sb.append("\n");
 
-        if (thePrimResumeKey != null) {
-            sb.append("thePrimResumeKey = ");
-            sb.append(PlanIter.printByteArray(thePrimResumeKey));
-            sb.append("\n");
-        }
-
-        if (theSecResumeKey != null) {
-            sb.append("theSecResumeKey = ");
-            sb.append(PlanIter.printByteArray(theSecResumeKey));
-            sb.append("\n");
-        }
-
-        sb.append("theMoveAfterResumeKey = ").append(theMoveAfterResumeKey);
-        sb.append("\n");
-
-        if (theDescResumeKey != null) {
-            sb.append("theDescResumeKey = ");
-            sb.append(PlanIter.printByteArray(theDescResumeKey));
-            sb.append("\n");
-        }
-
-        if (theJoinPathTables != null) {
-            sb.append("theJoinPathTables = ");
-            sb.append(PlanIter.printIntArray(theJoinPathTables));
-            sb.append("\n");
-        }
-
-        if (theJoinPathKey != null) {
-            sb.append("theJoinPathKey = ");
-            sb.append(PlanIter.printByteArray(theJoinPathKey));
-            sb.append("\n");
-        }
-
-        if (theJoinPathSecKey != null) {
-            sb.append("theJoinPathSecKey = ");
-            sb.append(PlanIter.printByteArray(theJoinPathSecKey));
-            sb.append("\n");
-        }
-
-        sb.append("theJoinPathMatched = ").append(theJoinPathMatched);
-        sb.append("\n");
-
         sb.append("theFirstBatch = ").append(theFirstBatch);
         sb.append("\n");
-
         return sb.toString();
     }
 }

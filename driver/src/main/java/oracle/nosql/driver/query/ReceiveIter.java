@@ -429,6 +429,8 @@ public class ReceiveIter extends PlanIter {
             rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
                       "reached limit = " + result.reachedLimit() +
                       " in phase 1 = " + result.isInPhase1());
+
+            origRequest.addQueryTraces(result.getQueryTraces());
         }
 
         /*

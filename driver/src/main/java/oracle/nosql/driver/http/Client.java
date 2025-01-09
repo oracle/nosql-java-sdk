@@ -633,7 +633,7 @@ public class Client {
                  */
                 kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
                 serialVersionUsed = writeContent(buffer, kvRequest,
-                    queryVersionUsed);
+                                                 queryVersionUsed);
                 kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
@@ -1628,14 +1628,17 @@ public class Client {
      *         false: already at lowest version number.
      */
     private synchronized boolean decrementQueryVersion(short versionUsed) {
+
         if (queryVersion != versionUsed) {
             return true;
         }
-        if (queryVersion == QueryDriver.QUERY_V4) {
-            queryVersion = QueryDriver.QUERY_V3;
-            return true;
+
+        if (queryVersion == QueryDriver.QUERY_V3) {
+            return false;
         }
-        return false;
+
+        --queryVersion;
+        return true;
     }
 
     /**
