@@ -1583,15 +1583,31 @@ public class QueryTest extends ProxyTestBase {
             assertEquals(10, qres.getResults().size());
 
             /*
-             * evolve and try the query again. It will fail because the ???
+             * Evolve and try the query again. It will fail because table schema
+             * has been changed, the query need to be prepared again.
              *
+             * The exception caught from query may vary depending on the
+             * different proxy and KV version. PrepareQueryException will be
+             * thrown for proxy(KVClient 25.1.1) + KV server 25.1.1 or higher.
+             * Otherwise, IllegalArgumentException will be thrown.
              */
             tableOperation(handle, "alter table testTable(drop age)", null);
+
             try {
                 qres = handle.query(qreq);
                 fail("Query should have failed");
-            } catch (IllegalArgumentException iae) {
-                /* success */
+            } catch (PrepareQueryException | IllegalArgumentException ex) {
+                /*
+                 * If can't determine the versions of KV client and server, skip
+                 * checking the specific exception.
+                 */
+                if (getMinimumKVVersion() > 0) {
+                    if (checkKVVersion(25, 1, 1)) {
+                        assertTrue(ex instanceof PrepareQueryException);
+                    } else {
+                        assertTrue(ex instanceof IllegalArgumentException);
+                    }
+                }
             }
         }
     }
