@@ -484,6 +484,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Returns the limit on number of items returned by the operation. If
      * not set by the application this value will be 0 which means no limit set.
      *
+     * For update query with on-premise service, returns the update limit on
+     * the number of records that can be updated in single update query. If not
+     * set by the application this value will be 0 which means no application
+     * limit set.
+     *
      * @return the limit, or 0 if not set
      */
     public int getLimit() {
@@ -494,7 +499,14 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Sets the limit on number of items returned by the operation. This allows
      * an operation to return less than the default amount of data.
      *
-     * @param limit the limit in terms of number of items returned
+     * For update query, if with on-premise service, this is to set the update
+     * limit on the number of records that can be updated in single query, if
+     * not set by the application, default service limit is used. If with cloud
+     * service, this update limit will be ignored, the maximum of records that
+     * can be updated is limited by other cloud limits maxWriteKB and maxReadKB.
+     *
+     * @param limit the limit in terms of number of items returned, or the
+     * maximum of records that can be updated in a update query.
      *
      * @return this
      *
