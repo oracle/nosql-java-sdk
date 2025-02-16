@@ -108,6 +108,8 @@ public class NsonProtocol {
     public static String VIRTUAL_SCANS = "vssa";
     public static String VIRTUAL_SCAN_SID = "vssid";
     public static String VIRTUAL_SCAN_PID = "vspid";
+    public static String VIRTUAL_SCAN_NUM_TABLES = "vsnt";
+    public static String VIRTUAL_SCAN_CURRENT_INDEX_RANGE = "vscir";
     public static String VIRTUAL_SCAN_PRIM_KEY = "vspk";
     public static String VIRTUAL_SCAN_SEC_KEY = "vssk";
     public static String VIRTUAL_SCAN_MOVE_AFTER = "vsma";
@@ -276,6 +278,8 @@ public class NsonProtocol {
         {VIRTUAL_SCANS,"VIRTUAL_SCANS"},
         {VIRTUAL_SCAN_SID,"VIRTUAL_SCAN_SID"},
         {VIRTUAL_SCAN_PID,"VIRTUAL_SCAN_PID"},
+        {VIRTUAL_SCAN_NUM_TABLES,"VIRTUAL_SCAN_NUM_TABLES"},
+        {VIRTUAL_SCAN_CURRENT_INDEX_RANGE,"VIRTUAL_SCAN_CURRENT_INDEX_RANGE"},
         {VIRTUAL_SCAN_PRIM_KEY,"VIRTUAL_SCAN_PRIM_KEY"},
         {VIRTUAL_SCAN_SEC_KEY,"VIRTUAL_SCAN_SEC_KEY"},
         {VIRTUAL_SCAN_MOVE_AFTER,"VIRTUAL_SCAN_MOVE_AFTER"},
