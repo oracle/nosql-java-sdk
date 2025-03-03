@@ -1,1 +1,1 @@
-tagSearchIndex = [{"l":"Constant Field Values","h":"","u":"constant-values.html"},{"l":"Error and Exception Handling","h":"interface oracle.nosql.driver.NoSQLHandle","d":"Section","u":"oracle/nosql/driver/NoSQLHandle.html#error-and-exception-handling-heading"},{"l":"Serialized Form","h":"","u":"serialized-form.html"}];updateSearchResults();
+tagSearchIndex = [{"l":"Constant Field Values","h":"","u":"constant-values.html"},{"l":"Serialized Form","h":"","u":"serialized-form.html"}];updateSearchResults();
