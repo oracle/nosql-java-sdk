@@ -43,7 +43,7 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-    <copyright>Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.</copyright>
+    <copyright>Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.118.Final</netty.version>
