@@ -868,6 +868,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, IS_SIMPLE_QUERY, rq.isSimpleQuery());
                 writeMapField(ns, PREPARED_QUERY,
                               rq.getPreparedStatement().getStatement());
+                /*
+                 * validation of parallel ops is handled in
+                 * QueryRequest.validate
+                 */
+                if (rq.getNumberOfOperations() != 0) {
+                    writeMapField(ns, NUM_QUERY_OPERATIONS,
+                                  rq.getNumberOfOperations());
+                    writeMapField(ns, QUERY_OPERATION_NUM,
+                                  rq.getOperationNumber());
+                }
                 writeBindVariables(ns, out,
                               rq.getPreparedStatement().getVariables());
             } else {
@@ -1001,6 +1011,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
             TreeMap<String, String> queryTraces = null;
+            int maxParallelism = 1; /* default value */
 
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
@@ -1079,6 +1090,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                         String batchTrace = Nson.readNsonString(in);
                         queryTraces.put(batchName, batchTrace);
                     }
+                } else if (name.equals(MAX_QUERY_PARALLELISM)) {
+                    maxParallelism = Nson.readNsonInt(in);
                 } else {
                     // log/warn
                     walker.skip();
@@ -1119,7 +1132,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                                          (dpi!=null)?dpi.externalVars:null,
                                          namespace,
                                          tableName,
-                                         operation);
+                                         operation,
+                                         maxParallelism);
             if (pres != null) {
                 pres.setPreparedStatement(prep);
             } else if (qreq != null) {

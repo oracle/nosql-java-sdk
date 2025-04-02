@@ -167,7 +167,8 @@ public class PrepareRequestSerializer extends BinaryProtocol
                                   externalVars,
                                   namespace,
                                   tableName,
-                                  operation);
+                                  operation,
+                                  0); /* no parallelism available */
 
         result.setPreparedStatement(prep);
         result.setTopology(ti);

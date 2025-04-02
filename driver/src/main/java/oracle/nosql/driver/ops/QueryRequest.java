@@ -81,6 +81,54 @@ import oracle.nosql.driver.query.VirtualScan;
  * the QueryRequest instance to run the same query from the beginning or a
  * different query.
  * <p>
+ * <p>
+ * <b>Parallel queries</b>
+ * <p>
+ * By default a query request operates over all of the rows in a table. Large
+ * scale analytics, such as Apache Spark, Apache Hadoop, and others benefit
+ * from the ability to split a query into multiple workloads, where each
+ * workload operates on a distinct subset of a table's rows. This feature is
+ * called "parallel query" and is enabled in this driver as of release 5.4.18.
+ * The feature also requires a server that supports the feature. A server that
+ * does not support the feature will always return 0 for the maxium amount
+ * of parallelism mentioned below.
+ * <p>
+ * Parallel query allows an application to create a group of participating
+ * queries that operate in their own threads, processes, or machines. Each
+ * participant query declares itself to be N of M cooperating queries, where
+ * N is the individual operation and M is the total number of cooperating
+ * queries. The maximum value for M is returned in the
+ * {@link PreparedStatement} returned in a {@link PrepareResult}. This
+ * feature works best for queries that operate over the entire set of data or
+ * a simple subset constrained by a predicate. Parallel queries cannot be
+ * performed on aggregations and sorted queries. Sample code to use this
+ * feature looks like this
+ * <pre>
+ * NoSQLHandle handle = ...;
+ * PreparedStatement ps = handle.prepare(new PrepareRequest().setStatement(
+ *     "select * from foo")).getPreparedStatement();
+ * int maxParallelism = ps.getMaximumParallelism();
+ *
+ * // at this point up to maxParallelism queries can be operated independently,
+ * // each one operating on a subset of data. The total number of cooperating
+ * // queries can be up to maxParallelism, but smaller numbers are fine. The
+ * // system decides how to partition the queries across unique rows
+ *
+ * // Consider a maxParallism of 100 and 10 cooperating threads or processes
+ * // are desired. This is an example of what number 3 out of 10 would do to
+ * // execute a cooperating query
+ *
+ * QueryRequest qreq = new QueryRequest().setPreparedStatement(ps).
+ *   setNumberOfOperations(10)  // total number of ops cooperating
+ *   setOperationNumber(3)      // this is number 3 of 10
+ * </pre>
+ *
+ * The query would then be executed as normal but instead of operating over
+ * the entire table the query will operate only on approximately 1/10 of the
+ * data. It is up to the application to aggregate and process results from
+ * cooperating queries. If they are to be run in separate threads or processes
+ * it is up to the application to create those runtime entities as well.
+ * <p>
  * QueryRequest instances are not thread-safe. That is, if two or more
  * application threads need to run the same query concurrently, they must
  * create and use their own QueryRequest instances.
@@ -145,6 +193,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private boolean inTestMode;
 
+    /* these next 2 are related to parallel queries */
+    private int operationNumber;
+
+    private int numberOfOperations;
+
     /**
      * Default constructor for QueryRequest
      */
@@ -177,6 +230,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.driver = driver;
         internalReq.topoSeqNum = topoSeqNum;
         internalReq.inTestMode = inTestMode;
+        internalReq.operationNumber = operationNumber;
+        internalReq.numberOfOperations = numberOfOperations;
         return internalReq;
     }
 
@@ -913,6 +968,58 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * Returns the total number of operations in a coordinated parallel
+     * query operation or 0 if this is not a parallel query.
+     * @return the number of operations
+     * @since 5.4.18
+     */
+    public int getNumberOfOperations() {
+        return numberOfOperations;
+    }
+
+    /**
+     * Returns the individual operation number for this query if it is
+     * participating in a coordinated parallel query operation or 0 if not.
+     * @return the operation number
+     * @since 5.4.18
+     */
+    public int getOperationNumber() {
+        return operationNumber;
+    }
+
+    /**
+     * Sets the total number of operations in a coordinated parallel
+     * query operation. This value will only be valid if the request
+     * contains a prepared query and must be less than or equal to
+     * the value returned by {@link PreparedStatement#getMaximumParallelism}.
+     * Validation is performed during query execution.
+     *
+     * @param numberOfOperations the number of operations
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setNumberOfOperations(int numberOfOperations) {
+        this.numberOfOperations = numberOfOperations;
+        return this;
+    }
+
+    /**
+     * Sets the individual operation number for this query if it is
+     * participating in a coordinated parallel query operation. This number
+     * must be less than or equal to the total number of operations.
+     * This value will only be valid if the request contains a prepared query.
+     * Validation is performed during query execution.
+     *
+     * @param operationNumber the operation number
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setOperationNumber(int operationNumber) {
+        this.operationNumber = operationNumber;
+        return this;
+    }
+
+    /**
      * @hidden
      */
     @Override
@@ -957,6 +1064,43 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         if (statement == null && preparedStatement == null) {
             throw new IllegalArgumentException(
                 "Either statement or prepared statement should be set");
+        }
+        /*
+         * Parallel queries have multiple requirements:
+         * o only for prepared queries
+         * o if set, both number of operations and op number need to be set
+         * o operation number must be <= number of operations
+         * o number of operations must be <= the max
+         */
+
+        /* only check one of the 2 params. The need for both is below */
+        if (getNumberOfOperations() > 0) {
+            if (!isPrepared()) {
+                throw new IllegalArgumentException(
+                    "Parallel queries are only allowed on prepared queries");
+            }
+            /* check both non-zero and value of operation number */
+            if (getOperationNumber() > getNumberOfOperations() ||
+                getOperationNumber() <= 0) {
+                throw new IllegalArgumentException(
+                    "Invalid parallel query operation number " +
+                    getOperationNumber() + ", must be non-negative and <= " +
+                    getNumberOfOperations());
+            }
+            /* check max */
+            int max = getPreparedStatement().getMaximumParallelism();
+            if (getNumberOfOperations() > max) {
+                throw new IllegalArgumentException(
+                    "Invalid parallel query number of operations " +
+                    getNumberOfOperations() + ", must be <= to the maximum: " +
+                    max);
+            }
+        } else if (getOperationNumber() != 0 ||
+                   getNumberOfOperations() < 0) {
+            throw new IllegalArgumentException(
+                "Invalid parallel query operation number " +
+                getOperationNumber() + ", both operation number and " +
+                "number of operations must be non-negative");
         }
     }
 
