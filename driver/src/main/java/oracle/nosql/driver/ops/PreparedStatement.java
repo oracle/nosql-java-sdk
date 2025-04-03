@@ -94,6 +94,11 @@ public class PreparedStatement {
      */
     private final byte operation;
 
+    /*
+     * The maximum degree of parallelization possible for this query
+     */
+    private final int maxParallelism;
+
     /* The one operation code we care about */
     /* "5" == PrepareCallback.QueryOperation.SELECT */
     private final byte OPCODE_SELECT = 5;
@@ -115,6 +120,8 @@ public class PreparedStatement {
      * @param namespace namespace, if any, from deserialization
      * @param tableName table name, if any, from deserialization
      * @param operation operation code for the query
+     * @param maxParallelism the maximum degree of parallelism possible for the
+     * query
      * @hidden
      */
     public PreparedStatement(
@@ -128,7 +135,8 @@ public class PreparedStatement {
         Map<String, Integer> externalVars,
         String namespace,
         String tableName,
-        byte operation) {
+        byte operation,
+        int maxParallelism) {
 
         /* 10 is arbitrary. TODO: put magic number in it for validation? */
         if (proxyStatement == null || proxyStatement.length < 10) {
@@ -147,6 +155,7 @@ public class PreparedStatement {
         this.namespace = namespace;
         this.tableName = tableName;
         this.operation = operation;
+        this.maxParallelism = maxParallelism;
     }
 
     /**
@@ -168,7 +177,8 @@ public class PreparedStatement {
                                      variables,
                                      namespace,
                                      tableName,
-                                     operation);
+                                     operation,
+                                     maxParallelism);
     }
 
     /**
@@ -305,6 +315,27 @@ public class PreparedStatement {
      */
     public final byte[] getStatement() {
         return proxyStatement;
+    }
+
+    /**
+     * Returns the maximum degree of parallelism possible for execution of
+     * this query using multiple independent callers operating on discrete
+     * subsets of the data. A value of 0 means no parallelism is possible. A
+     * value of 1 is legitimate, for example, if there is only one shard in
+     * a store, but also means no parallelism is possible.
+     * <p>
+     * This value can be used in {@link QueryRequest} to cause a query to
+     * participate in a coordinated parallel query operations, allowing
+     * individual queries to operate on a subset of data in a table. This
+     * enables the queries to operate in parallel from threads, processes, or
+     * across machines.
+     *
+     * @return the value
+     *
+     * @since 5.4.18
+     */
+    public int getMaximumParallelism() {
+        return maxParallelism;
     }
 
     /**

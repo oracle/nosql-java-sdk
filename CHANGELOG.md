@@ -4,6 +4,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- Parallel Query feature to enable multiple coordinated threads, processes, or
+  machines to operate on distinct subsets of rows. The use of the features
+  requires a server version that supports it. An unsupported server returns 0
+  for the maxium parallelism. The following API is added
+  - PreparedStatement.getMaximumParallelism()
+  - QueryRequest.get/setNumberOfOperations()
+  - QueryRequest.get/setOperationNumber()
+
 ## [5.4.17] 2025-03-03
 
 ### Added

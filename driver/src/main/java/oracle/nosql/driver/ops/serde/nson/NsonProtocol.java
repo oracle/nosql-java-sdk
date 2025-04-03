@@ -55,6 +55,7 @@ public class NsonProtocol {
     public static String LIST_MAX_TO_READ = "lx";
     public static String LIST_START_INDEX = "ls";
     public static String MATCH_VERSION = "mv";
+    public static String MAX_QUERY_PARALLELISM = "mp";
     public static String MAX_READ_KB = "mr";
     public static String MAX_SHARD_USAGE_PERCENT = "ms";
     public static String MAX_WRITE_KB = "mw";
@@ -62,6 +63,7 @@ public class NsonProtocol {
     public static String NAMESPACE = "ns";
     public static String NUMBER_LIMIT = "nl";
     public static String NUM_OPERATIONS = "no";
+    public static String NUM_QUERY_OPERATIONS = "nq";
     public static String OPERATION = "op";
     public static String OPERATIONS = "os";
     public static String OPERATION_ID = "od";
@@ -74,6 +76,7 @@ public class NsonProtocol {
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
     public static String QUERY_NAME = "qn";
+    public static String QUERY_OPERATION_NUM = "on";
     public static String QUERY_VERSION = "qv";
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
@@ -225,6 +228,7 @@ public class NsonProtocol {
         {LIST_MAX_TO_READ,"LIST_MAX_TO_READ"},
         {LIST_START_INDEX,"LIST_START_INDEX"},
         {MATCH_VERSION,"MATCH_VERSION"},
+        {MAX_QUERY_PARALLELISM,"MAX_QUERY_PARALLELISM"},
         {MAX_READ_KB,"MAX_READ_KB"},
         {MAX_SHARD_USAGE_PERCENT,"MAX_SHARD_USAGE_PERCENT"},
         {MAX_WRITE_KB,"MAX_WRITE_KB"},
@@ -232,6 +236,7 @@ public class NsonProtocol {
         {NAMESPACE,"NAMESPACE"},
         {NUMBER_LIMIT,"NUMBER_LIMIT"},
         {NUM_OPERATIONS,"NUM_OPERATIONS"},
+        {NUM_QUERY_OPERATIONS,"NUM_QUERY_OPERATIONS"},
         {OPERATION,"OPERATION"},
         {OPERATIONS,"OPERATIONS"},
         {OPERATION_ID,"OPERATION_ID"},
@@ -244,6 +249,7 @@ public class NsonProtocol {
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
         {QUERY_NAME,"QUERY_NAME"},
+        {QUERY_OPERATION_NUM,"QUERY_OPERATION_NUM"},
         {QUERY_VERSION,"QUERY_VERSION"},
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
