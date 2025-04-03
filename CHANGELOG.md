@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Parallel Query feature to enable multiple coordinated threads, processes, or
   machines to operate on distinct subsets of rows. The use of the features
   requires a server version that supports it. An unsupported server returns 0
-  for the maxium parallelism. The following API is added
+  for the maximum parallelism. The following API is added
   - PreparedStatement.getMaximumParallelism()
   - QueryRequest.get/setNumberOfOperations()
   - QueryRequest.get/setOperationNumber()
@@ -167,7 +167,7 @@ Note: there are no 5.4 releases before 5.4.7
 ### Added
 - Support for new, flexible wire protocol (V4) has been added. The previous protocol
 is still supported for communication with servers that do not yet support V4. The
-version negotation is internal and automatic; however, use of V4 features will fail
+version negotiation is internal and automatic; however, use of V4 features will fail
 at runtime when attempted with an older server. Failure may be an empty or
 undefined result or an exception if the request cannot be serviced at all. The following
 new features or interfaces depend on the new protocol version
@@ -486,7 +486,7 @@ must not be negative value.
 
 ### Changed
 - Enabled SSL hostname verification
-- Reduced logging severityof bad http channels
+- Reduced logging severity of bad http channels
 - Bundle newer versions of netty and Jackson libraries
 
 ## [5.1.12] - 2019-08-20
