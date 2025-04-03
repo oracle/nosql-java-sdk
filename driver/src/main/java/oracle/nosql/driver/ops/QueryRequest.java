@@ -980,6 +980,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     /**
      * Returns the individual operation number for this query if it is
      * participating in a coordinated parallel query operation or 0 if not.
+     * The value is 1-based.
      * @return the operation number
      * @since 5.4.18
      */
@@ -1007,7 +1008,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Sets the individual operation number for this query if it is
      * participating in a coordinated parallel query operation. This number
      * must be less than or equal to the total number of operations.
-     * This value will only be valid if the request contains a prepared query.
+     * The operation number is 1-based and the value will only be valid if
+     * the request contains a prepared query.
      * Validation is performed during query execution.
      *
      * @param operationNumber the operation number
