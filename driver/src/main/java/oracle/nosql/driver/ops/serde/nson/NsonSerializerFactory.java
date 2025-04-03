@@ -1011,7 +1011,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
             TreeMap<String, String> queryTraces = null;
-            int maxParallelism = 1; /* default value */
+            int maxParallelism = 0; /* default value */
 
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
