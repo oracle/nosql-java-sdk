@@ -107,7 +107,7 @@ class Utils {
      * Test if the given OCID matches the expected pattern for OCIDs.
      *
      * @param ocid The string to test.
-     * @return true if it matches teh pattern, false if not.
+     * @return true if it matches the pattern, false if not.
      */
     static boolean isValidOcid(String ocid) {
         return OCID_PATTERN.matcher(ocid).matches();

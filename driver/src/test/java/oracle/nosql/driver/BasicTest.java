@@ -1439,7 +1439,7 @@ public class BasicTest extends ProxyTestBase {
         PutResult putRet = handle.put(putReq);
         assertNotNull(putRet.getVersion());
 
-        /* set exact match to true, this shoudl fail */
+        /* set exact match to true, this should fail */
         putReq.setExactMatch(true);
         try {
             putRet = handle.put(putReq);

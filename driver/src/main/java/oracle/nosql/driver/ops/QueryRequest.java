@@ -56,7 +56,7 @@ import oracle.nosql.driver.query.VirtualScan;
  * To compute and retrieve the full result set of a query, the same QueryRequest
  * instance will, in general, have to be executed multiple times (via
  * {@link NoSQLHandle#query}. Each execution returns a {@link QueryResult},
- * which contains a subset of the result set. The following code snipet
+ * which contains a subset of the result set. The following code snippet
  * illustrates a typical query execution:
  * <pre>
  * NoSQLHandle handle = ...;
@@ -90,7 +90,7 @@ import oracle.nosql.driver.query.VirtualScan;
  * workload operates on a distinct subset of a table's rows. This feature is
  * called "parallel query" and is enabled in this driver as of release 5.4.18.
  * The feature also requires a server that supports the feature. A server that
- * does not support the feature will always return 0 for the maxium amount
+ * does not support the feature will always return 0 for the maximum amount
  * of parallelism mentioned below.
  * <p>
  * Parallel query allows an application to create a group of participating

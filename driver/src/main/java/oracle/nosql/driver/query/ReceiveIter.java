@@ -791,7 +791,7 @@ public class ReceiveIter extends PlanIter {
             if (theRCB.getTraceLevel() >= 1) {
                 StringBuilder sb = new StringBuilder("RemoteScanner : got ");
                 sb.append(theResults.size());
-                sb.append(" remote results. More remote resuls = ");
+                sb.append(" remote results. More remote results = ");
                 sb.append(theMoreRemoteResults);
                 sb.append(" reached limit = ").append(result.reachedLimit());
                 sb.append(" read KB = ").append(result.getReadKB());

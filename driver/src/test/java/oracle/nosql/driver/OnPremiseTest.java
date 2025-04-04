@@ -179,7 +179,7 @@ public class OnPremiseTest extends ProxyTestBase {
      *  key size
      *  index key size
      *  row size
-     * Createa  row that exceeds the cloud limits and ensure that it
+     * Create a row that exceeds the cloud limits and ensure that it
      * succeeds.
      */
     @Test
