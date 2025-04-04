@@ -20,7 +20,7 @@ import oracle.nosql.driver.values.FieldValue;
 /**
  * Stores all state of an executing query plan. There is a single RCB instance
  * per query execution, and all iterators have access to that instance during
- * te execution.
+ * the execution.
  */
 public class RuntimeControlBlock {
 

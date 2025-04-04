@@ -184,7 +184,7 @@ public class Client {
     private static final int SEC_ERROR_DELAY_MS = 100;
 
     /*
-     * singe thread executor for updating table limits
+     * single thread executor for updating table limits
      */
     private ExecutorService threadPool;
 

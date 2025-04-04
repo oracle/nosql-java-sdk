@@ -26,7 +26,7 @@ import javax.security.auth.Refreshable;
  * @hidden
  * Internal use only
  * <p>
- * The X509 certficate and private key pair supplier. It supplies key pair
+ * The X509 certificate and private key pair supplier. It supplies key pair
  * to SecurityTokenSupplier which will be used to obtain JWT token from IAM.
  */
 interface CertificateSupplier {

@@ -518,7 +518,7 @@ public class TableResult extends Result {
      * @param handle the NoSQLHandle to use
      * @param result a previously received TableResult
      * @param state the desired state
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -561,7 +561,7 @@ public class TableResult extends Result {
      * @param handle the NoSQLHandle to use
      * @param tableName the table name
      * @param state the desired state
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -601,7 +601,7 @@ public class TableResult extends Result {
      * @param tableName the table name
      * @param operationId optional operation id
      * @param state the desired state
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -637,7 +637,7 @@ public class TableResult extends Result {
      * @param compartment optional compartment name or id if using cloud service
      * @param operationId optional operation id
      * @param state the desired state
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -660,7 +660,7 @@ public class TableResult extends Result {
         int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
         if (waitMillis < delayMillis) {
             throw new IllegalArgumentException(
-                "Wait milliseconds must be a mininum of " +
+                "Wait milliseconds must be a minimum of " +
                 DELAY_MS + " and greater than delay milliseconds");
         }
         long startTime = System.currentTimeMillis();
@@ -710,7 +710,7 @@ public class TableResult extends Result {
      * This instance is modified with any change in table state or metadata.
      *
      * @param handle the NoSQLHandle to use
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -738,7 +738,7 @@ public class TableResult extends Result {
         int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
         if (waitMillis < delayMillis) {
             throw new IllegalArgumentException(
-                "Wait milliseconds must be a mininum of " +
+                "Wait milliseconds must be a minimum of " +
                 DELAY_MS + " and greater than delay milliseconds");
         }
         long startTime = System.currentTimeMillis();

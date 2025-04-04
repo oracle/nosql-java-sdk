@@ -34,7 +34,7 @@ public class TimestampUtil {
     /* The UTC zone */
     private final static ZoneId UTCZone = ZoneId.of(ZoneOffset.UTC.getId());
 
-    /* The maxinum number of digits in fractional second */
+    /* The maximum number of digits in fractional second */
     private final static int MAX_NUMBER_FRACSEC = 9;
 
     /*

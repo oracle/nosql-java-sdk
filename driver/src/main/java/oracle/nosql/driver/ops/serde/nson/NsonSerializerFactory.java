@@ -1444,7 +1444,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 /*
                  * Each operation is a map in the array.
                  * Calling the generic put or delete serializer will add
-                 * redundant, unneccessary state. In order to share code
+                 * redundant, unnecessary state. In order to share code
                  * with those serializers they have internal methods that
                  * write just what WriteMultiple requires. The exception
                  * is the op code and return row information, so write

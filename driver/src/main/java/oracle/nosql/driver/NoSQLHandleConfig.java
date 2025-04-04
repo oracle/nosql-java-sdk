@@ -517,7 +517,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets the URL to use to connect to the service, as alternative to
-     * setting the endpont.
+     * setting the endpoint.
      *
      * @param serviceURL a URL to locate a server for use by the NoSQLHandle.
      * It is used and validated in {@link NoSQLHandleFactory#createNoSQLHandle}.

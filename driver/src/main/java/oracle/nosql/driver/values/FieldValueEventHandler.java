@@ -26,7 +26,7 @@ import java.util.Map;
  * <li>JSON serializer for {@link FieldValue} instances</li>
  * <li>JSON pretty-printfor {@link FieldValue} instances</li>
  * <li>Direct-from/to-object serializer or deserializer that operates on
- * POJOs intead of {@link FieldValue}</li>
+ * POJOs instead of {@link FieldValue}</li>
  * </ul>
  *
  * In addition to the interface this file includes static methods to generate

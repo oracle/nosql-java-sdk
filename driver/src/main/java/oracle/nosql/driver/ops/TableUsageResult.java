@@ -35,7 +35,7 @@ public class TableUsageResult extends Result {
      * Returns an array of usage records based on the parameters of
      * the {@link TableUsageRequest} used.
      *
-     * @return an arry of usage records
+     * @return an array of usage records
      */
     public TableUsage[] getUsageRecords() {
         return usageRecords;

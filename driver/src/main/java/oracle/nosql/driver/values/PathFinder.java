@@ -99,7 +99,7 @@ public class PathFinder implements FieldValueEventHandler {
     private int depth;
 
     /*
-     * true if currently skipping a map field. used to suppres and
+     * true if currently skipping a map field. used to suppress and
      * endMapField call
      */
     private boolean skipping;

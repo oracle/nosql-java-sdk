@@ -37,7 +37,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
     private static String TOKEN =
         "{" +
         "\"sub\": \"ocid1.resource.oc1.phx.resource\"," +
-        "\"opc-certtype\": \"reosurce\"," +
+        "\"opc-certtype\": \"resource\"," +
         "\"iss\": \"authService.oracle.com\"," +
         "\"res_compartment\": \"compartmentId\"," +
         "\"res_tenant\": \"tenantId\"," +

@@ -211,7 +211,7 @@ public class FuncSumIter extends PlanIter {
      * stored in the FuncSumState. The 1st time, the SUM value is the final
      * SUM value for the just completed group. In this case the "reset" param
      * is true in order to reset the running sum in the state. The 2nd time
-     * the SUM value is the inital SUM value computed from the 1st tuple of
+     * the SUM value is the initial SUM value computed from the 1st tuple of
      * the new group.
      */
     @Override
