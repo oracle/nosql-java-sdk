@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -113,7 +113,7 @@ import java.util.concurrent.TimeoutException;
  * that a call to <pre>tryConsumeUnits(1)</pre> has a chance of succeeding.
  * It is up to the limiter implementation to determine if units from the past
  * before the limiter was created or reset are available for use.
- * If a limiter implemetation does not allow setting a duration, it must throw
+ * If a limiter implementation does not allow setting a duration, it must throw
  * an UnsupportedOperationException when its setDuration() method is called.
  */
 public interface RateLimiter {

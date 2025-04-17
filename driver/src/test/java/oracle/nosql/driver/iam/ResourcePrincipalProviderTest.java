@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -37,7 +37,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
     private static String TOKEN =
         "{" +
         "\"sub\": \"ocid1.resource.oc1.phx.resource\"," +
-        "\"opc-certtype\": \"reosurce\"," +
+        "\"opc-certtype\": \"resource\"," +
         "\"iss\": \"authService.oracle.com\"," +
         "\"res_compartment\": \"compartmentId\"," +
         "\"res_tenant\": \"tenantId\"," +

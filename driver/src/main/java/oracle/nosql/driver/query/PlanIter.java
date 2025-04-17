@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -223,7 +223,7 @@ public abstract class PlanIter {
     }
 
     /*
-     * Get the current value of an aggragate function. If the reset param is
+     * Get the current value of an aggregate function. If the reset param is
      * true, the value is the final one and this method will also reset the
      * state of the associated aggregate-function iterator. In this case the
      * method is called when a group is completed. If reset is false, it is

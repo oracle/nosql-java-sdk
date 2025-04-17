@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -517,7 +517,7 @@ public class NoSQLHandleConfig implements Cloneable {
 
     /**
      * Sets the URL to use to connect to the service, as alternative to
-     * setting the endpont.
+     * setting the endpoint.
      *
      * @param serviceURL a URL to locate a server for use by the NoSQLHandle.
      * It is used and validated in {@link NoSQLHandleFactory#createNoSQLHandle}.

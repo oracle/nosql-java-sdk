@@ -3,11 +3,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
+
+### Added
+- Parallel Query feature to enable multiple coordinated threads, processes, or
+  machines to operate on distinct subsets of rows. The use of the features
+  requires a server version that supports it. An unsupported server returns 0
+  for the maximum parallelism. The following API is added
+  - PreparedStatement.getMaximumParallelism()
+  - QueryRequest.get/setNumberOfOperations()
+  - QueryRequest.get/setOperationNumber()
+
+## [5.4.17] 2025-03-03
+
+### Added
 - PrepareQueryException. This exception is thrown if a prepared query is
   executed after (a) the index used by the query has been dropped and then
   re-created with a different schema, or (b) one or more of the referenced
   tables has been altered (via the alter table statement). It is only used
   with server 25.1 or higher that supports it.
+
+### Changed
+- Update netty dependency to 4.1.118.Final
 
 ## [5.4.16] 2024-11-21
 
@@ -151,7 +167,7 @@ Note: there are no 5.4 releases before 5.4.7
 ### Added
 - Support for new, flexible wire protocol (V4) has been added. The previous protocol
 is still supported for communication with servers that do not yet support V4. The
-version negotation is internal and automatic; however, use of V4 features will fail
+version negotiation is internal and automatic; however, use of V4 features will fail
 at runtime when attempted with an older server. Failure may be an empty or
 undefined result or an exception if the request cannot be serviced at all. The following
 new features or interfaces depend on the new protocol version
@@ -470,7 +486,7 @@ must not be negative value.
 
 ### Changed
 - Enabled SSL hostname verification
-- Reduced logging severityof bad http channels
+- Reduced logging severity of bad http channels
 - Bundle newer versions of netty and Jackson libraries
 
 ## [5.1.12] - 2019-08-20

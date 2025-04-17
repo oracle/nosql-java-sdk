@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -107,7 +107,7 @@ class Utils {
      * Test if the given OCID matches the expected pattern for OCIDs.
      *
      * @param ocid The string to test.
-     * @return true if it matches teh pattern, false if not.
+     * @return true if it matches the pattern, false if not.
      */
     static boolean isValidOcid(String ocid) {
         return OCID_PATTERN.matcher(ocid).matches();

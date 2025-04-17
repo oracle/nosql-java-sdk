@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -101,6 +101,7 @@ import oracle.nosql.driver.query.PlanIter;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.query.VirtualScan;
+import oracle.nosql.driver.query.VirtualScan.TableResumeInfo;
 import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
@@ -870,6 +871,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, IS_SIMPLE_QUERY, rq.isSimpleQuery());
                 writeMapField(ns, PREPARED_QUERY,
                               rq.getPreparedStatement().getStatement());
+                /*
+                 * validation of parallel ops is handled in
+                 * QueryRequest.validate
+                 */
+                if (rq.getNumberOfOperations() != 0) {
+                    writeMapField(ns, NUM_QUERY_OPERATIONS,
+                                  rq.getNumberOfOperations());
+                    writeMapField(ns, QUERY_OPERATION_NUM,
+                                  rq.getOperationNumber());
+                }
                 writeBindVariables(ns, out,
                               rq.getPreparedStatement().getVariables());
             } else {
@@ -909,16 +920,32 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, VIRTUAL_SCAN_SID, vs.sid());
             writeMapField(ns, VIRTUAL_SCAN_PID, vs.pid());
 
-            if (queryVersion <= QueryDriver.QUERY_V4 && vs.isFirstBatch()) {
-                writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY, vs.primKey());
-                writeMapField(ns, VIRTUAL_SCAN_SEC_KEY, vs.secKey());
-                writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER, vs.moveAfterResumeKey());
-
-                writeMapField(ns, VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY, vs.descResumeKey());
-                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_TABLES, vs.joinPathTables());
-                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_KEY, vs.joinPathKey());
-                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY, vs.joinPathSecKey());
-                writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED, vs.joinPathMatched());
+            if (vs.isFirstBatch()) {
+                int numTables = 1;
+                if (queryVersion >= QueryDriver.QUERY_V5) {
+                    numTables = vs.numTables();
+                    writeMapField(ns, VIRTUAL_SCAN_NUM_TABLES, numTables);
+                }
+                for (int t = 0; t < numTables; ++t) {
+                    writeMapField(ns, VIRTUAL_SCAN_CURRENT_INDEX_RANGE,
+                                  vs.currentIndexRange(t));
+                    writeMapField(ns, VIRTUAL_SCAN_PRIM_KEY,
+                                  vs.primKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_SEC_KEY,
+                                  vs.secKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_MOVE_AFTER,
+                                  vs.moveAfterResumeKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY,
+                                  vs.descResumeKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_TABLES,
+                                  vs.joinPathTables(t));
+                    writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_KEY,
+                                  vs.joinPathKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_SEC_KEY,
+                                  vs.joinPathSecKey(t));
+                    writeMapField(ns, VIRTUAL_SCAN_JOIN_PATH_MATCHED,
+                                  vs.joinPathMatched(t));
+                }
             }
 
             endMap(ns, VIRTUAL_SCAN);
@@ -987,6 +1014,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             byte[] contKey = null;
             VirtualScan[] virtualScans = null;
             TreeMap<String, String> queryTraces = null;
+            int maxParallelism = 0; /* default value */
 
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
@@ -1065,6 +1093,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                         String batchTrace = Nson.readNsonString(in);
                         queryTraces.put(batchName, batchTrace);
                     }
+                } else if (name.equals(MAX_QUERY_PARALLELISM)) {
+                    maxParallelism = Nson.readNsonInt(in);
                 } else {
                     // log/warn
                     walker.skip();
@@ -1105,7 +1135,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                                          (dpi!=null)?dpi.externalVars:null,
                                          namespace,
                                          tableName,
-                                         operation);
+                                         operation,
+                                         maxParallelism);
             if (pres != null) {
                 pres.setPreparedStatement(prep);
             } else if (qreq != null) {
@@ -1131,6 +1162,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             byte[] joinPathKey = null;
             byte[] joinPathSecKey = null;
             boolean joinPathMatched = false;
+            int currentIndexRange = 0;
+            int numTables = 1;
+            int currTable = 0;
+            TableResumeInfo[] tableRIs = new TableResumeInfo[1];
 
             MapWalker walker = getMapWalker(in);
 
@@ -1141,6 +1176,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                     sid = Nson.readNsonInt(in);
                 } else if (name.equals(VIRTUAL_SCAN_PID)) {
                     pid = Nson.readNsonInt(in);
+                } else if (name.equals(VIRTUAL_SCAN_NUM_TABLES)) {
+                    numTables = Nson.readNsonInt(in);
+                    tableRIs = new TableResumeInfo[numTables];
+                } else if (name.equals(VIRTUAL_SCAN_CURRENT_INDEX_RANGE)) {
+                    currentIndexRange = Nson.readNsonInt(in);
                 } else if (name.equals(VIRTUAL_SCAN_PRIM_KEY)) {
                     primKey = Nson.readNsonBinary(in);
                 } else if (name.equals(VIRTUAL_SCAN_SEC_KEY)) {
@@ -1157,14 +1197,22 @@ public class NsonSerializerFactory implements SerializerFactory {
                     joinPathSecKey = Nson.readNsonBinary(in);
                 } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_MATCHED)) {
                     joinPathMatched = Nson.readNsonBoolean(in);
+                    tableRIs[currTable] = new TableResumeInfo(currentIndexRange,
+                                                              primKey,
+                                                              secKey,
+                                                              moveAfter,
+                                                              descResumeKey,
+                                                              joinPathTables,
+                                                              joinPathKey,
+                                                              joinPathSecKey,
+                                                              joinPathMatched);
+                    ++currTable;
                 } else {
                     skipUnknownField(walker, name);
                 }
             }
 
-            return new VirtualScan(pid, sid, primKey, secKey, moveAfter,
-                                   descResumeKey, joinPathTables, joinPathKey,
-                                   joinPathSecKey, joinPathMatched);
+            return new VirtualScan(pid, sid, tableRIs);
         }
 
         private static void readPhase1Results(byte[] arr, QueryResult result)
@@ -1399,7 +1447,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 /*
                  * Each operation is a map in the array.
                  * Calling the generic put or delete serializer will add
-                 * redundant, unneccessary state. In order to share code
+                 * redundant, unnecessary state. In order to share code
                  * with those serializers they have internal methods that
                  * write just what WriteMultiple requires. The exception
                  * is the op code and return row information, so write

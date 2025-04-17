@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.15</version>
+  <version>5.4.17</version>
 </dependency>
 ```
 
@@ -118,7 +118,7 @@ See the Quickstart example below for code details for using a Resource Principal
 ### Connecting to the Oracle NoSQL Database On-premise
 
 The on-premises configuration requires a running instance of Oracle NoSQL
-Database. In addition a running proxy service is required. See
+Database. In addition, a running proxy service is required. See
 [Oracle NoSQL Database Downloads](https://www.oracle.com/database/technologies/nosql-database-server-downloads.html) for downloads, and see
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/24.3/admin/proxy.html)
 for proxy configuration information.
@@ -141,7 +141,7 @@ in the Quickstart example.
 
 ## Logging
 
-Addional logging can be enabled using a java properties file. For full details, see
+Additional logging can be enabled using a java properties file. For full details, see
 "Logging in the SDK" at https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/package-summary.html
 
 ## Quickstart
@@ -175,13 +175,13 @@ $ java -cp .:<path-to-nosqldriver.jar> Quickstart -service cloudsim -endpoint ht
 ```
 
 There is code in the example for using Instance Principal and Resource Principal authorization for the cloud
-service but it is not enabled via a command line option. There is an additional, optional argument to the
+service, but it is not enabled via a command line option. There is an additional, optional argument to the
 command line that allows specification of a compartment to use, where the compartment is an OCID. This
 is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -578,7 +578,7 @@ Run against a not-secure proxy and store, with the proxy running on port 80:
     $ java -cp .:../lib/nosqldriver.jar BasicTableExample http://localhost:80 -useKVProxy
 
 When using a secure proxy and store the proxy will generally run on port 443 and
-requires SSL configuration. In addition the store requires a valid user and
+requires SSL configuration. In addition, the store requires a valid user and
 password which must have been created via administrative procedures.
 
 Assumptions for this command:

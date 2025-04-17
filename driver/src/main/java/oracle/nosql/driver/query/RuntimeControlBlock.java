@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -20,7 +20,7 @@ import oracle.nosql.driver.values.FieldValue;
 /**
  * Stores all state of an executing query plan. There is a single RCB instance
  * per query execution, and all iterators have access to that instance during
- * te execution.
+ * the execution.
  */
 public class RuntimeControlBlock {
 
