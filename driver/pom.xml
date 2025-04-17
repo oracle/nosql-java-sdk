@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.17-SNAPSHOT</version>
+  <version>5.4.17cezar</version>
   <packaging>jar</packaging>
 
   <organization>

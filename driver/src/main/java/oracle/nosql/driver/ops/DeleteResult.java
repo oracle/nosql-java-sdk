@@ -69,6 +69,17 @@ public class DeleteResult extends WriteResult {
         return super.getExistingModificationTimeInternal();
     }
 
+
+    /**
+     * Returns the metadata of the returned row, or null if the row does not
+     * exist or metadata was not set.
+     *
+     * @return the metadata of the row, or null if row does not exist or not set
+     */
+    public String getExistingRowMetadata() {
+        return super.getExistingRowMetadataInternal();
+    }
+
     /* from Result */
 
     /**

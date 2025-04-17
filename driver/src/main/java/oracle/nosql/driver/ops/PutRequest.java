@@ -52,6 +52,7 @@ public class PutRequest extends WriteRequest {
     private boolean updateTTL;
     private boolean exactMatch;
     private int identityCacheSize;
+    private String rowMetadata;
 
     /**
      * Specifies a condition for the put operation.
@@ -127,7 +128,7 @@ public class PutRequest extends WriteRequest {
         return this;
     }
 
-     /**
+    /**
      * Sets the value to use for the put operation based on a JSON string.
      * The string is parsed for validity and stored internally as a
      * {@link MapValue}.
@@ -435,6 +436,28 @@ public class PutRequest extends WriteRequest {
      */
     public int getIdentityCacheSize() {
         return identityCacheSize;
+    }
+
+    /**
+     * Returns the metadata of the row to be used.
+     *
+     * @return the metadata, or null if not set
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
+    }
+
+    /**
+     * Sets the row metadata to use for the put operation.
+     * This is an optional parameter.
+     *
+     * @param rowMetadata the row metadata
+     *
+     * @return this
+     */
+    public PutRequest setRowMetadata(String rowMetadata) {
+        this.rowMetadata = rowMetadata;
+        return this;
     }
 
     /**
