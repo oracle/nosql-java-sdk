@@ -220,8 +220,9 @@ class SecurityTokenSupplier {
                                             String leafCertificate,
                                             Set<String> interCerts) {
 
-        String body = FederationRequestHelper.getFederationRequestBody(
-            publicKey, leafCertificate, interCerts, purpose);
+        String body =
+                FederationRequestHelper.getInstancePrincipalSessionTokenRequestBody(
+                        publicKey, leafCertificate, interCerts, purpose);
         logTrace(logger, "Federation request body " + body);
         return FederationRequestHelper.getSecurityToken(
             federationClient, federationURL, timeoutMS, tenantId,

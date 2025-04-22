@@ -650,7 +650,7 @@ public class SignatureProvider
      */
     public static SignatureProvider createWithResourcePrincipal(Logger logger) {
         SignatureProvider provider = new SignatureProvider(
-            ResourcePrincipalProvider.build(logger));
+            ResourcePrincipalProvider.builder().build());
         provider.setLogger(logger);
         return provider;
     }

@@ -9,11 +9,10 @@ package oracle.nosql.driver.iam;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.StringWriter;
+import java.io.*;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -25,18 +24,11 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Base64;
+import java.util.*;
 import java.util.Base64.Decoder;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-import java.util.UUID;
 
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
@@ -93,6 +85,11 @@ class Utils {
         "exp", "jwk", "n", "e",
         SignatureProvider.ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY,
         SignatureProvider.ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY};
+
+    /* fields in Resource Principal Token JSON */
+    private static final String[] RESOURCE_PRINCIPAL_TOKEN_FIELDS = {
+            "resourcePrincipalToken",
+            "servicePrincipalSessionToken"};
 
     static String getIAMURL(String regionIdOrCode) {
         Region region = Region.fromRegionIdOrCode(regionIdOrCode);
@@ -202,6 +199,25 @@ class Utils {
      */
     static byte[] toByteArray(RSAPrivateKey key) {
         return Pem.encoder().with(Pem.Format.LEGACY).encode(key);
+    }
+
+    /**
+     * Convert the input stream to a byte array.
+     *
+     * @param inputStream input stream
+     * @return byte array
+     */
+    public static byte[] toByteArray(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!(inputStream instanceof BufferedInputStream)) {
+            inputStream = new BufferedInputStream(inputStream);
+        }
+        byte[] buf = new byte[4096];
+        int bytesRead = 0;
+        while (-1 != (bytesRead = inputStream.read(buf))) {
+            baos.write(buf, 0, bytesRead);
+        }
+        return baos.toByteArray();
     }
 
     /**
@@ -393,6 +409,48 @@ class Utils {
         }
     }
 
+    /*
+     * Decode the RSA private key encoded in PKCS#1 format
+     */
+    static PrivateKey parsePrivateKeyStream(InputStream keyStream){
+        try {
+            byte[] keyBytes = toByteArray(keyStream);
+            Pem.Decoder decoder = Pem.decoder();
+            PrivateKey privateKey = decoder.decodePrivateKey(keyBytes);
+
+            if (privateKey instanceof RSAPrivateKey) {
+                return privateKey;
+            } else {
+                throw new IllegalStateException("Provided key is not an RSAPrivateKey.");
+            }
+        } catch (IOException ioe) {
+            throw new IllegalStateException("Failed to decode private key: " +
+                    ioe.getMessage());
+        }
+    }
+
+    static byte[] stringToUtf8Bytes(String input) {
+        if (input == null) {
+            return new byte[0]; // Return empty byte array if input is null
+        }
+        CharBuffer charBuf = CharBuffer.wrap(input);
+        ByteBuffer byteBuf = StandardCharsets.UTF_8.encode(charBuf);
+        byte[] bytes = new byte[byteBuf.remaining()];
+        byteBuf.get(bytes);
+        return bytes;
+    }
+
+    /*
+     * Return true if this string is either null or just whitespace.
+     */
+    static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    static boolean isNotBlank(String s) {
+        return !isBlank(s);
+    }
+
     static JsonParser createParser(String json)
         throws IOException {
 
@@ -468,6 +526,39 @@ class Utils {
     }
 
     /*
+     * Parse JSON Resource Principal Token response.
+     * {
+     *  "resourcePrincipalToken": "....",
+     *  "servicePrincipalSessionToken": "...."
+     * }
+     */
+    static Map<String, String> parseResourcePrincipalTokenResponse(String response) {
+        try {
+            Map<String, String> results = new HashMap<>();
+            JsonParser parser = createParser(response);
+            if (parser.getCurrentToken() == null) {
+                parser.nextToken();
+            }
+            while (parser.getCurrentToken() != null) {
+                String field = findField(response, parser, RESOURCE_PRINCIPAL_TOKEN_FIELDS);
+                if (field != null) {
+                    parser.nextToken();
+                    results.put(field, parser.getText());
+                }
+            }
+            if(results.isEmpty()) {
+                throw new IllegalStateException(
+                        "Unable to find resource principal tokens in " + response);
+            }
+            return results;
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                    "Error parsing resource principal tokens " + response +
+                            " " + ioe.getMessage());
+        }
+    }
+
+    /*
      * Parse security token JSON response get fields expiration time,
      * modulus and public exponent of JWK, only used for security token
      * validity check, ignores other fields.
@@ -524,6 +615,29 @@ class Utils {
                 parser.nextToken();
                 reults.put(field, parser.getText());
             }
+        }
+    }
+
+    static String convertMapToJson(Map<String, String> map) {
+        StringWriter writer = new StringWriter();
+
+        try {
+            JsonFactory factory = new JsonFactory();
+            JsonGenerator generator = factory.createGenerator(writer);
+
+            generator.writeStartObject();
+
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                generator.writeStringField(entry.getKey(), entry.getValue());
+            }
+
+            generator.writeEndObject();
+            generator.close();
+
+            return writer.toString();
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                    "Error converting Map to JSON "+ ioe.getMessage());
         }
     }
 
