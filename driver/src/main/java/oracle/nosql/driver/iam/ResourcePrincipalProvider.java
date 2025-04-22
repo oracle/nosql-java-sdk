@@ -310,9 +310,8 @@ class ResourcePrincipalProvider
             resourcePrincipalTokenEndpoint = ociResourcePrincipalRptEndpoint;
             if (ociResourcePrincipalRpstEndpoint != null) {
                 federationEndpoint = ociResourcePrincipalRpstEndpoint;
-            } else {
-                autoDetectEndpointUsingMetadataUrl();
             }
+            autoDetectEndpointUsingMetadataUrl();
             SessionKeyPairSupplier sessSupplier =
                     new SessionKeyPairSupplier.JDKKeyPairSupplier();
 
@@ -644,6 +643,7 @@ class ResourcePrincipalProvider
         ResourcePrincipalProvider rp = ResourcePrincipalProvider.builder().build();
         String token = rp.getKeyId();
         System.out.println("\tFinal RPST Token :\n" + token);
+        rp.close();
     }
 
 }

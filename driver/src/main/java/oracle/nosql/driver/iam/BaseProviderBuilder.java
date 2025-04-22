@@ -168,16 +168,14 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
     }
 
     /*
-     * Auto detects the endpoint that should be used when talking to
-     * IAM, if no endpoint has been configured already.
+     * Auto detects the endpoint and region that should be used
+     * when talking to IAM, if no endpoint has been configured already.
      */
     protected void autoDetectEndpointUsingMetadataUrl() {
-        if (federationEndpoint != null) {
-            return;
-        }
-
         final String insRegion = getInstanceMetadata().getRegion();
-        federationEndpoint = getIAMURL(insRegion);
+        if(federationEndpoint == null) {
+            federationEndpoint = getIAMURL(insRegion);
+        }
         if (region == null) {
             region = Region.fromRegionId(insRegion);
         }

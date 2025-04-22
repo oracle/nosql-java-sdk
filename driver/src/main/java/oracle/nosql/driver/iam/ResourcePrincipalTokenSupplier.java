@@ -120,6 +120,16 @@ public class ResourcePrincipalTokenSupplier
         }
     }
 
+    @Override
+    void close() {
+        if(resourcePrincipalTokenClient != null) {
+            resourcePrincipalTokenClient.shutdown();
+        }
+        if(federationClient != null) {
+            federationClient.shutdown();
+        }
+    }
+
     /**
      * Return the security token of resource principal.
      */

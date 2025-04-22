@@ -32,4 +32,9 @@ public abstract class TokenSupplier {
     void setMinTokenLifetime(long lifetimeMS) {
         minTokenLifetime = lifetimeMS;
     }
+
+    /**
+     * Closes the clients
+     */
+    abstract void close();
 }

@@ -35,6 +35,11 @@ public class FileSecurityTokenSupplier
     }
 
     @Override
+    public void close() {
+
+    }
+
+    @Override
     public String getSecurityToken() {
         return refreshAndGetSecurityToken();
     }

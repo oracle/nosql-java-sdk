@@ -25,6 +25,11 @@ public class FixedSecurityTokenSupplier
     }
 
     @Override
+    public void close() {
+
+    }
+
+    @Override
     public String getSecurityToken() {
         securityToken.validate(minTokenLifetime, logger);
         return securityToken.getSecurityToken();
