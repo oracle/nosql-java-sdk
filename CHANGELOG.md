@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - PreparedStatement.getMaximumParallelism()
   - QueryRequest.get/setNumberOfOperations()
   - QueryRequest.get/setOperationNumber()
+- Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
 
 ## [5.4.17] 2025-03-03
 
