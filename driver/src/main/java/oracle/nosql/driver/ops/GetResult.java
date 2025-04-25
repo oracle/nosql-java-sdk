@@ -111,6 +111,8 @@ public class GetResult extends Result {
      * exist or metadata was not set.
      *
      * @return the metadata of the row, or null if row does not exist or not set
+     *
+     * @since 5.4.18
      */
     public String getRowMetadata() {
         return rowMetadata;
@@ -124,6 +126,8 @@ public class GetResult extends Result {
      * @param rowMetadata the row metadata
      *
      * @return this
+     *
+     * @since 5.4.18
      * @hidden
      */
     public GetResult setRowMetadata(String rowMetadata) {

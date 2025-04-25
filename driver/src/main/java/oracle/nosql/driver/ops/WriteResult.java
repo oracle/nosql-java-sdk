@@ -36,6 +36,7 @@ public class WriteResult extends Result {
     /**
      * Returns the associated row metadata
      * @return the row metadata or null
+     * @since 5.4.18
      * @hidden
      */
     public String getExistingRowMetadataInternal() {
@@ -108,6 +109,7 @@ public class WriteResult extends Result {
      *
      * @param existingRowMetadata the row metadata
      * @return this
+     * @since 5.4.18
      * @hidden
      */
     public WriteResult setExistingRowMetadata(String existingRowMetadata) {

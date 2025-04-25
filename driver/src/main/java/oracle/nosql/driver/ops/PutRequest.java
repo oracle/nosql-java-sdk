@@ -442,6 +442,8 @@ public class PutRequest extends WriteRequest {
      * Returns the metadata of the row to be used.
      *
      * @return the metadata, or null if not set
+     *
+     * @since 5.4.18
      */
     public String getRowMetadata() {
         return rowMetadata;
@@ -453,6 +455,7 @@ public class PutRequest extends WriteRequest {
      *
      * @param rowMetadata the row metadata
      *
+     * @since 5.4.18
      * @return this
      */
     public PutRequest setRowMetadata(String rowMetadata) {
