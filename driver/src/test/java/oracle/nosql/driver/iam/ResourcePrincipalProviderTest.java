@@ -25,8 +25,6 @@ import org.junit.Test;
 import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
-import oracle.nosql.driver.iam.FileSecurityTokenSupplier;
-import oracle.nosql.driver.iam.FixedSecurityTokenSupplier;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FileKeyPairSupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FixedKeyPairSupplier;
@@ -206,4 +204,31 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
                         ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
                 "tenantId");
     }
+
+    @Test
+    public void testResourcePrincipalV1() {
+        System.out.println("Client started running!");
+
+        SignatureProvider provider = SignatureProvider.createWithResourcePrincipal();
+        NoSQLHandleConfig config = new NoSQLHandleConfig(provider);
+
+        /* only need for test, NoSQLHandle will set implicitly for users */
+        provider.prepare(config);
+
+        GetRequest request = new GetRequest();
+        String signature = provider.getAuthorizationString(request);
+        System.out.println("Signature: " + signature + "\n");
+
+        System.out.println("compartmentId: " + provider.getResourcePrincipalClaim(
+                SignatureProvider.ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY) + "\n");
+
+        System.out.println("tenantId: " + provider.getResourcePrincipalClaim(
+                SignatureProvider.ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY) + "\n"
+        );
+
+        provider.close();
+    }
+
+
+
 }

@@ -34,7 +34,7 @@ public abstract class TokenSupplier {
     }
 
     /**
-     * Closes the clients
+     * Cleanup the resources used by the token supplier
      */
     abstract void close();
 }

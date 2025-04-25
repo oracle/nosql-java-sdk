@@ -65,7 +65,7 @@ import static oracle.nosql.driver.iam.Utils.*;
  * </li>
  * </ul>
  */
-class ResourcePrincipalProvider
+public class ResourcePrincipalProvider
     implements AuthenticationProfileProvider,
                RegionProvider,
                SecurityTokenBasedProvider {
@@ -304,6 +304,11 @@ class ResourcePrincipalProvider
             }
         }
 
+        /**
+         * Helper method that interprets the runtime environment to build a v1.1-configured client
+         *
+         * @return ResourcePrincipalProvider
+         */
         public ResourcePrincipalProvider build_1_1(
                  String ociResourcePrincipalRptEndpoint, String ociResourcePrincipalRpstEndpoint
         ) {
@@ -315,7 +320,9 @@ class ResourcePrincipalProvider
             SessionKeyPairSupplier sessSupplier =
                     new SessionKeyPairSupplier.JDKKeyPairSupplier();
 
-            ResourcePrincipalTokenSupplier tokenSupplier = createTokenSupplier(sessSupplier);
+            ResourcePrincipalTokenSupplier<InstancePrincipalsProvider> tokenSupplier =
+                    createTokenSupplier(sessSupplier);
+
             return new ResourcePrincipalProvider(
                     tokenSupplier, sessSupplier, region);
         }
@@ -377,8 +384,8 @@ class ResourcePrincipalProvider
                     provider.getResourceId()
             );
 
-            ResourcePrincipalTokenSupplier tokenSupplier =
-                    new ResourcePrincipalTokenSupplier(
+            ResourcePrincipalTokenSupplier<KeyPairProvider> tokenSupplier =
+                    new ResourcePrincipalTokenSupplier<>(
                             resourcePrincipalRptEndpoint,
                             resourcePrincipalRpstEndpoint,
                             resourcePrincipalTokenPath,
@@ -463,8 +470,8 @@ class ResourcePrincipalProvider
             resourcePrincipalTokenPath =
                     createTokenPath(resourcePrincipalTokenPath, resourcePrincipalResourceId);
 
-            ResourcePrincipalTokenSupplier tokenSupplier =
-                    new ResourcePrincipalTokenSupplier(
+            ResourcePrincipalTokenSupplier<KeyPairProvider> tokenSupplier =
+                    new ResourcePrincipalTokenSupplier<>(
                             resourcePrincipalRptEndpoint,
                             resourcePrincipalRpstEndpoint,
                             resourcePrincipalTokenPath,
@@ -560,7 +567,7 @@ class ResourcePrincipalProvider
                     resourcePrincipalVersion);
         }
 
-        private ResourcePrincipalTokenSupplier createTokenSupplier(
+        private ResourcePrincipalTokenSupplier<InstancePrincipalsProvider> createTokenSupplier(
                 SessionKeyPairSupplier sessionKeyPairSupplier) {
             createRptPathProvider();
 
@@ -581,7 +588,7 @@ class ResourcePrincipalProvider
             // dummy endpoint for getting the "null" value of ssl context and ssl handshake timeout
             provider.prepare(new NoSQLHandleConfig(federationEndpoint));
 
-            return new ResourcePrincipalTokenSupplier(
+            return new ResourcePrincipalTokenSupplier<>(
                     resourcePrincipalTokenEndpoint,
                     federationEndpoint,
                     resourcePrincipalTokenPathProvider.getPath(),
@@ -636,14 +643,6 @@ class ResourcePrincipalProvider
                     passPhraseChars);
         }
         return sessKeySupplier;
-    }
-
-    public static void main(String[] args) {
-        System.out.println("Client started running!");
-        ResourcePrincipalProvider rp = ResourcePrincipalProvider.builder().build();
-        String token = rp.getKeyId();
-        System.out.println("\tFinal RPST Token :\n" + token);
-        rp.close();
     }
 
 }

@@ -6,7 +6,7 @@ import java.util.logging.Logger;
  * @hidden
  * Internal use only
  * <p>
- * This interface to supply security token for resource principal from fixed
+ * The interface to supply security token for resource principal from fixed
  * String content.
  * Reference to the OCI SDK for Java
  * <code>com.oracle.bmc.auth.internal.FixedContentResourcePrincipalFederationClient</code>

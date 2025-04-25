@@ -15,7 +15,7 @@ import static oracle.nosql.driver.iam.Utils.logTrace;
  * @hidden
  * Internal use only
  * <p>
- * This interface to supply security token for resource principal from file.
+ * The interface to supply security token for resource principal from file.
  * Reference to the OCI SDK for Java
  * <code>com.oracle.bmc.auth.internal.FileBasedResourcePrincipalFederationClient</code>
  */

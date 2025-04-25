@@ -7,52 +7,36 @@
 
 package oracle.nosql.driver.iam;
 
-import static io.netty.handler.codec.http.HttpMethod.GET;
-import static oracle.nosql.driver.util.HttpConstants.*;
-import static oracle.nosql.driver.iam.Utils.*;
-
-import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.*;
-import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.*;
 import java.util.logging.Logger;
 
-import static io.netty.handler.codec.http.HttpMethod.POST;
-
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
-
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.ssl.SslContextBuilder;
+
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import static oracle.nosql.driver.iam.Utils.*;
 
 /**
  * @hidden
  * Internal use only
  * <p>
  * The class to supply security token for resource principal
+ * for resources with network connectivity
  */
 public class ResourcePrincipalTokenSupplier
-            extends TokenSupplier{
+        <T extends AuthenticationProfileProvider & SecurityTokenBasedProvider>
+        extends TokenSupplier{
     private static final Logger logger = Logger.getLogger(ResourcePrincipalTokenSupplier.class.getName());
 
-    /* signing headers used to obtain security token */
-    private static final String SIGNING_HEADERS_GET =
-            "date (request-target) host";
-    private static final String SIGNING_HEADERS_POST =
-            "date (request-target) host content-length content-type x-content-sha256";
-
-    private static final String APP_JSON = "application/json";
     private static final int DEFAULT_TIMEOUT_MS = 5_000;
-
     private static final int timeoutMs = DEFAULT_TIMEOUT_MS;
     private final SessionKeyPairSupplier sessionKeyPairSupplier;
     private final HttpClient resourcePrincipalTokenClient;
@@ -60,7 +44,7 @@ public class ResourcePrincipalTokenSupplier
     private final URL resourcePrincipalTokenURL;
     private final URL rpstFederationURL;
     private final String securityContext;
-    private final AuthenticationProfileProvider provider;
+    private final T provider;
     private volatile SecurityTokenSupplier.SecurityToken securityToken;
 
     public ResourcePrincipalTokenSupplier(
@@ -68,7 +52,7 @@ public class ResourcePrincipalTokenSupplier
             String federationEndpoint,
             String resourcePrincipalTokenPath,
             SessionKeyPairSupplier sessionKeySupplier,
-            AuthenticationProfileProvider provider,
+            T provider,
             String securityContext
     ){
         Objects.requireNonNull(resourcePrincipalTokenEndpoint,
@@ -120,6 +104,9 @@ public class ResourcePrincipalTokenSupplier
         }
     }
 
+    /**
+     * Cleans up the resources held by the token supplier
+     */
     @Override
     void close() {
         if(resourcePrincipalTokenClient != null) {
@@ -128,6 +115,7 @@ public class ResourcePrincipalTokenSupplier
         if(federationClient != null) {
             federationClient.shutdown();
         }
+        provider.close();
     }
 
     /**
@@ -143,7 +131,10 @@ public class ResourcePrincipalTokenSupplier
      */
     @Override
     public String getStringClaim(String key) {
-        return null;
+        if (securityToken == null) {
+            refreshAndGetSecurityToken();
+        }
+        return securityToken.getStringClaim(key);
     }
 
     protected synchronized String refreshAndGetSecurityToken() {
@@ -185,10 +176,6 @@ public class ResourcePrincipalTokenSupplier
                 resourcePrincipalTokenResponse.get("resourcePrincipalToken");
         String servicePrincipalSessionToken =
                 resourcePrincipalTokenResponse.get("servicePrincipalSessionToken");
-
-        System.out.println("\tkeyId :\n" + keyId);
-        System.out.println("\tRPT :\n" + resourcePrincipalToken);
-        System.out.println("\tSPST :\n" + servicePrincipalSessionToken);
 
         String resourcePrincipalSessionToken = getResourcePrincipalSessionToken(
                 resourcePrincipalToken,

@@ -4,12 +4,15 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
+
 /**
  * Resource Principals V2 using public/private key to sign the request. This class provides the
  * authentication based on public/private key.
  */
 public class KeyPairProvider
-        implements AuthenticationProfileProvider{
+        implements AuthenticationProfileProvider,
+                   SecurityTokenBasedProvider {
 
     private final String resourceId;
     private final InputStream privateKeyStream;
@@ -92,5 +95,8 @@ public class KeyPairProvider
     public String getResourceId() {
         return resourceId;
     }
+
+    @Override
+    public void setMinTokenLifetime(long lifetimeMS) {}
 
 }
