@@ -592,6 +592,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchVersion() != null) {
                 writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
             }
+            if (rq.getRowMetadata() != null) {
+                writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+            }
+
 
             /* writeValue uses the output stream directly */
             writeKey(ns, rq);
@@ -823,7 +827,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             throws IOException {
                 throw new IllegalArgumentException("Missing query version " +
                           "in query request serializer");
-            }
+        }
 
         @SuppressWarnings("deprecation")
         @Override
@@ -904,6 +908,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
                 if (rq.getVirtualScan() != null) {
                     writeVirtualScan(ns, rq.getVirtualScan(), queryVersion);
+                }
+                if (rq.getRowMetadata() != null) {
+                    writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
                 }
             }
 
