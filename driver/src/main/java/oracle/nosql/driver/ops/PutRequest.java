@@ -127,7 +127,7 @@ public class PutRequest extends WriteRequest {
         return this;
     }
 
-     /**
+    /**
      * Sets the value to use for the put operation based on a JSON string.
      * The string is parsed for validity and stored internally as a
      * {@link MapValue}.
@@ -435,6 +435,24 @@ public class PutRequest extends WriteRequest {
      */
     public int getIdentityCacheSize() {
         return identityCacheSize;
+    }
+
+    /**
+     * Sets the row metadata to use for this request.
+     * This is an optional parameter.
+     * The @parameter rowMetadata must be in a JSON Object format or null,
+     * otherwise an IllegalArgumentException is thrown.
+     *
+     * @param rowMetadata the row metadata
+     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * JSON Object format
+     *
+     * @since 5.4.18
+     * @return this
+     */
+    public PutRequest setRowMetadata(String rowMetadata) {
+        super.setRowMetadata(rowMetadata);
+        return this;
     }
 
     /**
