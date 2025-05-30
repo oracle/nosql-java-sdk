@@ -82,8 +82,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          */
         configSslContext(config);
         client = new Client(logger, config);
-        /* configAuthProvider may use client */
-        configAuthProvider(logger, config);
+        try {
+            /* configAuthProvider may use client */
+            configAuthProvider(logger, config);
+        } catch (RuntimeException re) {
+            /* cleanup client */
+            client.shutdown();
+            throw re;
+        }
     }
 
     /**
