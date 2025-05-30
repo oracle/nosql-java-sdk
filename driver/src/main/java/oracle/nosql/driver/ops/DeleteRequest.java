@@ -260,6 +260,24 @@ public class DeleteRequest extends WriteRequest {
     }
 
     /**
+     * Sets the row metadata to use for this request.
+     * This is an optional parameter.
+     * The @parameter rowMetadata must be in a JSON Object format or null,
+     * otherwise an IllegalArgumentException is thrown.
+     *
+     * @param rowMetadata the row metadata
+     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * JSON Object format
+     *
+     * @since 5.4.18
+     * @return this
+     */
+    public WriteRequest setRowMetadata(String rowMetadata) {
+        super.setRowMetadata(rowMetadata);
+        return this;
+    }
+
+    /**
      * @hidden
      */
     @Override
