@@ -761,7 +761,9 @@ public class JsonUtils {
 
     /**
      * Validates input is a valid jsonObject. Throws IllegalArgumentException if
-     * not.
+     * not. Number, string, null, boolean or array alone are not allowed.
+     * Multiple JSON Objects are not allowed. Strings must use only double
+     * quotes (").
      */
     public static void validateJsonObject(String jsonInput) {
         try (JsonParser jp = createParserWithOptions(jsonInput, null)) {

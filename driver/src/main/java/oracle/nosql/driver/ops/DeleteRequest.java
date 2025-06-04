@@ -272,7 +272,7 @@ public class DeleteRequest extends WriteRequest {
      * @since 5.4.18
      * @return this
      */
-    public WriteRequest setRowMetadata(String rowMetadata) {
+    public DeleteRequest setRowMetadata(String rowMetadata) {
         super.setRowMetadata(rowMetadata);
         return this;
     }
