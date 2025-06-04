@@ -29,6 +29,7 @@ public class GetResult extends Result {
     private long expirationTime;
     private long modificationTime;
     private Client client;
+    private String rowMetadata;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -102,6 +103,35 @@ public class GetResult extends Result {
      */
     public GetResult setValue(MapValue value) {
         this.value = value;
+        return this;
+    }
+
+    /**
+     * Returns the metadata of the returned row, or null if the row does not
+     * exist or metadata was not set.
+     *
+     * @return the metadata of the row, or null if row does not exist or not set
+     *
+     * @since 5.4.18
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
+    }
+
+    /**
+     * Internal use only.
+     *
+     * Sets the rowMetadata of this object.
+     *
+     * @param rowMetadata the row metadata
+     *
+     * @return this
+     *
+     * @since 5.4.18
+     * @hidden
+     */
+    public GetResult setRowMetadata(String rowMetadata) {
+        this.rowMetadata = rowMetadata;
         return this;
     }
 

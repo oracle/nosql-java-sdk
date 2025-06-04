@@ -19,6 +19,7 @@ public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
     private long existingModificationTime;
+    private String existingRowMetadata;
     private Client client;
 
     protected WriteResult() {}
@@ -30,6 +31,16 @@ public class WriteResult extends Result {
      */
     public Version getExistingVersionInternal() {
         return existingVersion;
+    }
+
+    /**
+     * Returns the associated row metadata
+     * @return the row metadata or null
+     * @since 5.4.18
+     * @hidden
+     */
+    public String getExistingRowMetadataInternal() {
+        return existingRowMetadata;
     }
 
     /**
@@ -90,6 +101,19 @@ public class WriteResult extends Result {
     public WriteResult setExistingModificationTime(
         long existingModificationTime) {
         this.existingModificationTime = existingModificationTime;
+        return this;
+    }
+
+    /**
+     * Internal use only.
+     *
+     * @param existingRowMetadata the row metadata
+     * @return this
+     * @since 5.4.18
+     * @hidden
+     */
+    public WriteResult setExistingRowMetadata(String existingRowMetadata) {
+        this.existingRowMetadata = existingRowMetadata;
         return this;
     }
 

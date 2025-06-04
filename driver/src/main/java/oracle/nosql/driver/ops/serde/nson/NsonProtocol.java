@@ -165,12 +165,14 @@ public class NsonProtocol {
     public static String EXPIRATION = "xp";
     public static String MODIFIED = "md";
     public static String ROW = "r";
+    public static String ROW_METADATA = "mt";
     public static String ROW_VERSION = "rv";
 
     /* operation metadata */
     public static String EXISTING_MOD_TIME = "em";
     public static String EXISTING_VALUE = "el";
     public static String EXISTING_VERSION = "ev";
+    public static String EXISTING_ROW_METADATA = "ed";
     public static String GENERATED = "gn";
     public static String RETURN_INFO = "ri";
 
@@ -326,10 +328,12 @@ public class NsonProtocol {
         {EXPIRATION,"EXPIRATION"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
+        {ROW_METADATA,"ROW_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
         {EXISTING_VERSION,"EXISTING_VERSION"},
+        {EXISTING_ROW_METADATA,"EXISTING_ROW_METADATA"},
         {GENERATED,"GENERATED"},
         {RETURN_INFO,"RETURN_INFO"},
         {DRIVER_QUERY_PLAN,"DRIVER_QUERY_PLAN"},

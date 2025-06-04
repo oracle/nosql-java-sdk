@@ -758,4 +758,40 @@ public class JsonUtils {
         }
         return new String(hexValue);
     }
+
+    /**
+     * Validates input is a valid jsonObject. Throws IllegalArgumentException if
+     * not. Number, string, null, boolean or array alone are not allowed.
+     * Multiple JSON Objects are not allowed. Strings must use only double
+     * quotes (").
+     */
+    public static void validateJsonObject(String jsonInput) {
+        try (JsonParser jp = createParserWithOptions(jsonInput, null)) {
+            JsonToken token = jp.nextToken();
+            if (token == null || !JsonToken.START_OBJECT.equals(token)) {
+                throw new IllegalArgumentException("Not a JSON Object");
+            }
+            int s = 1;
+            while (!jp.isClosed()) {
+                token = jp.nextToken();
+                if (token != null && JsonToken.START_OBJECT.equals(token)) {
+                    if (s == 0) {
+                        throw new IllegalArgumentException("Multiple JSON " +
+                            "Objects not allowed");
+                    }
+                    s++;
+                }
+                if (token != null && JsonToken.END_OBJECT.equals(token)) {
+                    s--;
+                }
+            }
+            if (token != null && !JsonToken.END_OBJECT.equals(token)) {
+                throw new IllegalArgumentException("Not a JSON Object end");
+            }
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
+        } catch (JsonParseException jpe) {
+            throw new IllegalArgumentException("JSON parse failed: " + jpe);
+        }
+    }
 }

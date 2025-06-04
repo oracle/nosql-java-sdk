@@ -22,6 +22,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.VirtualScan;
+import oracle.nosql.driver.values.JsonUtils;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -155,6 +156,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private Consistency consistency;
 
+    private String rowMetadata;
+
     private String statement;
 
     private PreparedStatement preparedStatement;
@@ -225,6 +228,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
+        internalReq.rowMetadata = rowMetadata;
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
@@ -243,6 +247,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
         internalReq.statement = statement;
+        internalReq.rowMetadata = rowMetadata;
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
@@ -917,6 +922,41 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      */
     public Consistency getConsistency() {
         return consistency;
+    }
+
+    /**
+     * Sets the row metadata to use for the operation. This setting only applies
+     * if the query modifies any rows using an INSERT, UPDATE or UPSERT statement.
+     * If the query is read-only this option is ignored.
+     * The @parameter rowMetadata must be in a JSON Object format or null,
+     * otherwise an IllegalArgumentException is thrown.
+     *
+     * @param rowMetadata the row metadata
+     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * JSON Object format
+     *
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setRowMetadata(String rowMetadata) {
+        if (rowMetadata == null) {
+            this.rowMetadata = null;
+            return this;
+        }
+
+        JsonUtils.validateJsonObject(rowMetadata);
+        this.rowMetadata = rowMetadata;
+        return this;
+    }
+
+    /**
+     * Returns the consistency set for this request, or null if not set.
+     *
+     * @return the consistency
+     * @since 5.4.18
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
     }
 
     /**
