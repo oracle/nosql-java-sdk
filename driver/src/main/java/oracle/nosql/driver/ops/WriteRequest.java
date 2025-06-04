@@ -7,10 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
-import oracle.nosql.driver.JsonParseException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
-import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 
 /**

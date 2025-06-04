@@ -15,7 +15,6 @@ import java.util.TreeMap;
 
 import oracle.nosql.driver.Consistency;
 import oracle.nosql.driver.Durability;
-import oracle.nosql.driver.JsonParseException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -23,7 +22,6 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.VirtualScan;
-import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 
 /**
