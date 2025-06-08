@@ -27,6 +27,7 @@ public class GetResult extends Result {
     private MapValue value;
     private Version version;
     private long expirationTime;
+    private long creationTime;
     private long modificationTime;
     private Client client;
     private String rowMetadata;
@@ -65,7 +66,7 @@ public class GetResult extends Result {
      * row does not expire. This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the expiration time in milliseconds since January 1, 1970,
+     * @return the expiration time in milliseconds since January 1, 1970 GMT,
      * or zero if the row never expires or the row does not exist
      */
     public long getExpirationTime() {
@@ -73,11 +74,33 @@ public class GetResult extends Result {
     }
 
     /**
+     * Returns the creation time of the row.
+     * This value is valid only if the operation
+     * successfully returned a row ({@link #getValue} returns non-null).
+     *
+     * Note: If the row was written by a version of the system older than 25.3
+     * the creation time will not be available at all and will be zero.
+     *
+     * @return the creation time in milliseconds since January 1, 1970 GMT,
+     * or zero if the row does not exist
+     *
+     * @since 5.4.18
+     */
+    public long getCreationTime() {
+        if (creationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                "the connected server: getCreationTime");
+            return 0;
+        }
+        return creationTime;
+    }
+
+    /**
      * Returns the modification time of the row.
      * This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the modification time in milliseconds since January 1, 1970,
+     * @return the modification time in milliseconds since January 1, 1970 GMT,
      * or zero if the row does not exist
      *
      * @since 5.3.0
@@ -85,7 +108,7 @@ public class GetResult extends Result {
     public long getModificationTime() {
         if (modificationTime < 0 && client != null) {
             client.oneTimeMessage("The requested feature is not supported by " +
-                                  "the connected server: getModificationTime");
+                "the connected server: getModificationTime");
             return 0;
         }
         return modificationTime;
@@ -147,6 +170,21 @@ public class GetResult extends Result {
      */
     public GetResult setExpirationTime(long expirationTime) {
         this.expirationTime = expirationTime;
+        return this;
+    }
+
+    /**
+     * Internal use only.
+     *
+     * Sets the creation time.
+     *
+     * @param creationTime the creation time
+     *
+     * @return this
+     * @hidden
+     */
+    public GetResult setCreationTime(long creationTime) {
+        this.creationTime = creationTime;
         return this;
     }
 

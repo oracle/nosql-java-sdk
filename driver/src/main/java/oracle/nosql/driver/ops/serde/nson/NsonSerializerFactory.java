@@ -2779,11 +2779,16 @@ public class NsonSerializerFactory implements SerializerFactory {
         static void readRow(ByteInputStream in, GetResult result)
             throws IOException {
 
+            result.setCreationTime(-1);
+
             MapWalker walker = new MapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
-                if (name.equals(MODIFIED)) {
+                if (name.equals(CREATION_TIME)) {
+                    result.setCreationTime(Nson.readNsonLong(in));
+//                    System.out.println("    DBG: SDK < Proxy NsonSerializeFactory.readRow " + result.getCreationTime());
+                } else if (name.equals(MODIFIED)) {
                     result.setModificationTime(Nson.readNsonLong(in));
                 } else if (name.equals(EXPIRATION)) {
                     result.setExpirationTime(Nson.readNsonLong(in));
@@ -2818,7 +2823,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
-                if (name.equals(EXISTING_MOD_TIME)) {
+                if (name.equals(EXISTING_CREATION_TIME)) {
+                    result.setExistingCreationTime(Nson.readNsonLong(in));
+//                    System.out.println("    DBG: SDK < Proxy NsonSerializeFactory.readReturnInfo " + result.getExistingCreationTimeInternal());
+                } else if (name.equals(EXISTING_MOD_TIME)) {
                     result.setExistingModificationTime(Nson.readNsonLong(in));
                 } else if (name.equals(EXISTING_VERSION)) {
                     result.setExistingVersion(Version.createVersion(
