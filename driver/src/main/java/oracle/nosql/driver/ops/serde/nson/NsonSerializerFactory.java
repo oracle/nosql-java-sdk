@@ -2823,7 +2823,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
-                if (name.equals(EXISTING_CREATION_TIME)) {
+                if (name.equals(CREATION_TIME)) {
                     result.setExistingCreationTime(Nson.readNsonLong(in));
 //                    System.out.println("    DBG: SDK < Proxy NsonSerializeFactory.readReturnInfo " + result.getExistingCreationTimeInternal());
                 } else if (name.equals(EXISTING_MOD_TIME)) {

@@ -170,7 +170,6 @@ public class NsonProtocol {
     public static String ROW_VERSION = "rv";
 
     /* operation metadata */
-    public static String EXISTING_CREATION_TIME = "ect";
     public static String EXISTING_MOD_TIME = "em";
     public static String EXISTING_VALUE = "el";
     public static String EXISTING_VERSION = "ev";
@@ -333,7 +332,6 @@ public class NsonProtocol {
         {ROW,"ROW"},
         {ROW_METADATA,"ROW_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
-        {EXISTING_CREATION_TIME,"EXISTING_CREATION_TIME"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
         {EXISTING_VERSION,"EXISTING_VERSION"},
