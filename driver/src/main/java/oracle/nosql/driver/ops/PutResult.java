@@ -18,9 +18,10 @@ import oracle.nosql.driver.values.MapValue;
  * On a successful operation the value returned by {@link #getVersion} is
  * non-null. On failure that value is null. Information about the
  * existing row may be available using
- * {@link #getExistingValue}, {@link #getExistingVersion}, and
- * {@link #getExistingModificationTime}, depending on the
- * use of {@link PutRequest#setReturnRow} and the results of the operation.
+ * {@link #getExistingValue}, {@link #getExistingVersion},
+ * {@link #getExistingCreationTime()} and {@link #getExistingModificationTime},
+ * depending on the use of {@link PutRequest#setReturnRow} and the results of
+ * the operation.
  * @see NoSQLHandle#put
  */
 public class PutResult extends WriteResult {
@@ -71,11 +72,27 @@ public class PutResult extends WriteResult {
     }
 
     /**
+     * Returns the existing creation time if available. This value will
+     * only be available if the conditions specified in
+     * {@link PutRequest#setReturnRow} are met.
+     * Note: If the row was written by a version of the system older than 25.3
+     * the creation time will not be available at all and will be zero.
+     *
+     * @return the creation time in milliseconds since Jan 1, 1970 GMT
+     *
+     * @since 5.4.18
+     */
+    public long getExistingCreationTime() {
+        return super.getExistingCreationTimeInternal();
+    }
+
+    /**
      * Returns the existing modification time if available. This value will
      * only be available if the conditions specified in
      * {@link PutRequest#setReturnRow} are met.
      *
      * @return the existing modification time in milliseconds since Jan 1, 1970
+     * GMT
      *
      * @since 5.3.0
      */

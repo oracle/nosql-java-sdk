@@ -217,10 +217,22 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
+         * Returns the creation time associated with the key if
+         * available.
+         * @return the creation time if set, in milliseconds sine Jan 1, 1970
+         * GMT
+         *
+         * @since 5.4.18
+         */
+        public long getExistingCreationTime() {
+            return super.getExistingCreationTimeInternal();
+        }
+
+        /**
          * Returns the existing modification time associated with the key if
          * available.
          * @return the modification time if set, in milliseconds sine Jan 1,
-         * 1970
+         * 1970 GMT
          *
          * @since 5.3.0
          */

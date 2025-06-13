@@ -18,6 +18,7 @@ import oracle.nosql.driver.http.Client;
 public class WriteResult extends Result {
     private Version existingVersion;
     private MapValue existingValue;
+    private long existingCreationTime;
     private long existingModificationTime;
     private String existingRowMetadata;
     private Client client;
@@ -54,13 +55,27 @@ public class WriteResult extends Result {
 
     /**
      * internal use only
+     * @return the creation time of the store row
+     * @hidden
+     */
+    public long getExistingCreationTimeInternal() {
+        if (existingCreationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                          "the connected server: getExistingCreationTime");
+            return 0;
+        }
+        return existingCreationTime;
+    }
+
+    /**
+     * internal use only
      * @return the modification time
      * @hidden
      */
     public long getExistingModificationTimeInternal() {
         if (existingModificationTime < 0 && client != null) {
             client.oneTimeMessage("The requested feature is not supported by " +
-                          "the connected server: getExistingModificationTime");
+                "the connected server: getExistingModificationTime");
             return 0;
         }
         return existingModificationTime;
@@ -89,6 +104,18 @@ public class WriteResult extends Result {
      */
     public WriteResult setExistingValue(MapValue existingValue) {
         this.existingValue = existingValue;
+        return this;
+    }
+
+    /**
+     * internal use only
+     * @param creationTime the modification time
+     * @return this
+     * @hidden
+     */
+    public WriteResult setExistingCreationTime(
+        long creationTime) {
+        this.existingCreationTime = creationTime;
         return this;
     }
 

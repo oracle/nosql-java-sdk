@@ -163,6 +163,7 @@ public class NsonProtocol {
 
     /* row metadata */
     public static String EXPIRATION = "xp";
+    public static String CREATION_TIME = "ct";
     public static String MODIFIED = "md";
     public static String ROW = "r";
     public static String ROW_METADATA = "mt";
@@ -326,6 +327,7 @@ public class NsonProtocol {
         {STORAGE_GB,"STORAGE_GB"},
         {WRITE_KB,"WRITE_KB"},
         {EXPIRATION,"EXPIRATION"},
+        {CREATION_TIME,"CREATION_TIME"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
         {ROW_METADATA,"ROW_METADATA"},
