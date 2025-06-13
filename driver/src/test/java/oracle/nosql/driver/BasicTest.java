@@ -1700,7 +1700,7 @@ public class BasicTest extends ProxyTestBase {
                      shouldSucceed, result.getSuccess());
         checkExistingValueVersion(request, result, shouldSucceed, rowPresent,
                                   expPrevValue, expPrevVersion);
-        checkRecentTime(result.getCreationTime(), modTimeRecent);
+        checkRecentTime(result.getExistingCreationTime(), modTimeRecent);
         checkRecentTime(result.getExistingModificationTime(), modTimeRecent);
     }
 

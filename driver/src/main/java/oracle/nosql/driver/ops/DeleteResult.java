@@ -17,7 +17,7 @@ import oracle.nosql.driver.values.MapValue;
  * If the delete succeeded {@link #getSuccess} returns true.
  * Information about the existing row may be
  * available using {@link #getExistingValue},
- *.{@link #getExistingVersion}, {@link #getCreationTime} and
+ *.{@link #getExistingVersion}, {@link #getExistingCreationTime} and
  *  {@link #getExistingModificationTime},
  * depending on the use of {@link DeleteRequest#setReturnRow} and the result
  * of the operation.
@@ -69,7 +69,7 @@ public class DeleteResult extends WriteResult {
      *
      * @since 5.4.18
      */
-    public long getCreationTime() {
+    public long getExistingCreationTime() {
         return super.getExistingCreationTimeInternal();
     }
 

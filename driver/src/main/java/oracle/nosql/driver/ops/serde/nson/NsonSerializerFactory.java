@@ -2787,7 +2787,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                 String name = walker.getCurrentName();
                 if (name.equals(CREATION_TIME)) {
                     result.setCreationTime(Nson.readNsonLong(in));
-//                    System.out.println("    DBG: SDK < Proxy NsonSerializeFactory.readRow " + result.getCreationTime());
                 } else if (name.equals(MODIFIED)) {
                     result.setModificationTime(Nson.readNsonLong(in));
                 } else if (name.equals(EXPIRATION)) {
@@ -2825,7 +2824,6 @@ public class NsonSerializerFactory implements SerializerFactory {
                 String name = walker.getCurrentName();
                 if (name.equals(CREATION_TIME)) {
                     result.setExistingCreationTime(Nson.readNsonLong(in));
-//                    System.out.println("    DBG: SDK < Proxy NsonSerializeFactory.readReturnInfo " + result.getExistingCreationTimeInternal());
                 } else if (name.equals(EXISTING_MOD_TIME)) {
                     result.setExistingModificationTime(Nson.readNsonLong(in));
                 } else if (name.equals(EXISTING_VERSION)) {

@@ -224,7 +224,7 @@ public class WriteMultipleResult extends Result {
          *
          * @since 5.4.18
          */
-        public long getCreationTime() {
+        public long getExistingCreationTime() {
             return super.getExistingCreationTimeInternal();
         }
 
