@@ -13,6 +13,7 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
+import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -22,7 +23,7 @@ import oracle.nosql.driver.values.MapValue;
  * <p>
  * A range is specified using a partial key plus a range based on the
  * portion of the key that is not provided. For example if a table's primary key
- * is &lt;id, timestamp&gt; and the its shard key is the id, it is possible
+ * is &lt;id, timestamp&gt; and its shard key is the id, it is possible
  * to delete a range of timestamp values for a specific id by providing an id
  * but no timestamp in the value used for {@link #setKey} and providing a range
  * of timestamp values in the {@link FieldRange} used in {@link #setRange}.
@@ -41,6 +42,7 @@ public class MultiDeleteRequest extends DurableRequest {
     private byte[] continuationKey;
     private FieldRange range;
     private int maxWriteKB;
+    private String rowMetadata;
 
     /**
      * Cloud service only.
@@ -230,6 +232,39 @@ public class MultiDeleteRequest extends DurableRequest {
     public MultiDeleteRequest setNamespace(String namespace) {
         super.setNamespaceInternal(namespace);
         return this;
+    }
+
+    /**
+     * Sets the row metadata to use for the operation.
+     * The @parameter rowMetadata must be in a JSON Object format or null,
+     * otherwise an IllegalArgumentException is thrown.
+     *
+     * @param rowMetadata the row metadata
+     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * JSON Object format
+     *
+     * @return this
+     * @since 5.4.18
+     */
+    public MultiDeleteRequest setRowMetadata(String rowMetadata) {
+        if (rowMetadata == null) {
+            this.rowMetadata = null;
+            return this;
+        }
+
+        JsonUtils.validateJsonObject(rowMetadata);
+        this.rowMetadata = rowMetadata;
+        return this;
+    }
+
+    /**
+     * Returns the row metadata set for this request, or null if not set.
+     *
+     * @return the row metadata
+     * @since 5.4.18
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
     }
 
     /**

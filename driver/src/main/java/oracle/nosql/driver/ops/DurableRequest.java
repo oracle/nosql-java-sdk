@@ -27,7 +27,7 @@ public abstract class DurableRequest extends Request {
      * Returns the durability setting for this operation.
      * On-prem only.
      *
-     * @return durability, if set. Otherwise null.
+     * @return durability, if set, otherwise null.
      */
     public Durability getDurability() {
         return durability;

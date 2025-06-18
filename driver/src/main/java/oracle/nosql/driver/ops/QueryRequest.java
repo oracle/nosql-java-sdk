@@ -950,9 +950,9 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * Returns the consistency set for this request, or null if not set.
+     * Returns the row metadata set for this request, or null if not set.
      *
-     * @return the consistency
+     * @return the row metadata
      * @since 5.4.18
      */
     public String getRowMetadata() {
