@@ -925,15 +925,22 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * Sets the row metadata to use for the operation. This setting only applies
-     * if the query modifies any rows using an INSERT, UPDATE or UPSERT statement.
-     * If the query is read-only this option is ignored.
-     * The @parameter rowMetadata must be in a JSON Object format or null,
-     * otherwise an IllegalArgumentException is thrown.
+     * Sets the row metadata to use for the operation. This setting is optional
+     * and only applies if the query modifies or deletes any rows using an
+     * INSERT, UPDATE, UPSERT or DELETE statement. If the query is read-only
+     * this setting is ignored.<p>
+     *
+     * Row metadata is associated to a certain version of a row. Any subsequent
+     * write operation will use its own row metadata value. If not specified
+     * null will be used by default.<p>
+     *
+     * The @parameter rowMetadata must be null or a valid JSON construct:
+     * object, array, string, number, true, false or null, otherwise an
+     * IllegalArgumentException is thrown.
      *
      * @param rowMetadata the row metadata
      * @throws IllegalArgumentException if rowMetadata not null and invalid
-     * JSON Object format
+     * JSON construct
      *
      * @return this
      * @since 5.4.18
@@ -944,7 +951,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
             return this;
         }
 
-        JsonUtils.validateJsonObject(rowMetadata);
+        JsonUtils.validateJson(rowMetadata);
         this.rowMetadata = rowMetadata;
         return this;
     }
