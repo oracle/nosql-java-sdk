@@ -760,51 +760,15 @@ public class JsonUtils {
     }
 
     /**
-     * Validates input is a valid jsonObject. Throws IllegalArgumentException if
-     * not. Number, string, null, boolean or array alone are not allowed.
+     * Validates input is a valid JSON construct: object, array, string, number,
+     * true, false or null. Throws IllegalArgumentException if not valid.
      * Multiple JSON Objects are not allowed. Strings must use only double
      * quotes (").
      */
-    public static void validateJsonObject(String jsonInput) {
+    public static void validateJsonConstruct(String jsonInput) {
         try (JsonParser jp = createParserWithOptions(jsonInput, null)) {
             JsonToken token = jp.nextToken();
-            if (token == null || !JsonToken.START_OBJECT.equals(token)) {
-                throw new IllegalArgumentException("Not a JSON Object");
-            }
-            int s = 1;
-            while (!jp.isClosed()) {
-                token = jp.nextToken();
-                if (token != null && JsonToken.START_OBJECT.equals(token)) {
-                    if (s == 0) {
-                        throw new IllegalArgumentException("Multiple JSON " +
-                            "Objects not allowed");
-                    }
-                    s++;
-                }
-                if (token != null && JsonToken.END_OBJECT.equals(token)) {
-                    s--;
-                }
-            }
-            if (token != null && !JsonToken.END_OBJECT.equals(token)) {
-                throw new IllegalArgumentException("Not a JSON Object end");
-            }
-        } catch (IOException ioe) {
-            throw new IllegalArgumentException("JSON parse failed: " + ioe);
-        } catch (JsonParseException jpe) {
-            throw new IllegalArgumentException("JSON parse failed: " + jpe);
-        }
-    }
-
-    /**
-     * Validates input is a valid JSON: object, array, string, number, true,
-     * false or null. Throws IllegalArgumentException if not valid.
-     * Multiple JSON Objects are not allowed. Strings must use only double
-     * quotes (").
-     */
-    public static void validateJson(String jsonInput) {
-        try (JsonParser jp = createParserWithOptions(jsonInput, null)) {
-            JsonToken token = jp.nextToken();
-            if (token == null /*|| !JsonToken.START_OBJECT.equals(token)*/) {
+            if (token == null) {
                 throw new IllegalArgumentException("Value is not a valid JSON construct.");
             }
             int s = 1;
@@ -821,9 +785,6 @@ public class JsonUtils {
                     s--;
                 }
             }
-//            if (token != null && !JsonToken.END_OBJECT.equals(token)) {
-//                throw new IllegalArgumentException("Not a JSON Object end");
-//            }
         } catch (IOException ioe) {
             throw new IllegalArgumentException("JSON parse failed: " + ioe);
         } catch (JsonParseException jpe) {

@@ -90,7 +90,7 @@ public abstract class WriteRequest extends DurableRequest {
             return this;
         }
 
-        JsonUtils.validateJson(rowMetadata);
+        JsonUtils.validateJsonConstruct(rowMetadata);
         this.rowMetadata = rowMetadata;
         return this;
     }

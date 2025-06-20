@@ -951,7 +951,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
             return this;
         }
 
-        JsonUtils.validateJson(rowMetadata);
+        JsonUtils.validateJsonConstruct(rowMetadata);
         this.rowMetadata = rowMetadata;
         return this;
     }
