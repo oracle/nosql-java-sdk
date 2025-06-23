@@ -439,13 +439,19 @@ public class PutRequest extends WriteRequest {
 
     /**
      * Sets the row metadata to use for this request.
-     * This is an optional parameter.
-     * The @parameter rowMetadata must be in a JSON Object format or null,
-     * otherwise an IllegalArgumentException is thrown.
+     * This is an optional parameter.<p>
+     *
+     * Row metadata is associated to a certain version of a row. Any subsequent
+     * write operation will use its own row metadata value. If not specified
+     * null will be used by default.<p>
+     *
+     * The @parameter rowMetadata must be null or a valid JSON construct:
+     * object, array, string, number, true, false or null, otherwise an
+     * IllegalArgumentException is thrown.
      *
      * @param rowMetadata the row metadata
      * @throws IllegalArgumentException if rowMetadata not null and invalid
-     * JSON Object format
+     * JSON construct
      *
      * @since 5.4.18
      * @return this

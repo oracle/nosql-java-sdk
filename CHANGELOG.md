@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - QueryRequest.get/setNumberOfOperations()
   - QueryRequest.get/setOperationNumber()
 - Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
-- Added rowMetadata support, new API for Get/Put/Delete request and result
+- Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and result
   get/set RomMetadata.
 - Added row creation time support, new API: GetResult getCreationTime(), 
   Put/Delete/Write/WriteMultiple Result getExistingCreationTime().

@@ -646,6 +646,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeContinuationKey(ns, rq.getContinuationKey());
             writeFieldRange(ns, rq.getRange());
             writeKey(ns, rq);
+            writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
         }
