@@ -57,10 +57,9 @@ public class DoubleValue extends FieldValue {
     }
 
     /**
-     * internal use only
+     * @hidden
      *
      * @param v the value to use
-     * @hidden
      */
     public void setValue(double v) {
         value = v;

@@ -8,6 +8,7 @@
 package oracle.nosql.driver.values;
 
 /**
+ * @hidden
  * Only used by hidden scan interface
  *
  * A {@link FieldValue} instance representing an empty value. This type
@@ -17,7 +18,6 @@ package oracle.nosql.driver.values;
  * {@link JsonNullValue} value, which is a concrete value. It is also different
  * from NullValue which represents a null/missing field in a fully-typed
  * field in the table schema as opposed to a JSON field
- * @hidden
  */
 public class EmptyValue extends FieldValue {
 
