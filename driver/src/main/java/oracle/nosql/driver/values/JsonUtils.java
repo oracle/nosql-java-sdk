@@ -15,15 +15,15 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.Feature;
+import com.fasterxml.jackson.core.JsonToken;
 import oracle.nosql.driver.JsonParseException;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
-
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonParser.Feature;
-import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Internal use only
@@ -766,23 +766,45 @@ public class JsonUtils {
      * quotes (").
      */
     public static void validateJsonConstruct(String jsonInput) {
-        try (JsonParser jp = createParserWithOptions(jsonInput, null)) {
+        JsonOptions options = new JsonOptions()
+            .setAllowNonNumericNumbers(true);
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
+            int s = 0;
+            int i = 0;
             JsonToken token = jp.nextToken();
             if (token == null) {
-                throw new IllegalArgumentException("Value is not a valid JSON construct.");
+                throw new IllegalArgumentException(
+                    "Value is not a valid JSON construct.");
+            } else if (JsonToken.START_OBJECT.equals(token) ||
+                JsonToken.START_ARRAY.equals(token)) {
+                s += 1;
+            } else {
+                i += ( s == 0 ? 1 : 0);
             }
-            int s = 1;
+
             while (!jp.isClosed()) {
                 token = jp.nextToken();
-                if (token != null && JsonToken.START_OBJECT.equals(token)) {
-                    if (s == 0) {
-                        throw new IllegalArgumentException("Multiple JSON " +
-                            "Objects not allowed.");
+                if (token != null) {
+                    if(JsonToken.FIELD_NAME.equals(token)) {
+                        // skip
+                    } else if (JsonToken.START_OBJECT.equals(token) ||
+                        JsonToken.START_ARRAY.equals(token) ) {
+                        if (s == 0) {
+                            throw new IllegalArgumentException(
+                                "Multiple JSON " +
+                                    "Objects not allowed.");
+                        }
+                        s++;
+                    } else if (JsonToken.END_OBJECT.equals(token) ||
+                        JsonToken.END_ARRAY.equals(token)) {
+                        s--;
+                        i += ( s == 0 ? 1 : 0);
+                    } else {
+                        i += ( s == 0 ? 1 : 0);
                     }
-                    s++;
-                }
-                if (token != null && JsonToken.END_OBJECT.equals(token)) {
-                    s--;
+                    if (i > 1) {
+                        throw new IllegalArgumentException("Multiple top level JSON constructs not allowed");
+                    }
                 }
             }
         } catch (IOException ioe) {
