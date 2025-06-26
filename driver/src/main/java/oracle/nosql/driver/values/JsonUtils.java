@@ -767,6 +767,12 @@ public class JsonUtils {
     public static void validateJsonConstruct(String jsonInput) {
         JsonOptions options = new JsonOptions()
             .setAllowNonNumericNumbers(true);
+        validateJsonConstruct(jsonInput, options);
+    }
+
+    public static void validateJsonConstruct(String jsonInput,
+        JsonOptions options) {
+
         try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
             int s = 0;
             int i = 0;
