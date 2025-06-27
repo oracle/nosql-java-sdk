@@ -15,14 +15,15 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonParser.Feature;
-import com.fasterxml.jackson.core.JsonToken;
 import oracle.nosql.driver.JsonParseException;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.Feature;
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Internal use only
@@ -762,7 +763,7 @@ public class JsonUtils {
      * Validates input is a valid JSON construct: object, array, string, number,
      * true, false or null. Throws IllegalArgumentException if not valid.
      * Multiple JSON Objects are not allowed. Strings must use only double
-     * quotes (").
+     * quotes ("). Allows non-numeric values: NaN, Infinity, -Infinity (and -INF).
      */
     public static void validateJsonConstruct(String jsonInput) {
         JsonOptions options = new JsonOptions()
@@ -770,7 +771,12 @@ public class JsonUtils {
         validateJsonConstruct(jsonInput, options);
     }
 
-    public static void validateJsonConstruct(String jsonInput,
+    /**
+     * Validates input is a valid JSON construct: object, array, string, number,
+     * true, false or null. Throws IllegalArgumentException if not valid.
+     * Multiple JSON Objects are not allowed. Strings must use only double
+     * quotes (").
+     */    public static void validateJsonConstruct(String jsonInput,
         JsonOptions options) {
 
         try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
