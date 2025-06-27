@@ -47,7 +47,7 @@
     <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.118.Final</netty.version>
-    <jackson.version>2.15.2</jackson.version>
+    <jackson.version>2.18.2</jackson.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
