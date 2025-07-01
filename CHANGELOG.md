@@ -13,9 +13,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - QueryRequest.get/setNumberOfOperations()
   - QueryRequest.get/setOperationNumber()
 - Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
-- Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and result
-  get/set RomMetadata.
-- Added row creation time support, new API: GetResult getCreationTime(), 
+- Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and
+  result get/set RowMetadata.
+- Added row creation time support, new API: GetResult getCreationTime(),
   Put/Delete/Write/WriteMultiple Result getExistingCreationTime().
 
 ## [5.4.17] 2025-03-03
@@ -29,6 +29,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Update netty dependency to 4.1.118.Final
+- Authentication calls for on premises login will now honor the request timeout
+  rather than using a hard-coded 30s timeout
+
 
 ## [5.4.16] 2024-11-21
 
