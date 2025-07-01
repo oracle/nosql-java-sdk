@@ -15,8 +15,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
 - Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and result
   get/set RomMetadata.
-- Added row creation time support, new API: GetResult getCreationTime(), 
+- Added row creation time support, new API: GetResult getCreationTime(),
   Put/Delete/Write/WriteMultiple Result getExistingCreationTime().
+- Added an optional timeout for the login timeout used by
+  StoreAccessTokenProvider when logging into a store on premises. Previously
+  this timeout was hard-coded to 30s. The new default value is 5s
+  - StoreAccessTokenProvider constructor that accepts a timeout
+  - StoreAccessTokenProvider.get/setLoginTimeoutMs() methods
+
+### Changed
+- The default timeout for a login request for on premises use of
+  StoreAccessTokenProvider has changed from 30s to 5s and it is now
+  user-configurable. See above item in "Added" section
 
 ## [5.4.17] 2025-03-03
 

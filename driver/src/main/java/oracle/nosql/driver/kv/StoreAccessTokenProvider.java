@@ -82,9 +82,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     private static final String LOGOUT_SERVICE = "/logout";
 
     /*
-     * Default timeout when sending http request to server
+     * Default timeout for login request
      */
-    private static final int HTTP_TIMEOUT_MS = 30000;
+    private static final int LOGIN_TIMEOUT_MS = 5000;
 
     /*
      * Authentication string which contain the Bearer prefix and login token's
@@ -126,6 +126,12 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * Password of the user to login
      */
     private final char[] password;
+
+    /*
+     * Timeout in MS for store login. This is not final to allow
+     * setting after construction
+     */
+    private int loginTimeoutMs;
 
     /*
      * Host name of the proxy machine which host the login service
@@ -200,9 +206,38 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     public StoreAccessTokenProvider(String userName,
                                     char[] password) {
 
+        this(userName, password, LOGIN_TIMEOUT_MS);
+    }
+
+    /**
+     * This constructor is used when accessing a secure store.
+     * <p>
+     * This constructor requires a valid user name and password to access
+     * the target store. The user must exist and have sufficient permission
+     * to perform table operations required by the application. The user
+     * identity is used to authorize all operations performed by the
+     * application.
+     *
+     * @param userName the user name to use for the store. This user must
+     * exist in the NoSQL Database and is the identity that is used for
+     * authorizing all database operations.
+     * @param password the password for the user.
+     * @param loginTimeoutMs a timeout, in milliseconds, to use for the
+     * login request to the store. The default value is 5000
+     *
+     * @throws IllegalArgumentException if one or more of the parameters is
+     * malformed or a required parameter is missing.
+     *
+     * @since 5.4.18
+     */
+    public StoreAccessTokenProvider(String userName,
+                                    char[] password,
+                                    int loginTimeoutMs) {
+
         isSecure = true;
         this.userName = userName;
         this.password = Arrays.copyOf(password, password.length);
+        this.loginTimeoutMs = loginTimeoutMs;
         this.logger = null;
 
         /*
@@ -377,6 +412,28 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     }
 
     /**
+     * Returns the login timeout in milliseconds if set by the user, otherwise
+     * the default value is returned
+     *
+     * @return the timeout
+     * @since 5.4.18
+     */
+    public int getLoginTimeoutMs() {
+        return (loginTimeoutMs != 0 ? loginTimeoutMs : LOGIN_TIMEOUT_MS);
+    }
+
+    /**
+     * Sets the login timeout, in milliseconds.
+     * @param loginTimeoutMs the timeout
+     * @return this
+     * @since 5.4.18
+     */
+    public StoreAccessTokenProvider setLoginTimeoutMs(int loginTimeoutMs) {
+        this.loginTimeoutMs = loginTimeoutMs;
+        return this;
+    }
+
+    /**
      * Returns the endpoint of the authenticating entity
      * @return the endpoint
      */
@@ -513,7 +570,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                 client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
                 .toString(),
-                headers, HTTP_TIMEOUT_MS, logger);
+                headers, getLoginTimeoutMs(), logger);
         } finally {
             if (client != null) {
                 client.shutdown();
