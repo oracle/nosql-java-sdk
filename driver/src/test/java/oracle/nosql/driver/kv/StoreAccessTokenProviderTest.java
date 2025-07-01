@@ -185,7 +185,7 @@ public class StoreAccessTokenProviderTest {
         public void run() {
             try {
                 for (int i = 0; i < 5; i++) {
-                    sap.bootstrapLogin();
+                    sap.bootstrapLogin(null);
                 }
             } finally {
                 sap.close();
