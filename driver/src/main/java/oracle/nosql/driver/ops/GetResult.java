@@ -66,7 +66,7 @@ public class GetResult extends Result {
      * row does not expire. This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the expiration time in milliseconds since January 1, 1970 GMT,
+     * @return the expiration time in milliseconds since January 1, 1970, GMT,
      * or zero if the row never expires or the row does not exist
      */
     public long getExpirationTime() {
@@ -79,9 +79,10 @@ public class GetResult extends Result {
      * successfully returned a row ({@link #getValue} returns non-null).
      *
      * Note: If the row was written by a version of the system older than 25.3
-     * the creation time will not be available at all and will be zero.
+     * the creation time will be equal to the modification time, if it was
+     * written by a system older than 19.5 it will be zero.
      *
-     * @return the creation time in milliseconds since January 1, 1970 GMT,
+     * @return the creation time in milliseconds since January 1, 1970, GMT,
      * or zero if the row does not exist
      *
      * @since 5.4.18
@@ -100,7 +101,7 @@ public class GetResult extends Result {
      * This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the modification time in milliseconds since January 1, 1970 GMT,
+     * @return the modification time in milliseconds since January 1, 1970, GMT,
      * or zero if the row does not exist
      *
      * @since 5.3.0

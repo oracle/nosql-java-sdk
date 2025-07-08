@@ -219,6 +219,10 @@ public class WriteMultipleResult extends Result {
         /**
          * Returns the creation time associated with the key if
          * available.
+         * Note: If the row was written by a version of the system older than
+         * 25.3 the creation time will be equal to the modification time, if it
+         * was written by a system older than 19.5 it will be zero.
+         *
          * @return the creation time if set, in milliseconds sine Jan 1, 1970
          * GMT
          *

@@ -63,7 +63,8 @@ public class DeleteResult extends WriteResult {
      * {@link DeleteRequest#setReturnRow} are met.
      *
      * Note: If the row was written by a version of the system older than 25.3
-     * the creation time will not be available at all and will be zero.
+     * the creation time will be equal to the modification time, if it was
+     * written by a system older than 19.5 it will be zero.
      *
      * @return the creation time in milliseconds since Jan 1, 1970 GMT
      *
