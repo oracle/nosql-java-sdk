@@ -75,8 +75,10 @@ public class PutResult extends WriteResult {
      * Returns the existing creation time if available. This value will
      * only be available if the conditions specified in
      * {@link PutRequest#setReturnRow} are met.
+     *
      * Note: If the row was written by a version of the system older than 25.3
-     * the creation time will not be available at all and will be zero.
+     * the creation time will be equal to the modification time, if it was
+     * written by a system older than 19.5 it will be zero.
      *
      * @return the creation time in milliseconds since Jan 1, 1970 GMT
      *
