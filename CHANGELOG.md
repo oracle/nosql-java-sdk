@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Authentication calls for on premises login will now honor the request timeout
   rather than using a hard-coded 30s timeout
 
+### Fixed
+- Fixed a problem where if QueryRequest were created with a complex query and
+  closed before results were handled a null pointer exception could occur.
+
 ## [5.4.17] 2025-03-03
 
 ### Added
