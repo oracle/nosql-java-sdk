@@ -234,7 +234,10 @@ public class QueryDriver {
     }
 
     public void close() {
-        theRequest.getPreparedStatement().driverPlan().close(theRCB);
+        /* if there is no RCB there is no state to clean up */
+        if (theRCB != null) {
+            theRequest.getPreparedStatement().driverPlan().close(theRCB);
+        }
         if (theResults != null) {
             theResults.clear();
             theResults = null;
@@ -242,6 +245,6 @@ public class QueryDriver {
     }
 
     public String getQueryTrace() {
-        return theRCB.getQueryTrace();
+        return theRCB != null ? theRCB.getQueryTrace() : null;
     }
 }
