@@ -763,12 +763,11 @@ public class JsonUtils {
      * Validates input is a valid JSON construct: object, array, string, number,
      * true, false or null. Throws IllegalArgumentException if not valid.
      * Multiple JSON Objects are not allowed. Strings must use only double
-     * quotes ("). Allows non-numeric values: NaN, Infinity, -Infinity (and -INF).
+     * quotes ("). Does not allow non-numeric values: NaN, Infinity, -Infinity
+     * or zero leading numbers.
      */
     public static void validateJsonConstruct(String jsonInput) {
-        JsonOptions options = new JsonOptions()
-            .setAllowNonNumericNumbers(true);
-        validateJsonConstruct(jsonInput, options);
+        validateJsonConstruct(jsonInput, null);
     }
 
     /**
@@ -776,7 +775,8 @@ public class JsonUtils {
      * true, false or null. Throws IllegalArgumentException if not valid.
      * Multiple JSON Objects are not allowed. Strings must use only double
      * quotes (").
-     */    public static void validateJsonConstruct(String jsonInput,
+     */
+    public static void validateJsonConstruct(String jsonInput,
         JsonOptions options) {
 
         try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
