@@ -49,7 +49,19 @@ public abstract class Request {
     protected String namespace;
 
     /**
-     *  @hidden
+     * The transaction used for this operation.
+     */
+    protected Transaction transaction;
+
+    /**
+     * @hidden
+     *
+     * Indicates whether this operation is the transaction's binding operation.
+     */
+    private boolean isTransactionBindingOp;
+
+    /**
+     * @hidden
      */
     private boolean checkRequestSize = true;
 
@@ -301,6 +313,80 @@ public abstract class Request {
      */
     public RateLimiter getWriteRateLimiter() {
         return writeRateLimiter;
+    }
+
+    /**
+     * Internal use only
+     *
+     * Sets the transaction instance to use for the operation.
+     *
+     * @param transaction the Transaction instance
+     * @hidden
+     */
+    public void setTransactionInternal(Transaction transaction) {
+        if (transaction != null && !transaction.isActive()) {
+            throw new IllegalArgumentException("Transaction is inactive, it " +
+                "may have been committed or aborted");
+        }
+        this.transaction = transaction;
+    }
+
+    /**
+     * Internal use only
+     *
+     * Returns the transaction instance to use for the operation.
+     *
+     * @return the transaction instance, or null if not set
+     * @hidden
+     */
+    public Transaction getTransactionInternal() {
+        return transaction;
+    }
+
+    /**
+     * Internal use only
+     *
+     * Attempts to set this operation as the transaction’s binding operation.
+     * The transaction's binding operation is the first operation that
+     * determines the shard key of the transaction.
+     *
+     * @return returns true if the current request is set as the binding
+     * operation of the transaction.
+     * @hidden
+     */
+    public boolean tryBindWithTransaction() {
+        if (transaction != null) {
+            isTransactionBindingOp = transaction.bindOperationIfUnbound();
+        }
+        return isTransactionBindingOp;
+    }
+
+    /**
+     * Internal use only
+     *
+     * Unbinds the operation from the transaction.
+     *
+     * @return returns true if the operation was successfully unbound from the
+     * transaction.
+     * @hidden
+     */
+    public boolean unbindFromTransaction() {
+        if (transaction == null || !isTransactionBindingOp) {
+            return false;
+        }
+        isTransactionBindingOp = !transaction.unbindOperationIfBound();
+        return !isTransactionBindingOp;
+    }
+
+    /**
+     * Internal use only
+     *
+     * @return returns true if the current request is the binding operation of
+     * the transaction.
+     * @hidden
+     */
+    public boolean isTransactionBindingOp() {
+        return isTransactionBindingOp;
     }
 
     /**
@@ -603,6 +689,15 @@ public abstract class Request {
         return oboToken;
     }
 
+    /* Returns the top level table name */
+    protected String getTopTableName(String tname) {
+        int pos = tname.indexOf(".");
+        if (pos == -1) {
+            return tname;
+        }
+        return tname.substring(0, pos);
+    }
+
     /**
      * Copy internal fields to another Request object.
      * Use direct member assignment to avoid value checks that only apply
@@ -623,5 +718,7 @@ public abstract class Request {
         other.rateLimitDelayedMs = this.rateLimitDelayedMs;
         other.preferThrottling = this.preferThrottling;
         other.drlOptIn = this.drlOptIn;
+        other.transaction = this.transaction;
+        other.isTransactionBindingOp = this.isTransactionBindingOp;
     }
 }

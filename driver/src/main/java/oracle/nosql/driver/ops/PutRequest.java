@@ -463,9 +463,35 @@ public class PutRequest extends WriteRequest {
      * @since 5.4.18
      * @return this
      */
+    @Override
     public PutRequest setRowMetadata(String rowMetadata) {
         super.setRowMetadata(rowMetadata);
         return this;
+    }
+
+    /**
+     * Sets the Transaction to use for this request.
+     * This is an optional parameter.<p>
+     *
+     * @param transaction the transaction object.
+     * @return this
+     *
+     * @since 5.4.x
+     */
+    public PutRequest setTransaction(Transaction transaction) {
+        super.setTransactionInternal(transaction);
+        return this;
+    }
+
+    /**
+     * Returns the transaction instance to use for the operation.
+     *
+     * @return the transaction instance, or null if not set
+     *
+     * @since 5.4.x
+     */
+    public Transaction getTransaction() {
+        return super.getTransactionInternal();
     }
 
     /**

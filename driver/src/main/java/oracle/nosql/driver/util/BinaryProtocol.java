@@ -70,7 +70,19 @@ public final class BinaryProtocol {
         UNUSED_32(32),
         ADD_REPLICA(33),
         DROP_REPLICA(34),
-        GET_REPLICA_STATS(35);
+        GET_REPLICA_STATS(35),
+        /* 36 ~ 37 INTERNAL_DDL/INTERNAL_STATUS - SC */
+        UNUSED_36(36),
+        UNUSED_37(37),
+        /* 38 ~ 42 Configuration API - REST */
+        UNUSED_38(38),
+        UNUSED_39(39),
+        UNUSED_40(40),
+        UNUSED_41(41),
+        UNUSED_42(42),
+        /* Transaction ops */
+        BEGIN_TRANSACTION(43),
+        END_TRANSACTION(44);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {
@@ -136,6 +148,18 @@ public final class BinaryProtocol {
     public static final int COMPLETE = 0;
     public static final int WORKING = 1;
 
+    /**
+     * Transaction isolation
+     */
+    public static final int ISOLATION_READ_COMMITTED = 0;
+    public static final int ISOLATION_READ_UNCOMMITTED = 1;
+
+    /**
+     * The type of operation that ends a transaction
+     */
+    public static final int TRANSACTION_COMMIT = 0;
+    public static final int TRANSACTION_ABORT = 1;
+
     /*
      * Response error codes (must be non-zero)
      */
@@ -189,6 +213,7 @@ public final class BinaryProtocol {
     public static final int UNSUPPORTED_QUERY_VERSION = 27;
     /* added in V5 */
     public static final int RECOMPILE_QUERY = 28;
+    public static final int TRANSACTION_ABORTED = 29;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

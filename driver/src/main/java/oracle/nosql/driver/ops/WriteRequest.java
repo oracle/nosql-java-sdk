@@ -52,6 +52,19 @@ public abstract class WriteRequest extends DurableRequest {
                 (requestName +
                  " requires table name"));
         }
+
+        /*
+         * If the request is within a transaction, the operation’s target table
+         * must be within the hierarchy of the transaction's top level table.
+         */
+        if (transaction != null &&
+            !transaction.getTableName()
+                .equalsIgnoreCase(getTopTableName(tableName))) {
+            throw new IllegalArgumentException(
+                "The request table '" + tableName + "' is not in the " +
+                "hierarchy of the transaction's target table '" +
+                transaction.getTableName() + "'");
+        }
     }
 
     /**

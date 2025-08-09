@@ -172,6 +172,31 @@ public class WriteMultipleRequest extends DurableRequest {
     }
 
     /**
+     * Sets the Transaction to use for this request.
+     * This is an optional parameter.<p>
+     *
+     * @param transaction the transaction object.
+     * @return this
+     *
+     * @since 5.4.x
+     */
+    public WriteMultipleRequest setTransaction(Transaction transaction) {
+        super.setTransactionInternal(transaction);
+        return this;
+    }
+
+    /**
+     * Returns the transaction instance to use for the operation.
+     *
+     * @return the transaction instance, or null if not set
+     *
+     * @since 5.4.x
+     */
+    public Transaction getTransaction() {
+        return super.getTransactionInternal();
+    }
+
+    /**
      * Removes all of the operations from the WriteMultiple request.
      */
     public void clear() {
@@ -258,15 +283,6 @@ public class WriteMultipleRequest extends DurableRequest {
 
         request.validate();
         operations.add(new OperationRequest(wrReq, abortIfUnsuccessful));
-    }
-
-    /* Returns the top level table name */
-    private String getTopTableName(String tname) {
-        int pos = tname.indexOf(".");
-        if (pos == -1) {
-            return tname;
-        }
-        return tname.substring(0, pos);
     }
 
     /**
