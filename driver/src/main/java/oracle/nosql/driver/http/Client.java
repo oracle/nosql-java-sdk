@@ -72,6 +72,7 @@ import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.TableNotFoundException;
+import oracle.nosql.driver.TxnBindingOpInprogressException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
@@ -83,6 +84,7 @@ import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
 import oracle.nosql.driver.ops.DurableRequest;
+import oracle.nosql.driver.ops.EndTransactionRequest;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
 import oracle.nosql.driver.ops.GetTableRequest;
@@ -96,6 +98,7 @@ import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.Transaction;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteResult;
 import oracle.nosql.driver.ops.serde.BinaryProtocol;
@@ -183,6 +186,12 @@ public class Client {
      * is unavailable
      */
     private static final int SEC_ERROR_DELAY_MS = 100;
+
+    /*
+     * The delay between retries when the transaction binding operation is
+     * incomplete.
+     */
+    private static final int TXN_BINDING_OP_NOT_DONE_DELAY_MS = 10;
 
     /*
      * single thread executor for updating table limits
@@ -604,6 +613,16 @@ public class Client {
             ByteBuf buffer = null;
             try {
                 /*
+                 * Checks whether need to wait for the transaction's binding
+                 * operation to complete before proceeding.
+                 *
+                 * If so, and the binding operation is still in progress, a
+                 * TxnBindingOpInprogressException is thrown and this request
+                 * will be retried.
+                 */
+                ensureTxnBindingCompleted(kvRequest);
+
+                /*
                  * NOTE: the ResponseHandler will release the Channel
                  * in its close() method, which is always called in the
                  * finally clause. This handles both successful and retried
@@ -819,8 +838,7 @@ public class Client {
                     exception = rae;
                     continue;
                 }
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
+                onRequestFailure(kvRequest, rateDelayedMs, requestId);
                 logInfo(logger, "Unexpected authentication exception: " +
                         rae);
                 throw new NoSQLException("Unexpected exception: " +
@@ -835,8 +853,7 @@ public class Client {
                  */
                 if (retriedInvalidAuthorizationException(kvRequest)) {
                     /* same as NoSQLException below */
-                    kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                    statsControl.observeError(kvRequest);
+                    onRequestFailure(kvRequest, rateDelayedMs, requestId);
                     logFine(logger, "Client execute NoSQLException: " +
                             iae.getMessage());
                     throw iae;
@@ -860,6 +877,17 @@ public class Client {
                     if (delayMs <= 0) {
                         break;
                     }
+                }
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {}
+                kvRequest.incrementRetries();
+                kvRequest.addRetryDelayMs(delayMs);
+                continue;
+            } catch (TxnBindingOpInprogressException tbe) {
+                final int delayMs = TXN_BINDING_OP_NOT_DONE_DELAY_MS;
+                if (logger.isLoggable(Level.FINE)) {
+                    logFine(logger, tbe.getMessage());
                 }
                 try {
                     Thread.sleep(delayMs);
@@ -927,14 +955,12 @@ public class Client {
                 }
                 throw upe;
             } catch (NoSQLException nse) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
+                onRequestFailure(kvRequest, rateDelayedMs, requestId);
                 logFine(logger, "Client execute NoSQLException: " +
                         nse.getMessage());
                 throw nse; /* pass through */
             } catch (RuntimeException e) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
+                onRequestFailure(kvRequest, rateDelayedMs, requestId);
                 if (!kvRequest.getIsRefresh()) {
                     /* don't log expected failures from refresh */
                     logFine(logger, "Client execute runtime exception: " +
@@ -959,8 +985,7 @@ public class Client {
 
                 continue;
             } catch (InterruptedException ie) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
+                onRequestFailure(kvRequest, rateDelayedMs, requestId);
                 logInfo(logger, "Client interrupted exception: " +
                         ie.getMessage());
                 /* this exception shouldn't retry -- direct throw */
@@ -1014,8 +1039,7 @@ public class Client {
             }
         } while (! timeoutRequest(startNanos, timeoutMs, exception));
 
-        kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-        statsControl.observeError(kvRequest);
+        onRequestFailure(kvRequest, rateDelayedMs, requestId);
         /*
          * If the request timed out in a single iteration, and the
          * timeout was fairly long, and there was no delay due to
@@ -1034,6 +1058,84 @@ public class Client {
             " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
             (kvRequest.getRetryStats() != null ?
                 kvRequest.getRetryStats() : ""), exception);
+    }
+
+    /**
+     * Performs post-processing when a request fails.
+     */
+    private void onRequestFailure(Request request,
+                                  int rateLimitDelayedMs,
+                                  String requestId) {
+        request.setRateLimitDelayedMs(rateLimitDelayedMs);
+        statsControl.observeError(request);
+
+        /*
+         * Unbinds the operation from the transaction if it is txn's binding
+         * operation.
+         */
+        if (request.isTransactionBindingOp()) {
+            request.unbindFromTransaction();
+            if (logger.isLoggable(Level.FINE)) {
+                logFine(logger, "Unbind the operation from the transcation: " +
+                        "request=" + request.getClass().getSimpleName() +
+                        ", requestId=" + requestId);
+            }
+        }
+    }
+
+    /**
+     * Checks whether need to wait for the transaction binding operation to
+     * complete before proceeding the current request.
+     *
+     * @throws TxnBindingOpInprogressException the transaction's binding
+     * operation has not completed
+     */
+    private void ensureTxnBindingCompleted(Request request) {
+
+        Transaction txn = request.getTransactionInternal();
+        /*
+         * No waiting for the following cases:
+         *  - The request is not associated with a transaction.
+         *  - The request is CommitTransactionRequest or AbortTransactionRequest.
+         *  - The request is the binding operation for the transaction.
+         */
+        if (txn == null ||
+            request instanceof EndTransactionRequest ||
+            request.isTransactionBindingOp()) {
+            return;
+        }
+
+        /*
+         * If the transaction is not yet bound, attempt to bind it:
+         *   - PrepareRequest cannot be the binding operation because it is
+         *     handled on the client side and no KV transaction is initiated,
+         *     so no waiting is required.
+         *   - For other requests, attempt to bind the request with the
+         *     transaction, no waiting is required if the bind succeeds.
+         */
+        if (!txn.isOperationBound()) {
+            if (request instanceof PrepareRequest) {
+                return;
+            }
+            if (request.tryBindWithTransaction()) {
+                if (logger.isLoggable(Level.FINE)) {
+                    logFine(logger, "Bind the operation to transcation: " +
+                            "request=" + request.getClass().getSimpleName());
+                }
+                return;
+            }
+        }
+
+        /*
+         * Need wait for the binding operation to complete before processing
+         * this request.
+         */
+        if (!txn.isBindingOpDone()) {
+            throw new TxnBindingOpInprogressException(
+                "The transaction binding operation is still in progress, " +
+                "the current request cannot proceed: " +
+                request.getClass().getSimpleName());
+        }
     }
 
     /**

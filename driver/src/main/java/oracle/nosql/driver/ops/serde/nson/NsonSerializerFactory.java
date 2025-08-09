@@ -24,8 +24,12 @@ import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
 import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
 import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
+import static oracle.nosql.driver.util.BinaryProtocol.ISOLATION_READ_COMMITTED;
+import static oracle.nosql.driver.util.BinaryProtocol.ISOLATION_READ_UNCOMMITTED;
 import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
 import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
+import static oracle.nosql.driver.util.BinaryProtocol.TRANSACTION_ABORT;
+import static oracle.nosql.driver.util.BinaryProtocol.TRANSACTION_COMMIT;
 import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
 import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
 
@@ -56,6 +60,7 @@ import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.DropReplicaRequest;
+import oracle.nosql.driver.ops.EndTransactionRequest;
 import oracle.nosql.driver.ops.GetIndexesRequest;
 import oracle.nosql.driver.ops.GetIndexesResult;
 import oracle.nosql.driver.ops.GetIndexesResult.IndexInfo;
@@ -82,6 +87,10 @@ import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.TableUsageResult.TableUsage;
+import oracle.nosql.driver.ops.Transaction;
+import oracle.nosql.driver.ops.BeginTransactionRequest;
+import oracle.nosql.driver.ops.BeginTransactionRequest.Isolation;
+import oracle.nosql.driver.ops.TransactionResult;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
@@ -151,6 +160,10 @@ public class NsonSerializerFactory implements SerializerFactory {
         new DropReplicaRequestSerializer();
     static final Serializer getReplicaStatsSerializer =
         new GetReplicaStatsRequestSerializer();
+    static final Serializer beginTransactionSerializer =
+        new BeginTransactionRequestSerializer();
+    static final Serializer endTransactionSerializer =
+        new EndTransactionRequestSerializer();
 
     @Override
     public Serializer createDeleteSerializer() {
@@ -237,6 +250,17 @@ public class NsonSerializerFactory implements SerializerFactory {
         return getReplicaStatsSerializer;
     }
 
+    @Override
+    public Serializer createBeginTransactionSerializer() {
+        return beginTransactionSerializer;
+    }
+
+    @Override
+    public Serializer createEndTransactionSerializer() {
+        return endTransactionSerializer;
+    }
+
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -317,9 +341,20 @@ public class NsonSerializerFactory implements SerializerFactory {
     public Serializer createDropReplicaDeserializer() {
         return dropReplicaSerializer;
     }
+
     @Override
     public Serializer createGetReplicaStatsDeserializer() {
         return getReplicaStatsSerializer;
+    }
+
+    @Override
+    public Serializer createBeginTransactionDeserializer() {
+        return beginTransactionSerializer;
+    }
+
+    @Override
+    public Serializer createEndTransactionDeserializer() {
+        return endTransactionSerializer;
     }
 
     @Override
@@ -448,11 +483,14 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name
      *    consistency
      *    key (an NSON object)
+     *    transaction?
      *
      * Get result (all optional):
      *  consumed capacity
      *  meta: mod time, expiration, version
      *  value
+     *  topology?
+     *  transaction?
      */
     public static class GetRequestSerializer extends NsonSerializerBase {
         @Override
@@ -478,6 +516,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeConsistency(ns, rq.getConsistencyInternal());
             /* writeKey uses the output stream directly */
             writeKey(ns, rq);
+            writeTransaction(ns, rq);
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -501,6 +540,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readRow(in, result);
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(TRANSACTION)) {
+                    readTransaction(request.getTransactionInternal(), in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -515,6 +556,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name
      *    durability
      *    return row
+     *    transaction?
      *    match version?
      *    key
      *
@@ -522,6 +564,8 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  consumed capacity
      *  success?
      *  return row info?
+     *  topology?
+     *  transaction?
      */
     public static class DeleteRequestSerializer extends NsonSerializerBase {
 
@@ -578,6 +622,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readReturnInfo(in, result);
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(TRANSACTION)) {
+                    readTransaction(request.getTransactionInternal(), in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -608,14 +654,18 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name
      *    durability
      *    key
-     *    range
+     *    range?
      *    maxWriteKB
-     *    continuation key
+     *    continuation key?
+     *    rowMetadata?
+     *    transaction?
      *
      * MultiDelete result:
      *  consumed capacity
      *  numDeletions
-     *  continuation key
+     *  continuation key?
+     *  topology?
+     *  transaction?
      */
     public static class MultiDeleteRequestSerializer
         extends NsonSerializerBase {
@@ -647,6 +697,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeFieldRange(ns, rq.getRange());
             writeKey(ns, rq);
             writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+            writeTransaction(ns, rq);
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
         }
@@ -672,6 +723,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setContinuationKey(Nson.readNsonBinary(in));
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(TRANSACTION)) {
+                    readTransaction(request.getTransactionInternal(), in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -686,6 +739,7 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name
      *    durability
      *    return row
+     *    transaction?
      *    exact match?
      *    identity cache size
      *    update TTL?
@@ -700,7 +754,9 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  success?
      *  version on success
      *  return row info?
-     *  generated value(s)
+     *  generated value(s)?
+     *  topology?
+     *  transaction?
      */
     public static class PutRequestSerializer extends NsonSerializerBase {
 
@@ -757,6 +813,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setGeneratedValue(Nson.readFieldValue(in));
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(TRANSACTION)) {
+                    readTransaction(request.getTransactionInternal(), in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -814,11 +872,13 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    table name
      *    consistency
      *    key (an NSON object)
+     *    transaction?
      *
      * Query result (all optional):
      *  consumed capacity
      *  meta: mod time, expiration, version
      *  value
+     *  transaction?
      */
     public static class QueryRequestSerializer extends NsonSerializerBase {
         @Override
@@ -914,6 +974,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
                 }
             }
+
+            writeTransaction(ns, rq);
 
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
@@ -1103,6 +1165,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                     }
                 } else if (name.equals(MAX_QUERY_PARALLELISM)) {
                     maxParallelism = Nson.readNsonInt(in);
+                } else if (name.equals(TRANSACTION)) {
+                    Request req = (qreq != null) ? qreq : preq;
+                    readTransaction(req.getTransactionInternal(), in);
                 } else {
                     // log/warn
                     walker.skip();
@@ -1352,6 +1417,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getQuerySchema()) {
                 writeMapField(ns, GET_QUERY_SCHEMA, true);
             }
+            writeTransaction(ns, rq);
 
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
@@ -1385,13 +1451,15 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  Payload:
      *   table name: if all requests use same table
      *   durability
+     *   number of operations
+     *   transaction?
      *   operations array:
      *    for each delete/write:
      *      tablename, if using many tables
      *      opcode
      *      abortIfUnsuccessful boolean
      *      the delete or write payload, without durability
-/     *
+     *
      * WriteMultiple result:
      *  consumed capacity
      *  # use existence of fields as success/fail
@@ -1399,7 +1467,9 @@ public class NsonSerializerFactory implements SerializerFactory {
      *  "wm_failure": {
      *      "wm_fail_index": int
      *      "wm_fail_result": {}
-     *   }
+     *  }
+     *  topology?
+     *  transaction?
      */
     public static class WriteMultipleRequestSerializer
         extends NsonSerializerBase {
@@ -1449,6 +1519,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                           getDurability(rq.getDurability()));
             writeMapField(ns, NUM_OPERATIONS,
                           rq.getOperations().size());
+            writeTransaction(ns, rq);
 
             startArray(ns, OPERATIONS);
             for (OperationRequest op : rq.getOperations()) {
@@ -1545,6 +1616,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     }
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(TRANSACTION)) {
+                    readTransaction(request.getTransactionInternal(), in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -2319,6 +2392,167 @@ public class NsonSerializerFactory implements SerializerFactory {
     }
 
     /**
+     * BeginTransactionRequest:
+     *   tableName (in header)
+     *   timeoutMs (in header)
+     *   durability (int)
+     *   isolation (int)
+     *   maxNumWrites (int)
+     *
+     * TransactionResult:
+     *   transaction
+     */
+    public static class BeginTransactionRequestSerializer
+        extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out) throws IOException {
+
+            BeginTransactionRequest req = (BeginTransactionRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            /* header */
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.BEGIN_TRANSACTION.ordinal(), req);
+            endMap(ns, HEADER);
+
+            /* payload */
+            startMap(ns, PAYLOAD);
+            if (req.getDurability() != null) {
+                writeMapField(ns, DURABILITY,
+                              getDurability(req.getDurability()));
+            }
+            if (req.getIsolation() != null) {
+                writeMapField(ns, TRANSACTION_ISOLATION,
+                              getIsolation(req.getIsolation()));
+            }
+            writeLongMapField(ns, TRANSACTION_MAX_WRITES,
+                              req.getMaxNumWrites());
+            writeLongMapField(ns, TRANSACTION_TIMEOUT,
+                              req.getTransactionTimeout());
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+
+            TransactionResult result = new TransactionResult();
+
+            Transaction txn = null;
+            MapWalker walker = getMapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(TRANSACTION)) {
+                    txn = new Transaction(request.getCompartment(),
+                                          request.getTableName());
+                    readTransaction(txn, in);
+                } else if (name.equals(CONSUMED)) {
+                    readConsumedCapacity(in, result);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+
+            return result.setTransaction(txn);
+        }
+    }
+
+    /**
+     * EndTransactionRequest:
+     *   tableName (in header)
+     *   txn (bytes)
+     *   type (int)
+     *
+     * EndTransactionResult:
+     *   numWrites (long)
+     *   numReads (long)
+     *   elapsedTimeMs (long)
+     */
+    public static class EndTransactionRequestSerializer
+        extends NsonSerializerBase {
+
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            EndTransactionRequest req = (EndTransactionRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            /* header */
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.END_TRANSACTION.ordinal(), req);
+            endMap(ns, HEADER);
+
+            /* payload */
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, TRANSACTION,
+                          req.getTransactionInternal().getKVTransaction());
+            writeMapField(ns, TYPE, getEndTransactionType(req.getType()));
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+
+            TransactionResult result = new TransactionResult();
+            Transaction txn = request.getTransactionInternal();
+
+            MapWalker walker = getMapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(TRANSACTION_NUM_WRITES)) {
+                    long numWrites = Nson.readNsonLong(in);
+                    txn.setNumWrites(numWrites);
+                } else if (name.equals(TRANSACTION_NUM_READS)) {
+                    long numReads = Nson.readNsonLong(in);
+                    txn.setNumReads(numReads);
+                } else if (name.equals(TRANSACTION_ELAPSED_TIME_MS)) {
+                    long timeMs = Nson.readNsonLong(in);
+                    txn.setElapsedTimeMs(timeMs);
+                } else if (name.equals(CONSUMED)) {
+                    readConsumedCapacity(in, result);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+
+            /*
+             * The transaction has been committed or aborted, it is no longer
+             * active.
+             */
+            txn.setIsActive(false);
+
+            return result.setTransaction(txn);
+        }
+    }
+
+    /**
      * Base class that implements common methods for serialization and
      * deserialization of V4 protocol
      */
@@ -2388,7 +2622,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
         /**
          * Writes common fields for write requests -- table name,
-         * durability, return row
+         * durability, return row and transaction
          */
         protected static void writeWriteRequest(NsonSerializer ns,
                                                 WriteRequest rq)
@@ -2397,6 +2631,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, DURABILITY,
                           getDurability(rq.getDurability()));
             writeMapField(ns, RETURN_ROW, rq.getReturnRowInternal());
+            writeTransaction(ns, rq);
         }
 
         /**
@@ -2446,6 +2681,27 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             }
             writeMapField(ns, MATH_CONTEXT_CODE, val);
+        }
+
+        /**
+         * Writes transaction information:
+         *
+         * "TRANSACTION": {
+         *    "TRANSACTION_KV_BYTES": byte[]
+         *    "TRANSACTION_BINDING_OP": boolean
+         * }
+         */
+        protected static void writeTransaction(NsonSerializer ns, Request req)
+            throws IOException {
+
+            if (req.getTransactionInternal() != null) {
+                startMap(ns, TRANSACTION);
+                writeMapField(ns, TRANSACTION_KV_BYTES,
+                              req.getTransactionInternal().getKVTransaction());
+                writeMapField(ns, TRANSACTION_BINDING_OP,
+                              req.isTransactionBindingOp());
+                endMap(ns, TRANSACTION);
+            }
         }
 
         /**
@@ -2636,6 +2892,30 @@ public class NsonSerializerFactory implements SerializerFactory {
                 break;
             }
             return dur;
+        }
+
+        public static int getIsolation(Isolation isolation) {
+            switch(isolation) {
+            case READ_COMMITTED:
+                return ISOLATION_READ_COMMITTED;
+            case READ_UNCOMMITTED:
+                return ISOLATION_READ_UNCOMMITTED;
+            }
+            throw new IllegalArgumentException("Unknown Isolation " +
+                isolation);
+        }
+
+        public static int getEndTransactionType(
+            EndTransactionRequest.Type type) {
+
+            switch(type) {
+            case COMMIT:
+                return TRANSACTION_COMMIT;
+            case ABORT:
+                return TRANSACTION_ABORT;
+            }
+            throw new IllegalArgumentException(
+                "Unknown EndTransactionRequest type " + type);
         }
 
         /**
@@ -3045,6 +3325,33 @@ public class NsonSerializerFactory implements SerializerFactory {
                         getCapacityMode(Nson.readNsonInt(in)));
                 } else if (name.equals(TABLE_STATE)) {
                     replica.setState(getTableState(Nson.readNsonInt(in)));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+        }
+
+        /**
+         * Reads transaction information
+         *
+         * "transaction": {
+         *    "TRANSACTION_KV_BYTES": byte[]
+         *    "TRANSACTION_BINDING_OP_DONE": boolean
+         * }
+         */
+        static void readTransaction(Transaction txn, ByteInputStream in)
+           throws IOException {
+
+            MapWalker walker = new MapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(TRANSACTION_KV_BYTES)) {
+                    byte[] kvTxnBytes = Nson.readNsonBinary(in);
+                    txn.setKVTransaction(kvTxnBytes);
+                } else if (name.equals(TRANSACTION_BINDING_OP_DONE)) {
+                    boolean isBindingOpDone = Nson.readNsonBoolean(in);
+                    txn.setBindingOpDone(isBindingOpDone);
                 } else {
                     skipUnknownField(walker, name);
                 }

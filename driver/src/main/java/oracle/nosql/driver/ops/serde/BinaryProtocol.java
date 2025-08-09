@@ -42,6 +42,7 @@ import oracle.nosql.driver.TableNotFoundException;
 import oracle.nosql.driver.TableNotReadyException;
 import oracle.nosql.driver.TableSizeException;
 import oracle.nosql.driver.TimeToLive;
+import oracle.nosql.driver.TransactionAbortException;
 import oracle.nosql.driver.UnauthorizedException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.UnsupportedQueryVersionException;
@@ -437,6 +438,8 @@ public class BinaryProtocol extends Nson {
             return new IllegalArgumentException(msg);
         case RECOMPILE_QUERY:
             return new PrepareQueryException(msg);
+        case TRANSACTION_ABORTED:
+            return new TransactionAbortException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);

@@ -48,6 +48,10 @@ import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
+import oracle.nosql.driver.ops.AbortTransactionRequest;
+import oracle.nosql.driver.ops.BeginTransactionRequest;
+import oracle.nosql.driver.ops.CommitTransactionRequest;
+import oracle.nosql.driver.ops.TransactionResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
 import oracle.nosql.driver.values.FieldValue;
@@ -411,6 +415,24 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         SystemResult dres = systemRequest(dreq);
         dres.waitForCompletion(this, timeoutMs, pollIntervalMs);
         return dres;
+    }
+
+    @Override
+    public TransactionResult beginTransaction(BeginTransactionRequest request) {
+        checkClient();
+        return (TransactionResult) client.execute(request);
+    }
+
+    @Override
+    public TransactionResult commitTransaction(CommitTransactionRequest request) {
+        checkClient();
+        return (TransactionResult)client.execute(request);
+    }
+
+    @Override
+    public TransactionResult abortTransaction(AbortTransactionRequest request) {
+        checkClient();
+        return (TransactionResult)client.execute(request);
     }
 
     @Override

@@ -102,6 +102,13 @@ public class NsonProtocol {
     public static String TOPO_SEQ_NUM = "ts";
     public static String TRACE_AT_LOG_FILES = "tf";
     public static String TRACE_LEVEL = "tl";
+    public static String TRANSACTION = "tx";
+    public static String TRANSACTION_BINDING_OP = "txb";
+    public static String TRANSACTION_BINDING_OP_DONE = "txbd";
+    public static String TRANSACTION_ISOLATION = "txi";
+    public static String TRANSACTION_KV_BYTES = "txk";
+    public static String TRANSACTION_MAX_WRITES = "txw";
+    public static String TRANSACTION_TIMEOUT = "txt";
     public static String TTL = "tt";
     public static String TYPE = "y";
     public static String UPDATE_TTL = "ut";
@@ -188,7 +195,7 @@ public class NsonProtocol {
     public static String QUERY_PLAN_STRING = "qs";
     public static String QUERY_RESULTS = "qr";
     public static String QUERY_RESULT_SCHEMA = "qc";
-    public static String REACHED_LIMIT = "re";;
+    public static String REACHED_LIMIT = "re";
     public static String SORT_PHASE1_RESULTS = "p1";
     public static String TABLE_ACCESS_INFO = "ai";
 
@@ -197,6 +204,11 @@ public class NsonProtocol {
     public static String REPLICA_STATS = "ra";
     public static String REPLICA_LAG = "rl";
     public static String TIME = "tm";
+
+    /* transaction response fields */
+    public static String TRANSACTION_ELAPSED_TIME_MS = "txet";
+    public static String TRANSACTION_NUM_READS = "txnr";
+    public static String TRANSACTION_NUM_WRITES = "txnw";
 
     private static String[][] mapVals = new String[][] {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
@@ -278,6 +290,13 @@ public class NsonProtocol {
         {TOPO_SEQ_NUM,"TOPO_SEQ_NUM"},
         {TRACE_AT_LOG_FILES,"TRACE_AT_LOG_FILES"},
         {TRACE_LEVEL,"TRACE_LEVEL"},
+        {TRANSACTION,"TRANSACTION"},
+        {TRANSACTION_BINDING_OP,"TRANSACTION_BINDING_OP"},
+        {TRANSACTION_BINDING_OP_DONE,"TRANSACTION_BINDING_OP_DONE"},
+        {TRANSACTION_ISOLATION,"TRANSACTION_ISOLATION"},
+        {TRANSACTION_KV_BYTES,"TRANSACTION_KV_BYTES"},
+        {TRANSACTION_MAX_WRITES,"TRANSACTION_MAX_WRITES"},
+        {TRANSACTION_TIMEOUT,"TRANSACTION_TIMEOUT"},
         {TTL,"TTL"},
         {TYPE,"TYPE"},
         {UPDATE_TTL,"UPDATE_TTL"},
@@ -355,6 +374,9 @@ public class NsonProtocol {
         {REPLICA_STATS,"REPLICA_STATS"},
         {REPLICA_LAG,"REPLICA_LAG"},
         {TIME,"TIME"},
+        {TRANSACTION_ELAPSED_TIME_MS,"TRANSACTION_ELAPSED_TIME_MS"},
+        {TRANSACTION_NUM_READS,"TRANSACTION_NUM_READS"},
+        {TRANSACTION_NUM_WRITES,"TRANSACTION_NUM_WRITES"},
     };
 
     private static HashMap<String, String> fieldMap = null;

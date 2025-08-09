@@ -7,7 +7,10 @@
 
 package oracle.nosql.driver;
 
+import oracle.nosql.driver.ops.AbortTransactionRequest;
 import oracle.nosql.driver.ops.AddReplicaRequest;
+import oracle.nosql.driver.ops.BeginTransactionRequest;
+import oracle.nosql.driver.ops.CommitTransactionRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.DropReplicaRequest;
@@ -39,6 +42,7 @@ import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
+import oracle.nosql.driver.ops.TransactionResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
 
@@ -702,6 +706,67 @@ public interface NoSQLHandle extends AutoCloseable {
     ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request);
 
     /**
+     * Begins a transaction.
+     * <p>
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are
+     * invalid or required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     *
+     * @since 5.4.x
+     */
+    public TransactionResult beginTransaction(BeginTransactionRequest request);
+
+    /**
+     * Commits this transaction, making all changes performed within the
+     * transaction permanent.
+     * <p>
+     * Once committed, the transaction is complete and cannot be reused.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are
+     * invalid or required parameters are missing
+     *
+     * @throws TransactionAbortException if the transaction cannot commit and
+     * is aborted for any reason
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     *
+     * @since 5.4.x
+     */
+    public TransactionResult commitTransaction(CommitTransactionRequest request);
+
+    /**
+     * Aborts this transaction, discarding all changes made within the
+     * transaction.
+     * <p>
+     * Once aborted, the transaction is complete and cannot be reused.
+     *
+     * @param request the input parameters for the operation
+     *
+     * @return the result of the operation
+     *
+     * @throws IllegalArgumentException if any of the parameters are
+     * invalid or required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for any other
+     * reason
+     *
+     * @since 5.4.x
+     */
+    public TransactionResult abortTransaction(AbortTransactionRequest request);
+
+    /**
      * Returns an object that allows control over how SDK statistics
      * are collected.
      *
@@ -716,5 +781,6 @@ public interface NoSQLHandle extends AutoCloseable {
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.
      */
+    @Override
     void close();
 }

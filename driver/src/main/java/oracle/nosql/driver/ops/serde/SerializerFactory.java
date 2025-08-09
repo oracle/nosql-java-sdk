@@ -51,6 +51,10 @@ public interface SerializerFactory {
 
     Serializer createGetReplicaStatsSerializer();
 
+    Serializer createBeginTransactionSerializer();
+
+    Serializer createEndTransactionSerializer();
+
     /* deserializers */
     Serializer createDeleteDeserializer();
 
@@ -85,6 +89,10 @@ public interface SerializerFactory {
     Serializer createDropReplicaDeserializer();
 
     Serializer createGetReplicaStatsDeserializer();
+
+    Serializer createBeginTransactionDeserializer();
+
+    Serializer createEndTransactionDeserializer();
 
     /*
      * These methods encapsulate differences in serializer streams

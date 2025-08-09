@@ -140,6 +140,18 @@ public class BinarySerializerFactory implements SerializerFactory {
             "GetReplicaStats is not supported with serial version: " + V3);
     }
 
+    @Override
+    public Serializer createBeginTransactionSerializer() {
+        throw new UnsupportedProtocolException(
+            "Transaction is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createEndTransactionSerializer() {
+        throw new UnsupportedProtocolException(
+            "EndTransaction is not supported with serial version: " + V3);
+    }
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -227,6 +239,18 @@ public class BinarySerializerFactory implements SerializerFactory {
     public Serializer createGetReplicaStatsDeserializer() {
         throw new UnsupportedProtocolException(
             "GetReplciaStats is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createBeginTransactionDeserializer() {
+        throw new UnsupportedProtocolException(
+            "Transaction is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createEndTransactionDeserializer() {
+        throw new UnsupportedProtocolException(
+            "EndTransaction is not supported with serial version: " + V3);
     }
 
     @Override
