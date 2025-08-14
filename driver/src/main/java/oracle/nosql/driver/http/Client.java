@@ -67,6 +67,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
@@ -625,6 +627,27 @@ public class Client {
             }
         }
 
+        return handlePreRateLimit(ctx)
+        //TODO is this thenComposeAsync?
+        .thenCompose( (Integer delay) -> getAuthString(ctx, authProvider))
+        .thenCompose((String authString) -> createRequest(ctx, authString))
+        .thenCompose((FullHttpRequest request) -> submitRequest(ctx,request))
+        .thenApply((FullHttpResponse response) -> handleResponse(ctx, response))
+        .thenApply((Result result) -> handleResult(ctx, result))
+        .thenCompose((Result result) -> handlePostRateLimit(ctx, result))
+        .handle((Result result, Throwable err) -> {
+            /* Handle error and retry */
+            if (err != null) {
+                ctx.exception = err;
+                return handleError(ctx);
+            } else {
+                return CompletableFuture.completedFuture(result);
+            }
+        })
+        .thenCompose(Function.identity());
+    }
+
+    private CompletableFuture<Integer> handlePreRateLimit(RequestContext ctx) {
 
         /* Check this request doesn't cause throttle */
         int preRateLimitDelayMs = 0;
@@ -648,15 +671,22 @@ public class Client {
                 + thisIterationTimeoutMs
                 + "ms due to rate limiting");
             return createDelayFuture(thisIterationTimeoutMs).thenCompose(d ->
-                CompletableFuture.failedFuture(ex));
+                    CompletableFuture.failedFuture(ex));
         }
 
-        /* Stage-1 RateLimit */
+        /* sleep for delay ms */
         return createDelayFuture(preRateLimitDelayMs)
-        .whenComplete((delay, err) -> ctx.rateDelayedMs.addAndGet(delay))
-        /* Stage-2 Get auth token */
-        //TODO is this thenComposeAsync?
-        .thenCompose(delay -> authProvider.getAuthorizationStringAsync(kvRequest)) // CompletableFuture<String>
+            .whenComplete((delay, err) -> ctx.rateDelayedMs.addAndGet(delay));
+    }
+
+    /**
+     *  Get auth token from auth provider.
+     *  This may contact the server to get the token.
+     */
+    private CompletableFuture<String> getAuthString(RequestContext ctx,
+                                                    AuthorizationProvider authProvider) {
+        final Request kvRequest = ctx.kvRequest;
+        return authProvider.getAuthorizationStringAsync(kvRequest)
         .thenApply(authString -> {
             /* Check whether timed out while acquiring the auth token */
             if (timeoutRequest(kvRequest.getStartNanos(),
@@ -665,128 +695,22 @@ public class Client {
                     "timed out during auth token acquisition");
                 throw new CompletionException(ex);
             }
+            /* validate the token is valid or not */
             authProvider.validateAuthString(authString);
             return authString;
-        })
-        .thenCompose(authString -> {
-            /* stage-3 create HTTP request */
-            final ByteBuf buffer = Unpooled.buffer();
-            buffer.retain();
-            return createRequest(ctx, authString, buffer)
-                .whenComplete((res, err) -> {
-                    if (err != null) {
-                        buffer.release();
-                    }
-                })
-                .thenCompose(request -> {
-                    /* Stage-4 Send the request to server */
-                    if (isLoggable(logger, Level.FINE) &&
-                            !kvRequest.getIsRefresh()) {
-                        logTrace(logger, "Request: " + ctx.requestClass +
-                            ", requestId=" + ctx.requestId);
-                    }
-                    ctx.latencyNanos = System.nanoTime();
-                    return httpClient.runRequest(request,
-                        getIterationTimeoutMs(timeoutMs, startNanos)) //CompletableFuture<FullHttpResponse>
-                        .whenComplete((res, err) -> {
-                            ctx.networkLatency =
-                                (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
-                            // Release our retained request ByteBuf
-                            buffer.release();
-                        });
-                });
-            }) // Now we have CompletableFuture<FullHttpResponse>
-            .thenApply(fhr -> {
-                /* Stage-5 Process the response */
-                if (isLoggable(logger, Level.FINE) &&
-                        !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Response: " + ctx.requestClass +
-                            ", status=" + fhr.status() +
-                            ", requestId=" + ctx.requestId );
-                }
-                try {
-                    Result result = processResponse(fhr.status(), fhr.headers(),
-                            fhr.content(), ctx);
-                    ctx.rateDelayedMs.addAndGet(getRateDelayedFromHeader(fhr.headers()));
-                    ctx.resSize = fhr.content().readerIndex();
-                    return result;
-                } finally {
-                    fhr.release(); //release response
-                }
-            }) // Now we have CompletableFuture<Result>
-            .thenCompose(result -> {
-                /* Stage-6 Get the Result and bookkeeping */
-                setTopology(result.getTopology());
-                if (ctx.serialVersionUsed < 3) {
-                    /* so we can emit a one-time message if the app */
-                    /* tries to access modificationTime */
-                    if (result instanceof GetResult) {
-                        ((GetResult)result).setClient(this);
-                    } else if (result instanceof WriteResult) {
-                        ((WriteResult)result).setClient(this);
-                    }
-                }
-                if (result instanceof QueryResult && kvRequest.isQueryRequest()) {
-                    QueryRequest qreq = (QueryRequest)kvRequest;
-                    qreq.addQueryTraces(((QueryResult)result).getQueryTraces());
-                }
-                if (result instanceof TableResult && rateLimiterMap != null) {
-                    /* update rate limiter settings for table */
-                    TableLimits tl = ((TableResult)result).getTableLimits();
-                    updateRateLimiters(((TableResult)result).getTableName(), tl);
-                }
-                /*
-                 * We may not have rate limiters yet because queries may
-                 * not have a tablename until after the first request.
-                 * So try to get rate limiters if we don't have them yet and
-                 * this is a QueryRequest.
-                 */
-                if (rateLimiterMap != null && ctx.readLimiter == null) {
-                    ctx.readLimiter = getQueryRateLimiter(kvRequest, true);
-                }
-                if (rateLimiterMap != null && ctx.writeLimiter == null) {
-                    ctx.writeLimiter = getQueryRateLimiter(kvRequest, false);
-                }
-
-                int postRateLimitDelayMs = consumeLimiterUnits(ctx.readLimiter,
-                        result.getReadUnitsInternal());
-                postRateLimitDelayMs += consumeLimiterUnits(ctx.writeLimiter,
-                        result.getWriteUnitsInternal());
-
-                /* Post-Response RateLimiting */
-                return createDelayFuture(postRateLimitDelayMs)
-                    .thenApply(rateDelay -> {
-                        ctx.rateDelayedMs.addAndGet(rateDelay);
-                        result.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
-
-                        /* copy retry stats to Result on successful operation */
-                        result.setRetryStats(kvRequest.getRetryStats());
-                        kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
-
-                        statsControl.observe(kvRequest,
-                            Math.toIntExact(ctx.networkLatency),
-                            ctx.reqSize, ctx.resSize);
-                        checkAuthRefreshList(kvRequest);
-                        return result;
-                    });
-            })
-            .handle((res,err) -> {
-                /* Handle error and retry */
-                if (err != null) {
-                    ctx.exception = err;
-                    return handleError(ctx);
-                } else {
-                    return CompletableFuture.completedFuture(res);
-                }
-            })
-            .thenCompose(Function.identity());
+        });
     }
-
+    /**
+     *  Create Netty HTTP request.
+     *  This will serialize the request body and fill the HTTP headers and
+     *  body.
+     *  This may contact the server to sign the request body.
+     */
     private CompletableFuture<FullHttpRequest> createRequest(RequestContext ctx,
-                                          String authString,
-                                          ByteBuf buffer) {
-
+                                                             String authString) {
+        ByteBuf buffer = null;
         try {
+            buffer = Unpooled.buffer();
             final Request kvRequest = ctx.kvRequest;
             /*
              * we expressly check size limit below based on onprem versus
@@ -834,18 +758,18 @@ public class Client {
                     kvRequest, buffer.readableBytes());
             }
             final FullHttpRequest request =
-                    new DefaultFullHttpRequest(
-                            HTTP_1_1, POST, kvRequestURI,
-                            buffer,
-                            headersFactory().withValidation(false),
-                            trailersFactory().withValidation(false));
+                new DefaultFullHttpRequest(
+                    HTTP_1_1, POST, kvRequestURI,
+                    buffer,
+                    headersFactory().withValidation(false),
+                    trailersFactory().withValidation(false));
             HttpHeaders headers = request.headers();
             addCommonHeaders(headers);
             int contentLength = buffer.readableBytes();
             ctx.reqSize = contentLength;
             headers.add(HttpHeaderNames.HOST, host)
-                    .add(REQUEST_ID_HEADER, ctx.requestId)
-                    .setInt(CONTENT_LENGTH, contentLength);
+                .add(REQUEST_ID_HEADER, ctx.requestId)
+                .setInt(CONTENT_LENGTH, contentLength);
             if (sessionCookie != null) {
                 headers.add(COOKIE, sessionCookie);
             }
@@ -878,9 +802,120 @@ public class Client {
                 return request;
             });
         } catch (Exception e) {
+            /* Release the buffer on error */
+            if (buffer != null) {
+                buffer.release();
+            }
             return CompletableFuture.failedFuture(e);
         }
     }
+
+    /**
+     * Send the HTTP request to server and get the response back.
+     */
+    private CompletableFuture<FullHttpResponse> submitRequest(RequestContext ctx,
+                                                              HttpRequest request) {
+        final Request kvRequest = ctx.kvRequest;
+        if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+            logTrace(logger, "Request: " + ctx.requestClass +
+                    ", requestId=" + ctx.requestId);
+        }
+        ctx.latencyNanos = System.nanoTime();
+        int timeoutMs = getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos);
+
+        return httpClient.runRequest(request, timeoutMs)
+        .whenComplete((res, err) -> {
+            ctx.networkLatency = (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
+        });
+    }
+
+    /**
+     * Deserialize HTTP response into NoSQL Result.
+     */
+    private Result handleResponse(RequestContext ctx, FullHttpResponse fhr) {
+        final Request kvRequest = ctx.kvRequest;
+        if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
+            logTrace(logger, "Response: " + ctx.requestClass +
+                ", status=" + fhr.status() +
+                ", requestId=" + ctx.requestId );
+        }
+        try {
+            Result result = processResponse(fhr.status(), fhr.headers(), fhr.content(), ctx);
+            ctx.rateDelayedMs.addAndGet(getRateDelayedFromHeader(fhr.headers()));
+            ctx.resSize = fhr.content().readerIndex();
+            return result;
+        } finally {
+            fhr.release(); //release response
+        }
+    }
+
+    /**
+     * Update stats from the result.
+     */
+    private Result handleResult(RequestContext ctx, Result result) {
+        final Request kvRequest = ctx.kvRequest;
+        setTopology(result.getTopology());
+        if (ctx.serialVersionUsed < 3) {
+            /* so we can emit a one-time message if the app */
+            /* tries to access modificationTime */
+            if (result instanceof GetResult) {
+                ((GetResult)result).setClient(this);
+            } else if (result instanceof WriteResult) {
+                ((WriteResult)result).setClient(this);
+            }
+        }
+        if (result instanceof QueryResult && kvRequest.isQueryRequest()) {
+            QueryRequest qreq = (QueryRequest)kvRequest;
+            qreq.addQueryTraces(((QueryResult)result).getQueryTraces());
+        }
+        if (result instanceof TableResult && rateLimiterMap != null) {
+            /* update rate limiter settings for table */
+            TableLimits tl = ((TableResult)result).getTableLimits();
+            updateRateLimiters(((TableResult)result).getTableName(), tl);
+        }
+        /*
+         * We may not have rate limiters yet because queries may
+         * not have a tablename until after the first request.
+         * So try to get rate limiters if we don't have them yet and
+         * this is a QueryRequest.
+         */
+        if (rateLimiterMap != null && ctx.readLimiter == null) {
+            ctx.readLimiter = getQueryRateLimiter(kvRequest, true);
+        }
+        if (rateLimiterMap != null && ctx.writeLimiter == null) {
+            ctx.writeLimiter = getQueryRateLimiter(kvRequest, false);
+        }
+        return result;
+    }
+
+    /**
+     * Handle rate limit from the Result.
+     * This will consume actual units used by the request and sleep.
+     */
+    private CompletableFuture<Result> handlePostRateLimit(RequestContext ctx, Result result) {
+        final Request kvRequest = ctx.kvRequest;
+        int postRateLimitDelayMs = consumeLimiterUnits(ctx.readLimiter,
+                result.getReadUnitsInternal());
+        postRateLimitDelayMs += consumeLimiterUnits(ctx.writeLimiter,
+                result.getWriteUnitsInternal());
+
+        return createDelayFuture(postRateLimitDelayMs)
+            .thenApply(rateDelay -> {
+                ctx.rateDelayedMs.addAndGet(rateDelay);
+                result.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+
+                /* copy retry stats to Result on successful operation */
+                result.setRetryStats(kvRequest.getRetryStats());
+                kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+
+                statsControl.observe(kvRequest,
+                    Math.toIntExact(ctx.networkLatency),
+                    ctx.reqSize, ctx.resSize);
+                checkAuthRefreshList(kvRequest);
+                return result;
+            });
+    }
+
     private CompletableFuture<Result> handleError(RequestContext ctx) {
         Request kvRequest = ctx.kvRequest;
         Throwable err = ctx.exception;
