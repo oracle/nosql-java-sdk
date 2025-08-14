@@ -9,6 +9,7 @@ package oracle.nosql.driver.httpclient;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -77,7 +78,7 @@ public class ConnectionPoolTest {
 
         pool.setKeepAlive(new ConnectionPool.KeepAlive() {
                     @Override
-                    public boolean keepAlive(Channel ch) {
+                    public CompletableFuture<Boolean> keepAlive(Channel ch) {
                         return client.doKeepAlive(ch);
                     }
                 });
@@ -176,7 +177,7 @@ public class ConnectionPoolTest {
 
         pool.setKeepAlive(new ConnectionPool.KeepAlive() {
                     @Override
-                    public boolean keepAlive(Channel ch) {
+                    public CompletableFuture<Boolean> keepAlive(Channel ch) {
                         return client.doKeepAlive(ch);
                     }
                 });

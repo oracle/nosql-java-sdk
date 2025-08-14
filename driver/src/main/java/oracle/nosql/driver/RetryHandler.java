@@ -69,4 +69,6 @@ public interface RetryHandler {
      * @param re the exception that was thrown
      */
     void delay(Request request, int numRetries, RetryableException re);
+
+    int delayTime(Request request, int numRetries, RetryableException re);
 }

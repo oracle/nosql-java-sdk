@@ -12,9 +12,12 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import io.netty.bootstrap.Bootstrap;
@@ -26,6 +29,7 @@ import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.ScheduledFuture;
 
 /**
  * A class to manage and pool Netty Channels (connections). This is used
@@ -106,7 +110,7 @@ class ConnectionPool {
      */
     @FunctionalInterface
     interface KeepAlive {
-        boolean keepAlive(Channel ch);
+        CompletableFuture<Boolean> keepAlive(Channel ch);
     }
 
     /**
@@ -208,45 +212,28 @@ class ConnectionPool {
      */
     final Future<Channel> acquire(final Promise<Channel> promise) {
         try {
-            while (true) {
-                /* this *removes* the channel from the queue */
-                final Channel channel = queue.pollFirst();
-                if (channel == null) {
-                    /* need a new Channel */
-                    Bootstrap bs = bootstrap.clone();
-                    ChannelFuture fut = bs.connect();
-                    if (fut.isDone()) {
-                        notifyOnConnect(fut, promise);
-                    } else {
-                        fut.addListener(new ChannelFutureListener() {
-                                @Override
-                                public void operationComplete(
-                                    ChannelFuture future) throws Exception {
-                                    notifyOnConnect(future, promise);
-                                }
-                            });
-                    }
-                    return promise;
+            /* this *removes* the channel from the queue */
+            final Channel channel = queue.pollFirst();
+            if (channel == null) {
+                /* need a new Channel */
+                Bootstrap bs = bootstrap.clone();
+                ChannelFuture fut = bs.connect();
+                if (fut.isDone()) {
+                    notifyOnConnect(fut,promise);
+                } else {
+                    fut.addListener((ChannelFutureListener) future ->
+                        notifyOnConnect(future,promise));
                 }
+            } else {
                 /*
                  * This logic must happen in the event loop
                  */
                 EventLoop loop = channel.eventLoop();
                 if (loop.inEventLoop()) {
-                    if (checkChannel(channel, promise)) {
-                        /* bad channel, try again */
-                        continue;
-                    }
+                    checkChannel(channel, promise);
                 } else {
-                    /*
-                     * Note: run() may be executed some time after this method
-                     * returns a promise. So the caller may have to wait a
-                     * few milliseconds for the promise to be completed
-                     * (successfully or not).
-                     */
                     loop.execute(() -> checkChannel(channel, promise));
                 }
-                break;
             }
         } catch (Throwable t) {
             promise.tryFailure(t);
@@ -329,26 +316,38 @@ class ConnectionPool {
         }
     }
 
-    private boolean checkChannel(final Channel channel,
-                                 final Promise<Channel> promise) {
-
-        /*
-         * If channel isn't healthy close it. It's been removed from
-         * the queue
-         */
-        if (!channel.isActive()) {
-            logFine(logger,
-                    "Inactive channel found, closing: " + channel);
-            removeChannel(channel);
-            promise.tryFailure(new IOException("inactive channel"));
-            return true;
-        }
+    private void checkChannel(final Channel channel,
+                             final Promise<Channel> promise) {
         try {
-            updateStats(channel, true);
-            handler.channelAcquired(channel);
-        } catch (Exception e) {} /* ignore */
-        promise.setSuccess(channel);
-        return false;
+            /*
+             * If channel isn't healthy close it. It's been removed from
+             * the queue
+             */
+            if (!channel.isActive()) {
+                logFine(logger,
+                        "Inactive channel found, closing: " + channel);
+                removeChannel(channel);
+                /* retry channel acquire */
+                acquire(promise);
+            } else {
+                try {
+                    updateStats(channel, true);
+                    handler.channelAcquired(channel);
+                } catch (Exception e) {} /* ignore */
+                if (!promise.trySuccess(channel)) {
+                    release(channel);
+                }
+            }
+        } catch (Throwable cause) {
+            if (channel != null) {
+                try {
+                    channel.close();
+                } catch (Throwable t) {
+                    promise.tryFailure(t);
+                }
+            }
+            promise.tryFailure(cause);
+        }
     }
 
     /**
@@ -455,7 +454,7 @@ class ConnectionPool {
          * Don't remove a channel from the queue until it's clear that
          * it will be used
          */
-        int numSent = 0;
+        AtomicInteger numSent = new AtomicInteger();
         for (Channel ch : queue) {
             if (!ch.isActive()) {
                 continue;
@@ -473,17 +472,22 @@ class ConnectionPool {
                 }
                 logFine(logger,
                         "Sending keepalive on channel " + ch + ", stats: " + cs);
-                boolean didKeepalive = keepAlive.keepAlive(ch);
-                if (!didKeepalive) {
-                    logFine(logger,
-                            "Keepalive failed on channel " + ch +
-                            ", removing from pool");
-                    removeChannel(ch);
-                    continue;
-                }
-                cs.acquired(); /* update lastAcquired time */
-                numSent++;
-                queue.addFirst(ch);
+                keepAlive.keepAlive(ch).handle((didKeepalive, err) -> {
+                    if (err != null) {
+                        // TODO log err
+                        logFine(logger,
+                            "Keepalive failed on channel "
+                            + ch
+                            + ", removing from pool");
+                        removeChannel(ch);
+                    } else {
+                        cs.acquired(); /* update lastAcquired time */
+                        numSent.getAndIncrement();
+                        //TODO is this operation safe inside for-each?
+                        queue.addFirst(ch);
+                    }
+                    return null;
+                });
             }
             /*
              * channels that are not used but have been used within the
@@ -494,9 +498,9 @@ class ConnectionPool {
                 break;
             }
         }
-        validatePool("doKeepAlive");
-
-        return numSent;
+        //TODO how to validate this without blocking?
+        //validatePool("doKeepAlive");
+        return numSent.get();
     }
 
     private void validatePool(final String caller) {

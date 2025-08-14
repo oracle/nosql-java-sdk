@@ -17,7 +17,7 @@ import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
@@ -29,14 +29,17 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
 /*
  * If this code is ever made generic, the proxy information obtained
  * from this config needs to be abstracted to a generic class.
  */
+import io.netty.util.concurrent.FutureListener;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
@@ -84,8 +87,11 @@ public class HttpClient {
     static final int DEFAULT_HANDSHAKE_TIMEOUT_MS = 3000;
     static final int DEFAULT_MIN_POOL_SIZE = 2; // min pool size
 
-    static final AttributeKey<RequestState> STATE_KEY =
-        AttributeKey.<RequestState>valueOf("rqstate");
+    /* AttributeKey to attach a CompletableFuture to the Channel,
+     * allowing the HttpResponseHandler to signal completion.
+     */
+    public static final AttributeKey<CompletableFuture<FullHttpResponse>> STATE_KEY =
+        AttributeKey.valueOf("rqstate");
 
     //private final FixedChannelPool pool;
     private final ConnectionPool pool;
@@ -268,7 +274,7 @@ public class HttpClient {
             /* this is the main request client */
             pool.setKeepAlive(new ConnectionPool.KeepAlive() {
                     @Override
-                    public boolean keepAlive(Channel ch) {
+                    public CompletableFuture<Boolean> keepAlive(Channel ch) {
                         return doKeepAlive(ch);
                     }
                 });
@@ -388,71 +394,73 @@ public class HttpClient {
             syncUninterruptibly();
     }
 
-    public Channel getChannel(int timeoutMs)
-        throws InterruptedException, ExecutionException, TimeoutException {
+//    public Channel getChannel(int timeoutMs)
+//        throws InterruptedException, ExecutionException, TimeoutException {
+//
+//        long startMs = System.currentTimeMillis();
+//        long now = startMs;
+//        int retries = 0;
+//
+//        while (true) {
+//            long msDiff = now - startMs;
+//
+//            /* retry loop with at most (retryInterval) ms timeouts */
+//            long thisTimeoutMs = (timeoutMs - msDiff);
+//            if (thisTimeoutMs <= 0) {
+//                String msg = "Timed out trying to acquire channel";
+//                logInfo(logger, "HttpClient " + name + " " + msg);
+//                throw new TimeoutException(msg);
+//            }
+//            if (thisTimeoutMs > acquireRetryIntervalMs) {
+//                thisTimeoutMs = acquireRetryIntervalMs;
+//            }
+//            Future<Channel> fut = pool.acquire();
+//            Channel retChan = null;
+//            try {
+//                retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
+//            } catch (TimeoutException e) {
+//                if (retries == 0) {
+//                    logFine(logger, "Timed out after " +
+//                            (System.currentTimeMillis() - startMs) +
+//                            "ms trying to acquire channel: retrying");
+//                }
+//                /* fall through */
+//            }
+//
+//            /*
+//             * Ensure that the channel is in good shape. retChan is null
+//             * on a timeout exception from above; that path will retry.
+//             */
+//            if (retChan != null) {
+//                if (fut.isSuccess() && retChan.isActive()) {
+//                    /*
+//                     * Clear out any previous state. The channel should not
+//                     * have any state associated with it, but this code is here
+//                     * just in case it does.
+//                     */
+//                    if (retChan.attr(STATE_KEY).get() != null) {
+//                        if (isFineEnabled(logger)) {
+//                            logFine(logger,
+//                                    "HttpClient acquired a channel with " +
+//                                    "a still-active state: clearing.");
+//                        }
+//                        retChan.attr(STATE_KEY).set(null);
+//                    }
+//                    return retChan;
+//                }
+//                logFine(logger,
+//                        "HttpClient " + name + ", acquired an inactive " +
+//                        "channel, releasing it and retrying, reason: " +
+//                        fut.cause());
+//                releaseChannel(retChan);
+//            }
+//            /* reset "now" and increment retries */
+//            now = System.currentTimeMillis();
+//            retries++;
+//        }
+//    }
 
-        long startMs = System.currentTimeMillis();
-        long now = startMs;
-        int retries = 0;
 
-        while (true) {
-            long msDiff = now - startMs;
-
-            /* retry loop with at most (retryInterval) ms timeouts */
-            long thisTimeoutMs = (timeoutMs - msDiff);
-            if (thisTimeoutMs <= 0) {
-                String msg = "Timed out trying to acquire channel";
-                logInfo(logger, "HttpClient " + name + " " + msg);
-                throw new TimeoutException(msg);
-            }
-            if (thisTimeoutMs > acquireRetryIntervalMs) {
-                thisTimeoutMs = acquireRetryIntervalMs;
-            }
-            Future<Channel> fut = pool.acquire();
-            Channel retChan = null;
-            try {
-                retChan = fut.get(thisTimeoutMs, TimeUnit.MILLISECONDS);
-            } catch (TimeoutException e) {
-                if (retries == 0) {
-                    logFine(logger, "Timed out after " +
-                            (System.currentTimeMillis() - startMs) +
-                            "ms trying to acquire channel: retrying");
-                }
-                /* fall through */
-            }
-
-            /*
-             * Ensure that the channel is in good shape. retChan is null
-             * on a timeout exception from above; that path will retry.
-             */
-            if (retChan != null) {
-                if (fut.isSuccess() && retChan.isActive()) {
-                    /*
-                     * Clear out any previous state. The channel should not
-                     * have any state associated with it, but this code is here
-                     * just in case it does.
-                     */
-                    if (retChan.attr(STATE_KEY).get() != null) {
-                        if (isFineEnabled(logger)) {
-                            logFine(logger,
-                                    "HttpClient acquired a channel with " +
-                                    "a still-active state: clearing.");
-                        }
-                        retChan.attr(STATE_KEY).set(null);
-                    }
-                    return retChan;
-                }
-                logFine(logger,
-                        "HttpClient " + name + ", acquired an inactive " +
-                        "channel, releasing it and retrying, reason: " +
-                        fut.cause());
-                releaseChannel(retChan);
-            }
-            /* reset "now" and increment retries */
-            now = System.currentTimeMillis();
-            retries++;
-        }
-    }
 
     public void releaseChannel(Channel channel) {
         /* Clear any response handler state from channel before releasing it */
@@ -479,89 +487,116 @@ public class HttpClient {
      * use for the (asynchronous) response.
      *
      * @param request the request
-     * @param handler the response handler
-     * @param channel the Channel to use for the request/response
      *
      * @throws IOException if there is a network problem (bad channel). Such
      * exceptions can be retried.
      */
-    public void runRequest(HttpRequest request,
-                           ResponseHandler handler,
-                           Channel channel)
+    public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
+                                                          int timeoutMs) {
 
-        throws IOException {
+        CompletableFuture<FullHttpResponse> responseFuture = new CompletableFuture<>();
+        long deadlineNs = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        pool.acquire().addListener((FutureListener<Channel>) channelFuture -> {
+            if (channelFuture.isSuccess()) {
+                Channel channel = channelFuture.getNow();
 
-        /*
-         * If the channel goes bad throw IOE to allow the caller to retry
-         */
-        if (!channel.isActive()) {
-            String msg = "HttpClient " + name + ", runRequest, channel " +
-                channel + " is not active: ";
-            logWarning(logger, msg);
-            throw new IOException(msg);
-        }
-
-        RequestState state = new RequestState(handler);
-        channel.attr(STATE_KEY).set(state);
-
-        /*
-         * Send the request. If the operation fails set the exception
-         * on the ResponseHandler where it will be thrown synchronously to
-         * users of that object. operationComplete will likely be called in
-         * another thread.
-         */
-        channel.writeAndFlush(request).
-            addListener((ChannelFutureListener) future -> {
-                if (!future.isSuccess()) {
-                    /* handleException logs this exception */
-                    handler.handleException("HttpClient: send failed",
-                                            future.cause());
+                if (isTimeout(deadlineNs)) {
+                    String msg = "Timed out trying to acquire channel";
+                    logInfo(logger, "HttpClient " + name + " " + msg);
+                    responseFuture.completeExceptionally(new TimeoutException(msg));
+                    releaseChannel(channel);
+                    return;
                 }
-            });
+
+                long remainingTimeoutNs = deadlineNs - System.nanoTime();
+                long remainingTimeoutMs = Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingTimeoutNs));
+
+                // Execute the request on the acquired channel
+                CompletableFuture<FullHttpResponse> requestExecutionFuture =
+                    runRequest(request, channel, remainingTimeoutMs);
+
+                // When the request execution future completes (either successfully or exceptionally),
+                // complete the public responseFuture and ensure the channel is released back to the pool.
+                requestExecutionFuture.whenComplete((response, throwable) -> {
+                    pool.release(channel); // Always release the channel
+                    if (throwable != null) {
+                        responseFuture.completeExceptionally(throwable);
+                    } else {
+                        responseFuture.complete(response);
+                    }
+                });
+            } else {
+                /* channel acquisition failed */
+                //TODO send proper exception
+                responseFuture.completeExceptionally(channelFuture.cause());
+            }
+        });
+        return responseFuture;
+    }
+
+    public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
+                                                          Channel channel,
+                                                          long timeoutMs) {
+        CompletableFuture<FullHttpResponse> responseFuture = new CompletableFuture<>();
+        // Attach the CompletableFuture to the channel's attributes
+        channel.attr(STATE_KEY).set(responseFuture);
+
+        // Add timeout handler to the pipeline
+        channel.pipeline().addFirst(
+            new ReadTimeoutHandler(timeoutMs, TimeUnit.MILLISECONDS));
+
+        // Write the request to the channel and flush it
+        channel.writeAndFlush(request)
+        .addListener((ChannelFutureListener) writeFuture -> {
+            if (!writeFuture.isSuccess()) {
+                // If write fails, complete the future exceptionally
+                channel.attr(STATE_KEY).set(null);
+                responseFuture.completeExceptionally(writeFuture.cause());
+            }
+        });
+        return responseFuture;
+    }
+
+    private static boolean isTimeout(long deadlineNs) {
+        return System.nanoTime() >= deadlineNs;
     }
 
     /**
      * Use HTTP HEAD method to refresh the channel
      */
-    boolean doKeepAlive(Channel ch) {
+    CompletableFuture<Boolean> doKeepAlive(Channel ch) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        // TODO Handle timeout
         final int keepAliveTimeout = 3000; /* ms */
-        ResponseHandler responseHandler =
-            new ResponseHandler(this, logger, ch);
-        try {
-            final HttpRequest request =
+        final HttpRequest request =
                 new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
-
-            /*
-             * All requests need a HOST header or the LBaaS (nginx) or
-             * other server may reject them and close the connection
-             */
-            request.headers().add(HOST, host);
-            runRequest(request, responseHandler, ch);
-            boolean isTimeout = responseHandler.await(keepAliveTimeout);
-            if (isTimeout) {
-                logFine(logger,
-                        "Timeout on keepalive HEAD request on channel " + ch);
-                return false;
-            }
+        /*
+         * All requests need a HOST header or the LBaaS (nginx) or
+         * other server may reject them and close the connection
+         */
+        request.headers().add(HOST, host);
+        runRequest(request, ch, keepAliveTimeout)
+        .thenApply(fullHttpResponse -> {
             /*
              * LBaaS will return a non-200 status but that is expected as the
              * path "/" does not map to the service. This is ok because all that
              * matters is that the connection remain alive.
              */
-            String conn = responseHandler.getHeaders().get(CONNECTION);
-            if (conn == null || !"keep-alive".equalsIgnoreCase(conn)) {
+            String conn = fullHttpResponse.headers().get(CONNECTION);
+            if (!"keep-alive".equalsIgnoreCase(conn)) {
                 logFine(logger,
-                        "Keepalive HEAD request did not return keep-alive " +
-                        "in connection header, is: " + conn);
+                    "Keepalive HEAD request did not return keep-alive "
+                    + "in connection header, is: " + conn);
             }
-
-            return true;
-        } catch (Throwable t) {
-            logFine(logger, "Exception sending HTTP HEAD: " + t);
-        } finally {
-            responseHandler.releaseResponse();
-        }
-        /* something went wrong, caller is responsible for disposition */
-        return false;
+            return fullHttpResponse;
+        }).whenComplete((res, err) -> {
+            res.release();
+            if (err != null) {
+                future.complete(false);
+            } else {
+                future.complete(true);
+            }
+        });
+        return future;
     }
 }

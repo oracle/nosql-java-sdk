@@ -30,6 +30,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -517,6 +518,13 @@ public class ProxyTestBase {
 
                     @Override
                     public void close() {
+                    }
+
+                    @Override
+                    public CompletableFuture<String>
+                        getAuthorizationStringAsync(Request request) {
+                        return CompletableFuture.completedFuture(
+                            "Bearer cloudsim");
                     }
             });
         }

@@ -15,7 +15,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.AuthorizationProvider;
@@ -24,6 +27,7 @@ import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.util.HttpRequestUtil;
 import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 import oracle.nosql.driver.values.JsonUtils;
@@ -98,7 +102,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Login token expiration time.
      */
-    private long expirationTime;
+    private volatile long expirationTime;
 
     /*
      * A timer task used to periodically renew the login token.
@@ -153,7 +157,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Whether this provider is closed
      */
-    private boolean isClosed = false;
+    private volatile boolean isClosed = false;
 
     /*
      *  SslContext used by http client
@@ -170,6 +174,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     public static boolean disableSSLHook;
 
+    private final ReentrantLock lock = new ReentrantLock();
+    private volatile CompletableFuture<String> tokenRefreshInProgress = null;
 
     /**
      * This method is used for access to a store without security enabled.
@@ -223,14 +229,28 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      *
      * Bootstrap login using the provided credentials
      */
-    public synchronized void bootstrapLogin(Request request) {
+    public CompletableFuture<String> bootstrapLogin(Request request) {
 
-        /* re-check the authString in case of a race */
-        if (!isSecure || isClosed || authString.get() != null) {
-            return;
-        }
-
+        lock.lock();
         try {
+            if (!isSecure || isClosed ) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            /* re-check the authString in case of a race */
+            if (authString.get() != null) {
+                return CompletableFuture.completedFuture(authString.get());
+            }
+
+            if (tokenRefreshInProgress != null && !tokenRefreshInProgress.isDone()) {
+                return tokenRefreshInProgress;
+            }
+
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+
             /*
              * Convert the user:password pair in base 64 format with
              * Basic prefix
@@ -247,36 +267,37 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             /*
              * Send request to server for login token
              */
-            HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
-                                                LOGIN_SERVICE, timeoutMs);
-
-            /*
-             * login fail
-             */
-            if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
-                throw new InvalidAuthorizationException(
-                    "Fail to login to service: " + response.getOutput());
-            }
-
-            if (isClosed) {
-                return;
-            }
-
-            /*
-             * Generate the authentication string using login token
-             */
-            authString.set(BEARER_PREFIX +
-                           parseJsonResult(response.getOutput()));
-
-            /*
-             * Schedule login token renew thread
-             */
-            scheduleRefresh();
-
-        } catch (InvalidAuthorizationException iae) {
-            throw iae;
-        } catch (Exception e) {
-            throw new NoSQLException("Bootstrap login fail", e);
+            CompletableFuture<String> refreshFuture =
+                sendRequest(BASIC_PREFIX + encoded, LOGIN_SERVICE, timeoutMs)
+                .thenApply(response -> {
+                    /* login fail */
+                    if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
+                            throw new InvalidAuthorizationException(
+                                "Fail to login to service: "
+                                + response.getOutput());
+                    }
+                    if (isClosed) {
+                        return null;
+                    }
+                    /*
+                     * Generate the authentication string using login token
+                     */
+                    authString.set(BEARER_PREFIX + parseJsonResult(response.getOutput()));
+                    /*
+                     * Schedule login token renew thread
+                     */
+                    scheduleRefresh();
+                    return authString.get();
+                }).exceptionally(err -> {
+                    if (!(err instanceof InvalidAuthorizationException)) {
+                        throw new NoSQLException("Bootstrap login fail", err);
+                    }
+                    return null;
+                });
+            tokenRefreshInProgress = refreshFuture;
+            return refreshFuture;
+        }  finally {
+            lock.unlock();
         }
     }
 
@@ -285,16 +306,19 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     @Override
     public String getAuthorizationString(Request request) {
-
-        if (!isSecure) {
-            return null;
+        try {
+            return getAuthorizationStringAsync(request).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
         }
+    }
 
-        /*
-         * Already close
-         */
-        if (isClosed) {
-            return null;
+    @Override
+    public CompletableFuture<String> getAuthorizationStringAsync(Request request) {
+        if (!isSecure || isClosed) {
+            return CompletableFuture.completedFuture(null);
         }
 
         /*
@@ -302,9 +326,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
          * the login token and generate the auth string.
          */
         if (authString.get() == null) {
-            bootstrapLogin(request);
+            return bootstrapLogin(request);
         }
-        return authString.get();
+        return CompletableFuture.completedFuture(authString.get());
     }
 
     /**
@@ -324,21 +348,22 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * token.
      */
     @Override
-    public synchronized void close() {
+    public void close() {
 
-        /*
-         * Don't do anything for non-secure case
-         */
-        if (!isSecure || isClosed) {
-            return;
-        }
+        lock.lock();
 
         /*
          * Send request for logout
          */
         try {
+            /*
+             * Don't do anything for non-secure case
+             */
+            if (!isSecure || isClosed) {
+                return;
+            }
             final HttpResponse response =
-                sendRequest(authString.get(), LOGOUT_SERVICE, 0);
+                sendRequest(authString.get(), LOGOUT_SERVICE, 0).get();
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
@@ -350,19 +375,32 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                 logger.info("Failed to logout user " + userName +
                             ": " + e);
             }
+            /*
+             * Clean up
+             */
+            isClosed = true;
+            authString = null;
+            expirationTime = 0;
+            Arrays.fill(password, ' ');
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+        } finally {
+            lock.unlock();
         }
+    }
 
-        /*
-         * Clean up
-         */
-        isClosed = true;
-        authString = null;
-        expirationTime = 0;
-        Arrays.fill(password, ' ');
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
-        }
+    @Override
+    public void flushCache() {
+        ConcurrentUtil.synchronizedCall(lock,
+        () -> {
+            authString.set(null);
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+        });
     }
 
     /**
@@ -504,9 +542,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * Send HTTPS request to login/renew/logout service location with proper
      * authentication information.
      */
-    private HttpResponse sendRequest(String authHeader,
+    private CompletableFuture<HttpResponse> sendRequest(String authHeader,
                                      String serviceName,
-                                     int timeoutMs) throws Exception {
+                                     int timeoutMs) {
         HttpClient client = null;
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
@@ -573,7 +611,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                 final String oldAuth = authString.get();
                 HttpResponse response = sendRequest(oldAuth,
                                                     RENEW_SERVICE,
-                                                    0);
+                                                    0).get();
                 final String token = parseJsonResult(response.getOutput());
                 if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                     throw new InvalidAuthorizationException(token);

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.RetryableException;
@@ -592,9 +593,13 @@ public class ReceiveIter extends PlanIter {
         NoSQLException e = null;
         QueryResult result = null;
         try {
-            result = (QueryResult)rcb.getClient().execute(reqCopy);
+            result = (QueryResult)rcb.getClient().execute(reqCopy).get();
         } catch (NoSQLException qe) {
             e = qe;
+        } catch (ExecutionException ex) {
+            throw new RuntimeException(ex);
+        } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
         }
         /*
          * Copy values back to original request, even when the execute()

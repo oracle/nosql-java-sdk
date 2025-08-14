@@ -12,6 +12,8 @@ import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
 import io.netty.handler.codec.http.HttpHeaders;
 import oracle.nosql.driver.ops.Request;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * A callback interface used by the driver to obtain an authorization string
  * for a request. {@link NoSQLHandle} calls this interface when and
@@ -33,6 +35,21 @@ public interface AuthorizationProvider {
      * the request
      */
     public String getAuthorizationString(Request request);
+
+    /**
+     * Returns an authorization string for specified request. This is sent to
+     * the server in the request for authorization. Authorization information
+     * can be request-dependent.
+     *
+     * @param request the request being processed
+     *
+     * @return a CompletableFuture of a string indicating that the application
+     * is authorized to perform the request
+     */
+    public default CompletableFuture<String>
+        getAuthorizationStringAsync(Request request) {
+        return CompletableFuture.completedFuture(null);
+    }
 
     /**
      * Release resources provider is using.
@@ -73,6 +90,27 @@ public interface AuthorizationProvider {
         if (authString != null) {
             headers.set(AUTHORIZATION, authString);
         }
+    }
+
+    /**
+     * Set HTTP headers required by the provider asynchronously.
+     *
+     * @param authString the authorization string for the request
+     *
+     * @param request the request being processed
+     *
+     * @param headers the HTTP headers
+     *
+     * @param content the request content bytes
+     */
+    default CompletableFuture<Void> setRequiredHeadersAsync(String authString,
+                                                    Request request,
+                                                    HttpHeaders headers,
+                                                    byte[] content) {
+        if (authString != null) {
+            headers.set(AUTHORIZATION, authString);
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

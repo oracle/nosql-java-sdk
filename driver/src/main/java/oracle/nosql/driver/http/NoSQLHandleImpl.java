@@ -8,11 +8,14 @@
 package oracle.nosql.driver.http;
 
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
+import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
@@ -41,6 +44,8 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.ReplicaStatsRequest;
 import oracle.nosql.driver.ops.ReplicaStatsResult;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.Result;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
 import oracle.nosql.driver.ops.SystemStatusRequest;
@@ -176,39 +181,58 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public DeleteResult delete(DeleteRequest request) {
-        checkClient();
-        return (DeleteResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public GetResult get(GetRequest request) {
-        checkClient();
-        return (GetResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public PutResult put(PutRequest request) {
-        checkClient();
-        return (PutResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public WriteMultipleResult writeMultiple(WriteMultipleRequest request) {
-        checkClient();
-        return (WriteMultipleResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public MultiDeleteResult multiDelete(MultiDeleteRequest request) {
-        checkClient();
-        return (MultiDeleteResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public QueryResult query(QueryRequest request) {
-        checkClient();
-        return (QueryResult) client.execute(request);
+        try {
+            return queryAsync(request).get();
+        } catch (InterruptedException ie) {
+            throw new NoSQLException("Request interrupted: " + ie.getMessage(), ie);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RuntimeException) {
+                throw ((RuntimeException) e.getCause());
+            }
+            throw new NoSQLException("ExecutionException: " + e.getMessage(),
+                    e.getCause());
+        }
     }
+
+    public CompletableFuture<QueryResult> queryAsync(QueryRequest request) {
+
+        return client.execute(request)
+            .thenCompose(result -> {
+                if (!request.isSimpleQuery()) {
+                    // TODO supplyAsync runs in fork-join pool.
+                    //  Change to dedicated pool
+                    return CompletableFuture.supplyAsync(() -> result);
+                }
+                return CompletableFuture.completedFuture(result);
+          })
+        .thenApply(result -> ((QueryResult) result));
+    }
+
 
     @Override
     public QueryIterableResult queryIterable(QueryRequest request) {
@@ -218,14 +242,13 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public PrepareResult prepare(PrepareRequest request) {
-        checkClient();
-        return (PrepareResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public TableResult tableRequest(TableRequest request) {
         checkClient();
-        TableResult res = (TableResult) client.execute(request);
+        TableResult res =  executeSync(request);
         /* update rate limiters, if table has limits */
         client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
@@ -234,7 +257,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @Override
     public TableResult getTable(GetTableRequest request) {
         checkClient();
-        TableResult res = (TableResult) client.execute(request);
+        TableResult res = executeSync(request);
         /* update rate limiters, if table has limits */
         client.updateRateLimiters(res.getTableName(), res.getTableLimits());
         return res;
@@ -243,49 +266,42 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @Override
     public SystemResult systemRequest(SystemRequest request) {
         checkClient();
-        return (SystemResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public SystemResult systemStatus(SystemStatusRequest request) {
-        checkClient();
-        return (SystemResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public TableUsageResult getTableUsage(TableUsageRequest request) {
-        checkClient();
-        return (TableUsageResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public ListTablesResult listTables(ListTablesRequest request) {
-        checkClient();
-        return (ListTablesResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public GetIndexesResult getIndexes(GetIndexesRequest request) {
-        checkClient();
-        return (GetIndexesResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public TableResult addReplica(AddReplicaRequest request) {
-        checkClient();
-        return (TableResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public TableResult dropReplica(DropReplicaRequest request) {
-        checkClient();
-        return (TableResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
     public ReplicaStatsResult getReplicaStats(ReplicaStatsRequest request) {
-        checkClient();
-        return (ReplicaStatsResult) client.execute(request);
+        return executeSync(request);
     }
 
     @Override
@@ -468,6 +484,22 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         @Override
         public void refresh(long refreshMs) {
             client.doRefresh(refreshMs);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T extends Result> T executeSync(Request request) {
+        checkClient();
+        try {
+            return (T) client.execute(request).get();
+        } catch (InterruptedException ie) {
+            throw new NoSQLException("Request interrupted: " + ie.getMessage(), ie);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RuntimeException) {
+                throw ((RuntimeException) e.getCause());
+            }
+            throw new NoSQLException("ExecutionException: " + e.getMessage(),
+                e.getCause());
         }
     }
 }

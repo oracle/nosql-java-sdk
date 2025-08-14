@@ -44,21 +44,30 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.netty.buffer.Unpooled;
 import oracle.nosql.driver.AuthorizationProvider;
-import oracle.nosql.driver.DefaultRetryHandler;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -66,7 +75,6 @@ import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
-import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
@@ -76,7 +84,6 @@ import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.UnsupportedQueryVersionException;
 import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
@@ -105,15 +112,16 @@ import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
+import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.util.HttpConstants;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
 import oracle.nosql.driver.util.SerializationUtil;
+import oracle.nosql.driver.util.SimpleRateLimiter;
 import oracle.nosql.driver.values.MapValue;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -152,7 +160,7 @@ public class Client {
     /**
      * Tracks the unique client scoped request id.
      */
-    private final AtomicInteger maxRequestId = new AtomicInteger(1);
+    private final AtomicLong maxRequestId = new AtomicLong(1);
 
     private final HttpClient httpClient;
 
@@ -199,7 +207,7 @@ public class Client {
     /**
      * config for statistics
      */
-    private StatsControlImpl statsControl;
+    private final StatsControlImpl statsControl;
 
     /**
      * list of Request instances to refresh when auth changes. This will only
@@ -218,12 +226,17 @@ public class Client {
     private final String SESSION_COOKIE_FIELD = "session=";
 
     /* for keeping track of SDKs usage */
-    private String userAgent;
+    private final String userAgent;
 
     private volatile TopologyInfo topology;
 
     /* for internal testing */
     private final String prepareFilename;
+
+    /* thread-pool for scheduling tasks */
+    private final ScheduledExecutorService taskExecutor;
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -312,6 +325,21 @@ public class Client {
 
         /* for internal testing */
         prepareFilename = System.getProperty("test.preparefilename");
+
+        taskExecutor = new ScheduledThreadPoolExecutor(8 /* core threads */,
+            new ThreadFactory() {
+                private final AtomicInteger threadNumber = new AtomicInteger(1);
+                @Override
+                public Thread newThread(Runnable r) {
+                    final Thread t = Executors.defaultThreadFactory().newThread(r);
+                    t.setName(String.format("task-executor-%s", threadNumber.getAndIncrement()));
+                    t.setDaemon(true);
+                    t.setUncaughtExceptionHandler((thread, error) -> {
+                        // TODO handle this
+                    });
+                    return t;
+                }
+            });
     }
 
     /**
@@ -332,6 +360,9 @@ public class Client {
         if (threadPool != null) {
             threadPool.shutdown();
         }
+        if (taskExecutor != null) {
+            taskExecutor.shutdown();
+        }
     }
 
     public int getAcquiredChannelCount() {
@@ -350,12 +381,63 @@ public class Client {
      * Get the next client-scoped request id. It needs to be combined with the
      * client id to obtain a globally unique scope.
      */
-    private int nextRequestId() {
+    private long nextRequestId()  {
         return maxRequestId.addAndGet(1);
     }
 
     /**
-     * Execute the KV request and return the response. This is the top-level
+     * RequestContext class to encapsulate request-specific data.
+     * This helps in passing context through asynchronous CompletableFuture chains.
+     * It now includes requestId and a Supplier to generate new IDs for retries.
+     */
+    private static class RequestContext {
+        private final Request kvRequest;
+        private final String requestClass;
+        private volatile String requestId;
+        private final long startNanos;
+        private final int timeoutMs;
+        private final Supplier<Long> nextIdSupplier;
+        private volatile Throwable exception;
+        private final AtomicInteger rateDelayedMs = new AtomicInteger(0);
+        private volatile RateLimiter readLimiter;
+        private volatile RateLimiter writeLimiter;
+        private volatile boolean checkReadUnits;
+        private volatile boolean checkWriteUnits;
+        private volatile int reqSize;
+        private volatile int resSize;
+        private volatile short serialVersionUsed;
+        private volatile short queryVersionUsed;
+        private volatile long latencyNanos;
+        public volatile long networkLatency;
+
+        RequestContext(Request kvRequest, long startNanos, int timeoutMs,
+                      Supplier<Long> nextIdSupplier, RateLimiter readLimiter,
+                       RateLimiter writeLimiter, boolean checkReadUnits,
+                       boolean checkWriteUnits) {
+            this.kvRequest = kvRequest;
+            this.startNanos = startNanos;
+            this.timeoutMs = timeoutMs;
+            this.nextIdSupplier = nextIdSupplier;
+            this.readLimiter = readLimiter;
+            this.writeLimiter = writeLimiter;
+            this.checkReadUnits = checkReadUnits;
+            this.checkWriteUnits = checkWriteUnits;
+
+            this.requestId = Long.toString(nextIdSupplier.get());
+            this.requestClass = kvRequest.getClass().getSimpleName();
+        }
+
+//         RequestContext nextRetryContext() {
+//            // Generate a new ID for the next retry attempt using the provided supplier
+//            return new RequestContext(this.kvRequest,
+//                this.retryCount + 1, this.nextIdSupplier, readLimiter,
+//                    writeLimiter, checkReadUnits, checkWriteUnits);
+//        }
+    }
+
+    /**
+     * Execute the KV request and return the future response. This is the
+     * top-level
      * method for request execution.
      * <p>
      * This method handles exceptions to distinguish between what can be retried
@@ -372,12 +454,11 @@ public class Client {
      *
      * @param kvRequest the KV request to be executed by the server
      *
-     * @return the Result of the request
+     * @return the future representing the result of the request
      */
-    public Result execute(Request kvRequest) {
+    public CompletableFuture<Result> execute(Request kvRequest) {
 
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
-
         /*
          * Before execution, call Request object to assign default values
          * from config object if they are not overridden. This allows code
@@ -391,7 +472,11 @@ public class Client {
          * fails for a given Request instance it will throw
          * IllegalArgumentException.
          */
-        kvRequest.validate();
+        try {
+            kvRequest.validate();
+        } catch (Throwable t) {
+            return CompletableFuture.failedFuture(t);
+        }
 
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
@@ -401,7 +486,7 @@ public class Client {
          * non-internal QueryRequest */
         if (kvRequest.isQueryRequest()) {
 
-            QueryRequest qreq = (QueryRequest)kvRequest;
+            QueryRequest qreq = (QueryRequest) kvRequest;
 
             /* Set the topo seq num in the request, if it has not been set
              * already */
@@ -419,7 +504,8 @@ public class Client {
              */
             if (qreq.hasDriver()) {
                 trace("QueryRequest has QueryDriver", 2);
-                return new QueryResult(qreq, false);
+                return CompletableFuture.completedFuture(
+                    new QueryResult(qreq, false));
             }
 
             /*
@@ -434,7 +520,8 @@ public class Client {
                 trace("QueryRequest has no QueryDriver, but is prepared", 2);
                 QueryDriver driver = new QueryDriver(qreq);
                 driver.setClient(this);
-                return new QueryResult(qreq, false);
+                return CompletableFuture.completedFuture(
+                    new QueryResult(qreq, false));
             }
 
             /*
@@ -452,10 +539,6 @@ public class Client {
             qreq.incBatchCounter();
         }
 
-        int timeoutMs = kvRequest.getTimeoutInternal();
-
-        Throwable exception = null;
-
         /*
          * If the request doesn't set an explicit compartment, use
          * the config default if provided.
@@ -465,7 +548,6 @@ public class Client {
                 config.getDefaultCompartment());
         }
 
-        int rateDelayedMs = 0;
         boolean checkReadUnits = false;
         boolean checkWriteUnits = false;
 
@@ -481,15 +563,15 @@ public class Client {
 
         /* if not, see if we have limiters in our map for the given table */
         if (rateLimiterMap != null &&
-            readLimiter == null && writeLimiter == null) {
+                readLimiter == null && writeLimiter == null) {
             String tableName = kvRequest.getTableName();
-            if (tableName != null && tableName.length() > 0) {
+            if (tableName != null && !tableName.isEmpty()) {
                 readLimiter = rateLimiterMap.getReadLimiter(tableName);
                 writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
                 if (readLimiter == null && writeLimiter == null) {
                     if (kvRequest.doesReads() || kvRequest.doesWrites()) {
                         backgroundUpdateLimiters(tableName,
-                                                 kvRequest.getCompartment());
+                                kvRequest.getCompartment());
                     }
                 } else {
                     checkReadUnits = kvRequest.doesReads();
@@ -499,201 +581,293 @@ public class Client {
                 }
             }
         }
+        kvRequest.setStartNanos(System.nanoTime());
 
-        final long startNanos = System.nanoTime();
-        kvRequest.setStartNanos(startNanos);
-        final String requestClass = kvRequest.getClass().getSimpleName();
+        RequestContext ctx = new RequestContext(kvRequest,
+            kvRequest.getStartNanos(), kvRequest.getTimeoutInternal(),
+            maxRequestId::getAndIncrement, readLimiter, writeLimiter,
+            checkReadUnits, checkWriteUnits);
 
+
+        return executeWithRetry(ctx);
+    }
+
+
+    /**
+     * Core method which creates the request and send to the server.
+     * If the request fails, it performs retry.
+     */
+    private CompletableFuture<Result> executeWithRetry(RequestContext ctx) {
         /*
-         * boolean that indicates whether content must be signed. Cross
-         * region operations must include content when signing. See comment
-         * on the method
+         * Check rate limiters before executing the request.
+         * Wait for read and/or write limiters to be below their limits
+         * before continuing. Be aware of the timeout given.
          */
-        final boolean signContent = requireContentSigned(kvRequest);
-        String requestId = "";
-        int thisIterationTimeoutMs = 0;
+        Request kvRequest = ctx.kvRequest;
 
-        do {
-            thisIterationTimeoutMs =
-                getIterationTimeoutMs(timeoutMs, startNanos);
+        if (kvRequest.getNumRetries() > 0) {
+            logRetries(kvRequest.getNumRetries(), ctx.exception);
+        }
+
+        if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
+            if (((DurableRequest)kvRequest).getDurability() != null) {
+                oneTimeMessage("The requested feature is not supported " +
+                        "by the connected server: Durability");
+            }
+        }
+        if (serialVersion < 3 && kvRequest instanceof TableRequest) {
+            TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
+            if (limits != null &&
+                    limits.getMode() == CapacityMode.ON_DEMAND) {
+                oneTimeMessage("The requested feature is not supported " +
+                        "by the connected server: on demand " +
+                        "capacity table");
+            }
+        }
+
+
+        /* Check this request doesn't cause throttle */
+        int preRateLimitDelayMs = 0;
+        if (ctx.readLimiter != null && ctx.checkReadUnits) {
+            preRateLimitDelayMs +=
+                ((SimpleRateLimiter) ctx.readLimiter).consumeExternally(0);
+        }
+        if (ctx.writeLimiter != null && ctx.checkWriteUnits) {
+            preRateLimitDelayMs +=
+                ((SimpleRateLimiter) ctx.writeLimiter).consumeExternally(0);
+        }
+
+        final int timeoutMs = ctx.timeoutMs;
+        final long startNanos = ctx.startNanos;
+        final int thisIterationTimeoutMs = getIterationTimeoutMs(timeoutMs, startNanos);
+
+        /* If this result in timeout, complete with exception */
+        if (thisIterationTimeoutMs <= preRateLimitDelayMs) {
+            final TimeoutException ex = new TimeoutException(
+                "timed out waiting "
+                + thisIterationTimeoutMs
+                + "ms due to rate limiting");
+            return createDelayFuture(thisIterationTimeoutMs).thenCompose(d ->
+                CompletableFuture.failedFuture(ex));
+        }
+
+        /* Stage-1 RateLimit */
+        return createDelayFuture(preRateLimitDelayMs)
+        .whenComplete((delay, err) -> ctx.rateDelayedMs.addAndGet(delay))
+        /* Stage-2 Get auth token */
+        //TODO is this thenComposeAsync?
+        .thenCompose(delay -> authProvider.getAuthorizationStringAsync(kvRequest)) // CompletableFuture<String>
+        .thenApply(authString -> {
+            /* Check whether timed out while acquiring the auth token */
+            if (timeoutRequest(kvRequest.getStartNanos(),
+                kvRequest.getTimeoutInternal(), null)) {
+                TimeoutException ex = new TimeoutException(
+                    "timed out during auth token acquisition");
+                throw new CompletionException(ex);
+            }
+            authProvider.validateAuthString(authString);
+            return authString;
+        })
+        .thenCompose(authString -> {
+            /* stage-3 create HTTP request */
+            final ByteBuf buffer = Unpooled.buffer();
+            buffer.retain();
+            return createRequest(ctx, authString, buffer)
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        buffer.release();
+                    }
+                })
+                .thenCompose(request -> {
+                    /* Stage-4 Send the request to server */
+                    if (isLoggable(logger, Level.FINE) &&
+                            !kvRequest.getIsRefresh()) {
+                        logTrace(logger, "Request: " + ctx.requestClass +
+                            ", requestId=" + ctx.requestId);
+                    }
+                    ctx.latencyNanos = System.nanoTime();
+                    return httpClient.runRequest(request,
+                        getIterationTimeoutMs(timeoutMs, startNanos)) //CompletableFuture<FullHttpResponse>
+                        .whenComplete((res, err) -> {
+                            ctx.networkLatency =
+                                (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
+                            // Release our retained request ByteBuf
+                            buffer.release();
+                        });
+                });
+            }) // Now we have CompletableFuture<FullHttpResponse>
+            .thenApply(fhr -> {
+                /* Stage-5 Process the response */
+                if (isLoggable(logger, Level.FINE) &&
+                        !kvRequest.getIsRefresh()) {
+                    logTrace(logger, "Response: " + ctx.requestClass +
+                            ", status=" + fhr.status() +
+                            ", requestId=" + ctx.requestId );
+                }
+                try {
+                    Result result = processResponse(fhr.status(), fhr.headers(),
+                            fhr.content(), ctx);
+                    ctx.rateDelayedMs.addAndGet(getRateDelayedFromHeader(fhr.headers()));
+                    ctx.resSize = fhr.content().readerIndex();
+                    return result;
+                } finally {
+                    fhr.release(); //release response
+                }
+            }) // Now we have CompletableFuture<Result>
+            .thenCompose(result -> {
+                /* Stage-6 Get the Result and bookkeeping */
+                setTopology(result.getTopology());
+                if (ctx.serialVersionUsed < 3) {
+                    /* so we can emit a one-time message if the app */
+                    /* tries to access modificationTime */
+                    if (result instanceof GetResult) {
+                        ((GetResult)result).setClient(this);
+                    } else if (result instanceof WriteResult) {
+                        ((WriteResult)result).setClient(this);
+                    }
+                }
+                if (result instanceof QueryResult && kvRequest.isQueryRequest()) {
+                    QueryRequest qreq = (QueryRequest)kvRequest;
+                    qreq.addQueryTraces(((QueryResult)result).getQueryTraces());
+                }
+                if (result instanceof TableResult && rateLimiterMap != null) {
+                    /* update rate limiter settings for table */
+                    TableLimits tl = ((TableResult)result).getTableLimits();
+                    updateRateLimiters(((TableResult)result).getTableName(), tl);
+                }
+                /*
+                 * We may not have rate limiters yet because queries may
+                 * not have a tablename until after the first request.
+                 * So try to get rate limiters if we don't have them yet and
+                 * this is a QueryRequest.
+                 */
+                if (rateLimiterMap != null && ctx.readLimiter == null) {
+                    ctx.readLimiter = getQueryRateLimiter(kvRequest, true);
+                }
+                if (rateLimiterMap != null && ctx.writeLimiter == null) {
+                    ctx.writeLimiter = getQueryRateLimiter(kvRequest, false);
+                }
+
+                int postRateLimitDelayMs = consumeLimiterUnits(ctx.readLimiter,
+                        result.getReadUnitsInternal());
+                postRateLimitDelayMs += consumeLimiterUnits(ctx.writeLimiter,
+                        result.getWriteUnitsInternal());
+
+                /* Post-Response RateLimiting */
+                return createDelayFuture(postRateLimitDelayMs)
+                    .thenApply(rateDelay -> {
+                        ctx.rateDelayedMs.addAndGet(rateDelay);
+                        result.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+
+                        /* copy retry stats to Result on successful operation */
+                        result.setRetryStats(kvRequest.getRetryStats());
+                        kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+
+                        statsControl.observe(kvRequest,
+                            Math.toIntExact(ctx.networkLatency),
+                            ctx.reqSize, ctx.resSize);
+                        checkAuthRefreshList(kvRequest);
+                        return result;
+                    });
+            })
+            .handle((res,err) -> {
+                /* Handle error and retry */
+                if (err != null) {
+                    ctx.exception = err;
+                    return handleError(ctx);
+                } else {
+                    return CompletableFuture.completedFuture(res);
+                }
+            })
+            .thenCompose(Function.identity());
+    }
+
+    private CompletableFuture<FullHttpRequest> createRequest(RequestContext ctx,
+                                          String authString,
+                                          ByteBuf buffer) {
+
+        try {
+            final Request kvRequest = ctx.kvRequest;
+            /*
+             * we expressly check size limit below based on onprem versus
+             * cloud. Set the request to not check size limit inside
+             * writeContent().
+             */
+            kvRequest.setCheckRequestSize(false);
+
+            /* Set the topo seq num in the request, if it has not been set
+             * already */
+            if (!(kvRequest instanceof QueryRequest) ||
+                    kvRequest.isQueryRequest()) {
+                kvRequest.setTopoSeqNum(getTopoSeqNum());
+            }
 
             /*
-             * Check rate limiters before executing the request.
-             * Wait for read and/or write limiters to be below their limits
-             * before continuing. Be aware of the timeout given.
+             * Temporarily change the timeout in the request object so
+             * the serialized timeout sent to the server is correct for
+             * this iteration. After serializing the request, set the
+             * timeout back to the overall request timeout so that other
+             * processing (retry delays, etc) work correctly.
              */
-            if (readLimiter != null && checkReadUnits == true) {
-                try {
-                    /*
-                     * this may sleep for a while, up to thisIterationTimeoutMs
-                     * and may throw TimeoutException
-                     */
-                    rateDelayedMs += readLimiter.consumeUnitsWithTimeout(
-                        0, thisIterationTimeoutMs, false);
-                } catch (Exception e) {
-                    exception = e;
-                    break;
-                }
-            }
-            if (writeLimiter != null && checkWriteUnits == true) {
-                try {
-                    /*
-                     * this may sleep for a while, up to thisIterationTimeoutMs
-                     * and may throw TimeoutException
-                     */
-                    rateDelayedMs += writeLimiter.consumeUnitsWithTimeout(
-                        0, thisIterationTimeoutMs, false);
-                } catch (Exception e) {
-                    exception = e;
-                    break;
-                }
-            }
+            kvRequest.setTimeoutInternal(
+                    getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos));
+            writeContent(buffer, ctx);
+            kvRequest.setTimeoutInternal(ctx.timeoutMs);
 
-            /* update iteration timeout in case limiters slept for some time */
-            thisIterationTimeoutMs =
-                getIterationTimeoutMs(timeoutMs, startNanos);
-
-            /* ensure limiting didn't throw us over the timeout */
-            if (thisIterationTimeoutMs <= 0) {
-                break;
-            }
-
-            final String authString =
-                authProvider.getAuthorizationString(kvRequest);
-            authProvider.validateAuthString(authString);
-
-            if (kvRequest.getNumRetries() > 0) {
-                logRetries(kvRequest.getNumRetries(), exception);
-            }
-
-            if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
-                if (((DurableRequest)kvRequest).getDurability() != null) {
-                    oneTimeMessage("The requested feature is not supported " +
-                                   "by the connected server: Durability");
-                }
-            }
-
-            if (serialVersion < 3 && kvRequest instanceof TableRequest) {
-                TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
-                if (limits != null &&
-                    limits.getMode() == CapacityMode.ON_DEMAND) {
-                    oneTimeMessage("The requested feature is not supported " +
-                                   "by the connected server: on demand " +
-                                   "capacity table");
-                }
-            }
-
-            ResponseHandler responseHandler = null;
-            short serialVersionUsed = serialVersion;
-            short queryVersionUsed = queryVersion;
-            ByteBuf buffer = null;
-            try {
-                /*
-                 * NOTE: the ResponseHandler will release the Channel
-                 * in its close() method, which is always called in the
-                 * finally clause. This handles both successful and retried
-                 * operations in the loop.
-                 */
-                Channel channel = httpClient.getChannel(thisIterationTimeoutMs);
-                /* update iteration timeout in case channel took some time */
-                thisIterationTimeoutMs =
-                    getIterationTimeoutMs(timeoutMs, startNanos);
-                /* ensure limiting didn't throw us over the timeout */
-                if (thisIterationTimeoutMs <= 0) {
-                    break;
-                }
-
-                requestId = Long.toString(nextRequestId());
-                responseHandler =
-                    new ResponseHandler(httpClient, logger, channel,
-                                        requestId, kvRequest.shouldRetry());
-                buffer = channel.alloc().directBuffer();
-                buffer.retain();
-
-                /*
-                 * we expressly check size limit below based on onprem versus
-                 * cloud. Set the request to not check size limit inside
-                 * writeContent().
-                 */
-                kvRequest.setCheckRequestSize(false);
-
-                /* Set the topo seq num in the request, if it has not been set
-                 * already */
-                if (!(kvRequest instanceof QueryRequest) ||
-                    kvRequest.isQueryRequest()) {
-                    kvRequest.setTopoSeqNum(getTopoSeqNum());
-                }
-
-                /*
-                 * Temporarily change the timeout in the request object so
-                 * the serialized timeout sent to the server is correct for
-                 * this iteration. After serializing the request, set the
-                 * timeout back to the overall request timeout so that other
-                 * processing (retry delays, etc) work correctly.
-                 */
-                kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
-                serialVersionUsed = writeContent(buffer, kvRequest,
-                                                 queryVersionUsed);
-                kvRequest.setTimeoutInternal(timeoutMs);
-
-                /*
-                 * If on-premises the authProvider will always be a
-                 * StoreAccessTokenProvider. If so, check against
-                 * configurable limit. Otherwise check against internal
-                 * hardcoded cloud limit.
-                 */
-                if (authProvider instanceof StoreAccessTokenProvider) {
-                    if (buffer.readableBytes() >
+            /*
+             * If on-premises the authProvider will always be a
+             * StoreAccessTokenProvider. If so, check against
+             * configurable limit. Otherwise check against internal
+             * hardcoded cloud limit.
+             */
+            if (authProvider instanceof StoreAccessTokenProvider) {
+                if (buffer.readableBytes() >
                         httpClient.getMaxContentLength()) {
-                        throw new RequestSizeLimitException("The request " +
-                            "size of " + buffer.readableBytes() +
-                            " exceeded the limit of " +
-                            httpClient.getMaxContentLength());
-                    }
-                } else {
-                    kvRequest.setCheckRequestSize(true);
-                    BinaryProtocol.checkRequestSizeLimit(
-                        kvRequest, buffer.readableBytes());
+                    throw new RequestSizeLimitException("The request " +
+                        "size of " + buffer.readableBytes() +
+                        " exceeded the limit of " +
+                        httpClient.getMaxContentLength());
                 }
-
-                final FullHttpRequest request =
+            } else {
+                kvRequest.setCheckRequestSize(true);
+                BinaryProtocol.checkRequestSizeLimit(
+                    kvRequest, buffer.readableBytes());
+            }
+            final FullHttpRequest request =
                     new DefaultFullHttpRequest(
-                        HTTP_1_1, POST, kvRequestURI,
-                        buffer,
-                        headersFactory().withValidation(false),
-                        trailersFactory().withValidation(false));
-                HttpHeaders headers = request.headers();
-                addCommonHeaders(headers);
-                int contentLength = buffer.readableBytes();
-                headers.add(HttpHeaderNames.HOST, host)
-                    .add(REQUEST_ID_HEADER, requestId)
+                            HTTP_1_1, POST, kvRequestURI,
+                            buffer,
+                            headersFactory().withValidation(false),
+                            trailersFactory().withValidation(false));
+            HttpHeaders headers = request.headers();
+            addCommonHeaders(headers);
+            int contentLength = buffer.readableBytes();
+            ctx.reqSize = contentLength;
+            headers.add(HttpHeaderNames.HOST, host)
+                    .add(REQUEST_ID_HEADER, ctx.requestId)
                     .setInt(CONTENT_LENGTH, contentLength);
-                if (sessionCookie != null) {
-                    headers.add(COOKIE, sessionCookie);
-                }
+            if (sessionCookie != null) {
+                headers.add(COOKIE, sessionCookie);
+            }
+            String serdeVersion = getSerdeVersion(kvRequest);
+            if (serdeVersion != null) {
+                headers.add("x-nosql-serde-version", serdeVersion);
+            }
 
-                String serdeVersion = getSerdeVersion(kvRequest);
-                if (serdeVersion != null) {
-                    headers.add("x-nosql-serde-version", serdeVersion);
-                }
+            /*
+             * boolean that indicates whether content must be signed. Cross
+             * region operations must include content when signing. See comment
+             * on the method
+             */
+            final boolean signContent = requireContentSigned(kvRequest);
 
-                /*
-                 * If the request doesn't set an explicit compartment, use
-                 * the config default if provided.
-                 */
-                if (kvRequest.getCompartment() == null) {
-                    kvRequest.setCompartmentInternal(
-                        config.getDefaultCompartment());
-                }
-
-                /*
-                 * Get request body bytes if the request needed to be signed
-                 * with content
-                 */
-                byte[] content = signContent ? getBodyBytes(buffer) : null;
-                authProvider.setRequiredHeaders(authString, kvRequest, headers,
-                                                content);
-
+            /*
+             * Get request body bytes if the request needed to be signed
+             * with content
+             */
+            byte[] content = signContent ? getBodyBytes(buffer) : null;
+            return authProvider.setRequiredHeadersAsync(authString, kvRequest, headers, content)
+            .thenApply(n -> {
                 String namespace = kvRequest.getNamespace();
                 if (namespace == null) {
                     namespace = config.getDefaultNamespace();
@@ -701,324 +875,210 @@ public class Client {
                 if (namespace != null) {
                     headers.add(REQUEST_NAMESPACE_HEADER, namespace);
                 }
+                return request;
+            });
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    private CompletableFuture<Result> handleError(RequestContext ctx) {
+        Request kvRequest = ctx.kvRequest;
+        Throwable err = ctx.exception;
+        Throwable actualCause = (err instanceof CompletionException) ?
+            err.getCause() : err;
+        boolean retryable = false;
+        int delayMs = 0;
 
-                if (isLoggable(logger, Level.FINE) &&
-                    !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Request: " + requestClass +
-                                     ", requestId=" + requestId);
-                }
-                long latencyNanos = System.nanoTime();
-                httpClient.runRequest(request, responseHandler, channel);
-
-                boolean isTimeout =
-                    responseHandler.await(thisIterationTimeoutMs);
-                if (isTimeout) {
-                    throw new TimeoutException("Request timed out after " +
-                        timeoutMs + " milliseconds: requestId=" + requestId);
-                }
-
-                if (isLoggable(logger, Level.FINE) &&
-                    !kvRequest.getIsRefresh()) {
-                    logTrace(logger, "Response: " + requestClass +
-                                     ", status=" +
-                                     responseHandler.getStatus() +
-                                     ", requestId=" + requestId );
-                }
-
-                ByteBuf wireContent = responseHandler.getContent();
-                Result res = processResponse(responseHandler.getStatus(),
-                                       responseHandler.getHeaders(),
-                                       wireContent,
-                                       kvRequest,
-                                       serialVersionUsed,
-                                       queryVersionUsed);
-                rateDelayedMs += getRateDelayedFromHeader(
-                                       responseHandler.getHeaders());
-                int resSize = wireContent.readerIndex();
-                long networkLatency =
-                    (System.nanoTime() - latencyNanos) / 1_000_000;
-
-                setTopology(res.getTopology());
-
-                if (serialVersionUsed < 3) {
-                    /* so we can emit a one-time message if the app */
-                    /* tries to access modificationTime */
-                    if (res instanceof GetResult) {
-                        ((GetResult)res).setClient(this);
-                    } else if (res instanceof WriteResult) {
-                        ((WriteResult)res).setClient(this);
-                    }
-                }
-
-                if (res instanceof QueryResult && kvRequest.isQueryRequest()) {
-                    QueryRequest qreq = (QueryRequest)kvRequest;
-                    qreq.addQueryTraces(((QueryResult)res).getQueryTraces());
-                }
-
-                if (res instanceof TableResult && rateLimiterMap != null) {
-                    /* update rate limiter settings for table */
-                    TableLimits tl = ((TableResult)res).getTableLimits();
-                    updateRateLimiters(((TableResult)res).getTableName(), tl);
-                }
-
-                /*
-                 * We may not have rate limiters yet because queries may
-                 * not have a tablename until after the first request.
-                 * So try to get rate limiters if we don't have them yet and
-                 * this is a QueryRequest.
-                 */
-                if (rateLimiterMap != null && readLimiter == null) {
-                    readLimiter = getQueryRateLimiter(kvRequest, true);
-                }
-                if (rateLimiterMap != null && writeLimiter == null) {
-                    writeLimiter = getQueryRateLimiter(kvRequest, false);
-                }
-
-                /* consume rate limiter units based on actual usage */
-                rateDelayedMs += consumeLimiterUnits(readLimiter,
-                                    res.getReadUnitsInternal(),
-                                    thisIterationTimeoutMs);
-                rateDelayedMs += consumeLimiterUnits(writeLimiter,
-                                    res.getWriteUnitsInternal(),
-                                    thisIterationTimeoutMs);
-                res.setRateLimitDelayedMs(rateDelayedMs);
-
-                /* copy retry stats to Result on successful operation */
-                res.setRetryStats(kvRequest.getRetryStats());
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-
-                statsControl.observe(kvRequest, Math.toIntExact(networkLatency),
-                    contentLength, resSize);
-
-                checkAuthRefreshList(kvRequest);
-
-                return res;
-
-            } catch (AuthenticationException rae) {
-                if (authProvider instanceof StoreAccessTokenProvider) {
-                    final StoreAccessTokenProvider satp =
+        try {
+            throw actualCause;
+        } catch (AuthenticationException rae) {
+            if (authProvider instanceof StoreAccessTokenProvider) {
+                final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
-                    satp.bootstrapLogin(kvRequest);
-                    kvRequest.addRetryException(rae.getClass());
-                    kvRequest.incrementRetries();
-                    exception = rae;
-                    continue;
-                }
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
+                satp.bootstrapLogin(kvRequest);
+                retryable = true;
+            } else {
                 logInfo(logger, "Unexpected authentication exception: " +
                         rae);
                 throw new NoSQLException("Unexpected exception: " +
                         rae.getMessage(), rae);
-            } catch (InvalidAuthorizationException iae) {
-                /*
-                 * Allow a single retry for invalid/expired auth
-                 * This includes "clock skew" errors
-                 * This does not include permissions-related errors
-                 */
-                if (kvRequest.getNumRetries() > 0) {
-                    /* same as NoSQLException below */
-                    kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                    statsControl.observeError(kvRequest);
-                    logFine(logger, "Client execute NoSQLException: " +
-                            iae.getMessage());
-                    throw iae;
-                }
-                /* flush auth cache and do one retry */
-                authProvider.flushCache();
-                kvRequest.addRetryException(iae.getClass());
-                kvRequest.incrementRetries();
-                exception = iae;
-                logFine(logger,
-                        "Client retrying on InvalidAuthorizationException: " +
-                        iae.getMessage());
-                continue;
-            } catch (SecurityInfoNotReadyException sinre) {
-                kvRequest.addRetryException(sinre.getClass());
-                exception = sinre;
-                int delayMs = SEC_ERROR_DELAY_MS;
-                if (kvRequest.getNumRetries() > 10) {
-                    delayMs =
-                        DefaultRetryHandler.computeBackoffDelay(kvRequest, 0);
-                    if (delayMs <= 0) {
-                        break;
-                    }
-                }
-                try {
-                    Thread.sleep(delayMs);
-                } catch (InterruptedException ie) {}
-                kvRequest.incrementRetries();
-                kvRequest.addRetryDelayMs(delayMs);
-                continue;
-            } catch (RetryableException re) {
-
-                if (re instanceof WriteThrottlingException &&
-                    writeLimiter != null) {
-                    /* ensure we check write limits next loop */
-                    checkWriteUnits = true;
-                    /* set limiter to its limit, if not over already */
-                    if (writeLimiter.getCurrentRate() < 100.0) {
-                        writeLimiter.setCurrentRate(100.0);
-                    }
-                    /* call retry handler to manage sleep/delay */
-                }
-                if (re instanceof ReadThrottlingException &&
-                    readLimiter != null) {
-                    /* ensure we check read limits next loop */
-                    checkReadUnits = true;
-                    /* set limiter to its limit, if not over already */
-                    if (readLimiter.getCurrentRate() < 100.0) {
-                        readLimiter.setCurrentRate(100.0);
-                    }
-                    /* call retry handler to manage sleep/delay */
-                }
-
-                logFine(logger, "Retryable exception: " +
-                        re.getMessage());
-                /*
-                 * Handle automatic retries. If this does not throw an error,
-                 * then the delay (if any) will have been performed and the
-                 * request should be retried.
-                 *
-                 * If there have been too many retries this method will
-                 * throw the original exception.
-                 */
-
-                kvRequest.addRetryException(re.getClass());
-                handleRetry(re, kvRequest);
-                kvRequest.incrementRetries();
-                exception = re;
-                continue;
-            } catch (UnsupportedQueryVersionException uqve) {
-                /* decrement query version and try again */
-                if (decrementQueryVersion(queryVersionUsed) == true) {
-                    logFine(logger, "Got unsupported query version error " +
-                            "from server: decrementing query version to " +
-                            queryVersion + " and trying again.");
-                    continue;
-                }
-                throw uqve;
-            } catch (UnsupportedProtocolException upe) {
-                /* decrement protocol version and try again */
-                if (decrementSerialVersion(serialVersionUsed) == true) {
-                    /* Don't set this exception: it's misleading */
-                    /* exception = upe; */
-                    logFine(logger, "Got unsupported protocol error " +
-                            "from server: decrementing serial version to " +
-                            serialVersion + " and trying again.");
-                    continue;
-                }
-                throw upe;
-            } catch (NoSQLException nse) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                logFine(logger, "Client execute NoSQLException: " +
-                        nse.getMessage());
-                throw nse; /* pass through */
-            } catch (RuntimeException e) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                if (!kvRequest.getIsRefresh()) {
-                    /* don't log expected failures from refresh */
-                    logFine(logger, "Client execute runtime exception: " +
-                            e.getMessage());
-                }
-                throw e;
-            } catch (IOException ioe) {
-                String name = ioe.getClass().getName();
-                logFine(logger, "Client execution IOException, name: " +
-                        name + ", message: " + ioe.getMessage());
-                /*
-                 * An exception in the channel, e.g. the server may have
-                 * disconnected. Retry.
-                 */
-                kvRequest.addRetryException(ioe.getClass());
-                kvRequest.incrementRetries();
-                exception = ioe;
-
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ie) {}
-
-                continue;
-            } catch (InterruptedException ie) {
-                kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-                statsControl.observeError(kvRequest);
-                logInfo(logger, "Client interrupted exception: " +
-                        ie.getMessage());
-                /* this exception shouldn't retry -- direct throw */
-                throw new NoSQLException("Request interrupted: " +
-                                         ie.getMessage());
-            } catch (ExecutionException ee) {
-                /*
-                 * This can happen if a channel is bad in HttpClient.getChannel.
-                 * This happens if the channel is shut down by the server side
-                 * or the server (proxy) is restarted, etc. Treat it like
-                 * IOException above, but retry without waiting
-                 */
-                String name = ee.getCause().getClass().getName();
-                logFine(logger, "Client ExecutionException, name: " +
-                        name + ", message: " + ee.getMessage() + ", retrying");
-
-                kvRequest.addRetryException(ee.getCause().getClass());
-                kvRequest.incrementRetries();
-                exception = ee.getCause();
-                continue;
-            } catch (TimeoutException te) {
-                exception = te;
-                logInfo(logger, "Timeout exception: " + te);
-                break; /* fall through to exception below */
-            } catch (Throwable t) {
-                /*
-                 * this is likely an exception from Netty, perhaps a bad
-                 * connection. Retry.
-                 */
-                /* Maybe make this logFine */
-                String name = t.getClass().getName();
-                logInfo(logger, "Client execute Throwable, name: " +
-                        name + "message: " + t.getMessage());
-
-                kvRequest.addRetryException(t.getClass());
-                kvRequest.incrementRetries();
-                exception = t;
-                continue;
-            } finally {
-                /*
-                 * Because the buffer.retain() is called after initialized, so
-                 * the reference count of buffer should be always > 0 here, just
-                 * call buffer.release(refCnt) to release it.
-                 */
-                if (buffer != null) {
-                    buffer.release(buffer.refCnt());
-                }
-                if (responseHandler != null) {
-                    responseHandler.close();
-                }
             }
-        } while (! timeoutRequest(startNanos, timeoutMs, exception));
+        } catch (InvalidAuthorizationException iae) {
+            /*
+             * Allow a single retry for invalid/expired auth
+             * This includes "clock skew" errors
+             * This does not include permissions-related errors
+             */
+            if (kvRequest.getNumRetries() == 0) {
+                authProvider.flushCache();
+                logFine(logger,
+                    "Client retrying on InvalidAuthorizationException: " +
+                     iae.getMessage());
+                retryable = true;
+            } else {
+                throw iae;
+            }
 
-        kvRequest.setRateLimitDelayedMs(rateDelayedMs);
-        statsControl.observeError(kvRequest);
-        /*
-         * If the request timed out in a single iteration, and the
-         * timeout was fairly long, and there was no delay due to
-         * rate limiting, reset the session cookie so the next request
-         * may use a different server.
-         */
-        if (timeoutMs == thisIterationTimeoutMs &&
-            timeoutMs >= 2000 &&
-            rateDelayedMs == 0) {
-            setSessionCookieValue(null);
+        } catch (SecurityInfoNotReadyException sinre) {
+            kvRequest.addRetryException(sinre.getClass());
+            if (kvRequest.getNumRetries() < 20) {
+                delayMs = SEC_ERROR_DELAY_MS;
+                retryable = true;
+            }
+        } catch (RetryableException re) {
+            if (re instanceof WriteThrottlingException &&
+                    ctx.writeLimiter != null) {
+                /* ensure we check write limits next loop */
+                ctx.checkWriteUnits = true;
+                /* set limiter to its limit, if not over already */
+                if (ctx.writeLimiter.getCurrentRate() < 100.0) {
+                    ctx.writeLimiter.setCurrentRate(100.0);
+                }
+                /* call retry handler to manage sleep/delay */
+            }
+            if (re instanceof ReadThrottlingException &&
+                    ctx.readLimiter != null) {
+                /* ensure we check read limits next loop */
+                ctx.checkReadUnits = true;
+                /* set limiter to its limit, if not over already */
+                if (ctx.readLimiter.getCurrentRate() < 100.0) {
+                    ctx.readLimiter.setCurrentRate(100.0);
+                }
+                /* call retry handler to manage sleep/delay */
+            }
+
+            logFine(logger, "Retryable exception: " +
+                    re.getMessage());
+            /*
+             * Handle automatic retries. If this does not throw an error,
+             * then the delay (if any) will have been performed and the
+             * request should be retried.
+             *
+             * If there have been too many retries this method will
+             * throw the original exception.
+             */
+
+            kvRequest.addRetryException(re.getClass());
+            delayMs = handleRetry(re, kvRequest);
+            retryable = true;
+        } catch (UnsupportedQueryVersionException uqve) {
+            /* decrement query version and try again */
+            if (decrementQueryVersion(ctx.queryVersionUsed) == true) {
+                logFine(logger, "Got unsupported query version error " +
+                        "from server: decrementing query version to " +
+                        queryVersion + " and trying again.");
+                retryable = true;
+            } else {
+                throw uqve;
+            }
+        } catch (UnsupportedProtocolException upe) {
+            /* decrement protocol version and try again */
+            if (decrementSerialVersion(ctx.serialVersionUsed) == true) {
+                /* Don't set this exception: it's misleading */
+                /* exception = upe; */
+                logFine(logger, "Got unsupported protocol error " +
+                        "from server: decrementing serial version to " +
+                        serialVersion + " and trying again.");
+                retryable = true;
+            } else {
+                throw upe;
+            }
+        } catch (NoSQLException nse) {
+            logFine(logger, "Client execute NoSQLException: " +
+                    nse.getMessage());
+            throw nse;
+        } catch (RuntimeException e) {
+            if (!kvRequest.getIsRefresh()) {
+                /* don't log expected failures from refresh */
+                logFine(logger, "Client execute runtime exception: " +
+                        e.getMessage());
+            }
+        } catch (IOException ioe) {
+            String name = ioe.getClass().getName();
+            logFine(logger, "Client execution IOException, name: " +
+                    name + ", message: " + ioe.getMessage());
+            if (kvRequest.getNumRetries() == 0) {
+                retryable = true;
+                delayMs = 10;
+            }
+        } catch (InterruptedException ie) {
+            logInfo(logger, "Client interrupted exception: " +
+                    ie.getMessage());
+        } catch (ExecutionException ee) {
+            /*
+             * This can happen if a channel is bad in HttpClient.getChannel.
+             * This happens if the channel is shut down by the server side
+             * or the server (proxy) is restarted, etc. Treat it like
+             * IOException above, but retry without waiting
+             */
+            String name = ee.getCause().getClass().getName();
+            logFine(logger, "Client ExecutionException, name: " +
+                    name + ", message: " + ee.getMessage() + ", retrying");
+
+            if (kvRequest.getNumRetries() == 0) {
+                retryable = true;
+            }
+        } catch (TimeoutException te) {
+            //TODO handle this
+        } catch (Throwable t) {
+            /*
+             * this is likely an exception from Netty, perhaps a bad
+             * connection. Retry.
+             */
+            /* Maybe make this logFine */
+            String name = t.getClass().getName();
+            logInfo(logger, "Client execute Throwable, name: " +
+                    name + "message: " + t.getMessage());
         }
-        throw new RequestTimeoutException(timeoutMs,
-            requestClass + " timed out:" +
-            (requestId.isEmpty() ? "" : " requestId=" + requestId) +
-            " nextRequestId=" + nextRequestId() +
-            " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
-            (kvRequest.getRetryStats() != null ?
-                kvRequest.getRetryStats() : ""), exception);
+
+        if (retryable) {
+            if (!(actualCause instanceof UnsupportedProtocolException)
+                && !(actualCause instanceof UnsupportedQueryVersionException)) {
+                kvRequest.addRetryException(err.getClass());
+                kvRequest.incrementRetries();
+            }
+
+
+            CompletableFuture<Result> retryFuture = new CompletableFuture<>();
+            int finalDelayMs = delayMs;
+            taskExecutor.schedule(() -> {
+                /* Increment request-id for retry */
+                ctx.requestId = String.valueOf(ctx.nextIdSupplier.get());
+                executeWithRetry(ctx)
+                    .whenComplete((res,e) -> {
+                        kvRequest.addRetryDelayMs(finalDelayMs);
+                        if (e != null) {
+                            retryFuture.completeExceptionally(e);
+                        } else {
+                            retryFuture.complete(res);
+                        }
+                    });
+            }, delayMs, TimeUnit.MILLISECONDS);
+            return retryFuture;
+        }
+        /* No retry, complete with exception */
+        kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+        statsControl.observeError(kvRequest);
+        return CompletableFuture.failedFuture(actualCause);
     }
 
+    /**
+     * Helper method to create a CompletableFuture that completes after a delay.
+     * This is used for non-blocking asynchronous delays for rate limiting.
+     *
+     * @param delayMs The delay in milliseconds.
+     * @return A CompletableFuture that completes after the specified delay.
+     */
+    private CompletableFuture<Integer> createDelayFuture(int delayMs) {
+        CompletableFuture<Integer> delayFuture = new CompletableFuture<>();
+        if (delayMs > 0) {
+            taskExecutor.schedule(() -> delayFuture.complete(delayMs), delayMs,
+                    TimeUnit.MILLISECONDS);
+        } else {
+            delayFuture.complete(delayMs); // Complete immediately if no delay
+        }
+        return delayFuture;
+    }
     /**
      * Calculate the timeout for the next iteration.
      * This is basically the given timeout minus the time
@@ -1055,7 +1115,7 @@ public class Client {
          * the tablename from the request and apply rate limiting.
          */
         String tableName = ((QueryRequest)request).getTableName();
-        if (tableName == null || tableName == "") {
+        if (tableName == null || tableName.isEmpty()) {
             return null;
         }
 
@@ -1079,7 +1139,7 @@ public class Client {
      * @return the number of milliseconds delayed due to rate limiting
      */
     private int consumeLimiterUnits(RateLimiter rl,
-                                    long units, int timeoutMs) {
+                                    long units) {
 
         if (rl == null || units <= 0) {
             return 0;
@@ -1098,13 +1158,7 @@ public class Client {
          *    better to avoid spikes in throughput and oscillation that
          *    can result from it.
          */
-
-        try {
-            return rl.consumeUnitsWithTimeout(units, timeoutMs, false);
-        } catch (TimeoutException e) {
-            /* Don't throw - operation succeeded. Just return timeoutMs. */
-            return timeoutMs;
-        }
+        return ((SimpleRateLimiter) rl).consumeExternally(units);
     }
 
 
@@ -1141,11 +1195,10 @@ public class Client {
          */
 
         /* allow tests to override this hardcoded setting */
-        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
-                                     .intValue();
+        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30);
 
-        double RUs = (double)limits.getReadUnits();
-        double WUs = (double)limits.getWriteUnits();
+        double RUs = limits.getReadUnits();
+        double WUs = limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();
@@ -1188,26 +1241,26 @@ public class Client {
      *
      * @throws IOException
      */
-    private short writeContent(ByteBuf content, Request kvRequest,
-                               short queryVersion)
+    private void writeContent(ByteBuf content, RequestContext ctx)
         throws IOException {
-
+        final Request kvRequest = ctx.kvRequest;
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
-        final short versionUsed = serialVersion;
+        ctx.serialVersionUsed = serialVersion;
+        ctx.queryVersionUsed = queryVersion;
+
         SerializerFactory factory = chooseFactory(kvRequest);
-        factory.writeSerialVersion(versionUsed, bos);
+        factory.writeSerialVersion(ctx.serialVersionUsed, bos);
         if (kvRequest instanceof QueryRequest ||
             kvRequest instanceof PrepareRequest) {
             kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                          versionUsed,
-                                                          queryVersion,
+                                                          ctx.serialVersionUsed,
+                                                          ctx.queryVersionUsed,
                                                           bos);
         } else {
             kvRequest.createSerializer(factory).serialize(kvRequest,
-                                                          versionUsed,
+                                                          ctx.serialVersionUsed,
                                                           bos);
         }
-        return versionUsed;
     }
 
     /**
@@ -1221,9 +1274,7 @@ public class Client {
     final Result processResponse(HttpResponseStatus status,
                                  HttpHeaders headers,
                                  ByteBuf content,
-                                 Request kvRequest,
-                                 short serialVersionUsed,
-                                 short queryVersionUsed) {
+                                 RequestContext ctx) {
 
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
@@ -1237,8 +1288,8 @@ public class Client {
 
         Result res = null;
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
-            res = processOKResponse(bis, kvRequest, serialVersionUsed,
-                                    queryVersionUsed);
+            res = processOKResponse(bis, ctx.kvRequest, ctx.serialVersionUsed,
+                                    ctx.queryVersionUsed);
         }
         String sv = headers.get(SERVER_SERIAL_VERSION);
         if (sv != null) {
@@ -1367,8 +1418,10 @@ public class Client {
         }
     }
 
-    private synchronized void setSessionCookieValue(String pVal) {
-        sessionCookie = pVal;
+    private void setSessionCookieValue(String pVal) {
+        ConcurrentUtil.synchronizedCall(this.lock, () -> {
+            sessionCookie = pVal;
+        });
     }
 
     /**
@@ -1418,20 +1471,22 @@ public class Client {
      * Query table limits and create rate limiters for a table in a
      * short-lived background thread.
      */
-    private synchronized void backgroundUpdateLimiters(String tableName,
-                                                       String compartmentId) {
-        if (tableNeedsRefresh(tableName) == false) {
-            return;
-        }
-        setTableNeedsRefresh(tableName, false);
+    private void backgroundUpdateLimiters(String tableName,
+                                          String compartmentId) {
+        ConcurrentUtil.synchronizedCall(this.lock, () -> {
+            if (!tableNeedsRefresh(tableName)) {
+                return;
+            }
+            setTableNeedsRefresh(tableName, false);
 
-        try {
-            threadPool.execute(() -> {
-                updateTableLimiters(tableName, compartmentId);
-            });
-        } catch (RejectedExecutionException e) {
-            setTableNeedsRefresh(tableName, true);
-        }
+            try {
+                threadPool.execute(() -> {
+                    updateTableLimiters(tableName, compartmentId);
+                });
+            } catch (RejectedExecutionException e) {
+                setTableNeedsRefresh(tableName, true);
+            }
+        });
     }
 
     /*
@@ -1447,7 +1502,7 @@ public class Client {
         try {
             logFine(logger, "Starting GetTableRequest for table '" +
                 tableName + "'");
-            res = (TableResult) this.execute(gtr);
+            res = (TableResult) this.execute(gtr).get();
         } catch (Exception e) {
             logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned exception: " + e.getMessage());
@@ -1475,7 +1530,7 @@ public class Client {
     }
 
 
-    private void handleRetry(RetryableException re,
+    private int handleRetry(RetryableException re,
                             Request kvRequest) {
         int numRetries = kvRequest.getNumRetries();
         String msg = "Retry for request " +
@@ -1487,7 +1542,7 @@ public class Client {
             logFine(logger, "Too many retries");
             throw re;
         }
-        handler.delay(kvRequest, numRetries, re);
+        return handler.delayTime(kvRequest, numRetries, re);
     }
 
     private void logRetries(int numRetries, Throwable exception) {
@@ -1605,19 +1660,22 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    private synchronized boolean decrementSerialVersion(short versionUsed) {
-        if (serialVersion != versionUsed) {
-            return true;
-        }
-        if (serialVersion == V4) {
-            serialVersion = V3;
-            return true;
-        }
-        if (serialVersion == V3) {
-            serialVersion = V2;
-            return true;
-        }
-        return false;
+    private boolean decrementSerialVersion(short versionUsed) {
+        return ConcurrentUtil.synchronizedCall(this.lock,
+        () -> {
+            if (serialVersion != versionUsed) {
+                return true;
+            }
+            if (serialVersion == V4) {
+                serialVersion = V3;
+                return true;
+            }
+            if (serialVersion == V3) {
+                serialVersion = V2;
+                return true;
+            }
+            return false;
+        });
     }
 
     /**
@@ -1627,18 +1685,20 @@ public class Client {
      * @return true: version was decremented
      *         false: already at lowest version number.
      */
-    private synchronized boolean decrementQueryVersion(short versionUsed) {
+    private boolean decrementQueryVersion(short versionUsed) {
+        return ConcurrentUtil.synchronizedCall(this.lock,
+        () -> {
+            if (queryVersion != versionUsed) {
+                return true;
+            }
 
-        if (queryVersion != versionUsed) {
+            if (queryVersion == QueryDriver.QUERY_V3) {
+                return false;
+            }
+
+            --queryVersion;
             return true;
-        }
-
-        if (queryVersion == QueryDriver.QUERY_V3) {
-            return false;
-        }
-
-        --queryVersion;
-        return true;
+        });
     }
 
     /**
@@ -1772,38 +1832,44 @@ public class Client {
      * Add get, put, delete to cover all auth types
      * This is synchronized to avoid 2 requests adding the same table
      */
-    private synchronized void addRequestToRefreshList(Request request) {
-        logFine(logger, "Adding table to request list: " +
-                request.getCompartment() + ":" + request.getTableName());
-        PutRequest pr =
-            new PutRequest().setTableName(request.getTableName());
-        pr.setCompartmentInternal(request.getCompartment());
-        pr.setValue(badValue);
-        pr.setIsRefresh(true);
-        authRefreshRequests.add(pr);
-        GetRequest gr =
-            new GetRequest().setTableName(request.getTableName());
-        gr.setCompartmentInternal(request.getCompartment());
-        gr.setKey(badValue);
-        gr.setIsRefresh(true);
-        authRefreshRequests.add(gr);
-        DeleteRequest dr =
-            new DeleteRequest().setTableName(request.getTableName());
-        dr.setCompartmentInternal(request.getCompartment());
-        dr.setKey(badValue);
-        dr.setIsRefresh(true);
-        authRefreshRequests.add(dr);
+    private void addRequestToRefreshList(Request request) {
+        ConcurrentUtil.synchronizedCall(this.lock,
+        () -> {
+            logFine(logger, "Adding table to request list: " +
+                    request.getCompartment() + ":" + request.getTableName());
+            PutRequest pr =
+                    new PutRequest().setTableName(request.getTableName());
+            pr.setCompartmentInternal(request.getCompartment());
+            pr.setValue(badValue);
+            pr.setIsRefresh(true);
+            authRefreshRequests.add(pr);
+            GetRequest gr =
+                    new GetRequest().setTableName(request.getTableName());
+            gr.setCompartmentInternal(request.getCompartment());
+            gr.setKey(badValue);
+            gr.setIsRefresh(true);
+            authRefreshRequests.add(gr);
+            DeleteRequest dr =
+                    new DeleteRequest().setTableName(request.getTableName());
+            dr.setCompartmentInternal(request.getCompartment());
+            dr.setKey(badValue);
+            dr.setIsRefresh(true);
+            authRefreshRequests.add(dr);
+        });
     }
 
     /**
      * @hidden
      * for internal use
      */
-    public synchronized void oneTimeMessage(String msg) {
-        if (oneTimeMessages.add(msg) == false) {
-            return;
-        }
-        logWarning(logger, msg);
+    public void oneTimeMessage(String msg) {
+        ConcurrentUtil.synchronizedCall(this.lock,
+        () -> {
+            if (oneTimeMessages.add(msg) == false) {
+                return;
+            }
+            logWarning(logger, msg);
+        });
     }
 
     private SerializerFactory chooseFactory(Request rq) {
@@ -1907,20 +1973,24 @@ public class Client {
         return topology;
     }
 
-    private synchronized int getTopoSeqNum() {
-        return (topology == null ? -1 : topology.getSeqNum());
+    private int getTopoSeqNum() {
+        return ConcurrentUtil.synchronizedCall(this.lock,
+            () -> (topology == null ? -1 : topology.getSeqNum()));
     }
 
-    private synchronized void setTopology(TopologyInfo topo) {
+    private void setTopology(TopologyInfo topo) {
 
-        if (topo == null) {
-            return;
-        }
+        ConcurrentUtil.synchronizedCall(this.lock,
+        () -> {
+            if (topo == null) {
+                return;
+            }
 
-        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
-            topology = topo;
-            trace("New topology: " + topo, 1);
-        }
+            if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+                topology = topo;
+                trace("New topology: " + topo, 1);
+            }
+        });
     }
 
     /*

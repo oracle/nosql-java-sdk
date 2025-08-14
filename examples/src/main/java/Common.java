@@ -8,6 +8,7 @@
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
@@ -356,6 +357,11 @@ class Common {
         @Override
         public String getAuthorizationString(Request request) {
             return id;
+        }
+
+        @Override
+        public CompletableFuture<String> getAuthorizationStringAsync(Request request) {
+            return CompletableFuture.completedFuture(id);
         }
 
         @Override

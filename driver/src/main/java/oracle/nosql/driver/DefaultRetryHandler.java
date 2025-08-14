@@ -85,6 +85,11 @@ public class DefaultRetryHandler implements RetryHandler {
         request.addRetryDelayMs(delayMs);
     }
 
+    @Override
+    public int delayTime(Request request, int numRetries, RetryableException re) {
+        return Math.max(0, computeBackoffDelay(request, fixedDelayMs));
+    }
+
     /**
      * Compute an incremental backoff delay in milliseconds.
      * This method also checks the request's timeout and ensures the

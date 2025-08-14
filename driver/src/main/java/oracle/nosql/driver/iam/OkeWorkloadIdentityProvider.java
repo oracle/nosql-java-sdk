@@ -26,6 +26,7 @@ import java.security.KeyPair;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
@@ -233,9 +234,16 @@ class OkeWorkloadIdentityProvider
     private String getSecurityTokenFromProxymux(String requestId,
                                                 String saToken,
                                                 byte[] payloadByte) {
-        HttpRequestUtil.HttpResponse response = HttpRequestUtil.doPostRequest(
-            okeTokenClient, tokenURL.toString(), headers(saToken, requestId),
-            payloadByte, timeoutMs, logger);
+        HttpRequestUtil.HttpResponse response = null;
+        try {
+            response = HttpRequestUtil.doPostRequest(
+                okeTokenClient, tokenURL.toString(), headers(saToken, requestId),
+                payloadByte, timeoutMs, logger).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
         final int responseCode = response.getStatusCode();
         String responseOutput = response.getOutput();

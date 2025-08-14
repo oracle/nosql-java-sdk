@@ -18,6 +18,7 @@ import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.httpclient.HttpClient;
@@ -53,10 +54,17 @@ class FederationRequestHelper {
         byte[] payloadByte = new byte[buf.remaining()];
         buf.get(payloadByte);
 
-        HttpResponse response = HttpRequestUtil.doPostRequest(
-            client, endpoint.toString(),
-            headers(tenantId, endpoint, payloadByte, pair, logger),
-            payloadByte, timeoutMs, logger);
+        HttpResponse response = null;
+        try {
+            response = HttpRequestUtil.doPostRequest(
+                client, endpoint.toString(),
+                headers(tenantId, endpoint, payloadByte, pair, logger),
+                payloadByte, timeoutMs, logger).get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
         int responseCode = response.getStatusCode();
         if (responseCode > 299) {
