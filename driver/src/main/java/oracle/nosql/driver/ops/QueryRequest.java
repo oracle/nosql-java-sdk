@@ -925,23 +925,29 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
      * Sets the row metadata to use for the operation. This setting is optional
      * and only applies if the query modifies or deletes any rows using an
      * INSERT, UPDATE, UPSERT or DELETE statement. If the query is read-only
-     * this setting is ignored.<p>
+     * this setting is ignored. This is an optional parameter.<p>
      *
      * Row metadata is associated to a certain version of a row. Any subsequent
      * write operation will use its own row metadata value. If not specified
-     * null will be used by default.<p>
+     * null will be used by default.
+     * NOTE that if you have previously written a record with metadata and a
+     * subsequent write does not supply metadata, the metadata associated with
+     * the rew will be null. Therefore, if you wish to have metadata
+     * associated with every write operation, you must supply a valid JSON
+     * construct to this method.<p>
      *
-     * The @parameter rowMetadata must be null or a valid JSON construct:
-     * object, array, string, number, true, false or null, otherwise an
-     * IllegalArgumentException is thrown.
-     *
-     * @param rowMetadata the row metadata
+     * @param rowMetadata the row metadata, must be null or a valid JSON
+     *    construct: object, array, string, number, true, false or null,
+     *    otherwise an IllegalArgumentException is thrown.
      * @throws IllegalArgumentException if rowMetadata not null and invalid
-     * JSON construct
-     *
+     *    JSON construct
      * @return this
      * @since 5.4.18
      */
@@ -957,6 +963,10 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
      * Returns the row metadata set for this request, or null if not set.
      *
      * @return the row metadata

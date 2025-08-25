@@ -131,6 +131,10 @@ public class GetResult extends Result {
     }
 
     /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
      * Returns the metadata of the returned row, or null if the row does not
      * exist or metadata was not set.
      *
@@ -143,7 +147,11 @@ public class GetResult extends Result {
     }
 
     /**
-     * Internal use only.
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
+     * Internal use only.<p>
      *
      * Sets the rowMetadata of this object.
      *
