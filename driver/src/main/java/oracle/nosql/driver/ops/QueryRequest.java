@@ -939,7 +939,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * null will be used by default.
      * NOTE that if you have previously written a record with metadata and a
      * subsequent write does not supply metadata, the metadata associated with
-     * the rew will be null. Therefore, if you wish to have metadata
+     * the row will be null. Therefore, if you wish to have metadata
      * associated with every write operation, you must supply a valid JSON
      * construct to this method.<p>
      *
