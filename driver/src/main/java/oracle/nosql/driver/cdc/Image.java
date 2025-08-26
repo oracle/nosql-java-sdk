@@ -17,7 +17,15 @@ public class Image {
     private MapValue recordValue;
     private MapValue recordMetadata;
 
-    Image(MapValue value, MapValue metadata) {
+    /*
+     * @hidden
+     */
+    public Image() {}
+
+    /*
+     * @hidden
+     */
+    public Image(MapValue value, MapValue metadata) {
         recordValue = value;
         recordMetadata = metadata;
     }
@@ -28,5 +36,26 @@ public class Image {
 
     public MapValue getMetadata() {
         return recordMetadata;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setValue(MapValue value) {
+        this.recordValue = value;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setMetadata(MapValue metadata) {
+        this.recordMetadata = metadata;
+    }
+
+    /*
+     * @hidden
+     */
+    public boolean isEmpty() {
+        return (recordValue == null && recordMetadata == null);
     }
 }

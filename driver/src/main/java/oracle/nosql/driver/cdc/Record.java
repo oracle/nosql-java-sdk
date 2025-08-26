@@ -45,7 +45,15 @@ public class Record {
     private int partitionId;
     private int regionId;
 
-	Record(String eventId,
+    /*
+     * @hidden
+     */
+    public Record() {}
+
+    /*
+     * @hidden
+     */
+	public Record(String eventId,
                  MapValue recordKey,
                  Image currentImage,
                  Image beforeImage,
@@ -63,35 +71,91 @@ public class Record {
         this.regionId = regionId;
 	}
 
-    String getEventId() {
+    public String getEventId() {
 		return eventId;
 	}
 
-    MapValue getRecordKey() {
+    public MapValue getRecordKey() {
 		return recordKey;
 	}
 
-    Image getCurrentImage() {
+    public Image getCurrentImage() {
 		return currentImage;
 	}
 
-    Image getBeforeImage() {
+    public Image getBeforeImage() {
 		return beforeImage;
 	}
 
-    long getModificationTime() {
+    public long getModificationTime() {
 		return modificationTime;
 	}
 
-    long getExpirationTIme() {
+    public long getExpirationTime() {
 		return expirationTime;
 	}
 
-    int getPartitionId() {
+    public int getPartitionId() {
 		return partitionId;
 	}
 
-    int getRegionId() {
+    public int getRegionId() {
 		return regionId;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setEventId(String eventId) {
+		this.eventId = eventId;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setRecordKey(MapValue recordKey) {
+		this.recordKey = recordKey;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setCurrentImage(Image image) {
+		this.currentImage = image;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setBeforeImage(Image image) {
+		this.beforeImage = image;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setModificationTime(long time) {
+		this.modificationTime = time;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setExpirationTime(long time) {
+		this.expirationTime = time;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setPartitionId(int pid) {
+		this.partitionId = pid;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setRegionId(int rid) {
+		this.regionId = rid;
 	}
 }

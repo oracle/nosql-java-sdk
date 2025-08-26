@@ -52,8 +52,13 @@ import oracle.nosql.driver.Version;
 import oracle.nosql.driver.cdc.ConsumerBuilder;
 import oracle.nosql.driver.cdc.ConsumerRequest;
 import oracle.nosql.driver.cdc.ConsumerResult;
+import oracle.nosql.driver.cdc.Event;
+import oracle.nosql.driver.cdc.Image;
+import oracle.nosql.driver.cdc.Message;
+import oracle.nosql.driver.cdc.MessageBundle;
 import oracle.nosql.driver.cdc.PollRequest;
 import oracle.nosql.driver.cdc.PollResult;
+import oracle.nosql.driver.cdc.Record;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
@@ -968,12 +973,176 @@ public class NsonSerializerFactory implements SerializerFactory {
                     handleErrorCode(walker);
                 } else if (name.equals(CURSOR)) {
                     result.cursor = Nson.readNsonBinary(in);
-                    /* TODO: message bundle */
+                } else if (name.equals(EVENTS_REMAINING)) {
+                    result.eventsRemaining = Nson.readNsonLong(in);
+                } else if (name.equals(EVENT_BUNDLE)) {
+                    result.bundle = readNsonMessageBundle(in);
                 } else {
                     skipUnknownField(walker, name);
                 }
             }
             return result;
+        }
+
+        private MessageBundle readNsonMessageBundle(ByteInputStream in)
+            throws IOException {
+
+// EVENT_BUNDLE: [
+//         {
+//           TABLE_OCID: foo,
+//           TABLE_NAME: foo,
+//           COMPARTMENT_OCID: foo,
+//           EVENT_EVENTS: [
+//              binary: event containing one or more records
+//              binary
+//              binary
+//           ]
+//         },
+//         ...
+//      ]
+
+            int t = in.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalStateException(
+                    "bad type in message bundle: " +
+                    Nson.typeString(t) + ", should be ARRAY");
+            }
+	        // length in bytes: ignored
+            in.readInt();
+            int numElements = in.readInt();
+            List<Message> messages = new ArrayList<Message>(numElements);
+
+            for (int i=0; i<numElements; i++) {
+                MapWalker walker = getMapWalker(in);
+                Message cm = new Message();
+                while (walker.hasNext()) {
+                    walker.next();
+                    String name = walker.getCurrentName();
+                    if (name.equals(TABLE_OCID)) {
+                        cm.setTableOcid(Nson.readNsonString(in));
+                    } else if (name.equals(TABLE_NAME)) {
+                        cm.setTableName(Nson.readNsonString(in));
+                    } else if (name.equals(COMPARTMENT_OCID)) {
+                        cm.setCompartmentOcid(Nson.readNsonString(in));
+                    } else if (name.equals(EVENT_EVENTS)) {
+                        cm.setEvents(readNsonEvents(in));
+                    } else {
+                        skipUnknownField(walker, name);
+                    }
+                }
+                if (cm.getEvents() == null) {
+                    throw new IllegalStateException(
+                        "Missing EVENTS in message bundle");
+                }
+                messages.add(cm);
+            }
+            return new MessageBundle(messages);
+        }
+
+        private List<Event> readNsonEvents(ByteInputStream in)
+            throws IOException {
+            int t = in.readByte();
+            if (t != Nson.TYPE_ARRAY) {
+                throw new IllegalStateException(
+                    "bad type in message events: " +
+                    Nson.typeString(t) + ", should be ARRAY");
+            }
+	        // length in bytes: ignored
+            in.readInt();
+            int numElements = in.readInt();
+            List<Event> events = new ArrayList<Event>(numElements);
+
+            for (int i=0; i<numElements; i++) {
+                events.add(readNsonEvent(in)); // Nson binary
+            }
+            return events;
+        }
+
+        private Event readNsonEvent(ByteInputStream in)
+            throws IOException {
+
+            // TODO: way to read map without copying buffer
+            byte[] arr = Nson.readNsonBinary(in);
+            ByteBuf buf = Unpooled.wrappedBuffer(arr);
+            ByteInputStream bis = new NettyByteInputStream(buf);
+            MapWalker walker = getMapWalker(bis);
+            Event event = null;
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(EVENT_VERSION)) {
+                    // currently ignored
+                    Nson.readNsonInt(bis);
+                } else if (name.equals(EVENT_TYPE)) {
+                    // currently ignored: single or group implied by array size below
+                    Nson.readNsonInt(bis);
+                } else if (name.equals(EVENT_EVENTS)) {
+			        // expect an array of records
+                    int t = in.readByte();
+                    if (t != Nson.TYPE_ARRAY) {
+                        throw new IllegalStateException(
+                            "bad type in events: " +
+                            Nson.typeString(t) + ", should be ARRAY");
+                    }
+	                // length in bytes: ignored
+                    in.readInt();
+                    int numElements = in.readInt();
+                    List<Record> records = new ArrayList<Record>(numElements);
+                    for (int i=0; i<numElements; i++) {
+                        records.add(readNsonRecord(bis));
+                    }
+                    event = new Event(records);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            if (event == null) {
+                throw new IllegalStateException("Missing events in message");
+            }
+            return event;
+        }
+
+
+        private Record readNsonRecord(ByteInputStream in)
+            throws IOException {
+            MapWalker walker = getMapWalker(in);
+            Record rec = new Record();
+            Image currentImage = new Image();
+            Image beforeImage = new Image();
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(EVENT_MODIFICATION_TIME)) {
+                    rec.setModificationTime(Nson.readNsonLong(in));
+                } else if (name.equals(EVENT_EXPIRATION_TIME)) {
+                    rec.setExpirationTime(Nson.readNsonLong(in));
+                } else if (name.equals(EVENT_ID)) {
+                    rec.setEventId(Nson.readNsonString(in));
+                } else if (name.equals(EVENT_PARTITION_ID)) {
+                    rec.setPartitionId(Nson.readNsonInt(in));
+                } else if (name.equals(EVENT_REGION_ID)) {
+                    rec.setRegionId(Nson.readNsonInt(in));
+                } else if (name.equals(EVENT_RECORD_KEY)) {
+                    rec.setRecordKey(Nson.readNsonMap(in));
+                } else if (name.equals(EVENT_RECORD_VALUE)) {
+                    currentImage.setValue(Nson.readNsonMap(in));
+                } else if (name.equals(EVENT_RECORD_METADATA)) {
+                    currentImage.setMetadata(Nson.readNsonMap(in));
+                } else if (name.equals(EVENT_PREV_VALUE)) {
+                    beforeImage.setValue(Nson.readNsonMap(in));
+                } else if (name.equals(EVENT_PREV_METADATA)) {
+                    beforeImage.setMetadata(Nson.readNsonMap(in));
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            if (!currentImage.isEmpty()) {
+                rec.setCurrentImage(currentImage);
+            }
+            if (!beforeImage.isEmpty()) {
+                rec.setBeforeImage(beforeImage);
+            }
+            return rec;
         }
     }
 

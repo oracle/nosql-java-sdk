@@ -13,14 +13,20 @@ import java.util.List;
 public class Event {
     private List<Record> records;
 
-	Event(List<Record> records) {
-		this.records = records;
-	}
+    /*
+     * @hidden
+     */
+    public Event(List<Record> records) {
+        this.records = records;
+    }
 
-	Event(Record record) {
-		this.records = new ArrayList<Record>(1);
-		this.records.add(record);
-	}
+    /*
+     * @hidden
+     */
+    public Event(Record record) {
+        this.records = new ArrayList<Record>(1);
+        this.records.add(record);
+    }
 
     /*
      * Get the set of records in the change event. This will typically
@@ -28,6 +34,6 @@ public class Event {
      * mode enabled, in which case there may be many records.
      */
     public List<Record> getRecords() {
-		return records;
-	}
+        return records;
+    }
 }

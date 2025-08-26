@@ -9,8 +9,6 @@ package oracle.nosql.driver.cdc;
 
 import java.util.List;
 
-import oracle.nosql.driver.values.MapValue;
-
 /**
  * A message from the change stream.
  * This message may contain multiple events. All events in the
@@ -18,19 +16,27 @@ import oracle.nosql.driver.values.MapValue;
  */
 public class Message {
     private String tableName;
-    private String compartmentOCID;
-    private String tableOCID;
+    private String compartmentOcid;
+    private String tableOcid;
     private String version;
     private List<Event> events;
 
-    Message(String tableName,
-                  String compartmentOCID,
-                  String tableOCID,
+    /*
+     * @hidden
+     */
+    public Message() {}
+
+    /*
+     * @hidden
+     */
+    public Message(String tableName,
+                  String compartmentOcid,
+                  String tableOcid,
                   String version,
                   List<Event> events) {
         this.tableName = tableName;
-        this.compartmentOCID = compartmentOCID;
-        this.tableOCID = tableOCID;
+        this.compartmentOcid = compartmentOcid;
+        this.tableOcid = tableOcid;
         this.version = version;
         this.events = events;
     }
@@ -41,17 +47,17 @@ public class Message {
     }
 
     /*
-     * Get the compartment OCID for this set of events. If this is empty,
+     * Get the compartment Ocid for this set of events. If this is empty,
      * the compartment is assumed to be the default compartment
      * for the tenancy.
      */
-    public String getCompartmentOCID() {
-        return compartmentOCID;
+    public String getCompartmentOcid() {
+        return compartmentOcid;
     }
 
-    /* Get the table OCID for this set of events. */
-    public String getTableOCID() {
-        return tableOCID;
+    /* Get the table Ocid for this set of events. */
+    public String getTableOcid() {
+        return tableOcid;
     }
 
     /* get the version of the event format. */
@@ -62,5 +68,40 @@ public class Message {
     /* get the list of events. */
     public List<Event> getEvents() {
         return events;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setCompartmentOcid(String ocid) {
+       this.compartmentOcid = ocid;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setTableOcid(String ocid) {
+        this.tableOcid = ocid;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setVersion(String version) {
+        this.version = version;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setEvents(List<Event> events) {
+        this.events = events;
     }
 }

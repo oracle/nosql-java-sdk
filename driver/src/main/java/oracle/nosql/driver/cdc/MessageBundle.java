@@ -24,13 +24,10 @@ public class MessageBundle {
     private long eventsRemaining;
     private List<Message> messages;
 
-	MessageBundle(Consumer consumer,
-                        byte[] cursor,
-                        long eventsRemaining,
-                        List<Message> messages) {
-	    this.consumer = consumer;
-        this.cursor = cursor;
-        this.eventsRemaining = eventsRemaining;
+    /*
+     * @hidden
+     */
+	public MessageBundle(List<Message> messages) {
         this.messages = messages;
 	}
 
@@ -60,6 +57,13 @@ public class MessageBundle {
      */
     public void setCursor(byte[] cursor) {
 		this.cursor = cursor;
+	}
+
+    /*
+     * @hidden
+     */
+    public void setEventsRemaining(long remaining) {
+		this.eventsRemaining = remaining;
 	}
 
     /*

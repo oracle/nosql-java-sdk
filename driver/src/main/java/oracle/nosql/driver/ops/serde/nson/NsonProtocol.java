@@ -39,6 +39,21 @@ public class NsonProtocol {
     public static String DURABILITY = "du";
     public static String END = "en";
     public static String ETAG = "et";
+    public static String EVENT_BUNDLE = "eb";
+    public static String EVENT_EVENTS = "es";
+    public static String EVENT_EXPIRATION_TIME = "xp";
+    public static String EVENT_ID = "ei";
+    public static String EVENT_MODIFICATION_TIME = "md";
+    public static String EVENT_PARTITION_ID = "pi";
+    public static String EVENT_PREV_METADATA = "pm";
+    public static String EVENT_PREV_VALUE = "pv";
+    public static String EVENT_RECORD_KEY = "rk";
+    public static String EVENT_RECORD_METADATA = "rm";
+    public static String EVENT_RECORD_VALUE = "rv";
+    public static String EVENT_REGION_ID = "ri";
+    public static String EVENT_TYPE = "ty";
+    public static String EVENT_VERSION = "vs";
+    public static String EVENTS_REMAINING = "er";
     public static String EXACT_MATCH = "ec";
     public static String FIELDS = "f";
     public static String FREE_FORM_TAGS = "ff";
@@ -227,6 +242,21 @@ public class NsonProtocol {
         {DURABILITY,"DURABILITY"},
         {END,"END"},
         {ETAG,"ETAG"},
+        {EVENT_BUNDLE,"EVENT_BUNDLE"},
+        {EVENT_EVENTS,"EVENT_EVENTS"},
+        {EVENT_EXPIRATION_TIME,"EVENT_EXPIRATION_TIME"},
+        {EVENT_ID,"EVENT_ID"},
+        {EVENT_MODIFICATION_TIME,"EVENT_MODIFICATION_TIME"},
+        {EVENT_PARTITION_ID,"EVENT_PARTITION_ID"},
+        {EVENT_PREV_METADATA,"EVENT_PREV_METADATA"},
+        {EVENT_PREV_VALUE,"EVENT_PREV_VALUE"},
+        {EVENT_RECORD_KEY,"EVENT_RECORD_KEY"},
+        {EVENT_RECORD_METADATA,"EVENT_RECORD_METADATA"},
+        {EVENT_RECORD_VALUE,"EVENT_RECORD_VALUE"},
+        {EVENT_REGION_ID,"EVENT_REGION_ID"},
+        {EVENT_TYPE,"EVENT_TYPE"},
+        {EVENT_VERSION,"EVENT_VERSION"},
+        {EVENTS_REMAINING,"EVENTS_REMAINING"},
         {EXACT_MATCH,"EXACT_MATCH"},
         {FIELDS,"FIELDS"},
         {FREE_FORM_TAGS,"FREE_FORM_TAGS"},

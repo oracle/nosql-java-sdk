@@ -12,7 +12,6 @@ import java.time.Duration;
 import oracle.nosql.driver.cdc.ConsumerRequest.RequestMode;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.NoSQLException;
-import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.OperationNotSupportedException;
 
 /**
