@@ -51,6 +51,10 @@ public interface SerializerFactory {
 
     Serializer createGetReplicaStatsSerializer();
 
+    Serializer createConsumerSerializer();
+
+    Serializer createPollSerializer();
+
     /* deserializers */
     Serializer createDeleteDeserializer();
 
@@ -85,6 +89,10 @@ public interface SerializerFactory {
     Serializer createDropReplicaDeserializer();
 
     Serializer createGetReplicaStatsDeserializer();
+
+    Serializer createConsumerDeserializer();
+
+    Serializer createPollDeserializer();
 
     /*
      * These methods encapsulate differences in serializer streams

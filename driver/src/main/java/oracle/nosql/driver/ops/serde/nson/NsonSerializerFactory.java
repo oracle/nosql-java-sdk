@@ -49,6 +49,11 @@ import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
+import oracle.nosql.driver.cdc.ConsumerBuilder;
+import oracle.nosql.driver.cdc.ConsumerRequest;
+import oracle.nosql.driver.cdc.ConsumerResult;
+import oracle.nosql.driver.cdc.PollRequest;
+import oracle.nosql.driver.cdc.PollResult;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
@@ -127,6 +132,10 @@ public class NsonSerializerFactory implements SerializerFactory {
         new TableRequestSerializer();
     static final Serializer getTableSerializer =
         new GetTableRequestSerializer();
+    static final Serializer consumerSerializer =
+        new ConsumerRequestSerializer();
+    static final Serializer pollSerializer =
+        new PollRequestSerializer();
     static final Serializer querySerializer =
         new QueryRequestSerializer();
     static final Serializer prepareSerializer =
@@ -160,6 +169,16 @@ public class NsonSerializerFactory implements SerializerFactory {
     @Override
     public Serializer createGetSerializer() {
         return getSerializer;
+    }
+
+    @Override
+    public Serializer createConsumerSerializer() {
+        return consumerSerializer;
+    }
+
+    @Override
+    public Serializer createPollSerializer() {
+        return pollSerializer;
     }
 
     @Override
@@ -246,6 +265,16 @@ public class NsonSerializerFactory implements SerializerFactory {
     @Override
     public Serializer createGetDeserializer() {
         return getSerializer;
+    }
+
+    @Override
+    public Serializer createConsumerDeserializer() {
+        return consumerSerializer;
+    }
+
+    @Override
+    public Serializer createPollDeserializer() {
+        return pollSerializer;
     }
 
     @Override
@@ -804,6 +833,147 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             /* writeValue uses the output stream directly */
             writeValue(ns, rq.getValue());
+        }
+    }
+
+
+    /*
+     * @hidden
+     */
+    public static class ConsumerRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            ConsumerRequest rq = (ConsumerRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.CDC_CONSUMER.ordinal(), rq);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, MODE, rq.mode.ordinal());
+            if (rq.cursor != null) {
+                writeMapField(ns, CURSOR, rq.cursor);
+            }
+            if (rq.builder != null) {
+                writeMapField(ns, GROUP_ID, rq.builder.groupId);
+                writeMapField(ns, MANUAL_COMMIT, rq.builder.manualCommit);
+                if (rq.builder.compartmentOcid != null) {
+                    writeMapField(ns, COMPARTMENT_OCID, rq.builder.compartmentOcid);
+                }
+                if (rq.builder.maxPollInterval != null) {
+                    writeLongMapField(ns, MAX_POLL_INTERVAL, rq.builder.maxPollInterval.toMillis());
+                }
+                if (rq.builder.forceReset) {
+                    writeMapField(ns, FORCE_RESET, true);
+                }
+                if (rq.builder.tables != null) {
+                    startArray(ns, CONSUMER_TABLES);
+                    for (ConsumerBuilder.TableConfig tcfg : rq.builder.tables) {
+                        ns.startMap(0);
+                        if (tcfg.tableOcid == null || tcfg.tableOcid.isEmpty()) {
+                            throw new IllegalArgumentException("Consumer builder missing table OCID");
+                        }
+                        writeMapField(ns, TABLE_OCID, tcfg.tableOcid);
+                        writeMapField(ns, START_LOCATION, tcfg.startLocation.location.ordinal());
+                        if (tcfg.startLocation.startTime > 0) {
+                            writeLongMapField(ns, START_TIME, tcfg.startLocation.startTime);
+                        }
+                        ns.endMap(0);
+                        ns.endArrayField(0);
+                    }
+                }
+            }
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            ConsumerResult result = new ConsumerResult();
+
+            MapWalker walker = getMapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(CURSOR)) {
+                    result.cursor = Nson.readNsonBinary(in);
+                } else if (name.equals(CONSUMER_METADATA)) {
+                    result.metadata = Nson.readNsonMap(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
+        }
+    }
+
+    /*
+     * @hidden
+     */
+    public static class PollRequestSerializer extends NsonSerializerBase {
+        @Override
+        public void serialize(Request request,
+                              short serialVersion,
+                              ByteOutputStream out)
+            throws IOException {
+
+            PollRequest rq = (PollRequest) request;
+
+            /* use NsonSerializer and direct writing to serialize */
+
+            NsonSerializer ns = new Nson.NsonSerializer(out);
+            ns.startMap(0); // top-level object
+
+            // header
+            startMap(ns, HEADER);
+            writeHeader(ns, OpCode.CDC_POLL.ordinal(), rq);
+            endMap(ns, HEADER);
+
+            // payload
+            startMap(ns, PAYLOAD);
+            writeMapField(ns, MAX_EVENTS, rq.limit);
+            writeMapField(ns, CURSOR, rq.cursor);
+            endMap(ns, PAYLOAD);
+
+            ns.endMap(0); // top level object
+        }
+
+        @Override
+        public Result deserialize(Request request,
+                                  ByteInputStream in,
+                                  short serialVersion) throws IOException {
+            PollResult result = new PollResult();
+
+            MapWalker walker = getMapWalker(in);
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(ERROR_CODE)) {
+                    handleErrorCode(walker);
+                } else if (name.equals(CURSOR)) {
+                    result.cursor = Nson.readNsonBinary(in);
+                    /* TODO: message bundle */
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+            return result;
         }
     }
 

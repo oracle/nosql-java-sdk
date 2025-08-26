@@ -26,9 +26,13 @@ public class NsonProtocol {
     public static String ABORT_ON_FAIL = "a";
     public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
+    public static String CDC_ENABLED = "ce";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
+    public static String CONSUMER_METADATA = "cm";
+    public static String CONSUMER_TABLES = "ct";
     public static String CONTINUATION_KEY = "ck";
+    public static String CURSOR = "cu";
     public static String DATA = "d";
     public static String DEFINED_TAGS = "dt";
     public static String DRL_OPTIN = "dro";
@@ -38,8 +42,10 @@ public class NsonProtocol {
     public static String EXACT_MATCH = "ec";
     public static String FIELDS = "f";
     public static String FREE_FORM_TAGS = "ff";
+    public static String FORCE_RESET = "fr";
     public static String GET_QUERY_PLAN = "gq";
     public static String GET_QUERY_SCHEMA = "gs";
+    public static String GROUP_ID = "gr";
     public static String HEADER = "h";
     public static String IDEMPOTENT = "ip";
     public static String IDENTITY_CACHE_SIZE = "ic";
@@ -54,11 +60,15 @@ public class NsonProtocol {
     public static String LAST_INDEX = "li";
     public static String LIST_MAX_TO_READ = "lx";
     public static String LIST_START_INDEX = "ls";
+    public static String MANUAL_COMMIT = "ma";
     public static String MATCH_VERSION = "mv";
+    public static String MAX_EVENTS = "me";
+    public static String MAX_POLL_INTERVAL = "mi";
     public static String MAX_QUERY_PARALLELISM = "mp";
     public static String MAX_READ_KB = "mr";
     public static String MAX_SHARD_USAGE_PERCENT = "ms";
     public static String MAX_WRITE_KB = "mw";
+    public static String MODE = "mm";
     public static String NAME = "m";
     public static String NAMESPACE = "ns";
     public static String NUMBER_LIMIT = "nl";
@@ -89,6 +99,8 @@ public class NsonProtocol {
     public static String SERVER_MEMORY_CONSUMPTION = "sm";
     public static String SHARD_ID = "si";
     public static String START = "sr";
+    public static String START_LOCATION = "so";
+    public static String START_TIME = "se";
     public static String STATEMENT = "st";
     public static String STORAGE_THROTTLE_COUNT = "sl";
     public static String SYSTEM = "sy";
@@ -202,9 +214,13 @@ public class NsonProtocol {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
         {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
+        {CDC_ENABLED,"CDC_ENABLED"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
+        {CONSUMER_METADATA,"CONSUMER_METADATA"},
+        {CONSUMER_TABLES,"CONSUMER_TABLES"},
         {CONTINUATION_KEY,"CONTINUATION_KEY"},
+        {CURSOR,"CURSOR"},
         {DATA,"DATA"},
         {DEFINED_TAGS,"DEFINED_TAGS"},
         {DRL_OPTIN,"DRL_OPTIN"},
@@ -214,8 +230,10 @@ public class NsonProtocol {
         {EXACT_MATCH,"EXACT_MATCH"},
         {FIELDS,"FIELDS"},
         {FREE_FORM_TAGS,"FREE_FORM_TAGS"},
+        {FORCE_RESET,"FORCE_RESET"},
         {GET_QUERY_PLAN,"GET_QUERY_PLAN"},
         {GET_QUERY_SCHEMA,"GET_QUERY_SCHEMA"},
+        {GROUP_ID,"GROUP_ID"},
         {HEADER,"HEADER"},
         {IDEMPOTENT,"IDEMPOTENT"},
         {IDENTITY_CACHE_SIZE,"IDENTITY_CACHE_SIZE"},
@@ -230,11 +248,15 @@ public class NsonProtocol {
         {LAST_INDEX,"LAST_INDEX"},
         {LIST_MAX_TO_READ,"LIST_MAX_TO_READ"},
         {LIST_START_INDEX,"LIST_START_INDEX"},
+        {MANUAL_COMMIT,"MANUAL_COMMIT"},
         {MATCH_VERSION,"MATCH_VERSION"},
+        {MAX_EVENTS,"MAX_EVENTS"},
+        {MAX_POLL_INTERVAL,"MAX_POLL_INTERVAL"},
         {MAX_QUERY_PARALLELISM,"MAX_QUERY_PARALLELISM"},
         {MAX_READ_KB,"MAX_READ_KB"},
         {MAX_SHARD_USAGE_PERCENT,"MAX_SHARD_USAGE_PERCENT"},
         {MAX_WRITE_KB,"MAX_WRITE_KB"},
+        {MODE,"MODE"},
         {NAME,"NAME"},
         {NAMESPACE,"NAMESPACE"},
         {NUMBER_LIMIT,"NUMBER_LIMIT"},
@@ -265,6 +287,8 @@ public class NsonProtocol {
         {SERVER_MEMORY_CONSUMPTION,"SERVER_MEMORY_CONSUMPTION"},
         {SHARD_ID,"SHARD_ID"},
         {START,"START"},
+        {START_LOCATION,"START_LOCATION"},
+        {START_TIME,"START_TIME"},
         {STATEMENT,"STATEMENT"},
         {STORAGE_THROTTLE_COUNT,"STORAGE_THROTTLE_COUNT"},
         {SYSTEM,"SYSTEM"},

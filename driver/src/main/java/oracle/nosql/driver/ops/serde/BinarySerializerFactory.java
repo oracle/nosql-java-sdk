@@ -140,6 +140,18 @@ public class BinarySerializerFactory implements SerializerFactory {
             "GetReplicaStats is not supported with serial version: " + V3);
     }
 
+    @Override
+    public Serializer createConsumerSerializer() {
+        throw new UnsupportedProtocolException(
+            "CDC is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createPollSerializer() {
+        throw new UnsupportedProtocolException(
+            "CDC is not supported with serial version: " + V3);
+    }
+
     /* deserializers */
     @Override
     public Serializer createDeleteDeserializer() {
@@ -227,6 +239,18 @@ public class BinarySerializerFactory implements SerializerFactory {
     public Serializer createGetReplicaStatsDeserializer() {
         throw new UnsupportedProtocolException(
             "GetReplciaStats is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createConsumerDeserializer() {
+        throw new UnsupportedProtocolException(
+            "CDC is not supported with serial version: " + V3);
+    }
+
+    @Override
+    public Serializer createPollDeserializer() {
+        throw new UnsupportedProtocolException(
+            "CDC is not supported with serial version: " + V3);
     }
 
     @Override

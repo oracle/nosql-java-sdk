@@ -70,7 +70,17 @@ public final class BinaryProtocol {
         UNUSED_32(32),
         ADD_REPLICA(33),
         DROP_REPLICA(34),
-        GET_REPLICA_STATS(35);
+        GET_REPLICA_STATS(35),
+        UNUSED_36(36), // INTERNAL_DDL(36)
+        UNUSED_37(37), // INTERNAL_STATUS(37)
+        UNUSED_38(38), // GET_CONFIGURATION(38)
+        UNUSED_39(39), // UPDATE_CONFIGURATION(39)
+        UNUSED_40(40), // GET_CONFIG_KMS_KEY(40)
+        UNUSED_41(41), // UPDATE_CONFIG_KMS_KEY(41)
+        UNUSED_42(42), // REMOVE_CONFIG_KMS_KEY(42)
+        CDC_CONSUMER(43),
+        CDC_POLL(44),
+        ADD_MV_INDEX(45);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {
