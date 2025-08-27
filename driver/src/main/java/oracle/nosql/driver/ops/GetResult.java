@@ -86,6 +86,7 @@ public class GetResult extends Result {
      * or zero if the row does not exist
      *
      * @since 5.4.18
+     * @hidden
      */
     public long getCreationTime() {
         if (creationTime < 0 && client != null) {
