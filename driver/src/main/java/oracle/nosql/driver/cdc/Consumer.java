@@ -29,6 +29,7 @@ public class Consumer {
     Consumer(ConsumerBuilder builder) {
         builder.validate();
         this.handle = (NoSQLHandleImpl)builder.handle;
+        this.config = builder; // TODO: deep copy
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.CREATE).
                                      setBuilder(config);
@@ -155,7 +156,7 @@ public class Consumer {
         long pollIntervalMs = 100;
         long waitMs = waitTime.toMillis();
         long startTime = System.currentTimeMillis();
-        
+
         do {
             MessageBundle bundle = pollOnce(limit);
             if (!bundle.isEmpty()) {
@@ -183,13 +184,21 @@ public class Consumer {
         try {
             PollResult res =
                 (PollResult) handle.getClient().execute(req);
+            MessageBundle mb = res.bundle;
             if (res.cursor == null) {
-                throw new NoSQLException("Poll returned invalid cursor");
+                /* if there were no errors and no bundle/cursor,
+                   return an empty bundle */
+                if (mb == null) {
+                    mb = new MessageBundle(null);
+                } else {
+                    throw new NoSQLException("Poll returned invalid cursor");
+                }
+            } else {
+                this.cursor = res.cursor;
             }
-            cursor = res.cursor;
-            res.bundle.setConsumer(this);
-            res.bundle.setCursor(res.cursor);
-            return res.bundle;
+            mb.setCursor(this.cursor);
+            mb.setConsumer(this);
+            return mb;
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
                 throw new OperationNotSupportedException("CDC not supported by server");

@@ -712,6 +712,26 @@ public interface NoSQLHandle extends AutoCloseable {
     StatsControl getStatsControl();
 
     /**
+     * Enable or disable Change Data Capture on a table.
+     * <p>
+     * Clous srvice only.
+     * <p>
+     *
+     * @param tableName the name of the table to operate on
+     * @param compartmentId optional compartment Id (OCID) for the table
+     * @param enabled Set to true to enable CDC, false to disable CDC
+     *
+     * @throws IllegalArgumentException if any of the parameters are invalid or
+     * required parameters are missing
+     *
+     * @throws NoSQLException if the operation cannot be performed for
+     * any other reason
+     *
+     * @since 5.4.20
+     */
+    void enableCDC(String tableName, String compartmentId, boolean enabled);
+
+    /**
      * Closes the handle, releasing its memory and network resources. Once
      * this method is closed the handle is no longer usable. Any attempt to
      * use a closed handle will throw {@link IllegalArgumentException}.

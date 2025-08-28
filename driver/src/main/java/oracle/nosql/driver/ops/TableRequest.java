@@ -48,11 +48,12 @@ public class TableRequest extends Request {
     private FreeFormTags freeFormTags;
     private DefinedTags definedTags;
     private String matchETag;
+    private Boolean cdcEnabled;
 
     /**
-     * Cloud service only.
-     * <p>
      * Sets the name or id of a compartment to be used for this operation.
+     * <p>
+     * Cloud service only.
      * <p>
      * The compartment may be specified as either a name (or path for nested
      * compartments) or as an id (OCID). A name (vs id) can only
@@ -93,9 +94,9 @@ public class TableRequest extends Request {
     }
 
     /**
-     * Cloud service only.
+     * Returns the {@link DefinedTags}, or null if not set.
      *
-     * Returns the {@link DefinedTags}, or null if not set
+     * Cloud service only.
      *
      * @return the tags
      * @since 5.4
@@ -105,9 +106,9 @@ public class TableRequest extends Request {
     }
 
     /**
-     * Cloud service only.
+     * Returns the {@link FreeFormTags}, or null if not set.
      *
-     * Returns the {@link FreeFormTags}, or null if not set
+     * Cloud service only.
      *
      * @return the tags
      * @since 5.4
@@ -117,9 +118,9 @@ public class TableRequest extends Request {
     }
 
     /**
-     * Cloud service only.
+     * Returns the matchEtag, or null if not set.
      *
-     * Returns the matchEtag, or null if not set
+     * Cloud service only.
      *
      * @return the ETag
      * @since 5.4
@@ -144,7 +145,7 @@ public class TableRequest extends Request {
 
     /**
      * Sets the table name to use for the operation. The table name is only
-     * used to modify the limits of an existing table, and must not be set
+     * used to modify properties of an existing table, and must not be set
      * for any other operation.
      *
      * @param tableName the name
@@ -157,10 +158,12 @@ public class TableRequest extends Request {
     }
 
     /**
+     * Sets the table limits to use for the operation.
+     *
      * Cloud service only.
      * <p>
-     * Sets the table limits to use for the operation. Limits are used in only
-     * 2 cases -- table creation statements and limits modification operations.
+     * Limits are used in only 2 cases -- table creation statements
+     * and limits modification operations.
      * It is not used for other DDL operations.
      * <p>
      * If limits are set for an on-premises service they are silently ignored.
@@ -169,17 +172,40 @@ public class TableRequest extends Request {
      *
      * @return this
      */
-   public TableRequest setTableLimits(TableLimits tableLimits) {
+    public TableRequest setTableLimits(TableLimits tableLimits) {
         this.limits = tableLimits;
         return this;
     }
 
     /**
+     * Sets Change Data Capture enabled or disabled.
+     *
      * Cloud service only.
      * <p>
-     * Sets the {@link DefinedTags} to use for the operation. DefinedTags
-     * are used in only 2 cases -- table creation statements and tag
-     * modification operations.
+     * @param enabled Set to true to enable CDC for the table, false to disable.
+     *
+     * @return this
+     */
+    public TableRequest setCDCEnabled(boolean enabled) {
+        /* only create the object of a change in CDC is desired */
+        this.cdcEnabled = new Boolean(enabled);
+        return this;
+    }
+
+    /*
+     * @hidden
+     */
+    public Boolean getCDCEnablement() {
+        return cdcEnabled;
+    }
+
+    /**
+     * Sets the {@link DefinedTags} to use for the operation.
+     * <p>
+     * Cloud service only.
+     * <p>
+     * DefinedTags are used in only 2 cases -- table creation statements and
+     * tag modification operations.
      * It is not used for other DDL operations.
      * <p>
      * If tags are set for an on-premises service they are silently ignored.
@@ -195,11 +221,12 @@ public class TableRequest extends Request {
     }
 
     /**
+     * Sets the {@link FreeFormTags} to use for the operation.
+     * <p>
      * Cloud service only.
      * <p>
-     * Sets the {@link FreeFormTags} to use for the operation. FreeFormTags
-     * are used in only 2 cases -- table creation statements and tag
-     * modification operations.
+     * FreeFormTags are used in only 2 cases -- table creation statements
+     * and tag modification operations.
      * It is not used for other DDL operations.
      * <p>
      * If tags are set for an on-premises service they are silently ignored.
@@ -215,10 +242,12 @@ public class TableRequest extends Request {
     }
 
     /**
+     * Sets an ETag in the request that must be matched for the operation
+     * to proceed.
+     * <p>
      * Cloud service only.
      * <p>
-     * Sets an ETag in the request that must be matched for the operation
-     * to proceed. The ETag must be non-null and have been returned in a
+     * The ETag must be non-null and have been returned in a
      * previous {@link TableResult}. This is a form of optimistic concurrency
      * control allowing an application to ensure no unexpected modifications
      * have been made to the table.

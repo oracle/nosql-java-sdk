@@ -414,6 +414,11 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchETag() != null) {
                 writeMapField(ns, ETAG, rq.getMatchETag());
             }
+            // Do not write CDC info unless specifically set in request
+            if (rq.getCDCEnablement() != null) {
+                writeMapField(ns, CDC_ENABLED,
+                              rq.getCDCEnablement().booleanValue());
+            }
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -897,6 +902,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                         ns.endMap(0);
                         ns.endArrayField(0);
                     }
+                    endArray(ns, CONSUMER_TABLES);
                 }
             }
             endMap(ns, PAYLOAD);
@@ -970,7 +976,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(ERROR_CODE)) {
-                    handleErrorCode(walker);
+                    int code = handleErrorCode(walker);
                 } else if (name.equals(CURSOR)) {
                     result.cursor = Nson.readNsonBinary(in);
                 } else if (name.equals(EVENTS_REMAINING)) {
@@ -1007,7 +1013,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     "bad type in message bundle: " +
                     Nson.typeString(t) + ", should be ARRAY");
             }
-	        // length in bytes: ignored
+            // length in bytes: ignored
             in.readInt();
             int numElements = in.readInt();
             List<Message> messages = new ArrayList<Message>(numElements);
@@ -1047,7 +1053,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     "bad type in message events: " +
                     Nson.typeString(t) + ", should be ARRAY");
             }
-	        // length in bytes: ignored
+            // length in bytes: ignored
             in.readInt();
             int numElements = in.readInt();
             List<Event> events = new ArrayList<Event>(numElements);
@@ -1077,16 +1083,16 @@ public class NsonSerializerFactory implements SerializerFactory {
                     // currently ignored: single or group implied by array size below
                     Nson.readNsonInt(bis);
                 } else if (name.equals(EVENT_EVENTS)) {
-			        // expect an array of records
-                    int t = in.readByte();
+                    // expect an array of records
+                    int t = bis.readByte();
                     if (t != Nson.TYPE_ARRAY) {
                         throw new IllegalStateException(
                             "bad type in events: " +
                             Nson.typeString(t) + ", should be ARRAY");
                     }
-	                // length in bytes: ignored
-                    in.readInt();
-                    int numElements = in.readInt();
+                    // length in bytes: ignored
+                    bis.readInt();
+                    int numElements = bis.readInt();
                     List<Record> records = new ArrayList<Record>(numElements);
                     for (int i=0; i<numElements; i++) {
                         records.add(readNsonRecord(bis));

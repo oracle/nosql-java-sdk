@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.cdc;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.time.Duration;
 
@@ -19,13 +20,13 @@ import oracle.nosql.driver.ops.TableResult;
  * Typically this object is created and populated with API calls rather than creating it
  * directly:
  *
- *    consumer = new ConsumerBuilder().
- *        addTable("client_info", null, StartLocation.latest())
- *        addTable("location_data", null, StartLocation.latest())
- *        groupId("test_group").
- *        commitAutomatic().
- *        handle(handle).
- *        build()
+ *    consumer = new ConsumerBuilder()
+ *        .addTable("client_info", null, StartLocation.latest())
+ *        .addTable("location_data", null, StartLocation.latest())
+ *        .groupId("test_group")
+ *        .commitAutomatic()
+ *        .handle(handle)
+ *        .build()
  */
 public class ConsumerBuilder {
 
@@ -195,6 +196,9 @@ public class ConsumerBuilder {
         TableConfig tc = new TableConfig(tableName,
                                          compartmentOcid,
                                          location);
+        if (tables == null) {
+            tables = new ArrayList<TableConfig>();
+        }
         tables.add(tc);
         return this;
     }
@@ -337,7 +341,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * Rebalancing does not happen until the first call to poll().
      */ 
     public Consumer build() {
-		return new Consumer(this);
+        return new Consumer(this);
     }
 
 }

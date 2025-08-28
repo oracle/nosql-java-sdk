@@ -15,6 +15,7 @@ import javax.net.ssl.SSLException;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
@@ -416,6 +417,26 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @Override
     public StatsControl getStatsControl() {
         return client.getStatsControl();
+    }
+
+    @Override
+    public void enableCDC(String tableName, String compartmentId, boolean enabled) {
+        // TODO: resolve compartmentOCID: this is currently on a per-handle-only basis
+        TableRequest req = new TableRequest()
+            .setTableName(tableName)
+            .setCDCEnabled(enabled);
+        try {
+            TableResult res = tableRequest(req);
+            if (res == null) {
+                throw new IllegalStateException("No response from server for CDC operation");
+            }
+            // TODO: is this an async operation? Should it wait for completion?
+        } catch (Exception e) {
+            if (e.toString().contains("must have either statement or limits")) {
+                throw new OperationNotSupportedException("CDC not supported by server");
+            }
+            throw e;
+       }
     }
 
     /**
