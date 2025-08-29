@@ -13,7 +13,6 @@ import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_TYPE;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.httpclient.HttpClient;
@@ -68,7 +67,7 @@ class InstanceMetadataHelper {
                 logger);
 
             HttpRequestUtil.HttpResponse response = HttpRequestUtil.doGetRequest
-                (client, instanceMDURL, headers(), timeout, logger).get();
+                (client, instanceMDURL, headers(), timeout, logger);
 
             int status = response.getStatusCode();
             if (status == 404) {
@@ -77,14 +76,14 @@ class InstanceMetadataHelper {
                 baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
                 instanceMDURL = getInstanceMetadaURL(baseMetadataURL);
                 response = HttpRequestUtil.doGetRequest
-                    (client, instanceMDURL, headers(), timeout, logger).get();
+                    (client, instanceMDURL, headers(), timeout, logger);
                 if (response.getStatusCode() != 200) {
                     throw new IllegalStateException(
                         String.format("Unable to get federation URL from" +
                                 "instance metadata " + METADATA_SERVICE_BASE_URL +
                                 " or fallback to " + FALLBACK_METADATA_SERVICE_URL +
                                 ", status code: %d, output: %s",
-                            response.getStatusCode(), response.getOutput()));
+                            response.getOutput()));
                 }
             } else if (status != 200) {
                 throw new IllegalStateException(
@@ -99,10 +98,6 @@ class InstanceMetadataHelper {
             String insRegion = findRegion(response.getOutput());
             logTrace(logger, "Instance region " + insRegion);
             return new InstanceMetadata(insRegion, baseMetadataURL);
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         } finally {
             if (client != null) {
                 client.shutdown();

@@ -9,13 +9,11 @@ package oracle.nosql.driver.http;
 
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 
 import oracle.nosql.driver.AuthorizationProvider;
-import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
@@ -55,6 +53,7 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
@@ -206,23 +205,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public QueryResult query(QueryRequest request) {
-        try {
-            return queryAsync(request).get();
-        } catch (InterruptedException ie) {
-            throw new NoSQLException("Request interrupted: " + ie.getMessage(), ie);
-        } catch (ExecutionException e) {
-            if (e.getCause() instanceof RuntimeException) {
-                throw ((RuntimeException) e.getCause());
-            }
-            throw new NoSQLException("ExecutionException: " + e.getMessage(),
-                    e.getCause());
-        }
+        return ConcurrentUtil.awaitFuture(queryAsync(request));
     }
 
-    public CompletableFuture<QueryResult> queryAsync(QueryRequest request) {
-
+    private CompletableFuture<QueryResult> queryAsync(QueryRequest request) {
+        checkClient();
         return client.execute(request)
             .thenCompose(result -> {
+                /* Complex queries need RCB, run asynchronously */
                 if (!request.isSimpleQuery()) {
                     // TODO supplyAsync runs in fork-join pool.
                     //  Change to dedicated pool
@@ -232,7 +222,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
           })
         .thenApply(result -> ((QueryResult) result));
     }
-
 
     @Override
     public QueryIterableResult queryIterable(QueryRequest request) {
@@ -490,16 +479,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     @SuppressWarnings("unchecked")
     private <T extends Result> T executeSync(Request request) {
         checkClient();
-        try {
-            return (T) client.execute(request).get();
-        } catch (InterruptedException ie) {
-            throw new NoSQLException("Request interrupted: " + ie.getMessage(), ie);
-        } catch (ExecutionException e) {
-            if (e.getCause() instanceof RuntimeException) {
-                throw ((RuntimeException) e.getCause());
-            }
-            throw new NoSQLException("ExecutionException: " + e.getMessage(),
-                e.getCause());
-        }
+        return (T) ConcurrentUtil.awaitFuture(client.execute(request));
     }
 }

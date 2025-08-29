@@ -49,6 +49,7 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
          *  o redirects
          */
 
+        /* Remove timeout handler upon response arrival */
         if (ctx.pipeline().get(ReadTimeoutHandler.class) != null) {
            ctx.pipeline().remove(ReadTimeoutHandler.class);
         }
@@ -69,17 +70,17 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
                         requestId = "(none)";
                     }
                     logFine(logger, "Discarding message with no response " +
-                            "handler. requestId=" + requestId);
+                                    "handler. requestId=" + requestId);
                 }
                 fhr.release();
-            } else {
-                responseFuture.complete(fhr);
+                return;
             }
-        } else {
-            logWarning(logger,
-                "HttpClientHandler, response not FullHttpResponse: " +
-                msg.getClass());
+            responseFuture.complete(fhr);
+            return;
         }
+        logWarning(logger,
+                   "HttpClientHandler, response not FullHttpResponse: " +
+                   msg.getClass());
     }
 
     @Override
@@ -89,7 +90,12 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
         if (responseFuture != null) {
             /* handleException logs */
             logFine(logger, "HttpClientHandler read failed, cause: " + cause);
-            responseFuture.completeExceptionally(cause);
+            Throwable err = cause;
+            if (err instanceof ReadTimeoutException) {
+                err = new TimeoutException("Request timed out while waiting "
+                    + "for the response from the server");
+            }
+            responseFuture.completeExceptionally(err);
         }
         ctx.close();
     }

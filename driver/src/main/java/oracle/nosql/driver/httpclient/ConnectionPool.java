@@ -10,13 +10,11 @@ package oracle.nosql.driver.httpclient;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
@@ -29,7 +27,6 @@ import io.netty.channel.EventLoop;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
-import io.netty.util.concurrent.ScheduledFuture;
 
 /**
  * A class to manage and pool Netty Channels (connections). This is used
@@ -471,10 +468,9 @@ class ConnectionPool {
                     continue;
                 }
                 logFine(logger,
-                        "Sending keepalive on channel " + ch + ", stats: " + cs);
+                    "Sending keepalive on channel " + ch + ", stats: " + cs);
                 keepAlive.keepAlive(ch).handle((didKeepalive, err) -> {
                     if (err != null) {
-                        // TODO log err
                         logFine(logger,
                             "Keepalive failed on channel "
                             + ch

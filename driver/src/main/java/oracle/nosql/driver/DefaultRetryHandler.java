@@ -86,7 +86,9 @@ public class DefaultRetryHandler implements RetryHandler {
     }
 
     @Override
-    public int delayTime(Request request, int numRetries, RetryableException re) {
+    public int delayTime(Request request,
+                         int numRetries,
+                         RetryableException re) {
         return Math.max(0, computeBackoffDelay(request, fixedDelayMs));
     }
 

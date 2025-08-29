@@ -40,6 +40,7 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -70,6 +71,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import oracle.nosql.driver.AuthorizationProvider;
+import oracle.nosql.driver.DefaultRetryHandler;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -77,6 +79,7 @@ import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
+import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryHandler;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
@@ -116,6 +119,7 @@ import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.util.HttpConstants;
+import oracle.nosql.driver.util.LogUtil;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
@@ -134,9 +138,10 @@ import io.netty.handler.ssl.SslContext;
 /**
  * The HTTP driver client.
  */
-public class Client {
+public final class Client {
 
     public static int traceLevel = 0;
+    private static final int cores = Runtime.getRuntime().availableProcessors();
 
     private final NoSQLHandleConfig config;
 
@@ -238,7 +243,72 @@ public class Client {
     /* thread-pool for scheduling tasks */
     private final ScheduledExecutorService taskExecutor;
 
+     /* Lock to access data structures */
     private final ReentrantLock lock = new ReentrantLock();
+
+    /*
+     * Centralized error handling for request execution.
+     * This class maps specific {@link Throwable} types to error-handling
+     * strategies (retry, fail, or protocol downgrade).
+     * It uses a HashMap of {@link ErrorHandler} functions
+     * to keep {@link #handleError(RequestContext, Throwable)} short and
+     * maintainable.
+     */
+    private final Map<Class<? extends Throwable>, ErrorHandler>
+        errorHandlers = new HashMap<>();
+
+    /*
+     * Functional interface for all error handlers.
+     * Each handler inspects the exception and decides whether
+     * to retry the request or fail with an exception.
+     */
+    @FunctionalInterface
+    private interface ErrorHandler {
+        CompletableFuture<Result> handle(RequestContext ctx, Throwable error);
+    }
+
+    /**
+     * RequestContext class to encapsulate request-specific data.
+     * This helps in passing context through asynchronous chains.
+     * It now includes requestId and a Supplier to generate new IDs for retries.
+     */
+    private static class RequestContext {
+        private final Request kvRequest;
+        private final String requestClass;
+        private volatile String requestId;
+        private final long startNanos;
+        private final int timeoutMs;
+        private final Supplier<Long> nextIdSupplier;
+        private volatile Throwable exception;
+        private final AtomicInteger rateDelayedMs = new AtomicInteger(0);
+        private volatile RateLimiter readLimiter;
+        private volatile RateLimiter writeLimiter;
+        private volatile boolean checkReadUnits;
+        private volatile boolean checkWriteUnits;
+        private volatile int reqSize;
+        private volatile int resSize;
+        private volatile short serialVersionUsed;
+        private volatile short queryVersionUsed;
+        private volatile long latencyNanos;
+        public volatile long networkLatency;
+
+        RequestContext(Request kvRequest, long startNanos, int timeoutMs,
+                       Supplier<Long> nextIdSupplier, RateLimiter readLimiter,
+                       RateLimiter writeLimiter, boolean checkReadUnits,
+                       boolean checkWriteUnits) {
+            this.kvRequest = kvRequest;
+            this.startNanos = startNanos;
+            this.timeoutMs = timeoutMs;
+            this.nextIdSupplier = nextIdSupplier;
+            this.readLimiter = readLimiter;
+            this.writeLimiter = writeLimiter;
+            this.checkReadUnits = checkReadUnits;
+            this.checkWriteUnits = checkWriteUnits;
+
+            this.requestId = Long.toString(nextIdSupplier.get());
+            this.requestClass = kvRequest.getClass().getSimpleName();
+        }
+    }
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -328,20 +398,33 @@ public class Client {
         /* for internal testing */
         prepareFilename = System.getProperty("test.preparefilename");
 
-        taskExecutor = new ScheduledThreadPoolExecutor(8 /* core threads */,
+        taskExecutor = new ScheduledThreadPoolExecutor(cores /* core threads */,
             new ThreadFactory() {
                 private final AtomicInteger threadNumber = new AtomicInteger(1);
                 @Override
                 public Thread newThread(Runnable r) {
                     final Thread t = Executors.defaultThreadFactory().newThread(r);
-                    t.setName(String.format("task-executor-%s", threadNumber.getAndIncrement()));
+                    t.setName(String.format("nosql-task-executor-%s",
+                        threadNumber.getAndIncrement()));
                     t.setDaemon(true);
                     t.setUncaughtExceptionHandler((thread, error) -> {
-                        // TODO handle this
+                        if (ConcurrentUtil.unwrapCompletionException(error)
+                                instanceof RejectedExecutionException) {
+                            /*
+                             * Ignore uncaught error for rejected exception
+                             * since that is expected to happen during
+                             * executor shut down.
+                             */
+                            return;
+                        }
+                        logger.warning(() -> String.format(
+                            "Uncaught exception from %s: %s",
+                            error, LogUtil.getStackTrace(error)));
                     });
                     return t;
                 }
             });
+        initErrorHandlers();
     }
 
     /**
@@ -388,59 +471,8 @@ public class Client {
     }
 
     /**
-     * RequestContext class to encapsulate request-specific data.
-     * This helps in passing context through asynchronous CompletableFuture chains.
-     * It now includes requestId and a Supplier to generate new IDs for retries.
-     */
-    private static class RequestContext {
-        private final Request kvRequest;
-        private final String requestClass;
-        private volatile String requestId;
-        private final long startNanos;
-        private final int timeoutMs;
-        private final Supplier<Long> nextIdSupplier;
-        private volatile Throwable exception;
-        private final AtomicInteger rateDelayedMs = new AtomicInteger(0);
-        private volatile RateLimiter readLimiter;
-        private volatile RateLimiter writeLimiter;
-        private volatile boolean checkReadUnits;
-        private volatile boolean checkWriteUnits;
-        private volatile int reqSize;
-        private volatile int resSize;
-        private volatile short serialVersionUsed;
-        private volatile short queryVersionUsed;
-        private volatile long latencyNanos;
-        public volatile long networkLatency;
-
-        RequestContext(Request kvRequest, long startNanos, int timeoutMs,
-                      Supplier<Long> nextIdSupplier, RateLimiter readLimiter,
-                       RateLimiter writeLimiter, boolean checkReadUnits,
-                       boolean checkWriteUnits) {
-            this.kvRequest = kvRequest;
-            this.startNanos = startNanos;
-            this.timeoutMs = timeoutMs;
-            this.nextIdSupplier = nextIdSupplier;
-            this.readLimiter = readLimiter;
-            this.writeLimiter = writeLimiter;
-            this.checkReadUnits = checkReadUnits;
-            this.checkWriteUnits = checkWriteUnits;
-
-            this.requestId = Long.toString(nextIdSupplier.get());
-            this.requestClass = kvRequest.getClass().getSimpleName();
-        }
-
-//         RequestContext nextRetryContext() {
-//            // Generate a new ID for the next retry attempt using the provided supplier
-//            return new RequestContext(this.kvRequest,
-//                this.retryCount + 1, this.nextIdSupplier, readLimiter,
-//                    writeLimiter, checkReadUnits, checkWriteUnits);
-//        }
-    }
-
-    /**
      * Execute the KV request and return the future response. This is the
-     * top-level
-     * method for request execution.
+     * top-level method for request execution.
      * <p>
      * This method handles exceptions to distinguish between what can be retried
      * and what cannot, making sure that root cause exceptions are
@@ -461,6 +493,7 @@ public class Client {
     public CompletableFuture<Result> execute(Request kvRequest) {
 
         requireNonNull(kvRequest, "NoSQLHandle: request must be non-null");
+
         /*
          * Before execution, call Request object to assign default values
          * from config object if they are not overridden. This allows code
@@ -488,7 +521,7 @@ public class Client {
          * non-internal QueryRequest */
         if (kvRequest.isQueryRequest()) {
 
-            QueryRequest qreq = (QueryRequest) kvRequest;
+            QueryRequest qreq = (QueryRequest)kvRequest;
 
             /* Set the topo seq num in the request, if it has not been set
              * already */
@@ -565,15 +598,15 @@ public class Client {
 
         /* if not, see if we have limiters in our map for the given table */
         if (rateLimiterMap != null &&
-                readLimiter == null && writeLimiter == null) {
+            readLimiter == null && writeLimiter == null) {
             String tableName = kvRequest.getTableName();
-            if (tableName != null && !tableName.isEmpty()) {
+            if (tableName != null && tableName.length() > 0) {
                 readLimiter = rateLimiterMap.getReadLimiter(tableName);
                 writeLimiter = rateLimiterMap.getWriteLimiter(tableName);
                 if (readLimiter == null && writeLimiter == null) {
                     if (kvRequest.doesReads() || kvRequest.doesWrites()) {
                         backgroundUpdateLimiters(tableName,
-                                kvRequest.getCompartment());
+                                                 kvRequest.getCompartment());
                     }
                 } else {
                     checkReadUnits = kvRequest.doesReads();
@@ -583,30 +616,42 @@ public class Client {
                 }
             }
         }
-        kvRequest.setStartNanos(System.nanoTime());
 
+        kvRequest.setStartNanos(System.nanoTime());
         RequestContext ctx = new RequestContext(kvRequest,
             kvRequest.getStartNanos(), kvRequest.getTimeoutInternal(),
-            maxRequestId::getAndIncrement, readLimiter, writeLimiter,
+            this::nextRequestId, readLimiter, writeLimiter,
             checkReadUnits, checkWriteUnits);
-
 
         return executeWithRetry(ctx);
     }
 
 
-    /**
+    /*
      * Core method which creates the request and send to the server.
      * If the request fails, it performs retry.
      */
     private CompletableFuture<Result> executeWithRetry(RequestContext ctx) {
-        /*
-         * Check rate limiters before executing the request.
-         * Wait for read and/or write limiters to be below their limits
-         * before continuing. Be aware of the timeout given.
-         */
-        Request kvRequest = ctx.kvRequest;
 
+        final Request kvRequest = ctx.kvRequest;
+        final int timeoutMs = ctx.timeoutMs;
+        final long startNanos = ctx.startNanos;
+        final int thisIterationTimeoutMs =
+            getIterationTimeoutMs(timeoutMs, startNanos);
+
+        /* Check for over all request timeout first */
+        if (thisIterationTimeoutMs <= 0) {
+            RequestTimeoutException rte = new RequestTimeoutException(timeoutMs,
+                ctx.requestClass + " timed out:" +
+                (ctx.requestId.isEmpty() ? "" : " requestId=" + ctx.requestId) +
+                " nextRequestId=" + nextRequestId() +
+                " iterationTimeout=" + thisIterationTimeoutMs + "ms " +
+                (kvRequest.getRetryStats() != null ?
+                kvRequest.getRetryStats() : ""), ctx.exception);
+            return CompletableFuture.failedFuture(rte);
+        }
+
+        /* Log retry */
         if (kvRequest.getNumRetries() > 0) {
             logRetries(kvRequest.getNumRetries(), ctx.exception);
         }
@@ -614,21 +659,20 @@ public class Client {
         if (serialVersion < 3 && kvRequest instanceof DurableRequest) {
             if (((DurableRequest)kvRequest).getDurability() != null) {
                 oneTimeMessage("The requested feature is not supported " +
-                        "by the connected server: Durability");
+                    "by the connected server: Durability");
             }
         }
         if (serialVersion < 3 && kvRequest instanceof TableRequest) {
             TableLimits limits = ((TableRequest)kvRequest).getTableLimits();
             if (limits != null &&
-                    limits.getMode() == CapacityMode.ON_DEMAND) {
+                limits.getMode() == CapacityMode.ON_DEMAND) {
                 oneTimeMessage("The requested feature is not supported " +
-                        "by the connected server: on demand " +
-                        "capacity table");
+                    "by the connected server: on demand " +
+                    "capacity table");
             }
         }
 
         return handlePreRateLimit(ctx)
-        //TODO is this thenComposeAsync?
         .thenCompose( (Integer delay) -> getAuthString(ctx, authProvider))
         .thenCompose((String authString) -> createRequest(ctx, authString))
         .thenCompose((FullHttpRequest request) -> submitRequest(ctx,request))
@@ -638,8 +682,7 @@ public class Client {
         .handle((Result result, Throwable err) -> {
             /* Handle error and retry */
             if (err != null) {
-                ctx.exception = err;
-                return handleError(ctx);
+                return handleError(ctx, err);
             } else {
                 return CompletableFuture.completedFuture(result);
             }
@@ -648,32 +691,33 @@ public class Client {
     }
 
     private CompletableFuture<Integer> handlePreRateLimit(RequestContext ctx) {
-
-        /* Check this request doesn't cause throttle */
+        /*
+         * Check rate limiters before executing the request.
+         * Wait for read and/or write limiters to be below their limits
+         * before continuing. Be aware of the timeout given.
+         */
         int preRateLimitDelayMs = 0;
         if (ctx.readLimiter != null && ctx.checkReadUnits) {
-            preRateLimitDelayMs +=
-                ((SimpleRateLimiter) ctx.readLimiter).consumeExternally(0);
+            preRateLimitDelayMs += ((SimpleRateLimiter) ctx.readLimiter)
+                .consumeExternally(0);
         }
         if (ctx.writeLimiter != null && ctx.checkWriteUnits) {
-            preRateLimitDelayMs +=
-                ((SimpleRateLimiter) ctx.writeLimiter).consumeExternally(0);
+            preRateLimitDelayMs += ((SimpleRateLimiter) ctx.writeLimiter)
+                .consumeExternally(0);
         }
 
-        final int timeoutMs = ctx.timeoutMs;
-        final long startNanos = ctx.startNanos;
-        final int thisIterationTimeoutMs = getIterationTimeoutMs(timeoutMs, startNanos);
+        int thisIterationTimeoutMs =
+            getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos);
 
-        /* If this result in timeout, complete with exception */
+        /* If rate limit result in timeout, complete with exception. */
         if (thisIterationTimeoutMs <= preRateLimitDelayMs) {
             final TimeoutException ex = new TimeoutException(
                 "timed out waiting "
                 + thisIterationTimeoutMs
                 + "ms due to rate limiting");
-            return createDelayFuture(thisIterationTimeoutMs).thenCompose(d ->
-                    CompletableFuture.failedFuture(ex));
+            return createDelayFuture(thisIterationTimeoutMs)
+                .thenCompose(d -> CompletableFuture.failedFuture(ex));
         }
-
         /* sleep for delay ms */
         return createDelayFuture(preRateLimitDelayMs)
             .whenComplete((delay, err) -> ctx.rateDelayedMs.addAndGet(delay));
@@ -684,7 +728,7 @@ public class Client {
      *  This may contact the server to get the token.
      */
     private CompletableFuture<String> getAuthString(RequestContext ctx,
-                                                    AuthorizationProvider authProvider) {
+                                        AuthorizationProvider authProvider) {
         final Request kvRequest = ctx.kvRequest;
         return authProvider.getAuthorizationStringAsync(kvRequest)
         .thenApply(authString -> {
@@ -707,7 +751,7 @@ public class Client {
      *  This may contact the server to sign the request body.
      */
     private CompletableFuture<FullHttpRequest> createRequest(RequestContext ctx,
-                                                             String authString) {
+                                                            String authString) {
         ByteBuf buffer = null;
         try {
             buffer = Unpooled.buffer();
@@ -734,7 +778,7 @@ public class Client {
              * processing (retry delays, etc) work correctly.
              */
             kvRequest.setTimeoutInternal(
-                    getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos));
+                getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos));
             writeContent(buffer, ctx);
             kvRequest.setTimeoutInternal(ctx.timeoutMs);
 
@@ -790,7 +834,8 @@ public class Client {
              * with content
              */
             byte[] content = signContent ? getBodyBytes(buffer) : null;
-            return authProvider.setRequiredHeadersAsync(authString, kvRequest, headers, content)
+            return authProvider.
+            setRequiredHeadersAsync(authString, kvRequest, headers, content)
             .thenApply(n -> {
                 String namespace = kvRequest.getNamespace();
                 if (namespace == null) {
@@ -801,7 +846,7 @@ public class Client {
                 }
                 return request;
             });
-        } catch (Exception e) {
+        } catch (Throwable e) {
             /* Release the buffer on error */
             if (buffer != null) {
                 buffer.release();
@@ -814,7 +859,7 @@ public class Client {
      * Send the HTTP request to server and get the response back.
      */
     private CompletableFuture<FullHttpResponse> submitRequest(RequestContext ctx,
-                                                              HttpRequest request) {
+                                                          HttpRequest request) {
         final Request kvRequest = ctx.kvRequest;
         if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
             logTrace(logger, "Request: " + ctx.requestClass +
@@ -825,7 +870,8 @@ public class Client {
 
         return httpClient.runRequest(request, timeoutMs)
         .whenComplete((res, err) -> {
-            ctx.networkLatency = (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
+            ctx.networkLatency =
+                (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
         });
     }
 
@@ -840,8 +886,10 @@ public class Client {
                 ", requestId=" + ctx.requestId );
         }
         try {
-            Result result = processResponse(fhr.status(), fhr.headers(), fhr.content(), ctx);
-            ctx.rateDelayedMs.addAndGet(getRateDelayedFromHeader(fhr.headers()));
+            Result result = processResponse(
+                fhr.status(), fhr.headers(), fhr.content(), ctx);
+            ctx.rateDelayedMs.addAndGet(
+                getRateDelayedFromHeader(fhr.headers()));
             ctx.resSize = fhr.content().readerIndex();
             return result;
         } finally {
@@ -892,7 +940,8 @@ public class Client {
      * Handle rate limit from the Result.
      * This will consume actual units used by the request and sleep.
      */
-    private CompletableFuture<Result> handlePostRateLimit(RequestContext ctx, Result result) {
+    private CompletableFuture<Result> handlePostRateLimit(RequestContext ctx,
+                                                          Result result) {
         final Request kvRequest = ctx.kvRequest;
         int postRateLimitDelayMs = consumeLimiterUnits(ctx.readLimiter,
                 result.getReadUnitsInternal());
@@ -916,185 +965,281 @@ public class Client {
             });
     }
 
-    private CompletableFuture<Result> handleError(RequestContext ctx) {
-        Request kvRequest = ctx.kvRequest;
-        Throwable err = ctx.exception;
-        Throwable actualCause = (err instanceof CompletionException) ?
+    /*
+     * Main error handling entry point.
+     */
+    private CompletableFuture<Result> handleError(RequestContext ctx,
+                                                  Throwable err) {
+        final Throwable actualCause =
+            (err instanceof CompletionException && err.getCause() != null) ?
             err.getCause() : err;
-        boolean retryable = false;
-        int delayMs = 0;
 
-        try {
-            throw actualCause;
-        } catch (AuthenticationException rae) {
-            if (authProvider instanceof StoreAccessTokenProvider) {
-                final StoreAccessTokenProvider satp =
-                        (StoreAccessTokenProvider) authProvider;
-                satp.bootstrapLogin(kvRequest);
-                retryable = true;
-            } else {
-                logInfo(logger, "Unexpected authentication exception: " +
-                        rae);
-                throw new NoSQLException("Unexpected exception: " +
-                        rae.getMessage(), rae);
-            }
-        } catch (InvalidAuthorizationException iae) {
-            /*
-             * Allow a single retry for invalid/expired auth
-             * This includes "clock skew" errors
-             * This does not include permissions-related errors
-             */
-            if (kvRequest.getNumRetries() == 0) {
-                authProvider.flushCache();
-                logFine(logger,
-                    "Client retrying on InvalidAuthorizationException: " +
-                     iae.getMessage());
-                retryable = true;
-            } else {
-                throw iae;
-            }
+        /* set exception on context */
+        ctx.exception = actualCause;
 
-        } catch (SecurityInfoNotReadyException sinre) {
-            kvRequest.addRetryException(sinre.getClass());
-            if (kvRequest.getNumRetries() < 20) {
-                delayMs = SEC_ERROR_DELAY_MS;
-                retryable = true;
-            }
-        } catch (RetryableException re) {
-            if (re instanceof WriteThrottlingException &&
-                    ctx.writeLimiter != null) {
-                /* ensure we check write limits next loop */
-                ctx.checkWriteUnits = true;
-                /* set limiter to its limit, if not over already */
-                if (ctx.writeLimiter.getCurrentRate() < 100.0) {
-                    ctx.writeLimiter.setCurrentRate(100.0);
-                }
-                /* call retry handler to manage sleep/delay */
-            }
-            if (re instanceof ReadThrottlingException &&
-                    ctx.readLimiter != null) {
-                /* ensure we check read limits next loop */
-                ctx.checkReadUnits = true;
-                /* set limiter to its limit, if not over already */
-                if (ctx.readLimiter.getCurrentRate() < 100.0) {
-                    ctx.readLimiter.setCurrentRate(100.0);
-                }
-                /* call retry handler to manage sleep/delay */
-            }
-
-            logFine(logger, "Retryable exception: " +
-                    re.getMessage());
-            /*
-             * Handle automatic retries. If this does not throw an error,
-             * then the delay (if any) will have been performed and the
-             * request should be retried.
-             *
-             * If there have been too many retries this method will
-             * throw the original exception.
-             */
-
-            kvRequest.addRetryException(re.getClass());
-            delayMs = handleRetry(re, kvRequest);
-            retryable = true;
-        } catch (UnsupportedQueryVersionException uqve) {
-            /* decrement query version and try again */
-            if (decrementQueryVersion(ctx.queryVersionUsed) == true) {
-                logFine(logger, "Got unsupported query version error " +
-                        "from server: decrementing query version to " +
-                        queryVersion + " and trying again.");
-                retryable = true;
-            } else {
-                throw uqve;
-            }
-        } catch (UnsupportedProtocolException upe) {
-            /* decrement protocol version and try again */
-            if (decrementSerialVersion(ctx.serialVersionUsed) == true) {
-                /* Don't set this exception: it's misleading */
-                /* exception = upe; */
-                logFine(logger, "Got unsupported protocol error " +
-                        "from server: decrementing serial version to " +
-                        serialVersion + " and trying again.");
-                retryable = true;
-            } else {
-                throw upe;
-            }
-        } catch (NoSQLException nse) {
-            logFine(logger, "Client execute NoSQLException: " +
-                    nse.getMessage());
-            throw nse;
-        } catch (RuntimeException e) {
-            if (!kvRequest.getIsRefresh()) {
-                /* don't log expected failures from refresh */
-                logFine(logger, "Client execute runtime exception: " +
-                        e.getMessage());
-            }
-        } catch (IOException ioe) {
-            String name = ioe.getClass().getName();
-            logFine(logger, "Client execution IOException, name: " +
-                    name + ", message: " + ioe.getMessage());
-            if (kvRequest.getNumRetries() == 0) {
-                retryable = true;
-                delayMs = 10;
-            }
-        } catch (InterruptedException ie) {
-            logInfo(logger, "Client interrupted exception: " +
-                    ie.getMessage());
-        } catch (ExecutionException ee) {
-            /*
-             * This can happen if a channel is bad in HttpClient.getChannel.
-             * This happens if the channel is shut down by the server side
-             * or the server (proxy) is restarted, etc. Treat it like
-             * IOException above, but retry without waiting
-             */
-            String name = ee.getCause().getClass().getName();
-            logFine(logger, "Client ExecutionException, name: " +
-                    name + ", message: " + ee.getMessage() + ", retrying");
-
-            if (kvRequest.getNumRetries() == 0) {
-                retryable = true;
-            }
-        } catch (TimeoutException te) {
-            //TODO handle this
-        } catch (Throwable t) {
-            /*
-             * this is likely an exception from Netty, perhaps a bad
-             * connection. Retry.
-             */
-            /* Maybe make this logFine */
-            String name = t.getClass().getName();
-            logInfo(logger, "Client execute Throwable, name: " +
-                    name + "message: " + t.getMessage());
+        /* Get the appropriate error handler and delegate */
+        ErrorHandler handler = findErrorHandler(actualCause.getClass());
+        if (handler != null) {
+            return handler.handle(ctx, actualCause);
         }
 
-        if (retryable) {
-            if (!(actualCause instanceof UnsupportedProtocolException)
-                && !(actualCause instanceof UnsupportedQueryVersionException)) {
-                kvRequest.addRetryException(err.getClass());
-                kvRequest.incrementRetries();
-            }
+        /* Default throwable: retry with small delay */
+        final String name = actualCause.getClass().getName();
+        logInfo(logger, "Client execute Throwable, name: " +
+                name + "message: " + actualCause.getMessage());
+        return retryRequest(ctx, 10, actualCause);
+    }
 
+    /*
+     * Initializes the error handlers map with specific exception types
+     * and their corresponding handling strategies.
+     * This method sets up a mapping between various exception classes
+     * and the methods responsible for handling them,facilitating appropriate
+     * error management and retry logic during request execution.
+     */
+    private void initErrorHandlers() {
+        errorHandlers.put(AuthenticationException.class,
+            this::handleAuthException);
+        errorHandlers.put(InvalidAuthorizationException.class,
+            this::handleInvalidAuthError);
+        errorHandlers.put(SecurityInfoNotReadyException.class,
+            this::handleSecurityNotReadyError);
+        errorHandlers.put(RetryableException.class,
+            this::handleRetryableError);
+        errorHandlers.put(UnsupportedQueryVersionException.class,
+            this::handleQueryVerError);
+        errorHandlers.put(UnsupportedProtocolException.class,
+            this::handleProtocolVerError);
+        errorHandlers.put(RequestTimeoutException.class, this::failRequest);
+        errorHandlers.put(NoSQLException.class, this::failRequest);
+        errorHandlers.put(RuntimeException.class, this::failRequest);
+        errorHandlers.put(IOException.class, this::handleIOError);
+        errorHandlers.put(InterruptedException.class,
+            this::handleInterruptedError);
+        errorHandlers.put(ExecutionException.class, this::handleExecutionError);
+        errorHandlers.put(TimeoutException.class, this::handleTimeoutError);
+        /* Add any new error handlers here */
+    }
 
-            CompletableFuture<Result> retryFuture = new CompletableFuture<>();
-            int finalDelayMs = delayMs;
-            taskExecutor.schedule(() -> {
-                /* Increment request-id for retry */
-                ctx.requestId = String.valueOf(ctx.nextIdSupplier.get());
-                executeWithRetry(ctx)
-                    .whenComplete((res,e) -> {
-                        kvRequest.addRetryDelayMs(finalDelayMs);
-                        if (e != null) {
-                            retryFuture.completeExceptionally(e);
-                        } else {
-                            retryFuture.complete(res);
-                        }
-                    });
-            }, delayMs, TimeUnit.MILLISECONDS);
-            return retryFuture;
+    /*
+     * Marks the request as failed and returns failed {@link CompletableFuture}.
+     */
+    private CompletableFuture<Result> failRequest(RequestContext ctx,
+                                                  Throwable ex) {
+        final String name = ex.getClass().getName();
+        final String message = String.format("Client execute %s: %s",
+            name, ex.getMessage());
+        logFine(logger, message);
+        ctx.kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
+        statsControl.observeError(ctx.kvRequest);
+        return CompletableFuture.failedFuture(ex);
+    }
+
+    /*
+     * Schedules a retry for the request with the given delay.
+     * Updates retry counters and statistics.
+     */
+    private CompletableFuture<Result> retryRequest(RequestContext ctx,
+                                                   int delayMs, Throwable ex) {
+        Request kvRequest = ctx.kvRequest;
+        /* query and protocol exceptions are not errors, do not add them to
+         * retry stats.
+         */
+        if (!(ex instanceof UnsupportedProtocolException
+            || ex instanceof UnsupportedQueryVersionException)) {
+            kvRequest.addRetryException(ex.getClass());
+            kvRequest.incrementRetries();
+            kvRequest.addRetryDelayMs(delayMs);
         }
-        /* No retry, complete with exception */
-        kvRequest.setRateLimitDelayedMs(ctx.rateDelayedMs.get());
-        statsControl.observeError(kvRequest);
-        return CompletableFuture.failedFuture(actualCause);
+        return scheduleRetry(ctx, delayMs);
+    }
+
+    /**
+     * Looks up an error handler for the given class by traversing the
+     * class hierarchy until a registered handler is found.
+     *
+     * @param clazz Exception class to resolve
+     * @return A matching {@link ErrorHandler} or {@code null} if none found
+     */
+    private ErrorHandler findErrorHandler(Class<?> clazz) {
+        while (clazz != null) {
+            if (errorHandlers.containsKey(clazz)) {
+                return errorHandlers.get(clazz);
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return null;
+    }
+
+    /*
+     * Error handler for {@link AuthenticationException}
+     */
+    private CompletableFuture<Result> handleAuthException(RequestContext ctx,
+                                                          Throwable ex) {
+
+        if (authProvider instanceof StoreAccessTokenProvider) {
+            authProvider.flushCache();
+            return retryRequest(ctx, 0, ex);
+        } else {
+            logInfo(logger, "Unexpected authentication exception: " + ex);
+            return failRequest(ctx, new NoSQLException(
+                "Unexpected exception: " + ex.getMessage(), ex));
+        }
+    }
+
+    /*
+     * Error handler for {@link InvalidAuthorizationException}
+     */
+    private CompletableFuture<Result> handleInvalidAuthError(RequestContext ctx,
+                                                             Throwable ex) {
+        Request kvRequest = ctx.kvRequest;
+        if (kvRequest.getNumRetries() > 0) {
+            return failRequest(ctx, ex);
+        }
+        authProvider.flushCache();
+        logFine(logger,
+            "Client retrying on InvalidAuthorizationException: "
+            + ex.getMessage());
+        return retryRequest(ctx, 0, ex);
+    }
+
+    /*
+     * Error handler for {@link SecurityInfoNotReadyException}
+     */
+    private CompletableFuture<Result> handleSecurityNotReadyError(
+        RequestContext ctx, Throwable ex) {
+
+        Request kvRequest = ctx.kvRequest;
+        int delayMs = SEC_ERROR_DELAY_MS;
+        if (kvRequest.getNumRetries() > 10) {
+            delayMs = DefaultRetryHandler.computeBackoffDelay(kvRequest, 0);
+            if (delayMs <= 0) {
+                return failRequest(ctx,
+                    new RequestTimeoutException(ctx.timeoutMs,
+                        ctx.requestClass + " timed out:" +
+                        (ctx.requestId.isEmpty() ? "" :
+                        " requestId=" + ctx.requestId) +
+                        " nextRequestId=" + nextRequestId() +
+                        (kvRequest.getRetryStats() != null ?
+                        kvRequest.getRetryStats() : ""), ctx.exception));
+            }
+        }
+        return retryRequest(ctx, delayMs, ex);
+    }
+
+
+    /*
+     * Error handler for {@link RetryableException}
+     */
+    private CompletableFuture<Result> handleRetryableError(RequestContext ctx,
+                                                           Throwable ex) {
+        Request kvRequest = ctx.kvRequest;
+
+        if (ex instanceof WriteThrottlingException && ctx.writeLimiter != null) {
+            /* ensure we check write limits next retry */
+            ctx.checkWriteUnits = true;
+            /* set limiter to its limit, if not over already */
+            if (ctx.writeLimiter.getCurrentRate() < 100.0) {
+                ctx.writeLimiter.setCurrentRate(100.0);
+            }
+        }
+        if (ex instanceof ReadThrottlingException && ctx.readLimiter != null) {
+            /* ensure we check read limits next loop */
+            ctx.checkReadUnits = true;
+            /* set limiter to its limit, if not over already */
+            if (ctx.readLimiter.getCurrentRate() < 100.0) {
+                ctx.readLimiter.setCurrentRate(100.0);
+            }
+        }
+        logFine(logger, "Retryable exception: " + ex.getMessage());
+        /*
+         * Handle automatic retries. If this does not throw an error,
+         * then the delay (if any) will have been performed and the
+         * request should be retried.
+         *
+         * If there have been too many retries this method will
+         * throw the original exception.
+         */
+        int delayMs = handleRetry((RetryableException) ex, kvRequest);
+        return retryRequest(ctx, delayMs, ex);
+    }
+
+    /*
+     * Error handler for {@link UnsupportedQueryVersionException}
+     */
+    private CompletableFuture<Result> handleQueryVerError(RequestContext ctx,
+                                                          Throwable ex) {
+        if (decrementQueryVersion(ctx.queryVersionUsed)) {
+            logFine(logger, "Got unsupported query version error " +
+                "from server: decrementing query version to " +
+                queryVersion + " and trying again.");
+            return retryRequest(ctx, 0, ex);
+        }
+        return failRequest(ctx, ex);
+    }
+
+    /*
+     * Error handler for {@link UnsupportedProtocolException}
+     */
+    private CompletableFuture<Result> handleProtocolVerError(RequestContext ctx,
+                                                             Throwable ex) {
+        if (decrementSerialVersion(ctx.serialVersionUsed)) {
+            logFine(logger, "Got unsupported protocol error " +
+                "from server: decrementing serial version to " +
+                serialVersion + " and trying again.");
+            return retryRequest(ctx, 0, ex);
+        }
+        return failRequest(ctx, ex);
+    }
+
+    /*
+     * Error handler for {@link IOException}
+     */
+    private CompletableFuture<Result> handleIOError(RequestContext ctx,
+                                                    Throwable ex) {
+        Request kvRequest = ctx.kvRequest;
+        String name = ex.getClass().getName();
+        logFine(logger, "Client execution IOException, name: " +
+            name + ", message: " + ex.getMessage());
+        if (kvRequest.getNumRetries() > 10) {
+            return failRequest(ctx, ex);
+        }
+        return retryRequest(ctx, 10, ex);
+    }
+
+    private CompletableFuture<Result> handleInterruptedError(RequestContext ctx,
+                                                             Throwable ex) {
+        logInfo(logger, "Interrupted: " + ex.getMessage());
+        return failRequest(ctx,
+            new NoSQLException("Request interrupted: " + ex.getMessage()));
+    }
+
+    private CompletableFuture<Result> handleExecutionError(RequestContext ctx,
+                                                           Throwable ex) {
+        /*
+         * This can happen if a channel is bad in HttpClient.getChannel.
+         * This happens if the channel is shut down by the server side
+         * or the server (proxy) is restarted, etc. Treat it like
+         * IOException above, but retry without waiting
+         */
+        String name = ex.getCause().getClass().getName();
+        logFine(logger, "Client ExecutionException, name: " +
+            name + ", message: " + ex.getMessage() + ", retrying");
+        return retryRequest(ctx, 10, ex);
+    }
+
+    private CompletableFuture<Result> handleTimeoutError(RequestContext ctx,
+                                                         Throwable ex) {
+        logInfo(logger, "Timeout exception: " + ex);
+        return failRequest(ctx,
+            new RequestTimeoutException(
+            ctx.timeoutMs,
+            ctx.requestClass + " timed out:" +
+            (ctx.requestId.isEmpty() ? "" : " requestId=" + ctx.requestId) +
+            " nextRequestId=" + nextRequestId() +
+            (ctx.kvRequest.getRetryStats() != null ?
+                ctx.kvRequest.getRetryStats() : ""),
+            ctx.exception));
     }
 
     /**
@@ -1108,11 +1253,31 @@ public class Client {
         CompletableFuture<Integer> delayFuture = new CompletableFuture<>();
         if (delayMs > 0) {
             taskExecutor.schedule(() -> delayFuture.complete(delayMs), delayMs,
-                    TimeUnit.MILLISECONDS);
+                TimeUnit.MILLISECONDS);
         } else {
             delayFuture.complete(delayMs); // Complete immediately if no delay
         }
         return delayFuture;
+    }
+
+    private CompletableFuture<Result>  scheduleRetry(RequestContext ctx,
+                                                     int delayMs) {
+        //TODO check for overall timeout before schedule
+        CompletableFuture<Result> retryFuture = new CompletableFuture<>();
+        taskExecutor.schedule(() -> {
+            /* Increment request-id for retry */
+            ctx.requestId = String.valueOf(ctx.nextIdSupplier.get());
+            executeWithRetry(ctx)
+            .whenComplete((res, e) -> {
+                ctx.kvRequest.addRetryDelayMs(delayMs);
+                if (e != null) {
+                    retryFuture.completeExceptionally(e);
+                } else {
+                    retryFuture.complete(res);
+                }
+            });
+        }, delayMs, TimeUnit.MILLISECONDS);
+        return retryFuture;
     }
     /**
      * Calculate the timeout for the next iteration.
@@ -1150,7 +1315,7 @@ public class Client {
          * the tablename from the request and apply rate limiting.
          */
         String tableName = ((QueryRequest)request).getTableName();
-        if (tableName == null || tableName.isEmpty()) {
+        if (tableName == null || tableName == "") {
             return null;
         }
 
@@ -1230,10 +1395,11 @@ public class Client {
          */
 
         /* allow tests to override this hardcoded setting */
-        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30);
+        int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
+                                     .intValue();
 
-        double RUs = limits.getReadUnits();
-        double WUs = limits.getWriteUnits();
+        double RUs = (double)limits.getReadUnits();
+        double WUs = (double)limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();
@@ -1278,6 +1444,7 @@ public class Client {
      */
     private void writeContent(ByteBuf content, RequestContext ctx)
         throws IOException {
+
         final Request kvRequest = ctx.kvRequest;
         final NettyByteOutputStream bos = new NettyByteOutputStream(content);
         ctx.serialVersionUsed = serialVersion;
@@ -1509,18 +1676,18 @@ public class Client {
     private void backgroundUpdateLimiters(String tableName,
                                           String compartmentId) {
         ConcurrentUtil.synchronizedCall(this.lock, () -> {
-            if (!tableNeedsRefresh(tableName)) {
-                return;
-            }
-            setTableNeedsRefresh(tableName, false);
+        if (tableNeedsRefresh(tableName) == false) {
+            return;
+        }
+        setTableNeedsRefresh(tableName, false);
 
-            try {
-                threadPool.execute(() -> {
-                    updateTableLimiters(tableName, compartmentId);
-                });
-            } catch (RejectedExecutionException e) {
-                setTableNeedsRefresh(tableName, true);
-            }
+        try {
+            threadPool.execute(() -> {
+                updateTableLimiters(tableName, compartmentId);
+            });
+        } catch (RejectedExecutionException e) {
+            setTableNeedsRefresh(tableName, true);
+        }
         });
     }
 
@@ -1537,7 +1704,7 @@ public class Client {
         try {
             logFine(logger, "Starting GetTableRequest for table '" +
                 tableName + "'");
-            res = (TableResult) this.execute(gtr).get();
+            res = (TableResult) ConcurrentUtil.awaitFuture(this.execute(gtr));
         } catch (Exception e) {
             logFine(logger, "GetTableRequest for table '" +
                 tableName + "' returned exception: " + e.getMessage());
@@ -1696,20 +1863,19 @@ public class Client {
      *         false: already at lowest version number.
      */
     private boolean decrementSerialVersion(short versionUsed) {
-        return ConcurrentUtil.synchronizedCall(this.lock,
-        () -> {
-            if (serialVersion != versionUsed) {
-                return true;
-            }
-            if (serialVersion == V4) {
-                serialVersion = V3;
-                return true;
-            }
-            if (serialVersion == V3) {
-                serialVersion = V2;
-                return true;
-            }
-            return false;
+        return ConcurrentUtil.synchronizedCall(this.lock, () -> {
+        if (serialVersion != versionUsed) {
+            return true;
+        }
+        if (serialVersion == V4) {
+            serialVersion = V3;
+            return true;
+        }
+        if (serialVersion == V3) {
+            serialVersion = V2;
+            return true;
+        }
+        return false;
         });
     }
 
@@ -1721,18 +1887,17 @@ public class Client {
      *         false: already at lowest version number.
      */
     private boolean decrementQueryVersion(short versionUsed) {
-        return ConcurrentUtil.synchronizedCall(this.lock,
-        () -> {
-            if (queryVersion != versionUsed) {
-                return true;
-            }
-
-            if (queryVersion == QueryDriver.QUERY_V3) {
-                return false;
-            }
-
-            --queryVersion;
+        return ConcurrentUtil.synchronizedCall(this.lock, () -> {
+        if (queryVersion != versionUsed) {
             return true;
+        }
+
+        if (queryVersion == QueryDriver.QUERY_V3) {
+            return false;
+        }
+
+        --queryVersion;
+        return true;
         });
     }
 
@@ -1868,28 +2033,27 @@ public class Client {
      * This is synchronized to avoid 2 requests adding the same table
      */
     private void addRequestToRefreshList(Request request) {
-        ConcurrentUtil.synchronizedCall(this.lock,
-        () -> {
-            logFine(logger, "Adding table to request list: " +
-                    request.getCompartment() + ":" + request.getTableName());
-            PutRequest pr =
-                    new PutRequest().setTableName(request.getTableName());
-            pr.setCompartmentInternal(request.getCompartment());
-            pr.setValue(badValue);
-            pr.setIsRefresh(true);
-            authRefreshRequests.add(pr);
-            GetRequest gr =
-                    new GetRequest().setTableName(request.getTableName());
-            gr.setCompartmentInternal(request.getCompartment());
-            gr.setKey(badValue);
-            gr.setIsRefresh(true);
-            authRefreshRequests.add(gr);
-            DeleteRequest dr =
-                    new DeleteRequest().setTableName(request.getTableName());
-            dr.setCompartmentInternal(request.getCompartment());
-            dr.setKey(badValue);
-            dr.setIsRefresh(true);
-            authRefreshRequests.add(dr);
+        ConcurrentUtil.synchronizedCall(this.lock, () -> {
+        logFine(logger, "Adding table to request list: " +
+                request.getCompartment() + ":" + request.getTableName());
+        PutRequest pr =
+            new PutRequest().setTableName(request.getTableName());
+        pr.setCompartmentInternal(request.getCompartment());
+        pr.setValue(badValue);
+        pr.setIsRefresh(true);
+        authRefreshRequests.add(pr);
+        GetRequest gr =
+            new GetRequest().setTableName(request.getTableName());
+        gr.setCompartmentInternal(request.getCompartment());
+        gr.setKey(badValue);
+        gr.setIsRefresh(true);
+        authRefreshRequests.add(gr);
+        DeleteRequest dr =
+            new DeleteRequest().setTableName(request.getTableName());
+        dr.setCompartmentInternal(request.getCompartment());
+        dr.setKey(badValue);
+        dr.setIsRefresh(true);
+        authRefreshRequests.add(dr);
         });
     }
 
@@ -1898,12 +2062,11 @@ public class Client {
      * for internal use
      */
     public void oneTimeMessage(String msg) {
-        ConcurrentUtil.synchronizedCall(this.lock,
-        () -> {
-            if (oneTimeMessages.add(msg) == false) {
-                return;
-            }
-            logWarning(logger, msg);
+        ConcurrentUtil.synchronizedCall(this.lock, () -> {
+        if (oneTimeMessages.add(msg) == false) {
+            return;
+        }
+        logWarning(logger, msg);
         });
     }
 
@@ -2009,22 +2172,21 @@ public class Client {
     }
 
     private int getTopoSeqNum() {
-        return ConcurrentUtil.synchronizedCall(this.lock,
-            () -> (topology == null ? -1 : topology.getSeqNum()));
+        return ConcurrentUtil.synchronizedCall(this.lock, () ->
+            (topology == null ? -1 : topology.getSeqNum()));
     }
 
     private void setTopology(TopologyInfo topo) {
 
-        ConcurrentUtil.synchronizedCall(this.lock,
-        () -> {
-            if (topo == null) {
-                return;
-            }
+        ConcurrentUtil.synchronizedCall(this.lock, () -> {
+        if (topo == null) {
+            return;
+        }
 
-            if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
-                topology = topo;
-                trace("New topology: " + topo, 1);
-            }
+        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+            topology = topo;
+            trace("New topology: " + topo, 1);
+        }
         });
     }
 

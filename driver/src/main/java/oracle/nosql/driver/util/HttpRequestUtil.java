@@ -26,23 +26,20 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
 import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.httpclient.ResponseHandler;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
  * Utility to issue HTTP request using {@link HttpClient}.
@@ -77,7 +74,7 @@ public class HttpRequestUtil {
      *
      * @return HTTP response, a object encapsulate status code and response
      */
-    public static CompletableFuture<HttpResponse> doGetRequest(HttpClient httpClient,
+    public static HttpResponse doGetRequest(HttpClient httpClient,
                                             String uri,
                                             HttpHeaders headers,
                                             int timeoutMs,
@@ -115,7 +112,7 @@ public class HttpRequestUtil {
      *
      * @return HTTP response, a object encapsulate status code and response
      */
-    public static CompletableFuture<HttpResponse> doPostRequest(HttpClient httpClient,
+    public static HttpResponse doPostRequest(HttpClient httpClient,
                                              String uri,
                                              HttpHeaders headers,
                                              byte[] payload,
@@ -154,7 +151,7 @@ public class HttpRequestUtil {
      *
      * @return HTTP response, a object encapsulate status code and response
      */
-    public static CompletableFuture<HttpResponse> doPutRequest(HttpClient httpClient,
+    public static HttpResponse doPutRequest(HttpClient httpClient,
                                             String uri,
                                             HttpHeaders headers,
                                             byte[] payload,
@@ -191,7 +188,7 @@ public class HttpRequestUtil {
      *
      * @return HTTP response, a object encapsulate status code and response
      */
-    public static CompletableFuture<HttpResponse> doDeleteRequest(HttpClient httpClient,
+    public static HttpResponse doDeleteRequest(HttpClient httpClient,
                                                String uri,
                                                HttpHeaders headers,
                                                int timeoutMs,
@@ -201,7 +198,7 @@ public class HttpRequestUtil {
                          timeoutMs, logger);
     }
 
-    private static CompletableFuture<HttpResponse> doRequest(HttpClient httpClient,
+    private static HttpResponse doRequest(HttpClient httpClient,
                                           String uri,
                                           HttpHeaders headers,
                                           HttpMethod method,
@@ -213,46 +210,109 @@ public class HttpRequestUtil {
         int numRetries = 0;
         Throwable exception = null;
 
-        FullHttpRequest request;
-        if (payload == null) {
-            request = buildRequest(uri, method, headers);
-        } else {
-            request = buildRequest(uri, headers, method, payload);
-        }
-        addRequiredHeaders(request);
-        logFine(logger, request.headers().toString());
-
-
-        return httpClient.runRequest(request, timeoutMs)
-        .thenApply(fhr -> {
-            if (fhr.status() == null) {
-                throw new IllegalStateException("Invalid null response");
+        do {
+            if (numRetries > 0) {
+                logInfo(logger, "Client, doing retry: " + numRetries +
+                    (exception != null ? ", exception: " + exception : ""));
             }
             try {
-                return processResponse(fhr.status().code(), fhr.content());
-            } finally {
-                fhr.release();
-            }
-        })
-        .handle((res, err) -> {
-            if (err != null) {
-                return handleError(res, err);
-            } else if(res.getStatusCode() >= 500) {
-                logFine(logger,
-                "Remote server temporarily unavailable," +
+                FullHttpRequest request;
+                if (payload == null) {
+                    request = buildRequest(uri, method, headers);
+                } else {
+                    request = buildRequest(uri, headers, method, payload);
+                }
+                addRequiredHeaders(request);
+                logFine(logger, request.headers().toString());
+                CompletableFuture<HttpResponse> httpResponse =
+                    httpClient.runRequest(request, timeoutMs)
+                    .thenApply(fhr -> {
+                        if (fhr.status() == null) {
+                            throw new IllegalStateException(
+                                "Invalid null response");
+                        }
+                        try {
+                            final int code = fhr.status().code();
+                            return processResponse(code, fhr.content());
+                        } finally {
+                            fhr.release();
+                        }
+                    });
+                HttpResponse res = httpResponse.get();
+
+                /*
+                 * Retry upon status code larger than 500, in general,
+                 * this indicates server internal error.
+                 */
+                if (res.getStatusCode() >= 500) {
+                    logFine(logger,
+                        "Remote server temporarily unavailable," +
                         " status code " + res.getStatusCode() +
                         " , response " + res.getOutput());
-                return handleError(res, err);
-            }
-            return CompletableFuture.completedFuture(res);
-        })
-        .thenCompose(Function.identity());
-    }
+                    delay();
+                    ++numRetries;
+                    continue;
+                }
+                return res;
+            }  catch (ExecutionException ee) {
+                Throwable cause = ee.getCause();
+                if (cause instanceof IOException) {
+                    IOException ioe = (IOException) cause;
+                    String name = ioe.getClass().getName();
+                    logFine(logger, "Client execute IOException, name: " +
+                            name + ", message: " + ioe.getMessage());
+                    /*
+                     * An exception in the channel, e.g. the server may have
+                     * disconnected. Retry.
+                     */
+                    exception = ioe;
+                    ++numRetries;
+                    if (ioe instanceof SSLException) {
+                        /* disconnect the channel to force a new one */
+                    /*if (channel != null) {
+                        logFine(logger,
+                                "Client disconnecting channel due to: " + ioe);
+                        channel.disconnect();
+                    }*/
+                        //TODO what to do?
+                    } else {
+                        delay();
+                    }
+                    continue;
+                } else if (cause instanceof TimeoutException) {
+                    throw new RuntimeException("Timeout exception: host=" +
+                        httpClient.getHost() + " port=" +
+                        httpClient.getPort() + " uri=" +
+                        uri, cause);
+                }
+                throw new RuntimeException("Unable to execute request: ", ee);
 
-    static CompletableFuture<HttpResponse> handleError(HttpResponse response,
-                                                       Throwable err) {
-        //TODO handle error
-        return  null;
+            } catch (RuntimeException e) {
+                logFine(logger, "Client execute runtime exception: " +
+                    e.getMessage());
+                throw e;
+            } catch (InterruptedException ie) {
+                throw new RuntimeException("Client interrupted exception: ", ie);
+            } catch (Throwable t) {
+                /*
+                 * this is likely an exception from Netty, perhaps a bad
+                 * connection. Retry.
+                 */
+                String name = t.getClass().getName();
+                logFine(logger, "Client execute Throwable, name: " +
+                        name + "message: " + t.getMessage());
+
+                exception = t;
+                delay();
+                ++numRetries;
+                continue;
+            }
+        } while ((System.currentTimeMillis()- startTime) < timeoutMs);
+
+        throw new RequestTimeoutException(timeoutMs,
+            "Request timed out after " + numRetries +
+            (numRetries == 1 ? " retry." : " retries."),
+            exception);
     }
 
     private static FullHttpRequest buildRequest(String requestURI,

@@ -360,7 +360,8 @@ class Common {
         }
 
         @Override
-        public CompletableFuture<String> getAuthorizationStringAsync(Request request) {
+        public CompletableFuture<String>
+        getAuthorizationStringAsync(Request request) {
             return CompletableFuture.completedFuture(id);
         }
 
