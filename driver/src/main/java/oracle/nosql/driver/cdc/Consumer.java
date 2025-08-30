@@ -9,22 +9,22 @@ package oracle.nosql.driver.cdc;
 
 import java.time.Duration;
 
-import oracle.nosql.driver.cdc.ConsumerRequest.RequestMode;
-import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.cdc.ConsumerRequest.RequestMode;
+import oracle.nosql.driver.http.NoSQLHandleImpl;
+import oracle.nosql.driver.values.MapValue;
 
 /**
  * The main object used for Change Data Capture.
  *
- * NOTE: this class is not thread-safe, with the exception of calling
- * commit(), which can be done in other threads. Calling
- * poll() from multiple threads will result in undefined behavior.
+ * To get an instance of this class, use {@link ConsumerBuilder}.
  */
 public class Consumer {
     private byte[] cursor;
     private ConsumerBuilder config;
     private NoSQLHandleImpl handle;
+    private MapValue metadata;
 
     Consumer(ConsumerBuilder builder) {
         builder.validate();
@@ -40,6 +40,9 @@ public class Consumer {
                 throw new NoSQLException("Server returned invalid consumer cursor");
             }
             this.cursor = res.cursor;
+            if (res.metadata != null) {
+                this.metadata = metadata;
+            }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
                 throw new OperationNotSupportedException("CDC not supported by server");
@@ -148,8 +151,8 @@ public class Consumer {
      * rebalanace operations are rate limitied to avoid excessive resource
      * usage when many consumers are being added to or removed from a group.
      *
-     * This method in not thread-safe. Calling poll() on the same consumer instance
-     * from multiple routines/threads will result in undefined behavior.
+     * This method is not thread-safe. Calling poll() on the same consumer instance
+     * from multiple threads will result in undefined behavior.
      */
     public MessageBundle poll(int limit, Duration waitTime) {
         /* TODO: config interval ? */
@@ -205,5 +208,13 @@ public class Consumer {
             }
             throw e;
         }
+    }
+
+    /*
+     * @hidden
+     * For debug and testing purposes only.
+     */
+    public MapValue getMetaData() {
+        return this.metadata;
     }
 }

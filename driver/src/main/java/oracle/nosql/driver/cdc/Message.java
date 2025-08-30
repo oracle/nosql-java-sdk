@@ -104,4 +104,17 @@ public class Message {
     public void setEvents(List<Event> events) {
         this.events = events;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Message {\n");
+        sb.append(" tableName: { ").append(tableName).append(" }\n");
+        sb.append(" compartmentOcid: { ").append(compartmentOcid).append(" }\n");
+        sb.append(" tableOcid: { ").append(tableOcid).append(" }\n");
+        sb.append(" version: { ").append(version).append(" }\n");
+        sb.append(" events: { ").append(events).append(" }\n");
+        sb.append("}");
+        return sb.toString();
+    }
 }

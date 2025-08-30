@@ -14,8 +14,8 @@ import oracle.nosql.driver.values.MapValue;
  * It consists of the record value and record metadata.
  */
 public class Image {
-    private MapValue recordValue;
-    private MapValue recordMetadata;
+    private MapValue value;
+    private MapValue metadata;
 
     /*
      * @hidden
@@ -26,36 +26,36 @@ public class Image {
      * @hidden
      */
     public Image(MapValue value, MapValue metadata) {
-        recordValue = value;
-        recordMetadata = metadata;
+        value = value;
+        metadata = metadata;
     }
 
     public MapValue getValue() {
-        return recordValue;
+        return value;
     }
 
     public MapValue getMetadata() {
-        return recordMetadata;
+        return metadata;
     }
 
     /*
      * @hidden
      */
     public void setValue(MapValue value) {
-        this.recordValue = value;
+        this.value = value;
     }
 
     /*
      * @hidden
      */
     public void setMetadata(MapValue metadata) {
-        this.recordMetadata = metadata;
+        this.metadata = metadata;
     }
 
     /*
      * @hidden
      */
     public boolean isEmpty() {
-        return (recordValue == null && recordMetadata == null);
+        return (value == null && metadata == null);
     }
 }

@@ -27,16 +27,16 @@ public class MessageBundle {
     /*
      * @hidden
      */
-	public MessageBundle(List<Message> messages) {
+    public MessageBundle(List<Message> messages) {
         this.messages = messages;
-	}
+    }
 
     /*
      * @hidden
      */
     public Consumer getConsumer() {
-		return consumer;
-	}
+        return consumer;
+    }
 
     /*
      * @hidden
@@ -49,22 +49,22 @@ public class MessageBundle {
      * @hidden
      */
     public byte[] getCursor() {
-		return cursor;
-	}
+        return cursor;
+    }
 
     /*
      * @hidden
      */
     public void setCursor(byte[] cursor) {
-		this.cursor = cursor;
-	}
+        this.cursor = cursor;
+    }
 
     /*
      * @hidden
      */
     public void setEventsRemaining(long remaining) {
-		this.eventsRemaining = remaining;
-	}
+        this.eventsRemaining = remaining;
+    }
 
     /*
      * Return an estimate of the number of change events that are still remaining to
@@ -74,19 +74,19 @@ public class MessageBundle {
      * which may be less than the overall total if this consumer is one in a group of many active consumers.
      */
     public long getEventsRemaining() {
-		return eventsRemaining;
-	}
+        return eventsRemaining;
+    }
 
     /* Return the list of messages containing change event data. */
     public List<Message> getMessages() {
-		return messages;
-	} 
+        return messages;
+    }
 
     /*
      * Mark the messages in the bundle as committed: all messages have been
      * fully read and consumed, and the messages should not be read again by any
      * current or future consumer in the group.
-     *  
+     *
      * Note that this commit implies commits on all previously polled messages from the
      * same consumer (that is, messages that were returned from calls to poll() before
      * this one). Calling Commit() on a previous MessageBundle will have no effect.
@@ -101,6 +101,22 @@ public class MessageBundle {
      */
     public boolean isEmpty() {
         return (messages == null || messages.isEmpty());
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("MessageBundle {\n");
+        sb.append(" consumer: { ").append(consumer).append(" }\n");
+        if (cursor == null) {
+            sb.append(" cursor: { (null) }\n");
+        } else {
+            sb.append(" cursor: { (size=").append(cursor.length).append(") }\n");
+        }
+        sb.append(" eventsRemaining: { ").append(eventsRemaining).append(" }\n");
+        sb.append(" messages: { ").append(messages).append(" }\n");
+        sb.append("}");
+        return sb.toString();
     }
 }
 
