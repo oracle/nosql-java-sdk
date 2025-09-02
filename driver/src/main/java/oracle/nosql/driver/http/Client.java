@@ -54,8 +54,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -141,8 +139,6 @@ import io.netty.handler.ssl.SslContext;
 public final class Client {
 
     public static int traceLevel = 0;
-    private static final int cores = Runtime.getRuntime().availableProcessors();
-
     private final NoSQLHandleConfig config;
 
     private final SerializerFactory v3factory = new BinarySerializerFactory();
@@ -311,7 +307,8 @@ public final class Client {
     }
 
     public Client(Logger logger,
-                  NoSQLHandleConfig httpConfig) {
+                  NoSQLHandleConfig httpConfig,
+                  ScheduledExecutorService taskExecutor) {
 
         this.logger = logger;
         this.config = httpConfig;
@@ -397,33 +394,7 @@ public final class Client {
 
         /* for internal testing */
         prepareFilename = System.getProperty("test.preparefilename");
-
-        taskExecutor = new ScheduledThreadPoolExecutor(cores /* core threads */,
-            new ThreadFactory() {
-                private final AtomicInteger threadNumber = new AtomicInteger(1);
-                @Override
-                public Thread newThread(Runnable r) {
-                    final Thread t = Executors.defaultThreadFactory().newThread(r);
-                    t.setName(String.format("nosql-task-executor-%s",
-                        threadNumber.getAndIncrement()));
-                    t.setDaemon(true);
-                    t.setUncaughtExceptionHandler((thread, error) -> {
-                        if (ConcurrentUtil.unwrapCompletionException(error)
-                                instanceof RejectedExecutionException) {
-                            /*
-                             * Ignore uncaught error for rejected exception
-                             * since that is expected to happen during
-                             * executor shut down.
-                             */
-                            return;
-                        }
-                        logger.warning(() -> String.format(
-                            "Uncaught exception from %s: %s",
-                            error, LogUtil.getStackTrace(error)));
-                    });
-                    return t;
-                }
-            });
+        this.taskExecutor = taskExecutor;
         initErrorHandlers();
     }
 

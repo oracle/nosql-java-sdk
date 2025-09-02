@@ -11,11 +11,11 @@ import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import io.netty.bootstrap.Bootstrap;
@@ -102,12 +102,15 @@ class ConnectionPool {
     private final Map<Channel, ChannelStats> stats;
     private int acquiredChannelCount;
 
+    /* Executor to run keep-alive task periodically */
+    private final ScheduledExecutorService keepAlivescheduler;
+
     /**
      * Keepalive callback interface
      */
     @FunctionalInterface
     interface KeepAlive {
-        CompletableFuture<Boolean> keepAlive(Channel ch);
+        boolean keepAlive(Channel ch);
     }
 
     /**
@@ -178,10 +181,17 @@ class ConnectionPool {
                 DEFAULT_REFRESH_PERIOD_SECS :
                 Math.min(DEFAULT_REFRESH_PERIOD_SECS,
                          this.inactivityPeriodSeconds);
-            this.bootstrap.config().group().next()
-                .scheduleAtFixedRate(new RefreshTask(),
-                                     refreshPeriod, refreshPeriod,
-                                     TimeUnit.SECONDS);
+            this.keepAlivescheduler =
+                Executors.newSingleThreadScheduledExecutor(r -> {
+                    Thread t = new Thread(r, "nosql-keep-alive");
+                    t.setDaemon(true);
+                    return t;
+                });
+            keepAlivescheduler.scheduleAtFixedRate(new RefreshTask(),
+                    refreshPeriod, refreshPeriod,
+                    TimeUnit.SECONDS);
+        } else {
+            this.keepAlivescheduler = null;
         }
     }
 
@@ -281,6 +291,9 @@ class ConnectionPool {
      */
     void close() {
         logFine(logger, "Closing pool, stats " + getStats());
+        if (keepAlivescheduler != null) {
+            keepAlivescheduler.shutdown();
+        }
         /* TODO: do this cleanly */
         validatePool("close1");
         Channel ch = queue.pollFirst();
@@ -451,7 +464,7 @@ class ConnectionPool {
          * Don't remove a channel from the queue until it's clear that
          * it will be used
          */
-        AtomicInteger numSent = new AtomicInteger();
+        int numSent = 0;
         for (Channel ch : queue) {
             if (!ch.isActive()) {
                 continue;
@@ -468,22 +481,18 @@ class ConnectionPool {
                     continue;
                 }
                 logFine(logger,
-                    "Sending keepalive on channel " + ch + ", stats: " + cs);
-                keepAlive.keepAlive(ch).handle((didKeepalive, err) -> {
-                    if (err != null) {
-                        logFine(logger,
-                            "Keepalive failed on channel "
-                            + ch
-                            + ", removing from pool");
-                        removeChannel(ch);
-                    } else {
-                        cs.acquired(); /* update lastAcquired time */
-                        numSent.getAndIncrement();
-                        //TODO is this operation safe inside for-each?
-                        queue.addFirst(ch);
-                    }
-                    return null;
-                });
+                        "Sending keepalive on channel " + ch + ", stats: " + cs);
+                boolean didKeepalive = keepAlive.keepAlive(ch);
+                if (!didKeepalive) {
+                    logFine(logger,
+                            "Keepalive failed on channel " + ch +
+                            ", removing from pool");
+                    removeChannel(ch);
+                    continue;
+                }
+                cs.acquired(); /* update lastAcquired time */
+                numSent++;
+                queue.addFirst(ch);
             }
             /*
              * channels that are not used but have been used within the
@@ -494,9 +503,9 @@ class ConnectionPool {
                 break;
             }
         }
-        //TODO how to validate this without blocking?
-        //validatePool("doKeepAlive");
-        return numSent.get();
+        validatePool("doKeepAlive");
+
+        return numSent;
     }
 
     private void validatePool(final String caller) {
@@ -517,7 +526,7 @@ class ConnectionPool {
      */
     private void updateStats(Channel channel, boolean isAcquire) {
         ChannelStats cstats = stats.get(channel);
-        if (cstats == null) {
+        if (cstats == null && isAcquire) {
             cstats = new ChannelStats();
             stats.put(channel, cstats);
         }

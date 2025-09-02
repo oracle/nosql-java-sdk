@@ -9,6 +9,7 @@ package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
+import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 
 /**
@@ -42,5 +43,34 @@ public class NoSQLHandleFactory {
             configCopy.configureDefaultRetryHandler(10, 0);
         }
         return new NoSQLHandleImpl(configCopy);
+    }
+
+    /**
+     * Creates a async handle that can be used to access tables.
+     * The application must invoke {@link NoSQLHandleAsync#close},
+     * when it is done accessing the system to
+     * free up resources associated with the handle.
+     *
+     * @param config the NoSQLHandle configuration parameters
+     *
+     * @return a valid {@link NoSQLHandleAsync} instance, ready for use
+     *
+     * @throws IllegalArgumentException if an illegal configuration parameter
+     * is specified.
+     *
+     * @see NoSQLHandleAsync#close
+     */
+    public static NoSQLHandleAsync createNoSQLHandleAsync(NoSQLHandleConfig config) {
+        requireNonNull(
+            config,
+            "NoSQLHandleFactory.createNoSQLHandle: config cannot be null");
+        NoSQLHandleConfig configCopy = config.clone();
+        if (configCopy.getRetryHandler() == null) {
+            /*
+             * Default retry handler: 10 retries, default backoff
+             */
+            configCopy.configureDefaultRetryHandler(10, 0);
+        }
+        return new NoSQLHandleAsyncImpl(configCopy);
     }
 }

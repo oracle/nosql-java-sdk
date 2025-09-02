@@ -39,6 +39,7 @@ import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.FutureListener;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.util.ConcurrentUtil;
 
 /**
  * Netty HTTP client. Initialization process:
@@ -272,7 +273,7 @@ public class HttpClient {
             /* this is the main request client */
             pool.setKeepAlive(new ConnectionPool.KeepAlive() {
                     @Override
-                    public CompletableFuture<Boolean> keepAlive(Channel ch) {
+                    public boolean keepAlive(Channel ch) {
                         return doKeepAlive(ch);
                     }
                 });
@@ -503,38 +504,39 @@ public class HttpClient {
     /**
      * Use HTTP HEAD method to refresh the channel
      */
-    CompletableFuture<Boolean> doKeepAlive(Channel ch) {
-        CompletableFuture<Boolean> future = new CompletableFuture<>();
+    boolean doKeepAlive(Channel ch) {
         final int keepAliveTimeout = 3000; /* ms */
-        final HttpRequest request =
+        try {
+            final HttpRequest request =
                 new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
-        /*
-         * All requests need a HOST header or the LBaaS (nginx) or
-         * other server may reject them and close the connection
-         */
-        request.headers().add(HOST, host);
-        runRequest(request, ch, keepAliveTimeout)
-        .thenApply(fullHttpResponse -> {
+
+            /*
+             * All requests need a HOST header or the LBaaS (nginx) or
+             * other server may reject them and close the connection
+             */
+            request.headers().add(HOST, host);
+            FullHttpResponse response = ConcurrentUtil.awaitFuture(
+                runRequest(request, ch, keepAliveTimeout));
             /*
              * LBaaS will return a non-200 status but that is expected as the
              * path "/" does not map to the service. This is ok because all that
              * matters is that the connection remain alive.
              */
-            String conn = fullHttpResponse.headers().get(CONNECTION);
-            if (!"keep-alive".equalsIgnoreCase(conn)) {
+            String conn = response.headers().get(CONNECTION);
+            if (conn == null || !"keep-alive".equalsIgnoreCase(conn)) {
                 logFine(logger,
-                    "Keepalive HEAD request did not return keep-alive "
-                    + "in connection header, is: " + conn);
+                        "Keepalive HEAD request did not return keep-alive " +
+                        "in connection header, is: " + conn);
             }
-            return fullHttpResponse;
-        }).whenComplete((res, err) -> {
-            res.release();
-            if (err != null) {
-                future.complete(false);
-            } else {
-                future.complete(true);
-            }
-        });
-        return future;
+
+            return true;
+        }  catch (Throwable t) {
+            String msg = String.format(
+                "Exception sending keepalive on [channel:%s] error:%s",
+                ch.id(), t.getMessage());
+            logFine(logger, msg);
+        }
+        /* something went wrong, caller is responsible for disposition */
+        return false;
     }
 }

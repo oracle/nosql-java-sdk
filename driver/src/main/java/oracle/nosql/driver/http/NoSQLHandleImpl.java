@@ -7,19 +7,12 @@
 
 package oracle.nosql.driver.http;
 
-import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Logger;
 
-import javax.net.ssl.SSLException;
-
-import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
-import oracle.nosql.driver.iam.SignatureProvider;
-import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
@@ -54,13 +47,6 @@ import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
 import oracle.nosql.driver.util.ConcurrentUtil;
-import oracle.nosql.driver.values.FieldValue;
-import oracle.nosql.driver.values.JsonUtils;
-import oracle.nosql.driver.values.MapValue;
-
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import io.netty.util.internal.logging.JdkLoggerFactory;
 
 /**
  * The methods in this class require non-null arguments. Because they all
@@ -68,114 +54,14 @@ import io.netty.util.internal.logging.JdkLoggerFactory;
  * single place.
  */
 public class NoSQLHandleImpl implements NoSQLHandle {
-
     /*
      * The HTTP client. This is not final so that it can be nulled upon
      * close.
      */
-    private Client client;
+    private final NoSQLHandleAsyncImpl asyncHandle;
 
     public NoSQLHandleImpl(NoSQLHandleConfig config) {
-
-        configNettyLogging();
-        final Logger logger = getLogger(config);
-
-        /*
-         * config SslContext first, on-prem authorization provider
-         * will reuse the context in NoSQLHandleConfig
-         */
-        configSslContext(config);
-        client = new Client(logger, config);
-        try {
-            /* configAuthProvider may use client */
-            configAuthProvider(logger, config);
-        } catch (RuntimeException re) {
-            /* cleanup client */
-            client.shutdown();
-            throw re;
-        }
-    }
-
-    /**
-     * Returns the logger used for the driver. If no logger is specified
-     * create one based on this class name.
-     */
-    private Logger getLogger(NoSQLHandleConfig config) {
-        if (config.getLogger() != null) {
-            return config.getLogger();
-        }
-
-        /*
-         * The default logger logs at INFO. If this is too verbose users
-         * must create a logger and pass it in.
-         */
-        Logger logger = Logger.getLogger(getClass().getName());
-        return logger;
-    }
-
-    /**
-     * Configures the logging of Netty library.
-     */
-    private void configNettyLogging() {
-        /*
-         * Configure default Netty logging using Jdk Logger.
-         */
-        InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
-    }
-
-    private void configSslContext(NoSQLHandleConfig config) {
-        if (config.getSslContext() != null) {
-            return;
-        }
-        if (config.getServiceURL().getProtocol().equalsIgnoreCase("HTTPS")) {
-            try {
-                SslContextBuilder builder = SslContextBuilder.forClient();
-                if (config.getSSLCipherSuites() != null) {
-                    builder.ciphers(config.getSSLCipherSuites());
-                }
-                if (config.getSSLProtocols() != null) {
-                    builder.protocols(config.getSSLProtocols());
-                }
-                builder.sessionTimeout(config.getSSLSessionTimeout());
-                builder.sessionCacheSize(config.getSSLSessionCacheSize());
-                config.setSslContext(builder.build());
-            } catch (SSLException se) {
-                throw new IllegalStateException(
-                    "Unable to start handle with SSL", se);
-            }
-        }
-    }
-
-    private void configAuthProvider(Logger logger, NoSQLHandleConfig config) {
-        final AuthorizationProvider ap = config.getAuthorizationProvider();
-        if (ap instanceof StoreAccessTokenProvider) {
-            final StoreAccessTokenProvider stProvider =
-                (StoreAccessTokenProvider) ap;
-            if (stProvider.getLogger() == null) {
-                stProvider.setLogger(logger);
-            }
-            if (stProvider.isSecure() &&
-                stProvider.getEndpoint() == null) {
-                String endpoint = config.getServiceURL().toString();
-                if (endpoint.endsWith("/")) {
-                    endpoint = endpoint.substring(0, endpoint.length() - 1);
-                }
-                stProvider.setEndpoint(endpoint)
-                          .setSslContext(config.getSslContext())
-                          .setSslHandshakeTimeout(
-                              config.getSSLHandshakeTimeout());
-            }
-        } else if (ap instanceof SignatureProvider) {
-            SignatureProvider sigProvider = (SignatureProvider) ap;
-            if (sigProvider.getLogger() == null) {
-                sigProvider.setLogger(logger);
-            }
-            sigProvider.prepare(config);
-            if (config.getAuthRefresh()) {
-                sigProvider.setOnSignatureRefresh(new SigRefresh());
-                client.createAuthRefreshList();
-            }
-        }
+        asyncHandle = new NoSQLHandleAsyncImpl(config);
     }
 
     @Override
@@ -205,27 +91,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public QueryResult query(QueryRequest request) {
-        return ConcurrentUtil.awaitFuture(queryAsync(request));
-    }
-
-    private CompletableFuture<QueryResult> queryAsync(QueryRequest request) {
-        checkClient();
-        return client.execute(request)
-            .thenCompose(result -> {
-                /* Complex queries need RCB, run asynchronously */
-                if (!request.isSimpleQuery()) {
-                    // TODO supplyAsync runs in fork-join pool.
-                    //  Change to dedicated pool
-                    return CompletableFuture.supplyAsync(() -> result);
-                }
-                return CompletableFuture.completedFuture(result);
-          })
-        .thenApply(result -> ((QueryResult) result));
+        return ConcurrentUtil.awaitFuture(asyncHandle.queryAsync(request));
     }
 
     @Override
     public QueryIterableResult queryIterable(QueryRequest request) {
-        checkClient();
+        asyncHandle.checkClient();
         return new QueryIterableResult(request, this);
     }
 
@@ -236,20 +107,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public TableResult tableRequest(TableRequest request) {
-        checkClient();
-        TableResult res =  executeSync(request);
-        /* update rate limiters, if table has limits */
-        client.updateRateLimiters(res.getTableName(), res.getTableLimits());
-        return res;
+        return executeSync(request);
     }
 
     @Override
     public TableResult getTable(GetTableRequest request) {
-        checkClient();
-        TableResult res = executeSync(request);
-        /* update rate limiters, if table has limits */
-        client.updateRateLimiters(res.getTableName(), res.getTableLimits());
-        return res;
+        return executeSync(request);
     }
 
     @Override
@@ -294,10 +157,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     @Override
-    synchronized public void close() {
-        checkClient();
-        client.shutdown();
-        client = null;
+    public void close() {
+        asyncHandle.close();
     }
 
     /**
@@ -307,25 +168,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public String[] listNamespaces() {
-        SystemResult dres = doSystemRequest("show as json namespaces");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
-            return null;
-        }
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue namespaces = root.get("namespaces");
-        if (namespaces == null) {
-            return null;
-        }
-
-        ArrayList<String> results = new ArrayList<String>(
-            namespaces.asArray().size());
-        for (FieldValue val : namespaces.asArray()) {
-            results.add(val.getString());
-        }
-        return results.toArray(new String[0]);
+        return ConcurrentUtil.awaitFuture(asyncHandle.listNamespaces());
     }
 
     /**
@@ -335,29 +178,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public UserInfo[] listUsers() {
-        SystemResult dres = doSystemRequest("show as json users");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
-            return null;
-        }
-
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue users = root.get("users");
-        if (users == null) {
-            return null;
-        }
-
-        ArrayList<UserInfo> results = new ArrayList<UserInfo>(
-            users.asArray().size());
-
-        for (FieldValue val : users.asArray()) {
-            String id = val.asMap().getString("id");
-            String name = val.asMap().getString("name");
-            results.add(new UserInfo(id, name));
-        }
-        return results.toArray(new UserInfo[0]);
+        return ConcurrentUtil.awaitFuture(asyncHandle.listUsers());
     }
 
     /**
@@ -367,26 +188,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      */
     @Override
     public String[] listRoles() {
-        SystemResult dres = doSystemRequest("show as json roles");
-
-        String jsonResult = dres.getResultString();
-        if (jsonResult == null) {
-            return null;
-        }
-        MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
-
-        FieldValue roles = root.get("roles");
-        if (roles == null) {
-            return null;
-        }
-
-        ArrayList<String> results = new ArrayList<String>(
-            roles.asArray().size());
-        for (FieldValue val : roles.asArray()) {
-            String role = val.asMap().getString("name");
-            results.add(role);
-        }
-        return results.toArray(new String[0]);
+        return ConcurrentUtil.awaitFuture(asyncHandle.listRoles());
     }
 
 
@@ -420,16 +222,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public StatsControl getStatsControl() {
-        return client.getStatsControl();
+        return asyncHandle.getStatsControl();
     }
 
     /**
      * Ensure that the client exists and hasn't been closed;
      */
     private void checkClient() {
-        if (client == null) {
-            throw new IllegalStateException("NoSQLHandle has been closed");
-        }
+        asyncHandle.checkClient();
     }
 
     /**
@@ -437,7 +237,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * For testing use
      */
     public Client getClient() {
-        return client;
+        return asyncHandle.getClient();
     }
 
     /**
@@ -445,7 +245,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * For testing use
      */
     public short getSerialVersion() {
-        return client.getSerialVersion();
+        return asyncHandle.getSerialVersion();
     }
 
     /**
@@ -454,31 +254,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
      * Testing use only.
      */
     public void setDefaultNamespace(String ns) {
-        client.setDefaultNamespace(ns);
-    }
-
-    /**
-     * Cloud service only.
-     * The refresh method of this class is called when a Signature is refreshed
-     * in SignatureProvider. This happens every 4 minutes or so. This mechanism
-     * allows the authentication and authorization information cached by the
-     * server to be refreshed out of band with the normal request path.
-     */
-    private class SigRefresh implements SignatureProvider.OnSignatureRefresh {
-
-        /*
-         * Attempt to refresh the server's authentication and authorization
-         * information for a new signature.
-         */
-        @Override
-        public void refresh(long refreshMs) {
-            client.doRefresh(refreshMs);
-        }
+        asyncHandle.setDefaultNamespace(ns);
     }
 
     @SuppressWarnings("unchecked")
     private <T extends Result> T executeSync(Request request) {
-        checkClient();
-        return (T) ConcurrentUtil.awaitFuture(client.execute(request));
+        return (T) ConcurrentUtil.awaitFuture(asyncHandle.executeASync(request));
     }
 }

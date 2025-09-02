@@ -12,7 +12,12 @@ import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.ops.TableLimits.CapacityMode;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
@@ -782,6 +787,83 @@ public class TableResult extends Result {
                                          ie.getMessage());
             }
         }
+    }
+
+    public CompletableFuture<Void> waitForCompletionAsync
+            (NoSQLHandleAsyncImpl handle, int waitMillis, int delayMillis) {
+
+        if (isTerminal()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (operationId == null) {
+            Throwable t = new IllegalArgumentException(
+                "Operation state must not be null");
+            return CompletableFuture.failedFuture(t);
+        }
+
+        /* TODO: try to share code with waitForState? */
+        final int DELAY_MS = 500;
+
+        final int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
+        if (waitMillis < delayMillis) {
+            Throwable t = new IllegalArgumentException(
+                "Wait milliseconds must be a minimum of " +
+                DELAY_MS + " and greater than delay milliseconds");
+            return CompletableFuture.failedFuture(t);
+        }
+
+        final long startTime = System.currentTimeMillis();
+        final CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+        final ScheduledExecutorService taskExecutor = handle.getTaskExecutor();
+
+        GetTableRequest getTable =
+            new GetTableRequest().setTableName(tableName).
+            setOperationId(operationId).setCompartment(
+                compartmentOrNamespace);
+
+        Runnable poll = new Runnable() {
+            @Override
+            public void run() {
+                long curTime = System.currentTimeMillis();
+                if ((curTime - startTime) > waitMillis) {
+                    Throwable t = new RequestTimeoutException(
+                        waitMillis,
+                        "Operation not completed in expected time");
+                    resultFuture.completeExceptionally(t);
+                    return;
+                }
+                handle.getTable(getTable).whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        resultFuture.completeExceptionally(ex);
+                        return;
+                    }
+                    /*
+                     * partial "copy" of possibly modified state. Don't modify
+                     * operationId as that is what we are waiting to complete
+                     */
+                    state = res.getTableState();
+                    limits = res.getTableLimits();
+                    schema = res.getSchema();
+                    matchETag = res.getMatchETag();
+                    ddl = res.getDdl();
+                    isFrozen = res.isFrozen();
+                    isLocalReplicaInitialized = res.isLocalReplicaInitialized();
+                    replicas = res.getReplicas();
+
+                    if (isTerminal()) {
+                        resultFuture.complete(null);
+                    } else {
+                        /* Schedule next poll */
+                        taskExecutor.schedule(this, delayMS,
+                            TimeUnit.MILLISECONDS);
+                    }
+                });
+            }
+        };
+        /* Kick off the first poll immediately */
+        taskExecutor.execute(poll);
+        return resultFuture;
     }
 
     private boolean isTerminal() {
