@@ -47,6 +47,20 @@ public class CdcTest extends ProxyTestBase {
 
     private static final String tableName = "ocid1_nosqltable_cloudsim_JavaTestUsers";
 
+    /*
+     * consumers may have metadata associated with them for debugging/testing purposes.
+     * One value indicates if the CDC operations are limited due to using CloudSim.
+     * Note this is independent of the "cloudsim" test mode, because that can use
+     * either internal proxy cloudsim CDC client, or the real cloud CDC client.
+     */
+    private boolean isCloudsimCDC(Consumer consumer) {
+        MapValue md = consumer.getMetaData();
+        if (md != null && md.get("cloudsim") != null) {
+            return true;
+        }
+        return false;
+    }
+
     @Test
     public void smokeTest() {
 
@@ -62,7 +76,6 @@ public class CdcTest extends ProxyTestBase {
             /* Enable CDC on table */
             handle.enableCDC(tableName, null, true);
 
-/* TODO: only if real CDC */
             /* give producer a bit of time to set up table */
             Thread.sleep(2000);
 
@@ -73,6 +86,13 @@ public class CdcTest extends ProxyTestBase {
                 .commitAutomatic()
                 .handle(handle)
                 .build();
+
+            boolean cloudsimCDC = isCloudsimCDC(consumer);
+
+            if (!cloudsimCDC) {
+                /* give producer a bit of time to set up table */
+                Thread.sleep(2000);
+            }
 
             /* PUT */
             MapValue key = new MapValue().put("id", 10);

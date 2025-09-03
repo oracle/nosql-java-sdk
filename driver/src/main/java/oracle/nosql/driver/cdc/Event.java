@@ -36,4 +36,9 @@ public class Event {
     public List<Record> getRecords() {
         return records;
     }
+
+    @Override
+    public String toString() {
+        return "{ Records: " + records + " }";
+    }
 }

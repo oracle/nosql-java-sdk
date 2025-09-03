@@ -137,7 +137,7 @@ public class Consumer {
 
 
     /*
-     * Get  Data Capture messages for a consumer.
+     * Get Change Data Capture messages for a consumer.
      *
      * @param limit max number of change messages to return in the bundle. This value can be set to
      * zero to specify that this consumer is alive and active in the group without actually

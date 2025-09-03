@@ -158,4 +158,19 @@ public class Record {
     public void setRegionId(int rid) {
 		this.regionId = rid;
 	}
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Record {\n");
+        sb.append(" eventId: { ").append(eventId).append(" }\n");
+        sb.append(" recordKey: { ").append(recordKey).append(" }\n");
+        sb.append(" currentImage: { ").append(currentImage).append(" }\n");
+        sb.append(" beforeImage: { ").append(beforeImage).append(" }\n");
+        sb.append(" modificationTime: { ").append(modificationTime).append(" }\n");
+        sb.append(" expirationTime: { ").append(expirationTime).append(" }\n");
+        sb.append(" partitionId: { ").append(partitionId).append(" }\n");
+        sb.append("}");
+        return sb.toString();
+    }
 }

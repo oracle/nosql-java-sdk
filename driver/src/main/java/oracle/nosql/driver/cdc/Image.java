@@ -58,4 +58,9 @@ public class Image {
     public boolean isEmpty() {
         return (value == null && metadata == null);
     }
+
+    @Override
+    public String toString() {
+        return ("value: " + value + "\n metadata: " + metadata);
+    }
 }
