@@ -14,9 +14,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - QueryRequest.get/setOperationNumber()
 - Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
 - Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and
-  result get/set RowMetadata.
-- Added row creation time support, new API: GetResult getCreationTime(),
-  Put/Delete/Write/WriteMultiple Result getExistingCreationTime().
+  result get/set RowMetadata.  This is an experimental feature.  We would appreciate feedback
+  posted in the Discussions section.
 
 ### Changed
 - Authentication calls for on premises login will now honor the request timeout
