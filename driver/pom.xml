@@ -87,7 +87,7 @@
         <!-- exclude non-server tests and on-premises tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           OnPremiseTest.java, ConnectionPoolTest.java
@@ -105,7 +105,7 @@
         <!-- exclude non-server tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
@@ -122,7 +122,7 @@
         <!-- exclude non-server tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
@@ -139,7 +139,7 @@
         <serverType>none</serverType>
         <included.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           SessionTokenProviderTest.java
