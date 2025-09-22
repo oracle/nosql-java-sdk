@@ -35,7 +35,7 @@ public class ConsumerBuilder {
      * data capture configuration. It is typically created using API calls:
      *
      *    config = new ConsumerBuilder().
-     *        addTable("client_info", "", LATEST, 0);
+     *        addTable("client_info", null, StartLocation.latest());
      */
     public class TableConfig {
         /* Name of the table. One of tableName or tableOcid are required. */
@@ -54,9 +54,26 @@ public class ConsumerBuilder {
         TableConfig(String tableName,
                     String compartmentOcid,
                     StartLocation startLocation) {
-            this.tableName = tableName;
+            if (tableName == null) {
+                throw new IllegalArgumentException("table name is required");
+            }
+            if (tableName.startsWith("ocid1.nosqltable.")) {
+                this.tableOcid = tableName;
+            } else {
+                this.tableName = tableName;
+            }
             this.compartmentOcid = compartmentOcid;
-            this.startLocation = startLocation;
+            if (startLocation == null) {
+                this.startLocation = StartLocation.firstUncommitted();
+            } else {
+                this.startLocation = startLocation;
+            }
+        }
+
+        public TableConfig clone() {
+            return new TableConfig(tableName,
+                                   compartmentOcid,
+                                   startLocation);
         }
     }
 
@@ -172,7 +189,7 @@ public class ConsumerBuilder {
      *
      * tableName: required. This may be the Ocid of the table, if available.
      *
-     * compartmentOcid: This is optional. If empty, the default compartment Ocid
+     * compartmentOcid: This is optional. If null, the default compartment Ocid
      * for the tenancy is used.
      *
      * startLocation: Specify the position of the first element to read in the
@@ -186,13 +203,12 @@ public class ConsumerBuilder {
      * required to be nonzero.
      */
     public ConsumerBuilder addTable(String tableName,
-                                         String compartmentOcid,
-                                         StartLocation location) {
+                                    String compartmentOcid,
+                                    StartLocation location) {
         /* check if table already in config */
         if (tableIndex(tableName, compartmentOcid) >= 0) {
             return this;
         }
-        /* TODO: if in Ocid format, set tableOcid */
         TableConfig tc = new TableConfig(tableName,
                                          compartmentOcid,
                                          location);
