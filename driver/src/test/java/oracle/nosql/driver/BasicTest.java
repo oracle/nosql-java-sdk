@@ -171,7 +171,7 @@ public class BasicTest extends ProxyTestBase {
             if (proxySerialVersion <= V4) {
                 assertNull(pr.getExistingVersion());
                 assertNull(pr.getExistingValue());
-                if (checkKVVersion(25, 3, 1)) {
+                if (checkKVVersion(26, 1, 1)) {
                     assertEquals(0, pr.getExistingCreationTime());
                 }
                 assertEquals(0, pr.getExistingModificationTime());
@@ -179,7 +179,7 @@ public class BasicTest extends ProxyTestBase {
             } else {
                 assertNotNull(pr.getExistingVersion());
                 assertNotNull(pr.getExistingValue());
-                if (checkKVVersion(25, 3, 1)) {
+                if (checkKVVersion(26, 1, 1)) {
                     assertTrue(pr.getExistingCreationTime() != 0);
                 }
                 assertTrue(pr.getExistingModificationTime() != 0);
@@ -192,7 +192,7 @@ public class BasicTest extends ProxyTestBase {
             assertNull(pr.getVersion()); /* failure */
             assertNotNull(pr.getExistingVersion());
             assertNotNull(pr.getExistingValue());
-            if (checkKVVersion(25, 3, 1)) {
+            if (checkKVVersion(26, 1, 1)) {
                 assertTrue(pr.getExistingCreationTime() != 0);
             }
             assertTrue(pr.getExistingModificationTime() != 0);
@@ -277,7 +277,7 @@ public class BasicTest extends ProxyTestBase {
         assertEquals(0, origRead);
         assertNull("Not expecting previous version", res.getExistingVersion());
         assertNull("Not expecting previous value", res.getExistingValue());
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             assertEquals(0, res.getExistingCreationTime());
         }
         assertEquals(0, res.getExistingModificationTime());
@@ -294,7 +294,7 @@ public class BasicTest extends ProxyTestBase {
         assertEquals(0, newRead);
         assertNull("Not expecting previous version", res.getExistingVersion());
         assertNull("Not expecting previous value", res.getExistingValue());
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             assertEquals(0, res.getExistingCreationTime());
         }
         assertEquals(0, res.getExistingModificationTime());
@@ -310,7 +310,7 @@ public class BasicTest extends ProxyTestBase {
             assertEquals(0, newRead);
             assertNull("Not expecting previous version", res.getExistingVersion());
             assertNull("Not expecting previous value", res.getExistingValue());
-            if (checkKVVersion(25, 3, 1)) {
+            if (checkKVVersion(26, 1, 1)) {
                 assertEquals(0, res.getExistingCreationTime());
             }
             assertEquals(0, res.getExistingModificationTime());
@@ -319,7 +319,7 @@ public class BasicTest extends ProxyTestBase {
             assertNotNull("Expecting previous version",
                 res.getExistingVersion());
             assertNotNull("Expecting previous value", res.getExistingValue());
-            if (checkKVVersion(25, 3, 1)) {
+            if (checkKVVersion(26, 1, 1)) {
                 assertTrue(res.getExistingCreationTime() != 0);
             }
             assertTrue(res.getExistingModificationTime() != 0);
@@ -341,7 +341,7 @@ public class BasicTest extends ProxyTestBase {
         assertNotNull("Expecting previous version",
                 res.getExistingVersion());
         assertNotNull("Expecting previous value", res.getExistingValue());
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             assertTrue(res.getExistingCreationTime() != 0);
         }
         assertTrue(res.getExistingModificationTime() != 0);
@@ -1699,7 +1699,7 @@ public class BasicTest extends ProxyTestBase {
         checkExistingValueVersion(request, result, shouldSucceed, rowPresent,
                                   expPrevValue, expPrevVersion);
 
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             checkRecentTime(result.getExistingCreationTime(), modTimeRecent);
         }
         checkRecentTime(result.getExistingModificationTime(), modTimeRecent);
@@ -1718,7 +1718,7 @@ public class BasicTest extends ProxyTestBase {
                      shouldSucceed, result.getSuccess());
         checkExistingValueVersion(request, result, shouldSucceed, rowPresent,
                                   expPrevValue, expPrevVersion);
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             checkRecentTime(result.getExistingCreationTime(), modTimeRecent);
         }
         checkRecentTime(result.getExistingModificationTime(), modTimeRecent);
@@ -1750,7 +1750,7 @@ public class BasicTest extends ProxyTestBase {
             assertNull("Unexpected value", expValue);
             assertNull("Unexpected version", result.getVersion());
         }
-        if (checkKVVersion(25, 3, 1)) {
+        if (checkKVVersion(26, 1, 1)) {
             checkRecentTime(result.getCreationTime(), modTimeRecent);
         }
         checkRecentTime(result.getModificationTime(), modTimeRecent);
