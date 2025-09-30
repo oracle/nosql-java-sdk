@@ -103,8 +103,10 @@ public class Region {
     /* Known Regions start -- automatically generated */
     public static final Region AF_JOHANNESBURG_1 = register("af-johannesburg-1", Realm.OC1, "jnb");
     public static final Region AP_BATAM_1 = register("ap-batam-1", Realm.OC1, "hsg");
+    public static final Region AP_CHENNAI_1 = register("ap-chennai-1", Realm.OC1, "des");
     public static final Region AP_CHUNCHEON_1 = register("ap-chuncheon-1", Realm.OC1, "yny");
     public static final Region AP_HYDERABAD_1 = register("ap-hyderabad-1", Realm.OC1, "hyd");
+    public static final Region AP_KULAI_1 = register("ap-kulai-1", Realm.OC1, "fyv");
     public static final Region AP_MELBOURNE_1 = register("ap-melbourne-1", Realm.OC1, "mel");
     public static final Region AP_MUMBAI_1 = register("ap-mumbai-1", Realm.OC1, "bom");
     public static final Region AP_OSAKA_1 = register("ap-osaka-1", Realm.OC1, "kix");
@@ -116,12 +118,15 @@ public class Region {
     public static final Region CA_MONTREAL_1 = register("ca-montreal-1", Realm.OC1, "yul");
     public static final Region CA_TORONTO_1 = register("ca-toronto-1", Realm.OC1, "yyz");
     public static final Region EU_AMSTERDAM_1 = register("eu-amsterdam-1", Realm.OC1, "ams");
+    public static final Region EU_DUBLIN_3 = register("eu-dublin-3", Realm.OC1, "zqo");
     public static final Region EU_FRANKFURT_1 = register("eu-frankfurt-1", Realm.OC1, "fra");
     public static final Region EU_MADRID_1 = register("eu-madrid-1", Realm.OC1, "mad");
+    public static final Region EU_MADRID_3 = register("eu-madrid-3", Realm.OC1, "orf");
     public static final Region EU_MARSEILLE_1 = register("eu-marseille-1", Realm.OC1, "mrs");
     public static final Region EU_MILAN_1 = register("eu-milan-1", Realm.OC1, "lin");
     public static final Region EU_PARIS_1 = register("eu-paris-1", Realm.OC1, "cdg");
     public static final Region EU_STOCKHOLM_1 = register("eu-stockholm-1", Realm.OC1, "arn");
+    public static final Region EU_TURIN_1 = register("eu-turin-1", Realm.OC1, "nrq");
     public static final Region EU_ZURICH_1 = register("eu-zurich-1", Realm.OC1, "zrh");
     public static final Region IL_JERUSALEM_1 = register("il-jerusalem-1", Realm.OC1, "mtz");
     public static final Region ME_ABUDHABI_1 = register("me-abudhabi-1", Realm.OC1, "auh");
@@ -138,11 +143,16 @@ public class Region {
     public static final Region UK_LONDON_1 = register("uk-london-1", Realm.OC1, "lhr");
     public static final Region UK_CARDIFF_1 = register("uk-cardiff-1", Realm.OC1, "cwl");
     public static final Region US_ABILENE_1 = register("us-abilene-1", Realm.OC1, "abl");
+    public static final Region US_COLUMBUS_1 = register("us-columbus-1", Realm.OC1, "vkz");
+    public static final Region US_QUINCY_1 = register("us-quincy-1", Realm.OC1, "eem");
+    public static final Region US_BOARDMAN_1 = register("us-boardman-1", Realm.OC1, "nhj");
     public static final Region US_DALLAS_1 = register("us-dallas-1", Realm.OC1, "dfw");
+    public static final Region US_DESMOINES_1 = register("us-desmoines-1", Realm.OC1, "kqq");
     public static final Region US_PHOENIX_1 = register("us-phoenix-1", Realm.OC1, "phx");
     public static final Region US_ASHBURN_1 = register("us-ashburn-1", Realm.OC1, "iad");
     public static final Region US_SALTLAKE_2 = register("us-saltlake-2", Realm.OC1, "aga");
     public static final Region US_SANJOSE_1 = register("us-sanjose-1", Realm.OC1, "sjc");
+    public static final Region US_SHAWNEE_1 = register("us-shawnee-1", Realm.OC1, "drz");
     public static final Region US_CHICAGO_1 = register("us-chicago-1", Realm.OC1, "ord");
     public static final Region US_LANGLEY_1 = register("us-langley-1", Realm.OC2, "lfi");
     public static final Region US_LUKE_1 = register("us-luke-1", Realm.OC2, "luf");
@@ -190,12 +200,16 @@ public class Region {
     public static final Region AP_SUWON_1 = register("ap-suwon-1", Realm.OC35, "dln");
     public static final Region AP_SEOUL_2 = register("ap-seoul-2", Realm.OC35, "dtz");
     public static final Region AP_CHUNCHEON_2 = register("ap-chuncheon-2", Realm.OC35, "bno");
+    public static final Region ME_RIYADH_2 = register("me-riyadh-2", Realm.OC36, "kzq");
     public static final Region US_TUKWILA_3 = register("us-tukwila-3", Realm.OC39, "nbq");
     public static final Region AP_OSAKA_2 = register("ap-osaka-2", Realm.OC40, "ibg");
     public static final Region ME_DUBAI_3 = register("me-dubai-3", Realm.OC41, "pcz");
+    public static final Region US_NEWARK_1 = register("us-newark-1", Realm.OC42, "pgc");
     public static final Region AP_PATHUMTHANI_1 = register("ap-pathumthani-1", Realm.OC43, "mez");
+    public static final Region AP_SAMUTPRAKAN_1 = register("ap-samutprakan-1", Realm.OC43, "yik");
     public static final Region UK_LONDON_2 = register("uk-london-2", Realm.OC46, "den");
     public static final Region UK_LONDON_3 = register("uk-london-3", Realm.OC47, "kal");
+    public static final Region AP_WESTTOKYO_1 = register("ap-westtokyo-1", Realm.OC55, "zwe");
     /* Known Regions end generated code */
 
     /* instance state */
@@ -538,12 +552,15 @@ public class Region {
         static final Realm OC29 = new Realm("oraclecloud29.com", "oc29");
         static final Realm OC31 = new Realm("sovereigncloud.nz", "oc31");
         static final Realm OC35 = new Realm("oraclecloud35.com", "oc35");
+        static final Realm OC36 = new Realm("stccloud.com", "oc36");
         static final Realm OC39 = new Realm("oraclecloud39.com", "oc39");
         static final Realm OC40 = new Realm("jpsovereigncloud.jp", "oc40");
         static final Realm OC41 = new Realm("dutechcloud.ae", "oc41");
+        static final Realm OC42 = new Realm("oraclecloud42.com", "oc42");
         static final Realm OC43 = new Realm("thaiaiscloud.com", "oc43");
         static final Realm OC46 = new Realm("oraclecloud46.com", "oc46");
         static final Realm OC47 = new Realm("oraclecloud47.com", "oc47");
+        static final Realm OC55 = new Realm("svcl.jp", "oc55");
         /* Known Realms end generated code */
 
         private Realm(String secondLevelDomain, String realmId) {
