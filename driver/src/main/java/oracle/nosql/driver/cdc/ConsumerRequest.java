@@ -26,7 +26,8 @@ public class ConsumerRequest extends Request {
         UPDATE(2),
         CLOSE(3),
         DELETE(4),
-        COMMIT(5);
+        COMMIT(5),
+        RESET(6);
 
         RequestMode(int i) {
             //TODO Auto-generated constructor stub

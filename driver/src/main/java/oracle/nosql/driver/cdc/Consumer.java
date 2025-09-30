@@ -137,6 +137,32 @@ public class Consumer {
 
 
     /*
+     * Reset the consumer.
+     *
+     * This method will do the same logic as if the consumer called close() and
+     * a new consumer was created with the same consumer config, except:
+     * - poll results will not be committed
+     * - no redistribution amongst active consumers in the group will take place
+     */
+    public void reset() {
+        ConsumerRequest req = new ConsumerRequest(RequestMode.RESET).
+                                     setCursor(cursor);
+        try {
+            ConsumerResult res =
+                (ConsumerResult) handle.getClient().execute(req);
+            if (res.cursor == null) {
+                throw new NoSQLException("Consumer not reset on server side");
+            }
+            this.cursor = res.cursor;
+        } catch (Exception e) {
+            if (e.getMessage().contains("unknown opcode")) {
+                throw new OperationNotSupportedException("CDC not supported by server");
+            }
+            throw e;
+        }
+    }
+
+    /*
      * Get Change Data Capture messages for a consumer.
      *
      * @param limit max number of change messages to return in the bundle. This value can be set to
