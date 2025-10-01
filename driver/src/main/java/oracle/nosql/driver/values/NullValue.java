@@ -34,14 +34,28 @@ public class NullValue extends FieldValue {
         return INSTANCE;
     }
 
+    private boolean isEmptyType(FieldValue value){
+        return value instanceof EmptyValue ||
+                value instanceof ArrayValue ||
+                value instanceof BinaryValue ||
+                value instanceof BooleanValue ||
+                value instanceof IntegerValue ||
+                value instanceof JsonNullValue ||
+                value instanceof LongValue ||
+                value instanceof MapValue;
+    }
+
     @Override
     public int compareTo(FieldValue other) {
         if (other instanceof NullValue) {
             return 0;
         }
-        /* TODO: sort empty types? */
+        if (isEmptyType(other)){
+            return 0;
+        }
         return -1;
     }
+
 
     @Override
     public String getString() {
