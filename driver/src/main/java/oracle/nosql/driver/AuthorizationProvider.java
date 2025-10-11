@@ -104,9 +104,9 @@ public interface AuthorizationProvider {
      * @param content the request content bytes
      */
     default CompletableFuture<Void> setRequiredHeadersAsync(String authString,
-                                                    Request request,
-                                                    HttpHeaders headers,
-                                                    byte[] content) {
+                                                            Request request,
+                                                            HttpHeaders headers,
+                                                            byte[] content) {
         if (authString != null) {
             headers.set(AUTHORIZATION, authString);
         }

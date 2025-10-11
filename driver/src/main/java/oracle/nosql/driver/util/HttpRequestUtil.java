@@ -30,7 +30,6 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
 import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
 

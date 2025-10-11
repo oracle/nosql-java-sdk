@@ -239,6 +239,26 @@ public class SystemResult extends Result {
         } while (!state.equals(State.COMPLETE));
     }
 
+    /**
+     * Asynchronously waits for the operation to be complete.
+     * This is a polling style wait that delays for the specified number of
+     * milliseconds between each polling operation.
+     *
+     * This instance is modified with any changes in state.
+     *
+     * @param handle the Async NoSQLHandle to use
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
+     * value must be non-zero and greater than delayMillis
+     * @param delayMillis the amount of time to wait between polling attempts,
+     * in milliseconds. If 0 it will default to 500.
+     *
+     * @return Returns a {@link CompletableFuture} which completes
+     * successfully when operation is completed within waitMillis otherwise
+     * completes exceptionally with {@link IllegalArgumentException}
+     * if the operation times out or the parameters are not valid.
+     * Completes exceptionally with {@link NoSQLException}
+     * if the operation id used is unknown or the operation has failed.
+     */
     public CompletableFuture<Void> waitForCompletionAsync(
             NoSQLHandleAsyncImpl handle, int waitMillis, int delayMillis) {
 

@@ -789,6 +789,34 @@ public class TableResult extends Result {
         }
     }
 
+    /**
+     * Asynchronously waits for a table operation to complete. Table operations
+     * are asynchronous. This is a polling style wait that delays for
+     * the specified number of milliseconds between each polling operation.
+     * The returned future completes when the table reaches a
+     * <em>terminal</em> state,
+     * which is either {@link State#ACTIVE} or {@link State#DROPPED}.
+     * <p>
+     * This instance must be the return value of a previous
+     * {@link NoSQLHandle#tableRequest} and contain a non-null operation id
+     * representing the in-progress operation unless the operation has
+     * already completed.
+     * <p>
+     * This instance is modified with any change in table state or metadata.
+     *
+     * @param handle the Async NoSQLHandle to use
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
+     * value must be non-zero and greater than delayMillis
+     * @param delayMillis the amount of time to wait between polling attempts,
+     * in milliseconds. If 0 it will default to 500.
+     *
+     * @return Returns a {@link CompletableFuture} which completes
+     * successfully when operation is completed within waitMillis otherwise
+     * completes exceptionally with {@link IllegalArgumentException}
+     * if the parameters are not valid.
+     * Completes exceptionally with {@link RequestTimeoutException}
+     * if the operation times out.
+     */
     public CompletableFuture<Void> waitForCompletionAsync
             (NoSQLHandleAsyncImpl handle, int waitMillis, int delayMillis) {
 

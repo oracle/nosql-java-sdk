@@ -7,8 +7,6 @@
 
 package oracle.nosql.driver.http;
 
-import java.util.concurrent.CompletableFuture;
-
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
@@ -117,7 +115,6 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public SystemResult systemRequest(SystemRequest request) {
-        checkClient();
         return executeSync(request);
     }
 

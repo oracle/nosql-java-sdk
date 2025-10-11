@@ -60,10 +60,11 @@ public class NoSQLHandleFactory {
      *
      * @see NoSQLHandleAsync#close
      */
-    public static NoSQLHandleAsync createNoSQLHandleAsync(NoSQLHandleConfig config) {
+    public static NoSQLHandleAsync createNoSQLHandleAsync(
+            NoSQLHandleConfig config) {
         requireNonNull(
             config,
-            "NoSQLHandleFactory.createNoSQLHandle: config cannot be null");
+            "NoSQLHandleFactory.createNoSQLHandleAsync: config cannot be null");
         NoSQLHandleConfig configCopy = config.clone();
         if (configCopy.getRetryHandler() == null) {
             /*

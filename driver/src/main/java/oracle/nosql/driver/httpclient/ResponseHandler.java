@@ -34,6 +34,7 @@ import io.netty.util.ReferenceCountUtil;
  *
  * TODO: examples of both sync and async usage
  */
+/* TODO: this class is no longer used. Remove this once testing is completed */
 public class ResponseHandler implements Closeable {
 
     private HttpResponseStatus status;

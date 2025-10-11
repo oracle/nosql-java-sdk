@@ -28,6 +28,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  * desired here it can be added using a CompositeByteBuf and calls to add
  * content incrementally.
  */
+/* TODO: this class is no longer used. Remove this once testing is completed */
 class RequestState {
 
     private final ResponseHandler handler;

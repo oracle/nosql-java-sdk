@@ -1,3 +1,10 @@
+/*-
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
 package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
@@ -27,11 +34,14 @@ public class QueryPublisher implements Flow.Publisher<MapValue> {
         /* only allow one subscriber */
         if (!subscribed.compareAndSet(false, true)) {
             subscriber.onSubscribe(new Flow.Subscription() {
-                @Override public void request(long n) {}
-                @Override public void cancel() {}
+                @Override
+                public void request(long n) {
+                }
+                @Override
+                public void cancel() {
+                }
             });
-            subscriber.onError(new IllegalStateException(
-                "already subscribed"));
+            subscriber.onError(new IllegalStateException("already subscribed"));
             return;
         }
 
@@ -101,6 +111,3 @@ public class QueryPublisher implements Flow.Publisher<MapValue> {
         });
     }
 }
-
-
-

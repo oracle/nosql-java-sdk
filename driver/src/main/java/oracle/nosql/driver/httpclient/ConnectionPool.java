@@ -226,10 +226,10 @@ class ConnectionPool {
                 Bootstrap bs = bootstrap.clone();
                 ChannelFuture fut = bs.connect();
                 if (fut.isDone()) {
-                    notifyOnConnect(fut,promise);
+                    notifyOnConnect(fut, promise);
                 } else {
                     fut.addListener((ChannelFutureListener) future ->
-                        notifyOnConnect(future,promise));
+                        notifyOnConnect(future, promise));
                 }
             } else {
                 /*
@@ -327,7 +327,7 @@ class ConnectionPool {
     }
 
     private void checkChannel(final Channel channel,
-                             final Promise<Channel> promise) {
+                              final Promise<Channel> promise) {
         try {
             /*
              * If channel isn't healthy close it. It's been removed from

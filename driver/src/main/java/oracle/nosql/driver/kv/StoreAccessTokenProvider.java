@@ -293,6 +293,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         return ConcurrentUtil.awaitFuture(getAuthorizationStringAsync(request));
     }
 
+    /**
+     * @hidden
+     */
     @Override
     public CompletableFuture<String>
         getAuthorizationStringAsync(Request request) {

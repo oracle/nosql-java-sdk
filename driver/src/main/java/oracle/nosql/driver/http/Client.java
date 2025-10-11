@@ -117,7 +117,6 @@ import oracle.nosql.driver.query.TopologyInfo;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.util.HttpConstants;
-import oracle.nosql.driver.util.LogUtil;
 import oracle.nosql.driver.util.NettyByteInputStream;
 import oracle.nosql.driver.util.NettyByteOutputStream;
 import oracle.nosql.driver.util.RateLimiterMap;
@@ -286,7 +285,7 @@ public final class Client {
         private volatile short serialVersionUsed;
         private volatile short queryVersionUsed;
         private volatile long latencyNanos;
-        public volatile long networkLatency;
+        private volatile long networkLatency;
 
         RequestContext(Request kvRequest, long startNanos, int timeoutMs,
                        Supplier<Long> nextIdSupplier, RateLimiter readLimiter,
@@ -358,7 +357,7 @@ public final class Client {
             httpClient.configureProxy(httpConfig);
         }
 
-        authProvider= config.getAuthorizationProvider();
+        authProvider = config.getAuthorizationProvider();
         if (authProvider == null) {
             throw new IllegalArgumentException(
                 "Must configure AuthorizationProvider to use HttpClient");
@@ -644,21 +643,21 @@ public final class Client {
         }
 
         return handlePreRateLimit(ctx)
-        .thenCompose( (Integer delay) -> getAuthString(ctx, authProvider))
-        .thenCompose((String authString) -> createRequest(ctx, authString))
-        .thenCompose((FullHttpRequest request) -> submitRequest(ctx,request))
-        .thenApply((FullHttpResponse response) -> handleResponse(ctx, response))
-        .thenApply((Result result) -> handleResult(ctx, result))
-        .thenCompose((Result result) -> handlePostRateLimit(ctx, result))
-        .handle((Result result, Throwable err) -> {
-            /* Handle error and retry */
-            if (err != null) {
-                return handleError(ctx, err);
-            } else {
-                return CompletableFuture.completedFuture(result);
-            }
-        })
-        .thenCompose(Function.identity());
+            .thenCompose((Integer delay) -> getAuthString(ctx, authProvider))
+            .thenCompose((String authString) -> createRequest(ctx, authString))
+            .thenCompose((FullHttpRequest request) -> submitRequest(ctx, request))
+            .thenApply((FullHttpResponse response) -> handleResponse(ctx, response))
+            .thenApply((Result result) -> handleResult(ctx, result))
+            .thenCompose((Result result) -> handlePostRateLimit(ctx, result))
+            .handle((Result result, Throwable err) -> {
+                /* Handle error and retry */
+                if (err != null) {
+                    return handleError(ctx, err);
+                } else {
+                    return CompletableFuture.completedFuture(result);
+                }
+            })
+            .thenCompose(Function.identity());
     }
 
     private CompletableFuture<Integer> handlePreRateLimit(RequestContext ctx) {
@@ -705,7 +704,8 @@ public final class Client {
         .thenApply(authString -> {
             /* Check whether timed out while acquiring the auth token */
             if (timeoutRequest(kvRequest.getStartNanos(),
-                kvRequest.getTimeoutInternal(), null)) {
+                               kvRequest.getTimeoutInternal(),
+                               null /* exception */)) {
                 TimeoutException ex = new TimeoutException(
                     "timed out during auth token acquisition");
                 throw new CompletionException(ex);
@@ -805,18 +805,18 @@ public final class Client {
              * with content
              */
             byte[] content = signContent ? getBodyBytes(buffer) : null;
-            return authProvider.
-            setRequiredHeadersAsync(authString, kvRequest, headers, content)
-            .thenApply(n -> {
-                String namespace = kvRequest.getNamespace();
-                if (namespace == null) {
-                    namespace = config.getDefaultNamespace();
-                }
-                if (namespace != null) {
-                    headers.add(REQUEST_NAMESPACE_HEADER, namespace);
-                }
-                return request;
-            });
+            return authProvider.setRequiredHeadersAsync(authString, kvRequest,
+                                                        headers, content)
+                .thenApply(n -> {
+                    String namespace = kvRequest.getNamespace();
+                    if (namespace == null) {
+                        namespace = config.getDefaultNamespace();
+                    }
+                    if (namespace != null) {
+                        headers.add(REQUEST_NAMESPACE_HEADER, namespace);
+                    }
+                    return request;
+                });
         } catch (Throwable e) {
             /* Release the buffer on error */
             if (buffer != null) {
@@ -829,8 +829,9 @@ public final class Client {
     /**
      * Send the HTTP request to server and get the response back.
      */
-    private CompletableFuture<FullHttpResponse> submitRequest(RequestContext ctx,
-                                                          HttpRequest request) {
+    private CompletableFuture<FullHttpResponse> submitRequest(
+        RequestContext ctx, HttpRequest request) {
+
         final Request kvRequest = ctx.kvRequest;
         if (isLoggable(logger, Level.FINE) && !kvRequest.getIsRefresh()) {
             logTrace(logger, "Request: " + ctx.requestClass +
@@ -840,10 +841,10 @@ public final class Client {
         int timeoutMs = getIterationTimeoutMs(ctx.timeoutMs, ctx.startNanos);
 
         return httpClient.runRequest(request, timeoutMs)
-        .whenComplete((res, err) -> {
-            ctx.networkLatency =
-                (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
-        });
+            .whenComplete((res, err) -> {
+                ctx.networkLatency =
+                    (System.nanoTime() - ctx.latencyNanos) / 1_000_000;
+            });
     }
 
     /**
@@ -1172,6 +1173,9 @@ public final class Client {
         String name = ex.getClass().getName();
         logFine(logger, "Client execution IOException, name: " +
             name + ", message: " + ex.getMessage());
+        /* Retry only 10 times. We shouldn't be retrying till timeout occurs
+         * as this can consume a lot of async resources.
+         */
         if (kvRequest.getNumRetries() > 10) {
             return failRequest(ctx, ex);
         }
@@ -1231,8 +1235,8 @@ public final class Client {
         return delayFuture;
     }
 
-    private CompletableFuture<Result>  scheduleRetry(RequestContext ctx,
-                                                     int delayMs) {
+    private CompletableFuture<Result> scheduleRetry(RequestContext ctx,
+                                                    int delayMs) {
         //TODO check for overall timeout before schedule
         CompletableFuture<Result> retryFuture = new CompletableFuture<>();
         taskExecutor.schedule(() -> {
@@ -1240,7 +1244,6 @@ public final class Client {
             ctx.requestId = String.valueOf(ctx.nextIdSupplier.get());
             executeWithRetry(ctx)
             .whenComplete((res, e) -> {
-                ctx.kvRequest.addRetryDelayMs(delayMs);
                 if (e != null) {
                     retryFuture.completeExceptionally(e);
                 } else {
@@ -1647,18 +1650,18 @@ public final class Client {
     private void backgroundUpdateLimiters(String tableName,
                                           String compartmentId) {
         ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        if (tableNeedsRefresh(tableName) == false) {
-            return;
-        }
-        setTableNeedsRefresh(tableName, false);
+            if (tableNeedsRefresh(tableName) == false) {
+                return;
+            }
+            setTableNeedsRefresh(tableName, false);
 
-        try {
-            threadPool.execute(() -> {
-                updateTableLimiters(tableName, compartmentId);
-            });
-        } catch (RejectedExecutionException e) {
-            setTableNeedsRefresh(tableName, true);
-        }
+            try {
+                threadPool.execute(() -> {
+                    updateTableLimiters(tableName, compartmentId);
+                });
+            } catch (RejectedExecutionException e) {
+                setTableNeedsRefresh(tableName, true);
+            }
         });
     }
 
@@ -1835,18 +1838,18 @@ public final class Client {
      */
     private boolean decrementSerialVersion(short versionUsed) {
         return ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        if (serialVersion != versionUsed) {
-            return true;
-        }
-        if (serialVersion == V4) {
-            serialVersion = V3;
-            return true;
-        }
-        if (serialVersion == V3) {
-            serialVersion = V2;
-            return true;
-        }
-        return false;
+            if (serialVersion != versionUsed) {
+                return true;
+            }
+            if (serialVersion == V4) {
+                serialVersion = V3;
+                return true;
+            }
+            if (serialVersion == V3) {
+                serialVersion = V2;
+                return true;
+            }
+            return false;
         });
     }
 
@@ -1859,16 +1862,16 @@ public final class Client {
      */
     private boolean decrementQueryVersion(short versionUsed) {
         return ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        if (queryVersion != versionUsed) {
+            if (queryVersion != versionUsed) {
+                return true;
+            }
+
+            if (queryVersion == QueryDriver.QUERY_V3) {
+                return false;
+            }
+
+            --queryVersion;
             return true;
-        }
-
-        if (queryVersion == QueryDriver.QUERY_V3) {
-            return false;
-        }
-
-        --queryVersion;
-        return true;
         });
     }
 
@@ -2005,26 +2008,26 @@ public final class Client {
      */
     private void addRequestToRefreshList(Request request) {
         ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        logFine(logger, "Adding table to request list: " +
-                request.getCompartment() + ":" + request.getTableName());
-        PutRequest pr =
-            new PutRequest().setTableName(request.getTableName());
-        pr.setCompartmentInternal(request.getCompartment());
-        pr.setValue(badValue);
-        pr.setIsRefresh(true);
-        authRefreshRequests.add(pr);
-        GetRequest gr =
-            new GetRequest().setTableName(request.getTableName());
-        gr.setCompartmentInternal(request.getCompartment());
-        gr.setKey(badValue);
-        gr.setIsRefresh(true);
-        authRefreshRequests.add(gr);
-        DeleteRequest dr =
-            new DeleteRequest().setTableName(request.getTableName());
-        dr.setCompartmentInternal(request.getCompartment());
-        dr.setKey(badValue);
-        dr.setIsRefresh(true);
-        authRefreshRequests.add(dr);
+            logFine(logger, "Adding table to request list: " +
+                    request.getCompartment() + ":" + request.getTableName());
+            PutRequest pr =
+                new PutRequest().setTableName(request.getTableName());
+            pr.setCompartmentInternal(request.getCompartment());
+            pr.setValue(badValue);
+            pr.setIsRefresh(true);
+            authRefreshRequests.add(pr);
+            GetRequest gr =
+                new GetRequest().setTableName(request.getTableName());
+            gr.setCompartmentInternal(request.getCompartment());
+            gr.setKey(badValue);
+            gr.setIsRefresh(true);
+            authRefreshRequests.add(gr);
+            DeleteRequest dr =
+                new DeleteRequest().setTableName(request.getTableName());
+            dr.setCompartmentInternal(request.getCompartment());
+            dr.setKey(badValue);
+            dr.setIsRefresh(true);
+            authRefreshRequests.add(dr);
         });
     }
 
@@ -2034,10 +2037,10 @@ public final class Client {
      */
     public void oneTimeMessage(String msg) {
         ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        if (oneTimeMessages.add(msg) == false) {
-            return;
-        }
-        logWarning(logger, msg);
+            if (oneTimeMessages.add(msg) == false) {
+                return;
+            }
+            logWarning(logger, msg);
         });
     }
 
@@ -2148,16 +2151,15 @@ public final class Client {
     }
 
     private void setTopology(TopologyInfo topo) {
-
         ConcurrentUtil.synchronizedCall(this.lock, () -> {
-        if (topo == null) {
-            return;
-        }
+            if (topo == null) {
+                return;
+            }
 
-        if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
-            topology = topo;
-            trace("New topology: " + topo, 1);
-        }
+            if (topology == null || topology.getSeqNum() < topo.getSeqNum()) {
+                topology = topo;
+                trace("New topology: " + topo, 1);
+            }
         });
     }
 

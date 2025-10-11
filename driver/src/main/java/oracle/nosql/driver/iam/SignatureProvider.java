@@ -920,7 +920,7 @@ public class SignatureProvider
                     /*
                      * If request doesn't has compartment id, set the tenant id
                      * as the default compartment, which is the root compartment
-                     *  in IAM if using user principal. If using an instance
+                     * in IAM if using user principal. If using an instance
                      * principal this value is null.
                      */
                     compartment = getTenantOCID();
@@ -941,8 +941,8 @@ public class SignatureProvider
     @Override
     public void flushCache() {
         ConcurrentUtil.synchronizedCall(lock, () -> {
-        currentSigDetails = null;
-        refreshSigDetails = null;
+            currentSigDetails = null;
+            refreshSigDetails = null;
         });
     }
 
@@ -1009,10 +1009,9 @@ public class SignatureProvider
 
         /* creates and caches a signature as warm-up */
         getSignatureDetailsInternal(false, /* isRefresh */
-            null, /* request */
-            null, /* headers */
-            null  /* content */
-        );
+                                    null, /* request */
+                                    null, /* headers */
+                                    null  /* content */);
         return this;
     }
 
@@ -1101,7 +1100,7 @@ public class SignatureProvider
          * Do we need a separate executor?
          */
         return CompletableFuture.supplyAsync(() ->
-        getSignatureDetailsInternal(false, request, headers, content));
+        	getSignatureDetailsInternal(false, request, headers, content));
     }
 
     private CompletableFuture<SignatureDetails>
@@ -1111,9 +1110,9 @@ public class SignatureProvider
          */
         return CompletableFuture.supplyAsync(() ->
             getSignatureDetailsInternal(isRefresh,
-                                    null /* request */,
-                                    null /* headers */,
-                                    null /* content */)
+                                        null /* request */,
+                                        null /* headers */,
+                                        null /* content */)
         );
     }
 
@@ -1124,77 +1123,78 @@ public class SignatureProvider
                                     HttpHeaders headers,
                                     byte[] content) {
         return ConcurrentUtil.synchronizedCall(lock, () -> {
-        /*
-         * add one minute to the current time, so that any caching is
-         * effective over a more valid time period.
-         */
-        long nowPlus = System.currentTimeMillis() + 60_000L;
-        String date = createFormatter().format(new Date(nowPlus));
-        String keyId = provider.getKeyId();
+            /*
+             * add one minute to the current time, so that any caching is
+             * effective over a more valid time period.
+             */
+            long nowPlus = System.currentTimeMillis() + 60_000L;
+            String date = createFormatter().format(new Date(nowPlus));
+            String keyId = provider.getKeyId();
 
-        /*
-         * Security token based providers may refresh the security token
-         * and associated private key in above getKeyId() method, reload
-         * private key to PrivateKeyProvider to avoid a mismatch, which
-         * will create an invalid signature, cause authentication error.
-         */
-        if (provider instanceof SecurityTokenBasedProvider) {
-            privateKeyProvider.reload(provider.getPrivateKey(),
-                                      provider.getPassphraseCharacters());
-        }
-        String signature;
-        try {
-            signature = sign(signingContent(date, request, headers, content),
-                             privateKeyProvider.getKey());
-        } catch (Exception e) {
-            logMessage(Level.SEVERE, "Error signing request " + e.getMessage());
-            return null;
-        }
+            /*
+             * Security token based providers may refresh the security token
+             * and associated private key in above getKeyId() method, reload
+             * private key to PrivateKeyProvider to avoid a mismatch, which
+             * will create an invalid signature, cause authentication error.
+             */
+            if (provider instanceof SecurityTokenBasedProvider) {
+                privateKeyProvider.reload(provider.getPrivateKey(),
+                                          provider.getPassphraseCharacters());
+            }
+            String signature;
+            try {
+                signature = sign(signingContent(date, request, headers, content),
+                                 privateKeyProvider.getKey());
+            } catch (Exception e) {
+                logMessage(Level.SEVERE, "Error signing request " +
+                                         e.getMessage());
+                return null;
+            }
 
-        String token = getDelegationToken(request);
-        String signingHeader;
-        if (content != null) {
-            signingHeader = (token == null)
-                ? SIGNING_HEADERS_WITH_CONTENT :
-                  SIGNING_HEADERS_WITH_CONTENT_OBO;
-        } else {
-            signingHeader = (token == null)
-                ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
-        }
+            String token = getDelegationToken(request);
+            String signingHeader;
+            if (content != null) {
+                signingHeader = (token == null)
+                    ? SIGNING_HEADERS_WITH_CONTENT :
+                      SIGNING_HEADERS_WITH_CONTENT_OBO;
+            } else {
+                signingHeader = (token == null)
+                    ? SIGNING_HEADERS : SIGNING_HEADERS_WITH_OBO;
+            }
 
-        String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
-                                         signingHeader,
-                                         keyId,
-                                         RSA,
-                                         signature,
-                                         SINGATURE_VERSION);
-        SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
+            String sigHeader = String.format(SIGNATURE_HEADER_FORMAT,
+                                             signingHeader,
+                                             keyId,
+                                             RSA,
+                                             signature,
+                                             SINGATURE_VERSION);
+            SignatureDetails sigDetails = new SignatureDetails(sigHeader, date);
 
-        /*
-         *  Don't cache the signature generated with content, which
-         *  needs to be associated with its request
-         */
-        if (content != null) {
+            /*
+             *  Don't cache the signature generated with content, which
+             *  needs to be associated with its request
+             */
+            if (content != null) {
+                return sigDetails;
+            }
+
+            if (!isRefresh) {
+                /*
+                 * if this is not a refresh, use the normal key and schedule a
+                 * refresh
+                 */
+                currentSigDetails = sigDetails;
+                scheduleRefresh();
+            } else {
+                /*
+                 * If this is a refresh put the object in a temporary key.
+                 * The caller (the refresh task) will:
+                 * 1. perform callbacks if needed and when done,
+                 * 2. move the object to the normal key and schedule a refresh
+                 */
+                refreshSigDetails = sigDetails;
+            }
             return sigDetails;
-        }
-
-        if (!isRefresh) {
-            /*
-             * if this is not a refresh, use the normal key and schedule a
-             * refresh
-             */
-            currentSigDetails = sigDetails;
-            scheduleRefresh();
-        } else {
-            /*
-             * If this is a refresh put the object in a temporary key.
-             * The caller (the refresh task) will:
-             * 1. perform callbacks if needed and when done,
-             * 2. move the object to the normal key and schedule a refresh
-             */
-            refreshSigDetails = sigDetails;
-        }
-        return sigDetails;
         });
     }
 
@@ -1213,10 +1213,11 @@ public class SignatureProvider
 
     private void setRefreshKey() {
         ConcurrentUtil.synchronizedCall(lock, () -> {
-        if (refreshSigDetails != null) {
-            currentSigDetails = refreshSigDetails;
-            refreshSigDetails = null;
-        }});
+            if (refreshSigDetails != null) {
+                currentSigDetails = refreshSigDetails;
+                refreshSigDetails = null;
+            }
+        });
     }
 
     private String signingContent(String date,
@@ -1313,9 +1314,9 @@ public class SignatureProvider
             do {
                 try {
                     getSignatureDetailsInternal(true, /* isRefresh */
-                            null /* request */,
-                            null /* headers */,
-                            null /* content */);
+                                                null /* request */,
+                                                null /* headers */,
+                                                null /* content */);
                     handleRefreshCallback(refreshAheadMs);
                     return;
                 } catch (SecurityInfoNotReadyException se) {

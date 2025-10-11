@@ -58,26 +58,32 @@ import oracle.nosql.driver.util.ConcurrentUtil;
  * use by requests.</li>
  * </ol>
  * <p>
- * Using the client to send request and get a synchronous response. The
+ * Using the client to send request. The
  * request must be an instance of HttpRequest:
+ * <ol>
+ *     <li> Create a Netty HttpRequest. </li>
+ *     <li>
+ *         Call runRequest to send the request.<br/>
+ *         <code>
+ *         CompletableFuture<FullHttpResponse> response =
+ *             httpClient.runRequest(request, timeoutMs);
+ *         </code>
+ *     </li>
+ *     <li>
+ *         For synchronous calls, wait for a response:<br/>
+ *         <code>
+ *             response.join() or response.get();
+ *         </code>
+ *     </li>
+ *     <li>
+ *          For asynchronous calls, consume the response future.
+ *     </li>
+ *     <li>
+ *         If there was a problem with the send or receive, future completes
+ *         with exception.
+ *     </li>
+ * </ol>
  * <p>
- * 1. Get a Channel.
- *   Channel channel = client.getChannel(timeoutMs);
- * 2. Create a ResponseHandler to handle a response.
- *   ResponseHandler rhandler = new ResponseHandler(client, logger, channel);
- * Note that the ResponseHandler will release the Channel.
- * 3. Call runRequest to send the request.
- *   client.runRequest(request, rhandler, channel);
- * 4. For synchronous calls, wait for a response:
- *  rhandler.await(timeoutMs);
- * If there was a problem with the send or receive this call will throw a
- * Throwable with the relevant information. If successful the response
- * information can be extracted from the ResponseHandler.
- * ResponseHandler instances must be closed using the close() method. This
- * releases resources associated with the request/response dialog such as the
- * channel and the HttpResponse itself.
- *
- * TODO: asynchronous handler
  */
 public class HttpClient {
 
@@ -424,9 +430,10 @@ public class HttpClient {
      */
     public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
                                                           int timeoutMs) {
-
-        CompletableFuture<FullHttpResponse> responseFuture = new CompletableFuture<>();
-        long deadlineNs = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        CompletableFuture<FullHttpResponse> responseFuture =
+            new CompletableFuture<>();
+        long deadlineNs = System.nanoTime() +
+                          TimeUnit.MILLISECONDS.toNanos(timeoutMs);
         pool.acquire().addListener((FutureListener<Channel>) channelFuture -> {
             if (channelFuture.isSuccess()) {
                 Channel channel = channelFuture.getNow();

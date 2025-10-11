@@ -1,3 +1,10 @@
+/*-
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Licensed under the Universal Permissive License v 1.0 as shown at
+ *  https://oss.oracle.com/licenses/upl/
+ */
+
 package oracle.nosql.driver.http;
 
 import io.netty.handler.ssl.SslContextBuilder;
@@ -60,7 +67,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
@@ -89,9 +95,10 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
                 private final AtomicInteger threadNumber = new AtomicInteger(1);
                 @Override
                 public Thread newThread(Runnable r) {
-                    final Thread t = Executors.defaultThreadFactory().newThread(r);
+                    final Thread t = Executors.defaultThreadFactory()
+                                              .newThread(r);
                     t.setName(String.format("nosql-task-executor-%s",
-                        threadNumber.getAndIncrement()));
+                                            threadNumber.getAndIncrement()));
                     t.setDaemon(true);
                     t.setUncaughtExceptionHandler((thread, error) -> {
                         if (ConcurrentUtil.unwrapCompletionException(error)
@@ -221,12 +228,14 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     }
 
     @Override
-    public CompletableFuture<WriteMultipleResult> writeMultiple(WriteMultipleRequest request) {
+    public CompletableFuture<WriteMultipleResult> writeMultiple(
+        WriteMultipleRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<MultiDeleteResult> multiDelete(MultiDeleteRequest request) {
+    public CompletableFuture<MultiDeleteResult> multiDelete(
+        MultiDeleteRequest request) {
         return executeASync(request);
     }
 
@@ -280,42 +289,50 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     }
 
     @Override
-    public CompletableFuture<SystemResult> systemRequest(SystemRequest request) {
+    public CompletableFuture<SystemResult> systemRequest(
+        SystemRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<SystemResult> systemStatus(SystemStatusRequest request) {
+    public CompletableFuture<SystemResult> systemStatus(
+        SystemStatusRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<TableUsageResult> getTableUsage(TableUsageRequest request) {
+    public CompletableFuture<TableUsageResult> getTableUsage(
+        TableUsageRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<ListTablesResult> listTables(ListTablesRequest request) {
+    public CompletableFuture<ListTablesResult> listTables(
+        ListTablesRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<GetIndexesResult> getIndexes(GetIndexesRequest request) {
+    public CompletableFuture<GetIndexesResult> getIndexes(
+        GetIndexesRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<TableResult> addReplica(AddReplicaRequest request) {
+    public CompletableFuture<TableResult> addReplica(
+        AddReplicaRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<TableResult> dropReplica(DropReplicaRequest request) {
+    public CompletableFuture<TableResult> dropReplica(
+        DropReplicaRequest request) {
         return executeASync(request);
     }
 
     @Override
-    public CompletableFuture<ReplicaStatsResult> getReplicaStats(ReplicaStatsRequest request) {
+    public CompletableFuture<ReplicaStatsResult> getReplicaStats(
+        ReplicaStatsRequest request) {
         return executeASync(request);
     }
 
@@ -330,80 +347,81 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     @Override
     public CompletableFuture<String[]> listNamespaces() {
         return doSystemRequest("show as json namespaces")
-        .thenApply((SystemResult dres )-> {
-            String jsonResult = dres.getResultString();
-            if (jsonResult == null) {
-                return null;
-            }
-            MapValue root = JsonUtils.createValueFromJson(jsonResult, null).asMap();
+            .thenApply((SystemResult dres )-> {
+                String jsonResult = dres.getResultString();
+                if (jsonResult == null) {
+                    return null;
+                }
+                MapValue root = JsonUtils.createValueFromJson(jsonResult, null)
+                    .asMap();
 
-            FieldValue namespaces = root.get("namespaces");
-            if (namespaces == null) {
-                return null;
-            }
+                FieldValue namespaces = root.get("namespaces");
+                if (namespaces == null) {
+                    return null;
+                }
 
-            ArrayList<String> results = new ArrayList<String>(
+                ArrayList<String> results = new ArrayList<String>(
                     namespaces.asArray().size());
-            for (FieldValue val : namespaces.asArray()) {
-                results.add(val.getString());
-            }
-            return results.toArray(new String[0]);
-        });
+                for (FieldValue val : namespaces.asArray()) {
+                    results.add(val.getString());
+                }
+                return results.toArray(new String[0]);
+            });
     }
 
     @Override
     public CompletableFuture<UserInfo[]> listUsers() {
         return doSystemRequest("show as json users")
-        .thenApply((SystemResult dres) -> {
-            String jsonResult = dres.getResultString();
-            if (jsonResult == null) {
-                return null;
-            }
+            .thenApply((SystemResult dres) -> {
+                String jsonResult = dres.getResultString();
+                if (jsonResult == null) {
+                    return null;
+                }
 
-            MapValue root = JsonUtils.createValueFromJson(
-                jsonResult, null).asMap();
+                MapValue root = JsonUtils.createValueFromJson(
+                    jsonResult, null).asMap();
 
-            FieldValue users = root.get("users");
-            if (users == null) {
-                return null;
-            }
+                FieldValue users = root.get("users");
+                if (users == null) {
+                    return null;
+                }
 
-            ArrayList<UserInfo> results = new ArrayList<UserInfo>(
-                users.asArray().size());
+                ArrayList<UserInfo> results = new ArrayList<UserInfo>(
+                    users.asArray().size());
 
-            for (FieldValue val : users.asArray()) {
-                String id = val.asMap().getString("id");
-                String name = val.asMap().getString("name");
-                results.add(new UserInfo(id, name));
-            }
-            return results.toArray(new UserInfo[0]);
-        });
+                for (FieldValue val : users.asArray()) {
+                    String id = val.asMap().getString("id");
+                    String name = val.asMap().getString("name");
+                    results.add(new UserInfo(id, name));
+                }
+                return results.toArray(new UserInfo[0]);
+            });
     }
 
     @Override
     public CompletableFuture<String[]> listRoles() {
         return doSystemRequest("show as json roles")
-        .thenApply((SystemResult dres) -> {
-            String jsonResult = dres.getResultString();
-            if (jsonResult == null) {
-                return null;
-            }
-            MapValue root = JsonUtils.createValueFromJson(
-                jsonResult, null).asMap();
+            .thenApply((SystemResult dres) -> {
+                String jsonResult = dres.getResultString();
+                if (jsonResult == null) {
+                    return null;
+                }
+                MapValue root = JsonUtils.createValueFromJson(
+                    jsonResult, null).asMap();
 
-            FieldValue roles = root.get("roles");
-            if (roles == null) {
-                return null;
-            }
+                FieldValue roles = root.get("roles");
+                if (roles == null) {
+                    return null;
+                }
 
-            ArrayList<String> results = new ArrayList<String>(
-                roles.asArray().size());
-            for (FieldValue val : roles.asArray()) {
-                String role = val.asMap().getString("name");
-                results.add(role);
-            }
-            return results.toArray(new String[0]);
-        });
+                ArrayList<String> results = new ArrayList<String>(
+                    roles.asArray().size());
+                for (FieldValue val : roles.asArray()) {
+                    String role = val.asMap().getString("name");
+                    results.add(role);
+                }
+                return results.toArray(new String[0]);
+            });
     }
 
     /**
@@ -430,10 +448,9 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
         checkClient();
         SystemRequest dreq =
             new SystemRequest().setStatement(statement.toCharArray());
-        return systemRequest(dreq).thenCompose(
-            (SystemResult dres) ->
+        return systemRequest(dreq).thenCompose((SystemResult dres) ->
             dres.waitForCompletionAsync(this, timeoutMs, pollIntervalMs)
-        .thenApply(v -> dres));
+            .thenApply(v -> dres));
     }
 
     @Override
@@ -471,7 +488,6 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
     public void setDefaultNamespace(String ns) {
         client.setDefaultNamespace(ns);
     }
-
 
     @SuppressWarnings("unchecked")
     <T extends Result> CompletableFuture<T> executeASync(Request request) {
