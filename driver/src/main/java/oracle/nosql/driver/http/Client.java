@@ -102,6 +102,7 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
@@ -135,9 +136,10 @@ import io.netty.handler.ssl.SslContext;
 /**
  * The HTTP driver client.
  */
-public final class Client {
+public class Client {
 
     public static int traceLevel = 0;
+
     private final NoSQLHandleConfig config;
 
     private final SerializerFactory v3factory = new BinarySerializerFactory();
@@ -341,18 +343,7 @@ public final class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(
-            url.getHost(),
-            url.getPort(),
-            httpConfig.getNumThreads(),
-            httpConfig.getConnectionPoolMinSize(),
-            httpConfig.getConnectionPoolInactivityPeriod(),
-            httpConfig.getMaxContentLength(),
-            httpConfig.getMaxChunkSize(),
-            sslCtx,
-            config.getSSLHandshakeTimeout(),
-            "NoSQL Driver",
-            logger);
+        httpClient = createHttpClient(url, httpConfig, sslCtx, logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -395,6 +386,31 @@ public final class Client {
         prepareFilename = System.getProperty("test.preparefilename");
         this.taskExecutor = taskExecutor;
         initErrorHandlers();
+    }
+
+    /**
+     * @hidden
+     * Creates a new HttpClient instance based on the provided configuration
+     * and SSL context.
+     *
+     * Make it protected for unit test.
+     */
+    protected HttpClient createHttpClient(URL url,
+                                          NoSQLHandleConfig httpConfig,
+                                          SslContext sslCtx,
+                                          Logger logger) {
+        return new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            httpConfig.getSSLHandshakeTimeout(),
+            "NoSQL Driver",
+            logger);
     }
 
     /**
@@ -1064,8 +1080,15 @@ public final class Client {
      */
     private CompletableFuture<Result> handleInvalidAuthError(RequestContext ctx,
                                                              Throwable ex) {
+        /*
+         * Allow a single retry for invalid/expired auth
+         *
+         * This includes "clock skew" errors or signature refresh
+         * failures. This does not include permissions-related errors,
+         * which would be a UnauthorizedException.
+         */
         Request kvRequest = ctx.kvRequest;
-        if (kvRequest.getNumRetries() > 0) {
+        if (retriedInvalidAuthorizationException(kvRequest)) {
             return failRequest(ctx, ex);
         }
         authProvider.flushCache();
@@ -1705,6 +1728,22 @@ public final class Client {
         }
     }
 
+    /**
+     * Returns whether an {@link InvalidAuthorizationException} has been
+     * retried for the given request.
+     *
+     * @param request the request to check
+     * @return true if an {@link InvalidAuthorizationException} has been
+     *         retried for the request, false otherwise
+     */
+    private boolean retriedInvalidAuthorizationException(Request request) {
+        final RetryStats rs = request.getRetryStats();
+        if (rs == null || rs.getRetries() <= 0) {
+            return false;
+        }
+
+        return rs.getNumExceptions(InvalidAuthorizationException.class) > 0;
+    }
 
     private int handleRetry(RetryableException re,
                             Request kvRequest) {
