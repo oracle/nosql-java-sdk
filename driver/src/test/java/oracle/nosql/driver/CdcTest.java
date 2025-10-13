@@ -7,14 +7,11 @@
 
 package oracle.nosql.driver;
 
-import static oracle.nosql.driver.util.BinaryProtocol.V4;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 import java.time.Duration;
 import java.util.Map;
@@ -45,7 +42,7 @@ import org.junit.Test;
 
 public class CdcTest extends ProxyTestBase {
 
-    private static final String tableName = "ocid1_nosqltable_cloudsim_JavaTestUsers";
+    private static final String tableName = "JavaTestUsers";
 
     /*
      * consumers may have metadata associated with them for debugging/testing purposes.
@@ -64,6 +61,7 @@ public class CdcTest extends ProxyTestBase {
     @Test
     public void smokeTest() {
 
+        Consumer consumer = null;
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -74,13 +72,10 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true);
-
-            /* give producer a bit of time to set up table */
-            Thread.sleep(2000);
+            handle.enableCDC(tableName, null, true, 10000, 500);
 
             /* create CDC consumer */
-            Consumer consumer = new ConsumerBuilder()
+            consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.latest())
                 .groupId("test_group")
                 .commitAutomatic()
@@ -123,9 +118,16 @@ public class CdcTest extends ProxyTestBase {
             assertTrue(del.getSuccess());
 
             pollAndCheckEvent(consumer, tableName, key, null);
+
         } catch (Exception e) {
             e.printStackTrace();
             fail("Exception in test");
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            /* Disable CDC on table */
+            handle.enableCDC(tableName, null, false, 10000, 500);
         }
     }
 
@@ -133,54 +135,54 @@ public class CdcTest extends ProxyTestBase {
                                    String tableOcid,
                                    MapValue expKey,
                                    MapValue expValue) {
-	    // Poll until we get this event back, then verify the returned CDC event matches
-	    // the record that was written.
-	    MessageBundle bundle = consumer.poll(1, Duration.ofSeconds(10));
-	    if (bundle == null || bundle.isEmpty()) {
-		    fail("Poll returned no results after 10 seconds");
-	    }
+        // Poll until we get this event back, then verify the returned CDC event matches
+        // the record that was written.
+        MessageBundle bundle = consumer.poll(1, Duration.ofSeconds(10));
+        if (bundle == null || bundle.isEmpty()) {
+            fail("Poll returned no results after 10 seconds");
+        }
         System.out.println("Received bundle: " + bundle);
         int numMessages = bundle.getMessages().size();
-	    if (numMessages != 1) {
-		    fail("Poll returned " + numMessages + " messages, expected 1");
-	    }
+        if (numMessages != 1) {
+            fail("Poll returned " + numMessages + " messages, expected 1");
+        }
 
         Message message = bundle.getMessages().get(0);
         assertNotNull(message.getEvents());
         if (message.getEvents().size() != 1) {
-		    fail("Poll returned " + message.getEvents().size() + " events, expected 1");
-	    }
-	    // TODO: check message.TableName against table name (not OCID)
-	    // TODO: check message.CompartmentOCID when using a different compartment
-    
-	    assertEquals(message.getTableOcid(), tableOcid);
+            fail("Poll returned " + message.getEvents().size() + " events, expected 1");
+        }
+        // TODO: check message.TableName against table name (not OCID)
+        // TODO: check message.CompartmentOCID when using a different compartment
+
+        assertEquals(message.getTableOcid(), tableOcid);
 
         Event event = message.getEvents().get(0);
-	    assertNotNull(event.getRecords());
+        assertNotNull(event.getRecords());
         if (event.getRecords().size() != 1) {
-		    fail("Event contained " + event.getRecords().size() + " records, expected 1");
-	    }
+            fail("Event contained " + event.getRecords().size() + " records, expected 1");
+        }
 
         Record record = event.getRecords().get(0);
-    
-	    // TODO: check EventID?
-    
-	    assertEquals(expKey, record.getRecordKey());
-	    if (expValue != null) {
-		    assertNotNull(record.getCurrentImage());
-		    assertEquals(expValue, record.getCurrentImage().getValue());
-		    // TODO record.CurrentImage.RecordMetadata
-	    } else {
-		    assertNull(record.getCurrentImage());
-	    }
-    
-	    // TODO: beforeImage testing
-	    //suite.Require().Nil(record.BeforeImage)
-    
-	    // TODO record.ModificationTime time.Time
-	    // TODO record.ExpirationTime time.Time
-	    // TODO record.PartitionID int
-	    // TODO record.RegionID int
+
+        // TODO: check EventID?
+
+        assertEquals(expKey, record.getRecordKey());
+        if (expValue != null) {
+            assertNotNull(record.getCurrentImage());
+            assertEquals(expValue, record.getCurrentImage().getValue());
+            // TODO record.CurrentImage.RecordMetadata
+        } else {
+            assertNull(record.getCurrentImage());
+        }
+
+        // TODO: beforeImage testing
+        //suite.Require().Nil(record.BeforeImage)
+
+        // TODO record.ModificationTime time.Time
+        // TODO record.ExpirationTime time.Time
+        // TODO record.PartitionID int
+        // TODO record.RegionID int
     }
 
 }

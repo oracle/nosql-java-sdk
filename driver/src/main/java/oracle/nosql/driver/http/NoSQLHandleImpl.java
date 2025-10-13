@@ -420,7 +420,11 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     @Override
-    public void enableCDC(String tableName, String compartmentId, boolean enabled) {
+    public TableResult enableCDC(String tableName,
+                                 String compartmentId,
+                                 boolean enabled,
+                                 int timeoutMs,
+                                 int pollIntervalMs) {
         // TODO: resolve compartmentOCID: this is currently on a per-handle-only basis
         TableRequest req = new TableRequest()
             .setTableName(tableName)
@@ -430,7 +434,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             if (res == null) {
                 throw new IllegalStateException("No response from server for CDC operation");
             }
-            // TODO: is this an async operation? Should it wait for completion?
+            res.waitForCompletion(this, timeoutMs, pollIntervalMs);
+            return res;
         } catch (Exception e) {
             if (e.toString().contains("must have either statement or limits")) {
                 throw new OperationNotSupportedException("CDC not supported by server");

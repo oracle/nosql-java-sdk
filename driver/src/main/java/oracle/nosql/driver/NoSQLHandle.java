@@ -714,12 +714,22 @@ public interface NoSQLHandle extends AutoCloseable {
     /**
      * Enable or disable Change Data Capture on a table.
      * <p>
-     * Clous srvice only.
+     * Cloud srvice only.
      * <p>
+     *
+     * Internally, this operation is similar to {@link doTableRequest}.
+     * It is used specifically for enabling or disabling Change Data
+     * Capture on a table.
+     * If the operation succeeds within the time given, this method will
+     * return a TableResult. All other operation failures will throw an
+     * exception.
      *
      * @param tableName the name of the table to operate on
      * @param compartmentId optional compartment Id (OCID) for the table
      * @param enabled Set to true to enable CDC, false to disable CDC
+     * @param timeoutMs the amount of time to wait for completion, in
+     * milliseconds.
+     * @param pollIntervalMs the polling interval for the wait operation.
      *
      * @throws IllegalArgumentException if any of the parameters are invalid or
      * required parameters are missing
@@ -729,7 +739,11 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @since 5.4.20
      */
-    void enableCDC(String tableName, String compartmentId, boolean enabled);
+    TableResult enableCDC(String tableName,
+                          String compartmentId,
+                          boolean enabled,
+                          int timeoutMs,
+                          int pollIntervalMs);
 
     /**
      * Closes the handle, releasing its memory and network resources. Once
