@@ -469,7 +469,6 @@ public class CdcTest extends ProxyTestBase {
     public void multipleConsumersTest() {
 
         assumeFalse(onprem);
-        //assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer1 = null;
         Consumer consumer2 = null;
@@ -547,6 +546,103 @@ public class CdcTest extends ProxyTestBase {
             }
             if (records2.size() < 25) {
                 fail("Expected at least 25 records for consumer2, got " + records2.size());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (consumer1 != null) {
+                consumer1.close();
+            }
+            if (consumer2 != null) {
+                consumer2.close();
+            }
+            handle.enableCDC(tableName, null, false, 10000, 500);
+        }
+    }
+
+    @Test
+    public void multipleGroupsTest() {
+
+        assumeFalse(onprem);
+
+        Consumer consumer1 = null;
+        Consumer consumer2 = null;
+
+        String tableName = "cdcMultiConsumer";
+        try {
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists " + tableName +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                10000);
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            /* Enable CDC on table */
+            handle.enableCDC(tableName, null, true, 10000, 500);
+
+            /* create CDC consumers with different groups */
+            consumer1 = new ConsumerBuilder()
+                .addTable(tableName, "testComp", StartLocation.earliest())
+                .groupId("multiGroup1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            consumer2 = new ConsumerBuilder()
+                .addTable(tableName, "testComp", StartLocation.earliest())
+                .groupId("multiGroup2")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+
+            /* Put 100 records */
+            for (int i=0; i<100; i++) {
+                MapValue key = new MapValue().put("id", i);
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll from both consumers. Expect to get 200 total
+            Map<MapValue, MapValue> records1 = new HashMap<>();
+            Map<MapValue, MapValue> records2 = new HashMap<>();
+            // wait up to 20 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer1, 5, records1, 5);
+                pollEvents(consumer2, 5, records2, 5);
+                if (records1.size() + records2.size() == 200) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 20000) {
+                    System.out.println("Giving up looking for 200 records after 20 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (verbose) System.out.println(" records1.size()=" + records1.size());
+            if (verbose) System.out.println(" records2.size()=" + records2.size());
+            int total = records1.size() + records2.size();
+            if (total != 200) {
+                fail("Expected 200 records total, got " + total +
+                     " (records1=" + records1.size() +
+                     " records2=" + records2.size() + ")");
+            }
+            if (records1.size() != 100) {
+                fail("Expected 100 records for consumer1, got " + records1.size());
+            }
+            if (records2.size() != 100) {
+                fail("Expected 100 records for consumer2, got " + records2.size());
             }
 
         } catch (Exception e) {
