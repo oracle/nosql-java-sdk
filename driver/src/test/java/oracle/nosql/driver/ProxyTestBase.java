@@ -123,6 +123,8 @@ public class ProxyTestBase {
 
     protected NoSQLHandle handle;
 
+    protected NoSQLHandleAsync asyncHandle;
+
     /* serial version used at the proxy server */
     protected int proxySerialVersion;
 
@@ -249,6 +251,35 @@ public class ProxyTestBase {
             handle.doTableRequest(tableRequest, waitMillis, 1000);
         return tres;
     }
+
+    protected static CompletableFuture<TableResult>
+        tableOperationAsync(NoSQLHandleAsync handle,
+                            String statement,
+                            TableLimits limits) {
+        return tableOperationAsync(handle,
+                                   statement,
+                                   limits,
+                                   DEFAULT_DDL_TIMEOUT);
+    }
+
+    /**
+     * run the statement, assumes success, exception is thrown on error
+     */
+    protected static CompletableFuture<TableResult>
+        tableOperationAsync(NoSQLHandleAsync handle,
+                            String statement,
+                            TableLimits limits,
+                            int waitMillis) {
+        assertTrue(waitMillis > 500);
+        TableRequest tableRequest = new TableRequest()
+            .setStatement(statement)
+            .setTableLimits(limits)
+            .setTimeout(DEFAULT_DDL_TIMEOUT);
+
+        CompletableFuture<TableResult> tres =
+            handle.doTableRequest(tableRequest, waitMillis, 1000);
+        return tres;
+    }
     /**
      * run the statement, assumes success, exception is thrown on error
      */
@@ -272,6 +303,7 @@ public class ProxyTestBase {
          * Configure and get the handle
          */
         handle = getHandle(endpoint);
+        asyncHandle = getAsyncHandle(endpoint);
 
         /* track existing tables and don't drop them */
         existingTables = new HashSet<String>();
@@ -309,6 +341,9 @@ public class ProxyTestBase {
                 }
             }
             handle.close();
+        }
+        if (asyncHandle != null) {
+            asyncHandle.close();
         }
     }
 
@@ -425,6 +460,12 @@ public class ProxyTestBase {
         return setupHandle(config);
     }
 
+    protected NoSQLHandleAsync getAsyncHandle(String ep) {
+        NoSQLHandleConfig config = new NoSQLHandleConfig(ep);
+        serviceURL = config.getServiceURL();
+        return setupAsyncHandle(config);
+    }
+
     /* Set configuration values for the handle */
     protected NoSQLHandle setupHandle(NoSQLHandleConfig config) {
         /*
@@ -445,6 +486,23 @@ public class ProxyTestBase {
         /* serial version will be set by default ListTables() in beforeTest */
 
         return h;
+    }
+
+    /* Set configuration values for the aysnc handle */
+    protected NoSQLHandleAsync setupAsyncHandle(NoSQLHandleConfig config) {
+        /*
+         * 5 retries, default retry algorithm
+         */
+        config.configureDefaultRetryHandler(5, 0);
+        config.setRequestTimeout(30000);
+
+        /* remove idle connections after this many seconds */
+        config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
+        configAuth(config);
+
+        /* allow test cases to add/modify handle config */
+        perTestHandleConfig(config);
+        return getAsyncHandle(config);
     }
 
     /**
@@ -473,6 +531,27 @@ public class ProxyTestBase {
          * Open the handle
          */
         return NoSQLHandleFactory.createNoSQLHandle(config);
+    }
+
+    /**
+     * get a handle based on the config
+     */
+    protected NoSQLHandleAsync getAsyncHandle(NoSQLHandleConfig config) {
+        /*
+         * Create a Logger, set to WARNING by default.
+         */
+        Logger logger = Logger.getLogger(getClass().getName());
+        String level = System.getProperty("test.loglevel");
+        if (level == null) {
+            level = "WARNING";
+        }
+        logger.setLevel(Level.parse(level));
+        config.setLogger(logger);
+
+        /*
+         * Open the handle
+         */
+        return NoSQLHandleFactory.createNoSQLHandleAsync(config);
     }
 
     void assertReadKB(Result res) {

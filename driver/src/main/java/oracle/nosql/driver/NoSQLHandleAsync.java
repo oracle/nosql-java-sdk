@@ -8,6 +8,7 @@
 package oracle.nosql.driver;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 
 import oracle.nosql.driver.ops.AddReplicaRequest;
@@ -27,7 +28,6 @@ import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
-import oracle.nosql.driver.ops.QueryIterableResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.ReplicaStatsRequest;
@@ -99,7 +99,9 @@ import oracle.nosql.driver.values.MapValue;
  * <p>
  * On success all methods in this interface return {@link CompletableFuture}
  * which completes with {@link Result} objects.
- * On Error, return {@link CompletableFuture} completes with exceptions.
+ * On Error, return {@link CompletableFuture} completes with
+ * {@link java.util.concurrent.CompletionException} that wraps the original
+ * exception as its cause.
  * Some Java exceptions, such as {@link IllegalArgumentException} and
  * {@link NullPointerException} are thrown directly. All other exceptions are
  * instances of {@link NoSQLException}, which serves as a base class for NoSQL
@@ -161,8 +163,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -194,8 +198,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The CompletableFuture returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -258,8 +264,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -291,8 +299,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -325,8 +335,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -382,8 +394,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -469,8 +483,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -498,8 +514,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -531,8 +549,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -577,8 +597,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -604,8 +626,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -632,8 +656,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -664,8 +690,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -694,8 +722,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -720,8 +750,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -744,8 +776,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the namespaces
      * or null if none are found.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -767,8 +801,11 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @return a {@link CompletableFuture} which completes with the list of
      * roles or null if none are found.
-     *
-     * The CompletableFuture returned by this method can be completed exceptionally with the following exceptions.
+     *<p>
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -790,8 +827,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the users
      * or null if none are found.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -833,8 +872,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -867,8 +908,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -898,8 +941,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or
@@ -926,8 +971,10 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @return a {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
-     * The {@link CompletableFuture} returned by this method can be completed
-     * exceptionally with the following exceptions.
+     * The returned {@link CompletableFuture} may complete exceptionally with
+     * the following exceptions. The underlying exception is wrapped in a
+     * {@link CompletionException}; use {@link Throwable#getCause()} to
+     * retrieve it.
      * <ul>
      * <li>
      * {@link IllegalArgumentException} if any of the parameters are invalid or

@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.18</version>
+  <version>6.0.0</version>
 </dependency>
 ```
 
