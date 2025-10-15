@@ -16,6 +16,7 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 import oracle.nosql.driver.Version;
@@ -146,7 +147,7 @@ public class CdcTest extends ProxyTestBase {
                 handle,
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 50),
+                new TableLimits(500, 500, 5),
                 10000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
@@ -275,7 +276,7 @@ public class CdcTest extends ProxyTestBase {
                 handle,
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 50),
+                new TableLimits(500, 500, 5),
                 10000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
@@ -377,7 +378,7 @@ public class CdcTest extends ProxyTestBase {
                 handle,
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 50),
+                new TableLimits(500, 500, 5),
                 10000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
@@ -462,6 +463,126 @@ public class CdcTest extends ProxyTestBase {
             }
             handle.enableCDC(tableName, null, false, 10000, 500);
         }
+    }
+
+    @Test
+    public void multipleConsumersTest() {
+
+        assumeFalse(onprem);
+        //assumeTrue(Boolean.getBoolean("test.all"));
+
+        Consumer consumer1 = null;
+        Consumer consumer2 = null;
+
+        String tableName = "cdcMultiConsumer";
+        try {
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists " + tableName +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                10000);
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            /* Enable CDC on table */
+            handle.enableCDC(tableName, null, true, 10000, 500);
+
+            /* create CDC consumers */
+            consumer1 = new ConsumerBuilder()
+                .addTable(tableName, "testComp", StartLocation.earliest())
+                .groupId("multiCons1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            consumer2 = new ConsumerBuilder()
+                .addTable(tableName, "testComp", StartLocation.earliest())
+                .groupId("multiCons1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+
+            /* Put 100 records */
+            for (int i=0; i<100; i++) {
+                MapValue key = new MapValue().put("id", i);
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll from both consumers. Expect to get 100 total, and have somewhat even distribution
+            Map<MapValue, MapValue> records1 = new HashMap<>();
+            Map<MapValue, MapValue> records2 = new HashMap<>();
+            // wait up to 20 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer1, 5, records1, 5);
+                pollEvents(consumer2, 5, records2, 5);
+                if (records1.size() + records2.size() == 100) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 20000) {
+                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                    break;
+                }
+            } while(true);
+
+            System.out.println(" records1.size()=" + records1.size());
+            System.out.println(" records2.size()=" + records2.size());
+            int total = records1.size() + records2.size();
+            if (total != 100) {
+                fail("Expected 100 records total, got " + total +
+                     " (records1=" + records1.size() +
+                     " records2=" + records2.size() + ")");
+            }
+            if (records1.size() < 25) {
+                fail("Expected at least 25 records for consumer1, got " + records1.size());
+            }
+            if (records2.size() < 25) {
+                fail("Expected at least 25 records for consumer2, got " + records2.size());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (consumer1 != null) {
+                consumer1.close();
+            }
+            if (consumer2 != null) {
+                consumer2.close();
+            }
+            handle.enableCDC(tableName, null, false, 10000, 500);
+        }
+    }
+
+    private boolean pollEvents(Consumer consumer,
+                               int maxEvents,
+                               Map<MapValue, MapValue> records,
+                               int waitSeconds) {
+        MessageBundle bundle = consumer.poll(maxEvents, Duration.ofSeconds(waitSeconds));
+        if (bundle == null || bundle.isEmpty()) {
+            return false;
+        }
+        System.out.println("Received bundle: " + bundle);
+        for (Message message : bundle.getMessages()) {
+            assertNotNull(message.getEvents());
+            for (Event event : message.getEvents()) {
+                assertNotNull(event.getRecords());
+                for (Record record : event.getRecords()) {
+                    assertNotNull(record.getCurrentImage());
+                    records.put(record.getRecordKey(), record.getCurrentImage().getValue());
+                }
+            }
+        }
+        return true;
     }
 
     private void pollAndCheckEvent(Consumer consumer,
