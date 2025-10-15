@@ -534,8 +534,8 @@ public class CdcTest extends ProxyTestBase {
                 }
             } while(true);
 
-            System.out.println(" records1.size()=" + records1.size());
-            System.out.println(" records2.size()=" + records2.size());
+            if (verbose) System.out.println(" records1.size()=" + records1.size());
+            if (verbose) System.out.println(" records2.size()=" + records2.size());
             int total = records1.size() + records2.size();
             if (total != 100) {
                 fail("Expected 100 records total, got " + total +
@@ -563,6 +563,108 @@ public class CdcTest extends ProxyTestBase {
         }
     }
 
+    @Test
+    public void multipleTablesTest() {
+
+        assumeFalse(onprem);
+        assumeTrue(Boolean.getBoolean("test.all"));
+
+        Consumer consumer = null;
+
+        String tableName1 = "cdcMultiTable1";
+        String tableName2 = "cdcMultiTable2";
+
+        try {
+            /* Create table1 */
+            TableResult tres1 = tableOperation(
+                handle,
+                "create table if not exists " + tableName1 +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                10000);
+            assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
+
+            /* Enable CDC on table1 */
+            handle.enableCDC(tableName1, null, true, 10000, 500);
+
+            /* Create table2 */
+            TableResult tres2 = tableOperation(
+                handle,
+                "create table if not exists " + tableName2 +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                10000);
+            assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
+
+            /* Enable CDC on table2 */
+            handle.enableCDC(tableName2, null, true, 10000, 500);
+
+            /* create CDC consumer for both tables */
+            consumer = new ConsumerBuilder()
+                .addTable(tableName1, "testComp", StartLocation.earliest())
+                .addTable(tableName2, "testComp", StartLocation.earliest())
+                .groupId("multiTable1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            /* Put 50 records to table1 */
+            for (int i=0; i<50; i++) {
+                MapValue key = new MapValue().put("id", i);
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(tableName1);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* Put 50 records to table2 */
+            for (int i=50; i<100; i++) {
+                MapValue key = new MapValue().put("id", i);
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(tableName2);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll from both tables. Expect to get 100 total, and have somewhat even distribution
+            Map<MapValue, MapValue> records = new HashMap<>();
+            // wait up to 20 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer, 5, records, 5);
+                if (records.size() == 100) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 20000) {
+                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (records.size() != 100) {
+                fail("Expected 100 records total, got " + records.size());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test: " + e.getMessage());
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            /* disable CDC on tables */
+            handle.enableCDC(tableName1, null, false, 10000, 500);
+            handle.enableCDC(tableName2, null, false, 10000, 500);
+        }
+    }
+
     private boolean pollEvents(Consumer consumer,
                                int maxEvents,
                                Map<MapValue, MapValue> records,
@@ -571,7 +673,7 @@ public class CdcTest extends ProxyTestBase {
         if (bundle == null || bundle.isEmpty()) {
             return false;
         }
-        System.out.println("Received bundle: " + bundle);
+        if (verbose) System.out.println("Received bundle: " + bundle);
         for (Message message : bundle.getMessages()) {
             assertNotNull(message.getEvents());
             for (Event event : message.getEvents()) {
@@ -597,7 +699,7 @@ public class CdcTest extends ProxyTestBase {
         if (bundle == null || bundle.isEmpty()) {
             fail("Poll returned no results after 10 seconds");
         }
-        System.out.println("Received bundle: " + bundle);
+        if (verbose) System.out.println("Received bundle: " + bundle);
         int numMessages = bundle.getMessages().size();
         if (numMessages != 1) {
             fail("Poll returned " + numMessages + " messages, expected 1");
@@ -655,7 +757,7 @@ public class CdcTest extends ProxyTestBase {
             if (bundle == null || bundle.isEmpty()) {
                 fail("Poll returned no results after 10 seconds (received records=" + receivedRecords +")");
             }
-            System.out.println("Received bundle: " + bundle);
+            if (verbose) System.out.println("Received bundle: " + bundle);
             int numMessages = bundle.getMessages().size();
             for (int m=0; m<numMessages; m++) {
                 Message message = bundle.getMessages().get(m);

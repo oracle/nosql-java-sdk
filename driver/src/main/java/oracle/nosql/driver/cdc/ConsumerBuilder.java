@@ -156,7 +156,8 @@ public class ConsumerBuilder {
         int x = 0;
         for (TableConfig tcfg : tables) {
             if (tcfg.tableName.equalsIgnoreCase(tableName) ||
-                tcfg.tableOcid.equalsIgnoreCase(tableName)) {
+                (tcfg.tableOcid != null &&
+                 tcfg.tableOcid.equalsIgnoreCase(tableName))) {
                 if (compartmentOcid == null) {
                     if (tcfg.compartmentOcid == null) {
                         return x;
@@ -345,17 +346,17 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
 
     /**
      * Create a Change Data Capture consumer based on builder configuration.
-     *  
+     *
      * This will make server-side calls to validate all configuration and
      * establish server-side state for the consumer.
      *
      * Any table changes (added tables, removed tables, start locations) for
      * the consumer group will be applied immediately after this call succeeds.
      * It is not necessary to call poll() to trigger table changes.
-     *  
+     *
      * Note that rebalancing operations will not take effect after this call.
      * Rebalancing does not happen until the first call to poll().
-     */ 
+     */
     public Consumer build() {
         return new Consumer(this);
     }
