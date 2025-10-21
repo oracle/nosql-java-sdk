@@ -728,7 +728,7 @@ public class CdcTest extends ProxyTestBase {
                 assertNotNull(res.getVersion());
             }
 
-            // poll from both tables. Expect to get 100 total, and have somewhat even distribution
+            // poll from both tables. Expect to get 100 total
             Map<MapValue, MapValue> records = new HashMap<>();
             // wait up to 20 seconds for all records
             long startTime = System.currentTimeMillis();
@@ -758,6 +758,110 @@ public class CdcTest extends ProxyTestBase {
             /* disable CDC on tables */
             handle.enableCDC(tableName1, null, false, 10000, 500);
             handle.enableCDC(tableName2, null, false, 10000, 500);
+        }
+    }
+
+    @Test
+    public void childTablesTest() {
+
+        assumeFalse(onprem);
+        //assumeTrue(Boolean.getBoolean("test.all"));
+
+        Consumer consumer = null;
+
+        String parentTableName = "cdcParent1";
+        String childTableName = "cdcParent1.child";
+
+        try {
+            /* Create parent table */
+            TableResult pres = tableOperation(
+                handle,
+                "create table if not exists " + parentTableName +
+                "(sid integer, id integer, name string, primary key(shard(sid), id))",
+                new TableLimits(500, 500, 5),
+                10000);
+            assertEquals(TableResult.State.ACTIVE, pres.getTableState());
+
+            /* Enable CDC on parent */
+// TODO: test only enabling CDC on child
+            handle.enableCDC(parentTableName, null, true, 10000, 500);
+
+            /* Create child table */
+            TableResult cres = tableOperation(
+                handle,
+                "create table if not exists " + childTableName +
+                "(childid integer, childname string, primary key(childid))",
+                null, /* new TableLimits(500, 500, 5),*/
+                10000);
+            assertEquals(TableResult.State.ACTIVE, cres.getTableState());
+
+            /* Enable CDC on child */
+            handle.enableCDC(childTableName, null, true, 10000, 500);
+
+            /* create CDC consumer for both tables */
+            consumer = new ConsumerBuilder()
+                .addTable(parentTableName, "testComp", StartLocation.earliest())
+                .addTable(childTableName, "testComp", StartLocation.earliest())
+                .groupId("parentChild1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            /* Put 50 records to parent */
+            for (int i=0; i<50; i++) {
+                MapValue key = new MapValue().put("sid", i).put("id", i);
+                MapValue value = new MapValue().put("sid", i).put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(parentTableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* Put 50 records to child */
+            for (int i=50; i<100; i++) {
+                MapValue key = new MapValue().put("childid", i);
+                MapValue value = new MapValue().put("sid", i-50).put("id", i-50)
+                                     .put("childid", i).put("childname", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setCompartment("testComp")
+                    .setTableName(childTableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll from both tables. Expect to get 100 total
+            Map<MapValue, MapValue> records = new HashMap<>();
+            // wait up to 20 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer, 5, records, 5);
+                if (records.size() == 100) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 20000) {
+                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (records.size() != 100) {
+                fail("Expected 100 records total, got " + records.size());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test: " + e.getMessage());
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            /* disable CDC on tables */
+            handle.enableCDC(childTableName, null, false, 10000, 500);
+            handle.enableCDC(parentTableName, null, false, 10000, 500);
         }
     }
 
