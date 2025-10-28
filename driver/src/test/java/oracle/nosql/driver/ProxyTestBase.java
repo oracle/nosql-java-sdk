@@ -26,6 +26,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,6 +37,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
+import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.ListTablesRequest;
@@ -52,6 +55,7 @@ import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.SimpleRateLimiter;
 import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -82,6 +86,7 @@ public class ProxyTestBase {
     protected static String TEST_TABLE_NAME = "drivertest";
     protected static int INACTIVITY_PERIOD_SECS = 2;
     protected static String NETTY_LEAK_PROP="test.detectleaks";
+    protected static String DDL_OP_LIMIT="test.ddloplimit";
 
     protected static String PROXY_VERSION_PROP = "test.proxy.version";
     protected static String KVCLIENT_VERSION_PROP = "test.kv.client.version";
@@ -122,6 +127,9 @@ public class ProxyTestBase {
 
     protected NoSQLHandle handle;
 
+    /* for rate limiting DDL ops */
+    protected static SimpleRateLimiter ddlOpLimiter;
+
     /* serial version used at the proxy server */
     protected int proxySerialVersion;
 
@@ -157,6 +165,12 @@ public class ProxyTestBase {
         if (Boolean.getBoolean(NETTY_LEAK_PROP)) {
             ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
         }
+
+        /* create a rate limiter for DDL ops */
+        /* default to 1000 ops/min */
+        int limitPerMin = Integer.getInteger(DDL_OP_LIMIT, 1000);
+        ddlOpLimiter = new SimpleRateLimiter((double)limitPerMin * 0.016,
+                                             60.0/(double)limitPerMin);
 
         proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
         if (proxyVersion <= 0) {
@@ -223,6 +237,14 @@ public class ProxyTestBase {
     }
 
     /**
+     * Set the DDL operation rate limit, in ops per second
+     */
+    protected static void setDDLOpLimit(double opsPerSecond) {
+        ddlOpLimiter.setLimitPerSecond(opsPerSecond);
+        ddlOpLimiter.reset();
+    }
+
+    /**
      * run the statement, assumes success
      */
     protected static TableResult tableOperation(NoSQLHandle handle,
@@ -244,6 +266,7 @@ public class ProxyTestBase {
             .setTableLimits(limits)
             .setTimeout(DEFAULT_DDL_TIMEOUT);
 
+        ddlOpLimiter.consumeUnits(1);
         TableResult tres =
             handle.doTableRequest(tableRequest, waitMillis, 1000);
         return tres;
@@ -259,6 +282,7 @@ public class ProxyTestBase {
             .setTableName(tableName)
             .setTimeout(DEFAULT_DDL_TIMEOUT);
 
+        ddlOpLimiter.consumeUnits(1);
         return handle.doTableRequest(tableRequest, DEFAULT_DDL_TIMEOUT, 1000);
     }
 
@@ -275,6 +299,7 @@ public class ProxyTestBase {
         /* track existing tables and don't drop them */
         existingTables = new HashSet<String>();
         ListTablesRequest listTables = new ListTablesRequest();
+        ddlOpLimiter.consumeUnits(1);
         ListTablesResult lres = handle.listTables(listTables);
         proxySerialVersion = lres.getServerSerialVersion();
         for (String tableName: lres.getTables()) {
@@ -316,6 +341,7 @@ public class ProxyTestBase {
 
         /* get the names of all tables */
         ListTablesRequest listTables = new ListTablesRequest();
+        ddlOpLimiter.consumeUnits(1);
         ListTablesResult lres = nosqlHandle.listTables(listTables);
         ArrayList<TableResult> droppedTables = new ArrayList<TableResult>();
         for (String tableName: lres.getTables()) {
@@ -413,6 +439,7 @@ public class ProxyTestBase {
             .setStatement(dropTableDdl)
             .setTimeout(100000);
 
+        ddlOpLimiter.consumeUnits(1);
         TableResult tres = nosqlHandle.tableRequest(tableRequest);
         assertNotNull(tres);
         return tres;
@@ -434,7 +461,11 @@ public class ProxyTestBase {
 
         /* remove idle connections after this many seconds */
         config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
-        configAuth(config);
+        try {
+            configAuth(config);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         /* allow test cases to add/modify handle config */
         perTestHandleConfig(config);
@@ -499,7 +530,7 @@ public class ProxyTestBase {
     /**
      * At this time these unit tests will not talk to the cloud service
      */
-    protected void configAuth(NoSQLHandleConfig config) {
+    protected void configAuth(NoSQLHandleConfig config) throws IOException {
         if (onprem) {
             if (secure) {
                 config.setAuthorizationProvider(
@@ -509,16 +540,17 @@ public class ProxyTestBase {
             }
         } else {
             /* cloud simulator */
-            config.setAuthorizationProvider(new AuthorizationProvider() {
-                    @Override
-                    public String getAuthorizationString(Request request) {
-                        return "Bearer cloudsim";
-                    }
+            //config.setAuthorizationProvider(new TestSignatureProvider());
+            config.setAuthorizationProvider(new SignatureProvider());
+                    //@Override
+                    //public String getAuthorizationString(Request request) {
+                        //return "Bearer cloudsim";
+                    //}
 
-                    @Override
-                    public void close() {
-                    }
-            });
+                    //@Override
+                    //public void close() {
+                    //}
+            //});
         }
     }
 
@@ -551,6 +583,7 @@ public class ProxyTestBase {
             "primary key(id))";
         TableRequest tableRequest = new TableRequest()
             .setStatement(createTableStatement);
+        ddlOpLimiter.consumeUnits(1);
         thandle.doTableRequest(tableRequest, DEFAULT_DDL_TIMEOUT, 1000);
         MapValue value = new MapValue().put("id", 1);
         ArrayValue array = createLargeStringArray(3500000);
@@ -632,6 +665,7 @@ public class ProxyTestBase {
                                           NoSQLHandle handle) {
         GetTableRequest getTable =
             new GetTableRequest().setTableName(tableName);
+        ddlOpLimiter.consumeUnits(1);
         return handle.getTable(getTable);
     }
 

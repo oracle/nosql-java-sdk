@@ -970,8 +970,9 @@ public class Client {
                 /*
                  * This can happen if a channel is bad in HttpClient.getChannel.
                  * This happens if the channel is shut down by the server side
-                 * or the server (proxy) is restarted, etc. Treat it like
-                 * IOException above, but retry without waiting
+                 * or the server (proxy) is restarted, etc. It also happens in
+                 * testing if the proxy us not running. Treat it like
+                 * IOException above.
                  */
                 String name = ee.getCause().getClass().getName();
                 logFine(logger, "Client ExecutionException, name: " +
@@ -980,6 +981,11 @@ public class Client {
                 kvRequest.addRetryException(ee.getCause().getClass());
                 kvRequest.incrementRetries();
                 exception = ee.getCause();
+
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException ie) {}
+
                 continue;
             } catch (TimeoutException te) {
                 exception = te;

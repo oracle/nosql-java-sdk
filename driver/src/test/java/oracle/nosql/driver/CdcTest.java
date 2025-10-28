@@ -19,8 +19,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-import oracle.nosql.driver.Version;
-
 import oracle.nosql.driver.cdc.Consumer;
 import oracle.nosql.driver.cdc.ConsumerBuilder;
 import oracle.nosql.driver.cdc.Event;
@@ -33,7 +31,6 @@ import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
-
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.TableLimits;
@@ -61,8 +58,7 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void smokeTest() {
-
+    public void smokeTest() throws InterruptedException {
         assumeFalse(onprem);
 
         Consumer consumer = null;
@@ -79,11 +75,11 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table: wait up to 10 seconds */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
 
             /* create CDC consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.latest())
+                .addTable(tableName, null, StartLocation.latest())
                 .groupId("test_group")
                 .commitAutomatic()
                 .handle(handle)
@@ -94,7 +90,6 @@ public class CdcTest extends ProxyTestBase {
             MapValue value = new MapValue().put("id", 10).put("name", "jane");
             PutRequest putRequest = new PutRequest()
                 .setValue(value)
-                .setCompartment("testComp")
                 .setTableName(tableName);
             PutResult res = handle.put(putRequest);
             assertNotNull(res.getVersion());
@@ -126,16 +121,17 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+           enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void closeOpenTest() {
+    public void closeOpenTest() throws InterruptedException {
         /* check that closing a consumer and opening a new one will have the
            new consumer pick up where the old one left off */
 
         assumeFalse(onprem);
+        // StartLocation.firstUncommitted not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer = null;
@@ -152,11 +148,11 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
 
             /* create CDC consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.earliest())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
@@ -171,11 +167,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -193,7 +187,7 @@ public class CdcTest extends ProxyTestBase {
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
@@ -207,11 +201,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=10; i<20; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -229,7 +221,7 @@ public class CdcTest extends ProxyTestBase {
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
@@ -237,11 +229,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=20; i<30; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -257,14 +247,15 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+           enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void manualCommitTest() {
+    public void manualCommitTest() throws InterruptedException {
 
         assumeFalse(onprem);
+        // manual commit not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer = null;
@@ -281,11 +272,11 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
 
             /* create CDC consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("manCom1")
                 .commitManual()
                 .handle(handle)
@@ -300,11 +291,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -321,11 +310,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=10; i<20; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -339,11 +326,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=20; i<30; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -359,14 +344,15 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void autoCommitTest() {
+    public void autoCommitTest() throws InterruptedException {
 
         assumeFalse(onprem);
+        // auto commit not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer = null;
@@ -383,11 +369,11 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
 
             /* create CDC consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("autoCom1")
                 .commitAutomatic()
                 .handle(handle)
@@ -402,11 +388,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -423,11 +407,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=10; i<20; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -441,11 +423,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put another 10 records */
             for (int i=20; i<30; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -461,14 +441,17 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void multipleConsumersTest() {
+    public void multipleConsumersTest() throws InterruptedException {
 
         assumeFalse(onprem);
+        // fails because there need to be two stream partitions for there to be
+        // the concurrency that this test expects
+        assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer1 = null;
         Consumer consumer2 = null;
@@ -485,50 +468,63 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            if (verbose)
+                System.out.println("Enable cdc on " + tableName);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
 
             /* create CDC consumers */
             consumer1 = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.earliest())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiCons1")
                 .commitAutomatic()
                 .handle(handle)
                 .build();
 
             consumer2 = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.earliest())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiCons1")
                 .commitAutomatic()
                 .handle(handle)
                 .build();
 
+            if (verbose) System.out.println("Created two consumers");
+
 
             /* Put 100 records */
             for (int i=0; i<100; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
             }
 
+            if (verbose) System.out.println("Finish inserting records");
+
             // poll from both consumers. Expect to get 100 total, and have somewhat even distribution
+            // LQL: Multiple consumers will only get records if there are
+            // multiple stream partitions. Right now,  this is configured
+            // to one stream partition, so one consumer will get 0 records.
             Map<MapValue, MapValue> records1 = new HashMap<>();
             Map<MapValue, MapValue> records2 = new HashMap<>();
+
             // wait up to 20 seconds for all records
             long startTime = System.currentTimeMillis();
             do {
+                if (verbose) System.out.println("Poll for consumer 1");
                 pollEvents(consumer1, 5, records1, 5);
+
+                if (verbose) System.out.println("Poll for consumer 2");
                 pollEvents(consumer2, 5, records2, 5);
+
                 if (records1.size() + records2.size() == 100) {
                     break;
                 }
                 long now = System.currentTimeMillis();
-                if ((now - startTime) > 20000) {
-                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                if ((now - startTime) > 200000) {
+                    System.out.println("Giving up looking for 100 records " +
+                            "after 200 seconds");
                     break;
                 }
             } while(true);
@@ -550,7 +546,7 @@ public class CdcTest extends ProxyTestBase {
 
         } catch (Exception e) {
             e.printStackTrace();
-            fail("Exception in test");
+            fail("Exception in test: " + e);
         } finally {
             if (consumer1 != null) {
                 consumer1.close();
@@ -558,12 +554,12 @@ public class CdcTest extends ProxyTestBase {
             if (consumer2 != null) {
                 consumer2.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void multipleGroupsTest() {
+    public void multipleGroupsTest() throws InterruptedException {
 
         assumeFalse(onprem);
 
@@ -582,18 +578,18 @@ public class CdcTest extends ProxyTestBase {
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
-            handle.enableCDC(tableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle,tableName, true);
 
             /* create CDC consumers with different groups */
             consumer1 = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.earliest())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiGroup1")
                 .commitAutomatic()
                 .handle(handle)
                 .build();
 
             consumer2 = new ConsumerBuilder()
-                .addTable(tableName, "testComp", StartLocation.earliest())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiGroup2")
                 .commitAutomatic()
                 .handle(handle)
@@ -602,11 +598,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 100 records */
             for (int i=0; i<100; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -624,8 +618,9 @@ public class CdcTest extends ProxyTestBase {
                     break;
                 }
                 long now = System.currentTimeMillis();
-                if ((now - startTime) > 20000) {
-                    System.out.println("Giving up looking for 200 records after 20 seconds");
+                if ((now - startTime) > 200000) {
+                    System.out.println("Giving up looking for 200 records " +
+                            "after 200 seconds");
                     break;
                 }
             } while(true);
@@ -655,12 +650,12 @@ public class CdcTest extends ProxyTestBase {
             if (consumer2 != null) {
                 consumer2.close();
             }
-            handle.enableCDC(tableName, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
     @Test
-    public void multipleTablesTest() {
+    public void multipleTablesTest() throws InterruptedException {
 
         assumeFalse(onprem);
         assumeTrue(Boolean.getBoolean("test.all"));
@@ -678,10 +673,11 @@ public class CdcTest extends ProxyTestBase {
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
                 10000);
+            tres1.waitForCompletion(handle, 30000, 500);
             assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
 
             /* Enable CDC on table1 */
-            handle.enableCDC(tableName1, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName1, true);
 
             /* Create table2 */
             TableResult tres2 = tableOperation(
@@ -690,15 +686,16 @@ public class CdcTest extends ProxyTestBase {
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
                 10000);
+            tres2.waitForCompletion(handle, 30000, 500);
             assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
 
             /* Enable CDC on table2 */
-            handle.enableCDC(tableName2, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName2, true);
 
             /* create CDC consumer for both tables */
             consumer = new ConsumerBuilder()
-                .addTable(tableName1, "testComp", StartLocation.earliest())
-                .addTable(tableName2, "testComp", StartLocation.earliest())
+                .addTable(tableName1, null, StartLocation.earliest())
+                .addTable(tableName2, null, StartLocation.earliest())
                 .groupId("multiTable1")
                 .commitAutomatic()
                 .handle(handle)
@@ -706,11 +703,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 50 records to table1 */
             for (int i=0; i<50; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName1);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -718,11 +713,9 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 50 records to table2 */
             for (int i=50; i<100; i++) {
-                MapValue key = new MapValue().put("id", i);
                 MapValue value = new MapValue().put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(tableName2);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -738,8 +731,9 @@ public class CdcTest extends ProxyTestBase {
                     break;
                 }
                 long now = System.currentTimeMillis();
-                if ((now - startTime) > 20000) {
-                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                if ((now - startTime) > 200000) {
+                    System.out.println("Giving up looking for 100 records " +
+                            "after 200 seconds");
                     break;
                 }
             } while(true);
@@ -756,13 +750,13 @@ public class CdcTest extends ProxyTestBase {
                 consumer.close();
             }
             /* disable CDC on tables */
-            handle.enableCDC(tableName1, null, false, 10000, 500);
-            handle.enableCDC(tableName2, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, tableName1, false);
+            enableDisableCDCWithRateLimiting(handle, tableName2, false);
         }
     }
 
     @Test
-    public void childTablesTest() {
+    public void childTablesTest() throws InterruptedException {
 
         assumeFalse(onprem);
         //assumeTrue(Boolean.getBoolean("test.all"));
@@ -780,11 +774,12 @@ public class CdcTest extends ProxyTestBase {
                 "(sid integer, id integer, name string, primary key(shard(sid), id))",
                 new TableLimits(500, 500, 5),
                 10000);
+            pres.waitForCompletion(handle, 30000, 500);
             assertEquals(TableResult.State.ACTIVE, pres.getTableState());
 
             /* Enable CDC on parent */
 // TODO: test only enabling CDC on child
-            handle.enableCDC(parentTableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, parentTableName, true);
 
             /* Create child table */
             TableResult cres = tableOperation(
@@ -793,15 +788,16 @@ public class CdcTest extends ProxyTestBase {
                 "(childid integer, childname string, primary key(childid))",
                 null, /* new TableLimits(500, 500, 5),*/
                 10000);
+            cres.waitForCompletion(handle, 30000, 500);
             assertEquals(TableResult.State.ACTIVE, cres.getTableState());
 
             /* Enable CDC on child */
-            handle.enableCDC(childTableName, null, true, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, childTableName, true);
 
             /* create CDC consumer for both tables */
             consumer = new ConsumerBuilder()
-                .addTable(parentTableName, "testComp", StartLocation.earliest())
-                .addTable(childTableName, "testComp", StartLocation.earliest())
+                .addTable(parentTableName, null, StartLocation.earliest())
+                .addTable(childTableName, null, StartLocation.earliest())
                 .groupId("parentChild1")
                 .commitAutomatic()
                 .handle(handle)
@@ -813,7 +809,6 @@ public class CdcTest extends ProxyTestBase {
                 MapValue value = new MapValue().put("sid", i).put("id", i).put("name", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(parentTableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -821,12 +816,10 @@ public class CdcTest extends ProxyTestBase {
 
             /* Put 50 records to child */
             for (int i=50; i<100; i++) {
-                MapValue key = new MapValue().put("childid", i);
                 MapValue value = new MapValue().put("sid", i-50).put("id", i-50)
                                      .put("childid", i).put("childname", "jane");
                 PutRequest putRequest = new PutRequest()
                     .setValue(value)
-                    .setCompartment("testComp")
                     .setTableName(childTableName);
                 PutResult res = handle.put(putRequest);
                 assertNotNull(res.getVersion());
@@ -834,7 +827,7 @@ public class CdcTest extends ProxyTestBase {
 
             // poll from both tables. Expect to get 100 total
             Map<MapValue, MapValue> records = new HashMap<>();
-            // wait up to 20 seconds for all records
+            // wait up to 60 seconds for all records
             long startTime = System.currentTimeMillis();
             do {
                 pollEvents(consumer, 5, records, 5);
@@ -842,8 +835,9 @@ public class CdcTest extends ProxyTestBase {
                     break;
                 }
                 long now = System.currentTimeMillis();
-                if ((now - startTime) > 20000) {
-                    System.out.println("Giving up looking for 100 records after 20 seconds");
+                if ((now - startTime) > 60000) {
+                    System.out.println("Giving up looking for 100 records " +
+                            "after 60 seconds");
                     break;
                 }
             } while(true);
@@ -860,8 +854,9 @@ public class CdcTest extends ProxyTestBase {
                 consumer.close();
             }
             /* disable CDC on tables */
-            handle.enableCDC(childTableName, null, false, 10000, 500);
-            handle.enableCDC(parentTableName, null, false, 10000, 500);
+            enableDisableCDCWithRateLimiting(handle, childTableName, false);
+            enableDisableCDCWithRateLimiting(handle, parentTableName,
+                    false);
         }
     }
 
@@ -984,6 +979,28 @@ public class CdcTest extends ProxyTestBase {
         }
         if (receivedRecords != expNumRecords) {
             fail("Expected " + expNumRecords + " records, got " + receivedRecords);
+        }
+    }
+
+    private void enableDisableCDCWithRateLimiting(NoSQLHandle handle,
+                                           String tableName,
+                                           boolean enableOrDisable)
+            throws InterruptedException {
+        int retries = 10;
+        while (retries > 0) {
+            try {
+                ddlOpLimiter.consumeUnits(1);
+                handle.enableCDC(tableName, null, enableOrDisable, 10000, 500);
+                break;
+            } catch (OperationThrottlingException e) {
+                if (verbose) {
+                    System.out.println("Enabling cdc on table " + tableName +
+                            " incurred throttling exception, will retry in 30 " +
+                            "seconds: " + e);
+                }
+                retries--;
+                Thread.sleep(30000);
+            }
         }
     }
 }
