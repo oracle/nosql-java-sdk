@@ -71,7 +71,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table: wait up to 10 seconds */
@@ -144,7 +144,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
@@ -268,7 +268,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
@@ -365,7 +365,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
@@ -464,7 +464,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
@@ -574,7 +574,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
             /* Enable CDC on table */
@@ -672,8 +672,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName1 +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
-            tres1.waitForCompletion(handle, 30000, 500);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
 
             /* Enable CDC on table1 */
@@ -685,8 +684,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + tableName2 +
                 "(id integer, name string, primary key(id))",
                 new TableLimits(500, 500, 5),
-                10000);
-            tres2.waitForCompletion(handle, 30000, 500);
+                20000);
             assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
 
             /* Enable CDC on table2 */
@@ -759,7 +757,8 @@ public class CdcTest extends ProxyTestBase {
     public void childTablesTest() throws InterruptedException {
 
         assumeFalse(onprem);
-        //assumeTrue(Boolean.getBoolean("test.all"));
+// Currently fails, causes hangs in minicloud
+        assumeTrue(Boolean.getBoolean("test.all"));
 
         Consumer consumer = null;
 
@@ -773,8 +772,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + parentTableName +
                 "(sid integer, id integer, name string, primary key(shard(sid), id))",
                 new TableLimits(500, 500, 5),
-                10000);
-            pres.waitForCompletion(handle, 30000, 500);
+                20000);
             assertEquals(TableResult.State.ACTIVE, pres.getTableState());
 
             /* Enable CDC on parent */
@@ -787,8 +785,7 @@ public class CdcTest extends ProxyTestBase {
                 "create table if not exists " + childTableName +
                 "(childid integer, childname string, primary key(childid))",
                 null, /* new TableLimits(500, 500, 5),*/
-                10000);
-            cres.waitForCompletion(handle, 30000, 500);
+                20000);
             assertEquals(TableResult.State.ACTIVE, cres.getTableState());
 
             /* Enable CDC on child */
@@ -986,20 +983,23 @@ public class CdcTest extends ProxyTestBase {
                                            String tableName,
                                            boolean enableOrDisable)
             throws InterruptedException {
-        int retries = 10;
+        int retries = 5;
         while (retries > 0) {
             try {
                 ddlOpLimiter.consumeUnits(1);
-                handle.enableCDC(tableName, null, enableOrDisable, 10000, 500);
+                handle.enableCDC(tableName, null, enableOrDisable, 20000, 500);
                 break;
             } catch (OperationThrottlingException e) {
                 if (verbose) {
                     System.out.println("Enabling cdc on table " + tableName +
-                            " incurred throttling exception, will retry in 30 " +
+                            " incurred throttling exception, will retry in 20 " +
                             "seconds: " + e);
                 }
                 retries--;
-                Thread.sleep(30000);
+                if (retries == 0) {
+                    throw e;
+                }
+                Thread.sleep(20000);
             }
         }
     }

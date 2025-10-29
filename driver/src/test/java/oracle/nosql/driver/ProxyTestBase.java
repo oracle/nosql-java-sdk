@@ -169,8 +169,9 @@ public class ProxyTestBase {
         /* create a rate limiter for DDL ops */
         /* default to 1000 ops/min */
         int limitPerMin = Integer.getInteger(DDL_OP_LIMIT, 1000);
-        ddlOpLimiter = new SimpleRateLimiter((double)limitPerMin * 0.016,
-                                             60.0/(double)limitPerMin);
+        /* convert ops/min to ops/sec */
+        ddlOpLimiter = new SimpleRateLimiter(
+                               (double)limitPerMin * 0.016, 60.0);
 
         proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
         if (proxyVersion <= 0) {
