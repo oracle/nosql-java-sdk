@@ -29,7 +29,10 @@ import static org.junit.Assume.assumeTrue;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Level;
@@ -74,6 +77,9 @@ public class ProxyTestBase {
     protected static String ENDPOINT = "test.endpoint";
     protected static String SERVER_TYPE = "test.serverType";
     protected static String ONPREM = "test.onprem";
+    protected static String MINICLOUD = "test.minicloud";
+    protected static String CLOUD = "test.cloud";
+    protected static String LOGLEVEL = "test.loglevel";
     protected static String SECURE = "test.secure";
     protected static String LOCAL = "test.local";
     protected static String USER = "test.user";
@@ -104,6 +110,8 @@ public class ProxyTestBase {
     protected static String endpoint;
     protected static boolean verbose;
     protected static boolean onprem;
+    protected static boolean minicloud;
+    protected static boolean cloud;
     protected static boolean secure;
     protected static String user;       // only if onprem && secure
     protected static String password;   // only if onprem && secure
@@ -152,23 +160,45 @@ public class ProxyTestBase {
      */
     @BeforeClass
     public static void staticSetup() {
+
+        /* set up logging params as early as possible */
+        String level = System.getProperty(LOGLEVEL);
+        if (level != null) {
+            setupLogLevel(level);
+        }
         endpoint = System.getProperty(ENDPOINT);
         serverType = System.getProperty(SERVER_TYPE);
         onprem = Boolean.getBoolean(ONPREM);
         if (serverType.equals("onprem")) {
             onprem = true;
         }
+        minicloud = Boolean.getBoolean(MINICLOUD);
+        if (serverType.equals("minicloud")) {
+            minicloud = true;
+        }
+        cloud = Boolean.getBoolean(CLOUD);
+        if (serverType.equals("cloud")) {
+            cloud = true;
+        }
         secure = Boolean.getBoolean(SECURE);
         verbose = Boolean.getBoolean(VERBOSE);
         local = Boolean.getBoolean(LOCAL);
         trace = Boolean.getBoolean(TRACE);
+        if (verbose) {
+            trace = true;
+        }
         if (Boolean.getBoolean(NETTY_LEAK_PROP)) {
             ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
         }
 
         /* create a rate limiter for DDL ops */
-        /* default to 1000 ops/min */
-        int limitPerMin = Integer.getInteger(DDL_OP_LIMIT, 1000);
+        /* for cloud or minicloud, default to 4 ops/min */
+        /* otherwise default to 1000 ops/min */
+        int defOpLimit = 1000;
+        if (cloud || minicloud) {
+            defOpLimit = 4;
+        }
+        int limitPerMin = Integer.getInteger(DDL_OP_LIMIT, defOpLimit);
         /* convert ops/min to ops/sec */
         ddlOpLimiter = new SimpleRateLimiter(
                                (double)limitPerMin * 0.016, 60.0);
@@ -221,6 +251,47 @@ public class ProxyTestBase {
     }
 
     /*
+     * Create a temporary logging.properties file if the level is
+     * anything other than WARNING and a logging file isn't already set
+     */
+    private static void setupLogLevel(String level) {
+        if (level == null || level.equals("WARNING")) {
+            return;
+        }
+        String lprops = System.getProperty("java.util.logging.config.file");
+        if (lprops != null) {
+            System.out.println(
+                "Using existing java.util.logging.config.file=" + lprops);
+            return;
+        }
+
+        String logText =
+"handlers=java.util.logging.FileHandler,java.util.logging.ConsoleHandler\n" +
+"java.util.logging.FileHandler.formatter=java.util.logging.SimpleFormatter\n" +
+"java.util.logging.FileHandler.pattern=driver.log\n" +
+"java.util.logging.FileHandler.count=1\n" +
+"java.util.logging.FileHandler.limit=50000\n" +
+"java.util.logging.ConsoleHandler.level=FINE\n" +
+"java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter\n" +
+"java.util.logging.SimpleFormatter.format=%1\\$tF %1\\$tT %4\\$-7s %5\\$s %n\n" +
+"java.util.logging.FileHandler.level=" + level + "\n" +
+"oracle.nosql.level=" + level + "\n";
+
+        Path filePath = Path.of("/tmp/cdc_test_logging.properties");
+        try {
+            Files.writeString(filePath, logText);
+        } catch (Exception e) {
+            System.out.println("WARN: error writing temporary logging properties file: " + e);
+            return;
+        }
+
+        System.setProperty("java.util.logging.config.file", "/tmp/cdc_test_logging.properties");
+// TODO: netty level
+//io.netty.level=INFO
+
+    }
+
+    /*
      * In mvn the test dir is in the pom.xml file in the
      * config for the maven-surefire-plugin that runs junit
      * -- target/test-run
@@ -254,6 +325,19 @@ public class ProxyTestBase {
         return tableOperation(handle, statement, limits, DEFAULT_DDL_TIMEOUT);
     }
 
+    protected static void ddlLimitOp() {
+        int msToSleep = ddlOpLimiter.consumeExternally(1);
+        if (msToSleep <= 0) {
+            return;
+        }
+        if (verbose) {
+            System.out.println("DDL op limiting: sleeping for " + msToSleep + "ms...");
+        }
+        try {
+            Thread.sleep(msToSleep);
+        } catch (Exception e) {}
+    }
+
     /**
      * run the statement, assumes success, exception is thrown on error
      */
@@ -267,7 +351,7 @@ public class ProxyTestBase {
             .setTableLimits(limits)
             .setTimeout(DEFAULT_DDL_TIMEOUT);
 
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         TableResult tres =
             handle.doTableRequest(tableRequest, waitMillis, 1000);
         return tres;
@@ -283,7 +367,7 @@ public class ProxyTestBase {
             .setTableName(tableName)
             .setTimeout(DEFAULT_DDL_TIMEOUT);
 
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         return handle.doTableRequest(tableRequest, DEFAULT_DDL_TIMEOUT, 1000);
     }
 
@@ -300,7 +384,7 @@ public class ProxyTestBase {
         /* track existing tables and don't drop them */
         existingTables = new HashSet<String>();
         ListTablesRequest listTables = new ListTablesRequest();
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         ListTablesResult lres = handle.listTables(listTables);
         proxySerialVersion = lres.getServerSerialVersion();
         for (String tableName: lres.getTables()) {
@@ -342,10 +426,21 @@ public class ProxyTestBase {
 
         /* get the names of all tables */
         ListTablesRequest listTables = new ListTablesRequest();
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         ListTablesResult lres = nosqlHandle.listTables(listTables);
+        String[] tables = lres.getTables();
+        if (tables.length == 0) {
+            return;
+        }
+
+        /*
+         * clean up all the tables in descending order of name, this is to drop
+         * child table before its parent
+         */
+        Arrays.sort(tables, String.CASE_INSENSITIVE_ORDER.reversed());
         ArrayList<TableResult> droppedTables = new ArrayList<TableResult>();
-        for (String tableName: lres.getTables()) {
+        for (int i = 0; i < tables.length; i++) {
+            String tableName = tables[i];
             /* on-prem config may find system tables, which can't be dropped */
             if (tableName.startsWith("SYS$") || (existingTables != null &&
                 existingTables.contains(tableName))) {
@@ -440,7 +535,7 @@ public class ProxyTestBase {
             .setStatement(dropTableDdl)
             .setTimeout(100000);
 
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         TableResult tres = nosqlHandle.tableRequest(tableRequest);
         assertNotNull(tres);
         return tres;
@@ -493,7 +588,7 @@ public class ProxyTestBase {
          * Create a Logger, set to WARNING by default.
          */
         Logger logger = Logger.getLogger(getClass().getName());
-        String level = System.getProperty("test.loglevel");
+        String level = System.getProperty(LOGLEVEL);
         if (level == null) {
             level = "WARNING";
         }
@@ -528,9 +623,6 @@ public class ProxyTestBase {
         return serviceURL.getPort();
     }
 
-    /**
-     * At this time these unit tests will not talk to the cloud service
-     */
     protected void configAuth(NoSQLHandleConfig config) throws IOException {
         if (onprem) {
             if (secure) {
@@ -539,19 +631,23 @@ public class ProxyTestBase {
             } else {
                 config.setAuthorizationProvider(new StoreAccessTokenProvider());
             }
+        } else if (minicloud) {
+            config.setAuthorizationProvider(new TestSignatureProvider());
+        } else if (cloud) {
+            /* TODO: IP/RP/etc */
+            config.setAuthorizationProvider(new SignatureProvider());
         } else {
             /* cloud simulator */
-            //config.setAuthorizationProvider(new TestSignatureProvider());
-            config.setAuthorizationProvider(new SignatureProvider());
-                    //@Override
-                    //public String getAuthorizationString(Request request) {
-                        //return "Bearer cloudsim";
-                    //}
+            config.setAuthorizationProvider(new AuthorizationProvider() {
+                @Override
+                public String getAuthorizationString(Request request) {
+                    return "Bearer cloudsim";
+                }
 
-                    //@Override
-                    //public void close() {
-                    //}
-            //});
+                @Override
+                public void close() {
+                }
+            });
         }
     }
 
@@ -584,7 +680,7 @@ public class ProxyTestBase {
             "primary key(id))";
         TableRequest tableRequest = new TableRequest()
             .setStatement(createTableStatement);
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         thandle.doTableRequest(tableRequest, DEFAULT_DDL_TIMEOUT, 1000);
         MapValue value = new MapValue().put("id", 1);
         ArrayValue array = createLargeStringArray(3500000);
@@ -666,7 +762,7 @@ public class ProxyTestBase {
                                           NoSQLHandle handle) {
         GetTableRequest getTable =
             new GetTableRequest().setTableName(tableName);
-        ddlOpLimiter.consumeUnits(1);
+        ddlLimitOp();
         return handle.getTable(getTable);
     }
 

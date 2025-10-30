@@ -17,6 +17,7 @@ import static org.junit.Assume.assumeTrue;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import oracle.nosql.driver.cdc.Consumer;
@@ -31,6 +32,8 @@ import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.GetResult;
+import oracle.nosql.driver.ops.ListTablesRequest;
+import oracle.nosql.driver.ops.ListTablesResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
 import oracle.nosql.driver.ops.TableLimits;
@@ -57,9 +60,39 @@ public class CdcTest extends ProxyTestBase {
         return false;
     }
 
+    @Override
+    public void beforeTest() throws Exception {
+        /* do nothing: test cases will decide if they need to connect */
+    }
+
+    /*
+     * This exists so when tests are skipped, they don't create handles
+     * or manage existing tables, which can take a lot of (sleeping) time if
+     * DDL rate limiting is in effect. This call should be in each test case,
+     * after it has determined if it going to be skipped.
+     */
+    private void myBeforeTest() throws Exception {
+        /*
+         * Configure and get the handle
+         */
+        handle = getHandle(endpoint);
+
+        /* track existing tables and don't drop them */
+        existingTables = new HashSet<String>();
+        ListTablesRequest listTables = new ListTablesRequest();
+        ddlLimitOp();
+        ListTablesResult lres = handle.listTables(listTables);
+        proxySerialVersion = lres.getServerSerialVersion();
+        for (String tableName: lres.getTables()) {
+            existingTables.add(tableName);
+        }
+    }
+
+
     @Test
-    public void smokeTest() throws InterruptedException {
+    public void smokeTest() throws Exception {
         assumeFalse(onprem);
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -126,13 +159,14 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void closeOpenTest() throws InterruptedException {
+    public void closeOpenTest() throws Exception {
         /* check that closing a consumer and opening a new one will have the
            new consumer pick up where the old one left off */
 
         assumeFalse(onprem);
         // StartLocation.firstUncommitted not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -252,11 +286,12 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void manualCommitTest() throws InterruptedException {
+    public void manualCommitTest() throws Exception {
 
         assumeFalse(onprem);
         // manual commit not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -349,11 +384,12 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void autoCommitTest() throws InterruptedException {
+    public void autoCommitTest() throws Exception {
 
         assumeFalse(onprem);
         // auto commit not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -446,12 +482,13 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void multipleConsumersTest() throws InterruptedException {
+    public void multipleConsumersTest() throws Exception {
 
         assumeFalse(onprem);
         // fails because there need to be two stream partitions for there to be
         // the concurrency that this test expects
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer1 = null;
         Consumer consumer2 = null;
@@ -559,9 +596,10 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void multipleGroupsTest() throws InterruptedException {
+    public void multipleGroupsTest() throws Exception {
 
         assumeFalse(onprem);
+        myBeforeTest();
 
         Consumer consumer1 = null;
         Consumer consumer2 = null;
@@ -655,10 +693,11 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void multipleTablesTest() throws InterruptedException {
+    public void multipleTablesTest() throws Exception {
 
         assumeFalse(onprem);
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -754,11 +793,12 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
-    public void childTablesTest() throws InterruptedException {
+    public void childTablesTest() throws Exception {
 
         assumeFalse(onprem);
 // Currently fails, causes hangs in minicloud
         assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
 
         Consumer consumer = null;
 
@@ -986,7 +1026,7 @@ public class CdcTest extends ProxyTestBase {
         int retries = 5;
         while (retries > 0) {
             try {
-                ddlOpLimiter.consumeUnits(1);
+                ddlLimitOp();
                 handle.enableCDC(tableName, null, enableOrDisable, 20000, 500);
                 break;
             } catch (OperationThrottlingException e) {
