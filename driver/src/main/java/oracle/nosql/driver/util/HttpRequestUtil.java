@@ -328,7 +328,6 @@ public class HttpRequestUtil {
                                                 HttpMethod method,
                                                 byte[] payload) {
         final ByteBuf buffer = Unpooled.wrappedBuffer(payload);
-        buffer.writeBytes(payload);
 
         final FullHttpRequest request =
             new DefaultFullHttpRequest(HTTP_1_1, method, requestURI,

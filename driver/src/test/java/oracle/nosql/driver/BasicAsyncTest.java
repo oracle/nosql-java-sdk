@@ -17,6 +17,7 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.values.MapValue;
 import org.junit.Test;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import static oracle.nosql.driver.util.BinaryProtocol.V4;
@@ -107,7 +108,7 @@ public class BasicAsyncTest extends ProxyTestBase {
                             assertNotNull(gtuRes.getUsageRecords());
                         });
                 }
-                return null;
+                return CompletableFuture.completedFuture(null);
             })
             .thenCompose(ignored -> {
                 /* PUT */

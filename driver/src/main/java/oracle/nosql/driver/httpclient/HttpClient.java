@@ -418,15 +418,17 @@ public class HttpClient {
         pool.removeChannel(channel);
     }
 
-
     /**
-     * Sends an HttpRequest, setting up the ResponseHandler as the handler to
-     * use for the (asynchronous) response.
+     * Sends an HttpRequest to the server.
      *
-     * @param request the request
-     *
-     * @throws IOException if there is a network problem (bad channel). Such
-     * exceptions can be retried.
+     * @param request HttpRequest
+     * @param timeoutMs Time to wait for the response from the server.
+     * Returned future completes with {@link TimeoutException}
+     * in case of timeout
+     * @return {@link CompletableFuture} holding the response from the server.
+     * @apiNote The caller must release the response by calling
+     * {@link FullHttpResponse#release()} or
+     * {@link ReferenceCountUtil#release(Object)}
      */
     public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
                                                           int timeoutMs) {
@@ -480,6 +482,19 @@ public class HttpClient {
         return responseFuture;
     }
 
+    /**
+     * Sends an HttpRequest to the server on a given netty channel.
+     *
+     * @param request HttpRequest
+     * @param channel Netty channel
+     * @param timeoutMs Time to wait for the response from the server.
+     * Returned future completes with {@link TimeoutException}
+     * in case of timeout
+     * @return {@link CompletableFuture} holding the response from the server.
+     * @apiNote The caller must release the response by calling
+     * {@link FullHttpResponse#release()} or
+     * {@link ReferenceCountUtil#release(Object)}
+     */
     public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
                                                           Channel channel,
                                                           long timeoutMs) {
@@ -513,6 +528,7 @@ public class HttpClient {
      */
     boolean doKeepAlive(Channel ch) {
         final int keepAliveTimeout = 3000; /* ms */
+        FullHttpResponse response = null;
         try {
             final HttpRequest request =
                 new DefaultFullHttpRequest(HTTP_1_1, HEAD, "/");
@@ -522,7 +538,7 @@ public class HttpClient {
              * other server may reject them and close the connection
              */
             request.headers().add(HOST, host);
-            FullHttpResponse response = ConcurrentUtil.awaitFuture(
+            response = ConcurrentUtil.awaitFuture(
                 runRequest(request, ch, keepAliveTimeout));
             /*
              * LBaaS will return a non-200 status but that is expected as the
@@ -542,6 +558,9 @@ public class HttpClient {
                 "Exception sending keepalive on [channel:%s] error:%s",
                 ch.id(), t.getMessage());
             logFine(logger, msg);
+        } finally {
+            /* Release response */
+            ReferenceCountUtil.release(response);
         }
         /* something went wrong, caller is responsible for disposition */
         return false;
