@@ -277,15 +277,16 @@ public class ProxyTestBase {
 "java.util.logging.FileHandler.level=" + level + "\n" +
 "oracle.nosql.level=" + level + "\n";
 
-        Path filePath = Path.of("/tmp/cdc_test_logging.properties");
+        Path filePath = Path.of("/tmp/java_sdk_test_logging.properties");
         try {
             Files.writeString(filePath, logText);
+            System.out.println("Using log level " + level);
         } catch (Exception e) {
             System.out.println("WARN: error writing temporary logging properties file: " + e);
             return;
         }
 
-        System.setProperty("java.util.logging.config.file", "/tmp/cdc_test_logging.properties");
+        System.setProperty("java.util.logging.config.file", "/tmp/java_sdk_test_logging.properties");
 // TODO: netty level
 //io.netty.level=INFO
 

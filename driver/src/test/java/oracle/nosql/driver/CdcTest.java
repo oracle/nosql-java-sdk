@@ -45,7 +45,6 @@ import org.junit.Test;
 
 public class CdcTest extends ProxyTestBase {
 
-
     /*
      * consumers may have metadata associated with them for debugging/testing purposes.
      * One value indicates if the CDC operations are limited due to using CloudSim.
@@ -62,7 +61,11 @@ public class CdcTest extends ProxyTestBase {
 
     @Override
     public void beforeTest() throws Exception {
-        /* do nothing: test cases will decide if they need to connect */
+        /*
+         * do nothing: test cases will decide if they need to connect.
+         * This is to speed up execution when tests are skipped.
+         * see myBeforeTest() below.
+         */
     }
 
     /*
@@ -696,7 +699,6 @@ public class CdcTest extends ProxyTestBase {
     public void multipleTablesTest() throws Exception {
 
         assumeFalse(onprem);
-        assumeTrue(Boolean.getBoolean("test.all"));
         myBeforeTest();
 
         Consumer consumer = null;
@@ -796,8 +798,6 @@ public class CdcTest extends ProxyTestBase {
     public void childTablesTest() throws Exception {
 
         assumeFalse(onprem);
-// Currently fails, causes hangs in minicloud
-        assumeTrue(Boolean.getBoolean("test.all"));
         myBeforeTest();
 
         Consumer consumer = null;
