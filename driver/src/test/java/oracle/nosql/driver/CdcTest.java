@@ -795,6 +795,194 @@ public class CdcTest extends ProxyTestBase {
     }
 
     @Test
+    public void addRemoveTablesTest() throws Exception {
+
+        assumeFalse(onprem);
+        myBeforeTest();
+
+        Consumer consumer = null;
+
+        String tableName1 = "cdcAddRemoveTable1";
+        String tableName2 = "cdcAddRemoveTable2";
+        String tableName3 = "cdcAddRemoveTable3";
+
+        boolean table1Enabled = false;
+        boolean table2Enabled = false;
+        boolean table3Enabled = false;
+
+        try {
+            /* Create table1 */
+            TableResult tres1 = tableOperation(
+                handle,
+                "create table if not exists " + tableName1 +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
+
+            /* Enable CDC on table1 */
+            enableDisableCDCWithRateLimiting(handle, tableName1, true);
+            table1Enabled = true;
+
+            /* Create table2 */
+            TableResult tres2 = tableOperation(
+                handle,
+                "create table if not exists " + tableName2 +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
+
+            /* Enable CDC on table2 */
+            enableDisableCDCWithRateLimiting(handle, tableName2, true);
+            table2Enabled = true;
+
+            /* Create table3 */
+            TableResult tres3 = tableOperation(
+                handle,
+                "create table if not exists " + tableName3 +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres3.getTableState());
+
+            /* Enable CDC on table3 */
+            enableDisableCDCWithRateLimiting(handle, tableName3, true);
+            table3Enabled = true;
+
+            /* create CDC consumer for table1 */
+            consumer = new ConsumerBuilder()
+                .addTable(tableName1, null, StartLocation.earliest())
+                .groupId("addRemoveTable1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            /* Put 50 records to table1 */
+            for (int i=0; i<50; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName1);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* Put 50 records to table2 */
+            for (int i=50; i<100; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName2);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll. Expect to get 50 total
+            Map<MapValue, MapValue> records = new HashMap<>();
+            // wait up to 30 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer, 5, records, 5);
+                if (records.size() == 50) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 30000) {
+                    System.out.println("Giving up looking for 50 records " +
+                            "after 30 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (records.size() != 50) {
+                fail("Expected 50 records total, got " + records.size());
+            }
+
+            /* Add table2 to consumer group */
+            consumer.addTable(tableName2, null, StartLocation.earliest());
+
+            // poll. Expect to get 50 total (all from table2).
+            records.clear();
+            // wait up to 30 seconds for all records
+            startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer, 5, records, 5);
+                if (records.size() == 50) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 30000) {
+                    System.out.println("Giving up looking for 50 records " +
+                            "after 30 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (records.size() != 50) {
+                fail("Expected 50 records total, got " + records.size());
+            }
+
+            /* Add table3, remove table1 */
+            consumer.addTable(tableName3, null, StartLocation.earliest());
+            consumer.removeTable(tableName1, null);
+
+            /* Put 50 records to table1 */
+            for (int i=100; i<150; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName1);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* Put 50 records to table3 */
+            for (int i=200; i<250; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName3);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            // poll. Expect to get 50 total (all from table3).
+            records.clear();
+            // wait up to 30 seconds for all records
+            startTime = System.currentTimeMillis();
+            do {
+                pollEvents(consumer, 5, records, 5);
+                if (records.size() == 50) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 30000) {
+                    System.out.println("Giving up looking for 50 records " +
+                            "after 30 seconds");
+                    break;
+                }
+            } while(true);
+
+            if (records.size() != 50) {
+                fail("Expected 50 records total, got " + records.size());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test: " + e.getMessage());
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            /* disable CDC on tables */
+            if (table1Enabled) enableDisableCDCWithRateLimiting(handle, tableName1, false);
+            if (table2Enabled) enableDisableCDCWithRateLimiting(handle, tableName2, false);
+            if (table3Enabled) enableDisableCDCWithRateLimiting(handle, tableName3, false);
+        }
+    }
+
+    @Test
     public void childTablesTest() throws Exception {
 
         assumeFalse(onprem);

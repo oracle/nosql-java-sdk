@@ -243,4 +243,102 @@ public class Consumer {
     public MapValue getMetaData() {
         return this.metadata;
     }
+
+
+    /**
+     * Adds a table to the consumer group.
+     * The table must have already been CDC enabled via the OCI console or
+     * a NoSQL SDK {@link NoSQLHandle#enableCDC} request.
+     *
+     * If the given table already exists in the group, this call is ignored and will return no error.
+     *
+     * Note this will affect all active consumers using the same group ID.
+     *
+     * tableName: required. This may be the Ocid of the table, if available.
+     *
+     * compartmentOcid: This is optional. If null, the default compartment Ocid
+     * for the tenancy is used.
+     *
+     * location: Specify the position of the first element to read in the
+     * change stream. If a table is already being consumed by other consumers
+     * in this group, this consumer's start location for the table will be
+     * FIRST_UNCOMMITTED (the start location specified here is ignored). If
+     * a table is not in the existing group (or if this the first consumer
+     * in this group), the startLocation specified here will be used.
+     */
+    public void addTable(String tableName,
+                         String compartmentOcid,
+                         StartLocation location) {
+        int numTables = this.config.getNumTables();
+        this.config.addTable(tableName, compartmentOcid, location);
+        /* if no change, no need to go further */
+        if (this.config.getNumTables() == numTables) {
+            return;
+        }
+        this.config.validate();
+
+        ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).
+                                     setBuilder(config).
+                                     setCursor(cursor);
+        try {
+            ConsumerResult res =
+                (ConsumerResult) this.handle.getClient().execute(req);
+            if (res.cursor == null) {
+                throw new NoSQLException("Server returned invalid consumer cursor");
+            }
+            this.cursor = res.cursor;
+            if (res.metadata != null) {
+                this.metadata = metadata;
+            }
+        } catch (Exception e) {
+            if (e.getMessage().contains("unknown opcode")) {
+                throw new OperationNotSupportedException("CDC not supported by server");
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Removes a table from the consumer group.
+     *
+     * If the given table does not exist in the group, this call is ignored and will return no error.
+     *
+     * Note this will affect all active consumers using the same group ID.
+     *
+     * tableName: required. This may be the Ocid of the table, if available.
+     *
+     * compartmentOcid: This is optional. If null, the default compartment Ocid
+     * for the tenancy is used.
+     */
+    public void removeTable(String tableName,
+                            String compartmentOcid) {
+        int numTables = this.config.getNumTables();
+        this.config.removeTable(tableName, compartmentOcid);
+        /* if no change, no need to go further */
+        if (this.config.getNumTables() == numTables) {
+            return;
+        }
+// TODO: if num tables is zero, remove group
+        this.config.validate();
+
+        ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).
+                                     setBuilder(config).
+                                     setCursor(cursor);
+        try {
+            ConsumerResult res =
+                (ConsumerResult) this.handle.getClient().execute(req);
+            if (res.cursor == null) {
+                throw new NoSQLException("Server returned invalid consumer cursor");
+            }
+            this.cursor = res.cursor;
+            if (res.metadata != null) {
+                this.metadata = metadata;
+            }
+        } catch (Exception e) {
+            if (e.getMessage().contains("unknown opcode")) {
+                throw new OperationNotSupportedException("CDC not supported by server");
+            }
+            throw e;
+        }
+    }
 }

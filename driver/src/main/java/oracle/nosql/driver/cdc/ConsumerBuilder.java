@@ -184,24 +184,22 @@ public class ConsumerBuilder {
         return this;
     }
 
-    /*
-     * addTable adds a table to the consumer config. The table must have
-     * already been CDC enabled via the OCI console or a NoSQL SDK TableRequest.
+    /**
+     * Adds a table to the consumer config.
+     * The table must have already been CDC enabled via the OCI console or
+     * a NoSQL SDK {@link NoSQLHandle#enableCDC} request.
      *
      * tableName: required. This may be the Ocid of the table, if available.
      *
      * compartmentOcid: This is optional. If null, the default compartment Ocid
      * for the tenancy is used.
      *
-     * startLocation: Specify the position of the first element to read in the
+     * location: Specify the position of the first element to read in the
      * change stream. If a table is already being consumed by other consumers
      * in this group, this consumer's start location for the table will be
      * FIRST_UNCOMMITTED (the start location specified here is ignored). If
      * a table is not in the existing group (or if this the first consumer
      * in this group), the startLocation specified here will be used.
-     *
-     * startTime: If start location specifies AT_TIME, the startTime field is
-     * required to be nonzero.
      */
     public ConsumerBuilder addTable(String tableName,
                                     String compartmentOcid,
@@ -219,6 +217,26 @@ public class ConsumerBuilder {
         tables.add(tc);
         return this;
     }
+
+    /**
+     * Removes a table from the consumer config.
+     *
+     * tableName: required. This may be the Ocid of the table, if available.
+     *
+     * compartmentOcid: This is optional. If null, the default compartment Ocid
+     * for the tenancy is used.
+     */
+    public ConsumerBuilder removeTable(String tableName,
+                                       String compartmentOcid) {
+        int index = tableIndex(tableName, compartmentOcid);
+        if (index < 0) {
+            return this;
+        }
+        tables.remove(index);
+        return this;
+    }
+
+    /**
 
     /**
      * Specify the group ID.
@@ -361,4 +379,13 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
         return new Consumer(this);
     }
 
+    /*
+     * @hidden
+     */
+    public int getNumTables() {
+        if (tables == null) {
+            return 0;
+        }
+        return tables.size();
+    }
 }
