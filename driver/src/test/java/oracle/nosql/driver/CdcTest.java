@@ -896,7 +896,7 @@ public class CdcTest extends ProxyTestBase {
             } while(true);
 
             if (records.size() != 50) {
-                fail("Expected 50 records total, got " + records.size());
+                fail("Expected 50 records from table1, got " + records.size());
             }
 
             /* Add table2 to consumer group */
@@ -920,7 +920,7 @@ public class CdcTest extends ProxyTestBase {
             } while(true);
 
             if (records.size() != 50) {
-                fail("Expected 50 records total, got " + records.size());
+                fail("Expected 50 records from table2, got " + records.size());
             }
 
             /* Add table3, remove table1 */
@@ -965,7 +965,7 @@ public class CdcTest extends ProxyTestBase {
             } while(true);
 
             if (records.size() != 50) {
-                fail("Expected 50 records total, got " + records.size());
+                fail("Expected 50 records from table3, got " + records.size());
             }
 
         } catch (Exception e) {
