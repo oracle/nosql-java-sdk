@@ -231,6 +231,9 @@ public class ConsumerBuilder {
                                        String compartmentOcid) {
         TableConfig tc = new TableConfig(tableName, compartmentOcid, null);
         tc.isRemove = true;
+        if (tables == null) {
+            tables = new ArrayList<TableConfig>();
+        }
         tables.add(tc);
         return this;
     }
