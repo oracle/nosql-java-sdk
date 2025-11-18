@@ -17,7 +17,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
  */
 public class ConsumerRequest extends Request {
 
-    /* Builder is used when creating or modifying a consumer. */
+    /* Builder is used when creating/updating a consumer. */
     public ConsumerBuilder builder;
 
     public static enum RequestMode {
@@ -33,8 +33,8 @@ public class ConsumerRequest extends Request {
             //TODO Auto-generated constructor stub
         }
     }
-    
-    // Mode specifies the mode of the request (create, modify, close, delete)
+
+    // Mode specifies the mode of the request (create, close, delete, etc)
     public RequestMode mode;
 
     // cursor is used when closing a consumer
@@ -44,21 +44,33 @@ public class ConsumerRequest extends Request {
         this.mode = mode;
     }
 
+    /*
+     * @hidden
+     */
     public ConsumerRequest setBuilder(ConsumerBuilder builder) {
         this.builder = builder;
         return this;
     }
 
+    /*
+     * @hidden
+     */
     public ConsumerRequest setCursor(byte[] cursor) {
         this.cursor = cursor;
         return this;
     }
 
+    /*
+     * @hidden
+     */
     public ConsumerRequest setCompartment(String compartment) {
         super.setCompartmentInternal(compartment);
         return this;
     }
 
+    /*
+     * @hidden
+     */
     public ConsumerRequest setTimeout(int timeoutMs) {
         super.setTimeoutInternal(timeoutMs);
         return this;

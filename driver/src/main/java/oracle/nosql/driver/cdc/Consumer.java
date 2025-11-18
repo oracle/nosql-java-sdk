@@ -22,17 +22,15 @@ import oracle.nosql.driver.values.MapValue;
  */
 public class Consumer {
     private byte[] cursor;
-    private ConsumerBuilder config;
     private NoSQLHandleImpl handle;
     private MapValue metadata;
 
     Consumer(ConsumerBuilder builder) {
         builder.validate();
         this.handle = (NoSQLHandleImpl)builder.handle;
-        this.config = builder; // TODO: deep copy
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.CREATE).
-                                     setBuilder(config);
+                                     setBuilder(builder);
         try {
             ConsumerResult res =
                 (ConsumerResult) this.handle.getClient().execute(req);
@@ -103,7 +101,7 @@ public class Consumer {
         }
     }
 
-    /*
+    /**
      * Close and release all resources for this consumer instance.
      *
      * Call this method if the application does not intend to continue using
@@ -269,16 +267,14 @@ public class Consumer {
     public void addTable(String tableName,
                          String compartmentOcid,
                          StartLocation location) {
-        int numTables = this.config.getNumTables();
-        this.config.addTable(tableName, compartmentOcid, location);
-        /* if no change, no need to go further */
-        if (this.config.getNumTables() == numTables) {
-            return;
-        }
-        this.config.validate();
+
+        ConsumerBuilder tempBuilder = new ConsumerBuilder()
+            .addTable(tableName, compartmentOcid, location)
+            .handle(this.handle);
+        tempBuilder.validate();
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).
-                                     setBuilder(config).
+                                     setBuilder(tempBuilder).
                                      setCursor(cursor);
         try {
             ConsumerResult res =
@@ -312,17 +308,14 @@ public class Consumer {
      */
     public void removeTable(String tableName,
                             String compartmentOcid) {
-        int numTables = this.config.getNumTables();
-        this.config.removeTable(tableName, compartmentOcid);
-        /* if no change, no need to go further */
-        if (this.config.getNumTables() == numTables) {
-            return;
-        }
-// TODO: if num tables is zero, remove group
-        this.config.validate();
+
+        ConsumerBuilder tempBuilder = new ConsumerBuilder()
+            .removeTable(tableName, compartmentOcid)
+            .handle(this.handle);
+        tempBuilder.validate();
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).
-                                     setBuilder(config).
+                                     setBuilder(tempBuilder).
                                      setCursor(cursor);
         try {
             ConsumerResult res =

@@ -51,6 +51,9 @@ public class ConsumerBuilder {
         /* Table Ocid. One of tableName or tableOcid are required. */
         public String tableOcid;
 
+        /* if this is set, this table should be removed instead of added */
+        public boolean isRemove;
+
         TableConfig(String tableName,
                     String compartmentOcid,
                     StartLocation startLocation) {
@@ -69,12 +72,6 @@ public class ConsumerBuilder {
                 this.startLocation = startLocation;
             }
         }
-
-        public TableConfig clone() {
-            return new TableConfig(tableName,
-                                   compartmentOcid,
-                                   startLocation);
-        }
     }
 
 
@@ -82,7 +79,7 @@ public class ConsumerBuilder {
     public List<TableConfig> tables;
 
     /*
-     * The group ID. In NoSQL  Data Capture, every consumer is part of a "group".
+     * The group ID. In NoSQL Change Data Capture, every consumer is part of a "group".
      * The group may be a single consumer, or may have multiple consumers.
      *
      * When multiple consumers use the same group ID, the NoSQL system will attempt
@@ -186,6 +183,7 @@ public class ConsumerBuilder {
 
     /**
      * Adds a table to the consumer config.
+     *
      * The table must have already been CDC enabled via the OCI console or
      * a NoSQL SDK {@link NoSQLHandle#enableCDC} request.
      *
@@ -218,8 +216,11 @@ public class ConsumerBuilder {
         return this;
     }
 
-    /**
+    /*
+     * @hidden
      * Removes a table from the consumer config.
+     * This is used internally when removing a table from
+     * an existing consumer.
      *
      * tableName: required. This may be the Ocid of the table, if available.
      *
@@ -228,19 +229,15 @@ public class ConsumerBuilder {
      */
     public ConsumerBuilder removeTable(String tableName,
                                        String compartmentOcid) {
-        int index = tableIndex(tableName, compartmentOcid);
-        if (index < 0) {
-            return this;
-        }
-        tables.remove(index);
+        TableConfig tc = new TableConfig(tableName, compartmentOcid, null);
+        tc.isRemove = true;
+        tables.add(tc);
         return this;
     }
 
     /**
-
-    /**
      * Specify the group ID.
-     * In NoSQL  Data Capture, every consumer is part of a "group".
+     * In NoSQL Change Data Capture, every consumer is part of a "group".
      * The group may have a single consumer, or may have multiple consumers.
      *
      * When there is only a single consumer in a group, this consumer will
@@ -338,27 +335,31 @@ public class ConsumerBuilder {
             throw new IllegalArgumentException("Consumer builder missing tables information");
         }
         for (TableConfig tcfg : tables) {
-            if (tcfg.tableOcid != null) {
-                /* TODO: verify OCID format */
-                continue;
-            }
-            if (tcfg.tableName == null || tcfg.tableName.isEmpty()) {
-                throw new IllegalArgumentException("missing table name in consumer configuration");
-            }
-            if (tcfg.compartmentOcid != null) {
+            validateTableConfig(tcfg, handle);
+        }
+    }
+
+    public static void validateTableConfig(TableConfig tcfg, NoSQLHandle handle) {
+        if (tcfg.tableOcid != null) {
+            /* TODO: verify OCID format */
+            return;
+        }
+        if (tcfg.tableName == null || tcfg.tableName.isEmpty()) {
+            throw new IllegalArgumentException("missing table name in consumer configuration");
+        }
+        if (tcfg.compartmentOcid != null) {
 // TODO: config allows different compartments, but user is in one compartment, and GetTable()
 // uses the single user's compartment.... hmmm.
-            }
-            /* TODO: config.compartmentOcid */
-            GetTableRequest req = new GetTableRequest().setTableName(tcfg.tableName);
-            try {
-                TableResult res = handle.getTable(req);
-                tcfg.tableOcid = res.getTableId();
+        }
+        /* TODO: config.compartmentOcid */
+        GetTableRequest req = new GetTableRequest().setTableName(tcfg.tableName);
+        try {
+            TableResult res = handle.getTable(req);
+            tcfg.tableOcid = res.getTableId();
 System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tableName + "'");
-            } catch (Exception e) {
-                throw new IllegalArgumentException("Can't get table '" +
-                    tcfg.tableName + "' information: " + e);
-            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Can't get table '" +
+                tcfg.tableName + "' information: " + e);
         }
     }
 

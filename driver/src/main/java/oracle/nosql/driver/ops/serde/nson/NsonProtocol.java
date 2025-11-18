@@ -69,6 +69,7 @@ public class NsonProtocol {
     public static String INDEXES = "ix";
     public static String IS_JSON = "j";
     public static String IS_PREPARED = "is";
+    public static String IS_REMOVE = "ir";
     public static String IS_SIMPLE_QUERY = "iq";
     public static String KEY = "k";
     public static String KV_VERSION = "kv";
@@ -272,6 +273,7 @@ public class NsonProtocol {
         {INDEXES,"INDEXES"},
         {IS_JSON,"IS_JSON"},
         {IS_PREPARED,"IS_PREPARED"},
+        {IS_REMOVE,"IS_REMOVE"},
         {IS_SIMPLE_QUERY,"IS_SIMPLE_QUERY"},
         {KEY,"KEY"},
         {KV_VERSION,"KV_VERSION"},

@@ -876,8 +876,12 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, CURSOR, rq.cursor);
             }
             if (rq.builder != null) {
-                writeMapField(ns, GROUP_ID, rq.builder.groupId);
-                writeMapField(ns, MANUAL_COMMIT, rq.builder.manualCommit);
+                if (rq.builder.groupId != null) {
+                    writeMapField(ns, GROUP_ID, rq.builder.groupId);
+                }
+                if (rq.builder.manualCommit) {
+                    writeMapField(ns, MANUAL_COMMIT, true);
+                }
                 if (rq.builder.compartmentOcid != null) {
                     writeMapField(ns, COMPARTMENT_OCID, rq.builder.compartmentOcid);
                 }
@@ -895,9 +899,14 @@ public class NsonSerializerFactory implements SerializerFactory {
                             throw new IllegalArgumentException("Consumer builder missing table OCID");
                         }
                         writeMapField(ns, TABLE_OCID, tcfg.tableOcid);
-                        writeMapField(ns, START_LOCATION, tcfg.startLocation.location.ordinal());
-                        if (tcfg.startLocation.startTime > 0) {
-                            writeLongMapField(ns, START_TIME, tcfg.startLocation.startTime);
+                        if (tcfg.startLocation != null) {
+                            writeMapField(ns, START_LOCATION, tcfg.startLocation.location.ordinal());
+                            if (tcfg.startLocation.startTime > 0) {
+                                writeLongMapField(ns, START_TIME, tcfg.startLocation.startTime);
+                            }
+                        }
+                        if (tcfg.isRemove) {
+                            writeMapField(ns, IS_REMOVE, true);
                         }
                         ns.endMap(0);
                         ns.endArrayField(0);
