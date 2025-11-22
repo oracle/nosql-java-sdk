@@ -10,11 +10,18 @@ package oracle.nosql.driver.cdc;
 
 public class StartLocation {
 
-	public enum LocationType {
+    public enum LocationType {
         UNINITIALIZED(0),
 
-        /* Start consuming at the first uncommitted message in the stream. */
-        /* This is the default. */
+        /**
+         * Start consuming at the first uncommitted message in the stream.
+         *
+         * This type says "start consumption at the first record that hasn’t
+         * been committed". For a new table that has no commits, this
+         * will be the first record in the stream - same as EARLIEST.
+         *
+         * This is the default.
+         */
         FIRST_UNCOMMITTED(1),
 
         /* Start consuming from the earliest (oldest) available message in the stream. */
@@ -34,22 +41,22 @@ public class StartLocation {
     public LocationType location;
     public long startTime;
 
-	StartLocation(LocationType location, long startTime) {
-		this.location = location;
+    StartLocation(LocationType location, long startTime) {
+        this.location = location;
         this.startTime = startTime;
-	}
+    }
 
     public static StartLocation latest() {
-		return new StartLocation(LocationType.LATEST, 0);
-	}
+        return new StartLocation(LocationType.LATEST, 0);
+    }
     public static StartLocation earliest() {
-		return new StartLocation(LocationType.EARLIEST, 0);
-	}
+        return new StartLocation(LocationType.EARLIEST, 0);
+    }
     public static StartLocation firstUncommitted() {
-		return new StartLocation(LocationType.FIRST_UNCOMMITTED, 0);
-	}
+        return new StartLocation(LocationType.FIRST_UNCOMMITTED, 0);
+    }
     public static StartLocation atTime(long startTime) {
-		return new StartLocation(LocationType.AT_TIME, startTime);
-	}
+        return new StartLocation(LocationType.AT_TIME, startTime);
+    }
 
 }

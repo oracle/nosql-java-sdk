@@ -1085,6 +1085,111 @@ public class CdcTest extends ProxyTestBase {
         }
     }
 
+    @Test
+    public void deleteGroupTest() throws Exception {
+
+        assumeFalse(onprem);
+        myBeforeTest();
+
+        Consumer consumer1 = null;
+        Consumer consumer2 = null;
+
+        String tableName = "cdcDeleteGroup";
+        try {
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists " + tableName +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            /* Enable CDC on table */
+            if (verbose)
+                System.out.println("Enable cdc on " + tableName);
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
+
+            /* create CDC consumers */
+            consumer1 = new ConsumerBuilder()
+                .addTable(tableName, null, StartLocation.earliest())
+                .groupId("deleteGroup")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            consumer2 = new ConsumerBuilder()
+                .addTable(tableName, null, StartLocation.earliest())
+                .groupId("deleteGroup")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+
+            if (verbose) System.out.println("Created two consumers");
+
+
+            /* Put 100 records */
+            for (int i=0; i<100; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            if (verbose) System.out.println("Finish inserting records");
+
+            // poll from both consumers. Get about 20 records.
+            Map<MapValue, MapValue> records1 = new HashMap<>();
+            Map<MapValue, MapValue> records2 = new HashMap<>();
+
+            // wait up to 20 seconds for all records
+            long startTime = System.currentTimeMillis();
+            do {
+                if (verbose) System.out.println("Poll for consumer 1");
+                pollEvents(consumer1, 5, records1, 5);
+
+                if (verbose) System.out.println("Poll for consumer 2");
+                pollEvents(consumer2, 5, records2, 5);
+
+                if (records1.size() + records2.size() > 20) {
+                    break;
+                }
+                long now = System.currentTimeMillis();
+                if ((now - startTime) > 200000) {
+                    System.out.println("Giving up looking for 20 records " +
+                            "after 200 seconds");
+                    break;
+                }
+            } while(true);
+
+            /* Use a separate call to delete the entire group */
+            Consumer.deleteGroup(handle, "deleteGroup", null);
+
+            /* try again to poll for more records. This should fail. */
+            try {
+                pollEvents(consumer1, 5, records1, 5);
+                fail("Consumer 1 Poll after group delete should have failed");
+            } catch (Exception e) {
+                /* TODO: check type of exception */
+            }
+
+            try {
+                pollEvents(consumer2, 5, records1, 5);
+                fail("Consumer 2 Poll after group delete should have failed");
+            } catch (Exception e) {
+                /* TODO: check type of exception */
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test: " + e);
+        } finally {
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
+        }
+    }
+
     private boolean pollEvents(Consumer consumer,
                                int maxEvents,
                                Map<MapValue, MapValue> records,

@@ -198,6 +198,8 @@ public class ConsumerBuilder {
      * FIRST_UNCOMMITTED (the start location specified here is ignored). If
      * a table is not in the existing group (or if this the first consumer
      * in this group), the startLocation specified here will be used.
+     *
+     * If location is null, StartLocation.FIRST_UNCOMMITTED is the default.
      */
     public ConsumerBuilder addTable(String tableName,
                                     String compartmentOcid,
@@ -295,7 +297,7 @@ public class ConsumerBuilder {
     /**
      * Specify the maximum poll interval.
      *
-     * The determines the maximum interval between calls to poll() before the system will
+     * This determines the maximum interval between calls to poll() before the system will
      * consider this consumer as failed, which will trigger a rebalance operation to
      * redirect its change event data to other active consumers.
      *
@@ -364,6 +366,11 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
             throw new IllegalArgumentException("Can't get table '" +
                 tcfg.tableName + "' information: " + e);
         }
+    }
+
+    public ConsumerBuilder setCompartmentOcid(String compartmentOcid) {
+        this.compartmentOcid = compartmentOcid;
+        return this;
     }
 
     /**

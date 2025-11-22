@@ -10,6 +10,7 @@ package oracle.nosql.driver.cdc;
 import java.time.Duration;
 
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.cdc.ConsumerRequest.RequestMode;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
@@ -334,4 +335,23 @@ public class Consumer {
             throw e;
         }
     }
+
+    public static void deleteGroup(NoSQLHandle handle, String groupId, String compartmentOcid) {
+        /* TODO: use timeout */
+        ConsumerBuilder tempBuilder = new ConsumerBuilder()
+            .groupId(groupId);
+        ConsumerRequest req = new ConsumerRequest(RequestMode.DELETE).
+                                     setBuilder(tempBuilder).
+                                     setCompartment(compartmentOcid);
+        try {
+            ConsumerResult res =
+                (ConsumerResult) ((NoSQLHandleImpl)handle).getClient().execute(req);
+        } catch (Exception e) {
+            if (e.getMessage().contains("unknown opcode")) {
+                throw new OperationNotSupportedException("CDC not supported by server");
+            }
+            throw e;
+        }
+    }
+
 }
