@@ -44,7 +44,7 @@ public abstract class RptPathProvider {
 
     protected abstract Map<String, String> getReplacements();
 
-    public Map<String, String> buildEnvironmentRptPathProviderReplacements(
+    public static Map<String, String> buildEnvironmentRptPathProviderReplacements(
             String rptId) {
         if (rptId != null) {
             Map<String, String> replacements = new HashMap<>();
@@ -55,7 +55,7 @@ public abstract class RptPathProvider {
         }
     }
 
-    public Map<String, String> buildImdsRptPathProviderReplacements() {
+    public static Map<String, String> buildImdsRptPathProviderReplacements() {
         // Get instance Id from metadata service
         Map<String, String> replacements = new HashMap<>();
         replacements.put("id", InstanceMetadataHelper.
