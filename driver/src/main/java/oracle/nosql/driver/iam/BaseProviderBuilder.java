@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,7 +7,9 @@
 
 package oracle.nosql.driver.iam;
 
-import oracle.nosql.driver.Region;
+import static oracle.nosql.driver.iam.Utils.getIAMURL;
+import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
+import static oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -15,40 +17,45 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import static oracle.nosql.driver.iam.Utils.getIAMURL;
-import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
+import oracle.nosql.driver.Region;
 
-public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
-    /* The default value for HTTP request timeouts in milliseconds */
+class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
+    protected Logger logger;
+
+    /** The default value for HTTP request timeouts in milliseconds */
     private static final int DEFAULT_TIMEOUT_MS = 5_000;
 
-    /*
-     * IAM federation endpoint, or null if detecting from instance metadata.
-     */
-    protected String federationEndpoint = null;
+    /** The default purpose value in federation requests against IAM */
+    private static final String DEFAULT_PURPOSE = "DEFAULT";
 
-    /*
-     * The leaf certificate, or null if detecting from instance metadata.
-     */
+    /** IAM federation endpoint, or null if detecting from instance metadata. */
+    protected String federationEndpoint;
+
+    /** The leaf certificate, or null if detecting from instance metadata. */
     protected CertificateSupplier leafCertificateSupplier;
 
-    /*
-     * Intermediate certificates or null if detecting from instance metadata.
-     */
+    /** Intermediate certificates or null if detecting from instance metadata. */
     protected Set<CertificateSupplier> intermediateCertificateSuppliers;
 
-    /* Instance metadata */
+    /** Instance metadata */
     private InstanceMetadataHelper.InstanceMetadata instanceMetadata;
 
-    /*
-     * Session key pair supplier.
-     */
-    protected SessionKeyPairSupplier sessSupplier = null;
+    /** Session key pair supplier. */
+    protected SessionKeyPairSupplier sessionKeySupplier = new JDKKeyPairSupplier();
 
+    /** HTTP client which will supply security tokens */
+    protected TokenSupplier tokenSupplier;
+
+    /** Tenant id, or null if detecting from instance metadata. */
     protected String tenantId;
+
+    /** The custom timeout for each HTTP request. */
     protected int timeout = DEFAULT_TIMEOUT_MS;
+
+    protected String purpose = DEFAULT_PURPOSE;
+
+    /** Detected region. */
     protected Region region;
-    private Logger logger;
 
     public String getFederationEndpoint() {
         return federationEndpoint;
@@ -59,6 +66,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param federationEndpoint the endpoint
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setFederationEndpoint(String federationEndpoint) {
         this.federationEndpoint = federationEndpoint;
         return (T) this;
@@ -73,6 +81,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param supplier the supplier
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setLeafCertificateSupplier(CertificateSupplier supplier) {
         this.leafCertificateSupplier = supplier;
         return (T) this;
@@ -87,13 +96,29 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param tenantId the tenant
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setTenantId(String tenantId) {
         this.tenantId = tenantId;
         return (T) this;
     }
 
+    public String getPurpose() {
+        return purpose;
+    }
+
+    /**
+     * @hidden
+     * @param purpose the purpose
+     * @return this
+     */
+    @SuppressWarnings("unchecked")
+    public T setPurpose(String purpose) {
+        this.purpose = purpose;
+        return (T) this;
+    }
+
     public SessionKeyPairSupplier getSesssionKeyPairSupplier() {
-        return sessSupplier;
+        return sessionKeySupplier;
     }
 
     /**
@@ -101,8 +126,9 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param sessSupplier the supplier
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setSessionKeyPairSupplier(SessionKeyPairSupplier sessSupplier) {
-        this.sessSupplier = sessSupplier;
+        this.sessionKeySupplier = sessSupplier;
         return (T) this;
     }
 
@@ -115,6 +141,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param timeout the timeout
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setTimeout(int timeout) {
         this.timeout = timeout;
         return (T) this;
@@ -129,6 +156,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param logger the logger
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setLogger(Logger logger) {
         this.logger = logger;
         return (T) this;
@@ -143,6 +171,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param suppliers suppliers
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setIntermediateCertificateSuppliers(
             Set<CertificateSupplier> suppliers) {
         this.intermediateCertificateSuppliers = suppliers;
@@ -162,6 +191,7 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * @param r the region
      * @return this
      */
+    @SuppressWarnings("unchecked")
     public T setRegion(Region r) {
         this.region = r;
         return (T) this;
@@ -171,19 +201,20 @@ public class BaseProviderBuilder<T extends BaseProviderBuilder<T>> {
      * Auto detects the endpoint and region that should be used
      * when talking to IAM, if no endpoint has been configured already.
      */
-    protected void autoDetectEndpointUsingMetadataUrl() {
+    protected String autoDetectEndpointUsingMetadataUrl() {
         final String insRegion = getInstanceMetadata().getRegion();
-        if(federationEndpoint == null) {
-            federationEndpoint = getIAMURL(insRegion);
-        }
         if (region == null) {
             region = Region.fromRegionId(insRegion);
         }
         if (federationEndpoint == null) {
-            throw new IllegalArgumentException(
-                    "Unable to find IAM URL for unregistered region " +
-                            region + ", specify the IAM URL instead");
+            federationEndpoint = getIAMURL(insRegion);
+            if (federationEndpoint == null) {
+                throw new IllegalArgumentException(
+                        "Unable to find IAM URL for unregistered region " +
+                                region + ", specify the IAM URL instead");
+            }
         }
+        return federationEndpoint;
     }
 
     /*

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,10 +9,15 @@ package oracle.nosql.driver.iam;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNullIAE;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -24,11 +29,18 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Base64.Decoder;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
@@ -207,7 +219,7 @@ class Utils {
      * @param inputStream input stream
      * @return byte array
      */
-    public static byte[] toByteArray(InputStream inputStream) throws IOException {
+    static byte[] toByteArray(InputStream inputStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         if (!(inputStream instanceof BufferedInputStream)) {
             inputStream = new BufferedInputStream(inputStream);
@@ -409,26 +421,6 @@ class Utils {
         }
     }
 
-    /*
-     * Decode the RSA private key encoded in PKCS#1 format
-     */
-    static PrivateKey parsePrivateKeyStream(InputStream keyStream){
-        try {
-            byte[] keyBytes = toByteArray(keyStream);
-            Pem.Decoder decoder = Pem.decoder();
-            PrivateKey privateKey = decoder.decodePrivateKey(keyBytes);
-
-            if (privateKey instanceof RSAPrivateKey) {
-                return privateKey;
-            } else {
-                throw new IllegalStateException("Provided key is not an RSAPrivateKey.");
-            }
-        } catch (IOException ioe) {
-            throw new IllegalStateException("Failed to decode private key: " +
-                    ioe.getMessage());
-        }
-    }
-
     static byte[] stringToUtf8Bytes(String input) {
         if (input == null) {
             return new byte[0]; // Return empty byte array if input is null
@@ -497,6 +489,29 @@ class Utils {
             }
         }
         return null;
+    }
+
+    /**
+     * Replace the placeholders in the template with the values in the replacement mapping.
+     *
+     * @param template template string
+     * @param replacements map from key to replacement value
+     * @param prefix prefix of the placeholder
+     * @param suffix suffix of the placeholder
+     * @return replaced string
+     */
+    static String replace(
+            String template, Map<String, String> replacements, String prefix, String suffix) {
+        String result = template;
+        for (Map.Entry<String, String> e : replacements.entrySet()) {
+            result =
+                    result.replaceAll(
+                            Pattern.quote(prefix)
+                                    + Pattern.quote(e.getKey())
+                                    + Pattern.quote(suffix),
+                            e.getValue());
+        }
+        return result;
     }
 
     /*

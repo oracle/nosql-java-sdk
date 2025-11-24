@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,87 +7,45 @@
 
 package oracle.nosql.driver.iam;
 
-import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.HttpHeaders;
-import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.util.HttpRequestUtil;
+import static oracle.nosql.driver.iam.Utils.logTrace;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
-import static oracle.nosql.driver.iam.Utils.logTrace;
-import static oracle.nosql.driver.util.HttpConstants.*;
-
-
-public class RptPathProvider {
+/**
+ * This path provider makes sure the behavior happens with the correct fallback.
+ *
+ * <p>For the path, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_PATH environment variable, if
+ * set. Otherwise, use the current path: "/20180711/resourcePrincipalToken/{id}"
+ *
+ * <p>For the resource id, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_ID environment
+ * variable, if set. Otherwise, use IMDS to get the instance id
+ */
+public abstract class RptPathProvider {
     private static final Logger logger = Logger.getLogger(RptPathProvider.class.getName());
 
-    static final String OCI_RESOURCE_PRINCIPAL_RPT_PATH
-            = "OCI_RESOURCE_PRINCIPAL_RPT_PATH";
-    static final String OCI_RESOURCE_PRINCIPAL_RPT_ID
-            = "OCI_RESOURCE_PRINCIPAL_RPT_ID";
-    static final String IMDS_PATH_TEMPLATE
+    private static final String IMDS_PATH_TEMPLATE
             = "/20180711/resourcePrincipalToken/{id}";
-    private static final String METADATA_SERVICE_BASE_URL
-            = "http://169.254.169.254/opc/v2/";
-    private static final String METADATA_SERVICE_HOST = "169.254.169.254";
-    private static final String FALLBACK_METADATA_SERVICE_URL
-            = "http://169.254.169.254/opc/v1/";
-    static final String AUTHORIZATION_HEADER_VALUE = "Bearer Oracle";
-
-    private final Map<String, String> replacements;
+    private static final int timeoutMs = 5_000;
     private final String pathTemplate;
 
-    public RptPathProvider() {
-        this.pathTemplate = getPathTemplate();
-        logTrace(logger, "A path provider was not specified, using DefaultRptPathProvider");
-        replacements = buildReplacements();
+    public RptPathProvider(String pathTemplate) {
+        this.pathTemplate = pathTemplate;
     }
 
     public String getPath() {
         Map<String, String> replacements = getReplacements();
-        String path = replace(pathTemplate, replacements, "{", "}");
+        String path = Utils.replace(pathTemplate, replacements, "{", "}");
         logTrace(logger,"Using path " + path);
         return path;
     }
 
-    protected Map<String, String> getReplacements() {
-        return replacements;
-    }
+    protected abstract Map<String, String> getReplacements();
 
-    private String getPathTemplate() {
-        String pathTemplate = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_PATH);
-        if (pathTemplate == null) {
-            logTrace(logger,
-                    "Unable to get path template from " +
-                            OCI_RESOURCE_PRINCIPAL_RPT_PATH +
-                            " env variable, using IMDS template"
-            );
-            pathTemplate = IMDS_PATH_TEMPLATE;
-        }
-        logTrace(logger, "The path template is " + pathTemplate);
-        return pathTemplate;
-    }
-
-    private Map<String, String> buildReplacements() {
-        Map<String, String> replacementMap = buildEnvironmentRptPathProviderReplacements();
-        if (replacementMap == null) {
-            logTrace(logger,
-                    "Unable to get replacements from " +
-                            OCI_RESOURCE_PRINCIPAL_RPT_ID +
-                            "env variable, getting replacements from IMDS"
-            );
-            replacementMap = buildImdsRptPathProviderReplacements();
-        }
-        logTrace(logger, "The replacement map is " + replacementMap);
-        return replacementMap;
-    }
-
-    private Map<String, String> buildEnvironmentRptPathProviderReplacements() {
-        String rptId = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_ID);
+    public Map<String, String> buildEnvironmentRptPathProviderReplacements(
+            String rptId) {
         if (rptId != null) {
             Map<String, String> replacements = new HashMap<>();
             replacements.put("id", rptId);
@@ -97,92 +55,131 @@ public class RptPathProvider {
         }
     }
 
-    private Map<String, String> buildImdsRptPathProviderReplacements() {
+    public Map<String, String> buildImdsRptPathProviderReplacements() {
         // Get instance Id from metadata service
         Map<String, String> replacements = new HashMap<>();
-        replacements.put("id", getInstanceIdFromIMDS());
+        replacements.put("id", InstanceMetadataHelper.
+                fetchMetadata(timeoutMs, logger).getId());
         return Collections.unmodifiableMap(replacements);
     }
 
-    private String getInstanceIdFromIMDS() {
-        String baseMetadataURL = METADATA_SERVICE_BASE_URL;
-        String instanceIdMDURL = baseMetadataURL + "instance/id";
-        int timeout = 5_000;
-        logTrace(logger, "Fetch instance metadata using " + instanceIdMDURL);
-        HttpClient client = null;
-        try {
-            client = HttpClient.createMinimalClient(METADATA_SERVICE_HOST,
-                    80,
-                    null,
-                    0,
-                    "InstanceMDClient",
-                    logger);
+    /**
+     * This path provider makes sure the behavior happens with the correct fallback.
+     *
+     * <p>For the path, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_PATH environment variable, if
+     * set. Otherwise, use the current path: "/20180711/resourcePrincipalToken/{id}"
+     *
+     * <p>For the resource id, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_ID environment
+     * variable, if set. Otherwise, use IMDS to get the instance id
+     *
+     * <p>This path provider is used when the caller doesn't provide a specific path provider to the
+     * resource principals signer
+     */
+    public static class DefaultRptPathProvider extends RptPathProvider {
+        static final String OCI_RESOURCE_PRINCIPAL_RPT_PATH
+                = "OCI_RESOURCE_PRINCIPAL_RPT_PATH";
+        static final String OCI_RESOURCE_PRINCIPAL_RPT_ID
+                = "OCI_RESOURCE_PRINCIPAL_RPT_ID";
+        private final Map<String, String> replacements;
 
-            HttpRequestUtil.HttpResponse response = HttpRequestUtil.doGetRequest
-                    (client, instanceIdMDURL, headers(), timeout, logger);
-
-            int status = response.getStatusCode();
-            if (status == 404) {
-                logTrace(logger, "Falling back to v1 metadata URL, " +
-                        "resource not found from v2");
-                baseMetadataURL = FALLBACK_METADATA_SERVICE_URL;
-                instanceIdMDURL = baseMetadataURL + "instance/id";
-                response = HttpRequestUtil.doGetRequest
-                        (client, instanceIdMDURL, headers(), timeout, logger);
-                if (response.getStatusCode() != 200) {
-                    throw new IllegalStateException(
-                            String.format("Unable to get federation URL from" +
-                                            "instance metadata " + METADATA_SERVICE_BASE_URL +
-                                            " or fallback to " + FALLBACK_METADATA_SERVICE_URL +
-                                            ", status code: %d, output: %s",
-                                    response.getOutput()));
-                }
-            } else if (status != 200) {
-                throw new IllegalStateException(
-                        String.format("Unable to get federation URL from" +
-                                        "instance metadata " + METADATA_SERVICE_BASE_URL +
-                                        ", status code: %d, output: %s",
-                                response.getStatusCode(),
-                                response.getOutput()));
-            }
-
-            logTrace(logger, "Instance metadata " + response.getOutput());
-            return response.getOutput();
-        } finally {
-            if (client != null) {
-                client.shutdown();
-            }
+        public DefaultRptPathProvider() {
+            super(getPathTemplate());
+            replacements = buildReplacements();
         }
-    }
 
-    private static HttpHeaders headers() {
-        return new DefaultHttpHeaders()
-                .set(CONTENT_TYPE, APPLICATION_JSON)
-                .set(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
+        @Override
+        protected Map<String, String> getReplacements() {
+            return replacements;
+        }
+
+        private static String getPathTemplate() {
+            String pathTemplate = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_PATH);
+            if (pathTemplate == null) {
+                logTrace(logger,
+                        "Unable to get path template from " +
+                                OCI_RESOURCE_PRINCIPAL_RPT_PATH +
+                                " env variable, using IMDS template"
+                );
+                pathTemplate = IMDS_PATH_TEMPLATE;
+            }
+            logTrace(logger, "The path template is " + pathTemplate);
+            return pathTemplate;
+        }
+
+        private Map<String, String> buildReplacements() {
+            String rptId = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_ID);
+            Map<String, String> replacementMap = buildEnvironmentRptPathProviderReplacements(rptId);
+            if (replacementMap == null) {
+                logTrace(logger,
+                        "Unable to get replacements from " +
+                                OCI_RESOURCE_PRINCIPAL_RPT_ID +
+                                "env variable, getting replacements from IMDS"
+                );
+                replacementMap = buildImdsRptPathProviderReplacements();
+            }
+            logTrace(logger, "The replacement map is " + replacementMap);
+            return replacementMap;
+        }
     }
 
     /**
-     * Replace the placeholders in the template with the values in the replacement mapping.
+     * This path provider makes sure the behavior happens with the correct fallback.
      *
-     * @param template template string
-     * @param replacements map from key to replacement value
-     * @param prefix prefix of the placeholder
-     * @param suffix suffix of the placeholder
-     * @return replaced string
+     * <p>For the path, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_PATH_FOR_LEAF_RESOURCE
+     * environment variable, if set. Otherwise, use the current path:
+     * "/20180711/resourcePrincipalToken/{id}"
+     *
+     * <p>For the resource id, Use the contents of the OCI_RESOURCE_PRINCIPAL_RPT_ID_FOR_LEAF_RESOURCE
+     * environment variable, if set. Otherwise, use IMDS to get the instance id
+     *
+     * <p>This path provider is used when the caller doesn't provide a specific path provider to the
+     * resource principals signer
      */
-    public static String replace(
-            String template, Map<String, String> replacements, String prefix, String suffix) {
-        String result = template;
-        for (Map.Entry<String, String> e : replacements.entrySet()) {
-            result =
-                    result.replaceAll(
-                            Pattern.quote(prefix)
-                                    + Pattern.quote(e.getKey())
-                                    + Pattern.quote(suffix),
-                            e.getValue());
+    public static class DefaultLeafRptPathProvider extends RptPathProvider {
+
+        static final String OCI_RESOURCE_PRINCIPAL_RPT_PATH_FOR_LEAF_RESOURCE =
+                "OCI_RESOURCE_PRINCIPAL_RPT_PATH_FOR_LEAF_RESOURCE";
+        static final String OCI_RESOURCE_PRINCIPAL_RPT_ID_FOR_LEAF_RESOURCE =
+                "OCI_RESOURCE_PRINCIPAL_RPT_ID_FOR_LEAF_RESOURCE";
+        private final Map<String, String> replacements;
+
+        public DefaultLeafRptPathProvider() {
+            super(getPathTemplate());
+            replacements = buildReplacements();
         }
-        return result;
+
+        @Override
+        protected Map<String, String> getReplacements() {
+            return replacements;
+        }
+
+        private static String getPathTemplate() {
+            String pathTemplate = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_PATH_FOR_LEAF_RESOURCE);
+            if (pathTemplate == null) {
+                logTrace(logger,
+                        "Unable to get path template from " +
+                                OCI_RESOURCE_PRINCIPAL_RPT_PATH_FOR_LEAF_RESOURCE +
+                                " env variable, using IMDS template"
+                );
+                pathTemplate = IMDS_PATH_TEMPLATE;
+            }
+            logTrace(logger, "The path template is " + pathTemplate);
+            return pathTemplate;
+        }
+
+        private Map<String, String> buildReplacements() {
+            String rptId = System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_ID_FOR_LEAF_RESOURCE);
+            Map<String, String> replacementMap = buildEnvironmentRptPathProviderReplacements(rptId);
+            if (replacementMap == null) {
+                logTrace(logger,
+                        "Unable to get replacements from " +
+                                OCI_RESOURCE_PRINCIPAL_RPT_ID_FOR_LEAF_RESOURCE +
+                                "env variable, getting replacements from IMDS"
+                );
+                replacementMap = buildImdsRptPathProviderReplacements();
+            }
+            logTrace(logger, "The replacement map is " + replacementMap);
+            return replacementMap;
+        }
     }
-
-
 }

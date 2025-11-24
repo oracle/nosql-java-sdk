@@ -1,21 +1,21 @@
 package oracle.nosql.driver.iam;
 
+import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
-import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 
 /**
  * Resource Principals V2 using public/private key to sign the request. This class provides the
  * authentication based on public/private key.
  */
-public class KeyPairProvider
+class KeyPairProvider
         implements AuthenticationProfileProvider,
                    SecurityTokenBasedProvider {
 
     private final String resourceId;
-    private final InputStream privateKeyStream;
+    private final byte[] privateKeyBytes;
     private final char[] passphrase;
     private final String tenancyId;
     private final String resourcePrincipalVersion;
@@ -36,10 +36,19 @@ public class KeyPairProvider
             final String tenancyId,
             final String resourcePrincipalVersion) {
         this.resourceId = resourceId;
-        this.privateKeyStream = privateKeyStream;
-        this.passphrase = passphrase;
         this.tenancyId = tenancyId;
         this.resourcePrincipalVersion = resourcePrincipalVersion;
+        this.passphrase = passphrase;
+        try {
+            // read once and store bytes
+            this.privateKeyBytes = Utils.toByteArray(privateKeyStream);
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Unable to read private key stream.", ex);
+        } finally {
+            if (privateKeyStream != null) {
+                try { privateKeyStream.close(); } catch (IOException ignore) {}
+            }
+        }
     }
 
     /**
@@ -70,21 +79,19 @@ public class KeyPairProvider
      */
     @Override
     public InputStream getPrivateKey() {
-        try {
-            return new ByteArrayInputStream(Utils.toByteArray(this.privateKeyStream));
-        } catch (IOException ex) {
-            throw new IllegalStateException("Unable to read private key stream.", ex);
-        }
+        return new ByteArrayInputStream(this.privateKeyBytes);
     }
 
     /**
      * Returns the optional pass phrase for the (encrypted) private key, as a character array.
+     * It returns a clone of the original passphrase, so that caller may overwrite/clear the
+     * array they receive.
      *
      * @return The pass phrase as character array, or null if not applicable
      */
     @Override
     public char[] getPassphraseCharacters() {
-        return this.passphrase;
+        return (this.passphrase == null) ? null : this.passphrase.clone();
     }
 
     /**

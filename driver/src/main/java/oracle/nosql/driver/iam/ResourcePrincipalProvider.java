@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -7,20 +7,28 @@
 
 package oracle.nosql.driver.iam;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import static oracle.nosql.driver.iam.Utils.isBlank;
+import static oracle.nosql.driver.iam.Utils.isNotBlank;
+import static oracle.nosql.driver.iam.Utils.logTrace;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.InputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.util.logging.Logger;
 
-import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FileKeyPairSupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FixedKeyPairSupplier;
+import oracle.nosql.driver.NoSQLHandleConfig;
 
-import static oracle.nosql.driver.iam.Utils.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * @hidden
@@ -74,20 +82,20 @@ public class ResourcePrincipalProvider
     /* Environment variable names used to fetch artifacts */
     private static final String OCI_RESOURCE_PRINCIPAL_VERSION =
             "OCI_RESOURCE_PRINCIPAL_VERSION";
-    private static final String RP_VERSION_1_1 = "1.1";
-    private static final String RP_VERSION_2_1 = "2.1";
-    private static final String RP_VERSION_2_1_1 = "2.1.1";
-    private static final String RP_VERSION_2_1_2 = "2.1.2";
-    private static final String RP_VERSION_2_2 = "2.2";
-    private static final String RP_VERSION_3_0 = "3.0";
-    private static final String OCI_RESOURCE_PRINCIPAL_RPST =
+    protected static final String RP_VERSION_1_1 = "1.1";
+    protected static final String RP_VERSION_2_1 = "2.1";
+    protected static final String RP_VERSION_2_1_1 = "2.1.1";
+    protected static final String RP_VERSION_2_1_2 = "2.1.2";
+    protected static final String RP_VERSION_2_2 = "2.2";
+    protected static final String RP_VERSION_3_0 = "3.0";
+    protected static final String OCI_RESOURCE_PRINCIPAL_RPST =
             "OCI_RESOURCE_PRINCIPAL_RPST";
+    protected static final String OCI_RESOURCE_PRINCIPAL_REGION =
+            "OCI_RESOURCE_PRINCIPAL_REGION";
     private static final String OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM =
             "OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM";
     private static final String OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM_PASSPHRASE =
             "OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM_PASSPHRASE";
-    private static final String OCI_RESOURCE_PRINCIPAL_REGION =
-            "OCI_RESOURCE_PRINCIPAL_REGION";
     private static final String OCI_RESOURCE_PRINCIPAL_RPT_ENDPOINT =
             "OCI_RESOURCE_PRINCIPAL_RPT_ENDPOINT";
     private static final String OCI_RESOURCE_PRINCIPAL_RPST_ENDPOINT =
@@ -115,12 +123,24 @@ public class ResourcePrincipalProvider
     private final DefaultSessionKeySupplier sessionKeySupplier;
     private final Region region;
 
-    ResourcePrincipalProvider(TokenSupplier tkSupplier,
-                              SessionKeyPairSupplier keyPairSupplier,
+    /**
+     * Constructor of ResourcePrincipalAuthenticationDetailsProvider.
+     *
+     * @param tokenSupplier token supplier implementation.
+     * @param sessionKeyPairSupplier session key supplier implementation.
+     * @param region the region
+     */
+    ResourcePrincipalProvider(TokenSupplier tokenSupplier,
+                              SessionKeyPairSupplier sessionKeyPairSupplier,
                               Region region) {
-        this.tokenSupplier = tkSupplier;
-        this.sessionKeySupplier = new DefaultSessionKeySupplier(keyPairSupplier);
+        this.tokenSupplier = tokenSupplier;
+        this.sessionKeySupplier = new DefaultSessionKeySupplier(sessionKeyPairSupplier);
         this.region = region;
+    }
+
+    @Override
+    public void prepare(NoSQLHandleConfig config) {
+        tokenSupplier.prepare(config);
     }
 
     @Override
@@ -153,23 +173,13 @@ public class ResourcePrincipalProvider
         tokenSupplier.setMinTokenLifetime(lifetimeMS);
     }
 
-    public static ResourcePrincipalProviderBuilder builder(){
-        return new ResourcePrincipalProviderBuilder();
-    }
-
-    /**
-     * @hidden
-     * Internal only
-     * <p>
-     * Session tokens carry JWT claims. Permit the retrieval of the
-     * value of those claims from the token.
-     * @param key the name of a claim in the session token
-     * @return the claim value.
-     */
-    String getClaim(String key) {
+    public String getClaim(String key) {
         return tokenSupplier.getStringClaim(key);
     }
 
+    public static ResourcePrincipalProviderBuilder builder(){
+        return new ResourcePrincipalProviderBuilder();
+    }
 
     /**
      * Cloud service only.
@@ -181,15 +191,17 @@ public class ResourcePrincipalProvider
 
         ResourcePrincipalProviderBuilder() {}
 
+        /** The endpoint that can provide the resource principal token. */
         protected String resourcePrincipalTokenEndpoint;
 
+        /**  The path provider for the resource principal token. */
         protected RptPathProvider resourcePrincipalTokenPathProvider;
 
         /** The configuration for the security context. */
         protected String securityContext;
 
         /** Configures the resourcePrincipalTokenPathProvider to use. */
-        public ResourcePrincipalProviderBuilder resourcePrincipalTokenPathProvider(
+        public ResourcePrincipalProviderBuilder setResourcePrincipalTokenPathProvider(
                 RptPathProvider resourcePrincipalTokenPathProvider
         ) {
             this.resourcePrincipalTokenPathProvider = resourcePrincipalTokenPathProvider;
@@ -197,28 +209,23 @@ public class ResourcePrincipalProvider
         }
 
         /** Configures the resourcePrincipalTokenEndpoint to use. */
-        public ResourcePrincipalProviderBuilder resourcePrincipalTokenEndpoint(
+        public ResourcePrincipalProviderBuilder setResourcePrincipalTokenEndpoint(
                 String resourcePrincipalTokenEndpoint
         ) {
             this.resourcePrincipalTokenEndpoint = resourcePrincipalTokenEndpoint;
             return this;
         }
 
-        /** Configures the federationEndpoint to use. */
-        public ResourcePrincipalProviderBuilder resourcePrincipalSessionTokenEndpoint(
-                String resourcePrincipalSessionTokenEndpoint
-        ) {
-            return super.setFederationEndpoint(resourcePrincipalSessionTokenEndpoint);
-        }
-
-        /** Configures the leafCertificateSupplier to use. */
-        public ResourcePrincipalProviderBuilder leafCertificateSupplier(
-                CertificateSupplier supplier
-        ) {
-            return super.setLeafCertificateSupplier(supplier);
+        /** Set value for the security context to use. */
+        public ResourcePrincipalProviderBuilder setSecurityContext(String securityContext) {
+            this.securityContext = securityContext;
+            return this;
         }
 
         public ResourcePrincipalProvider build() {
+            if (logger == null) {
+                logger = Logger.getLogger(getClass().getName());
+            }
             String version = System.getenv(OCI_RESOURCE_PRINCIPAL_VERSION);
             if (version == null) {
                 throw new IllegalArgumentException(
@@ -228,12 +235,12 @@ public class ResourcePrincipalProvider
 
             switch (version) {
                 case RP_VERSION_1_1:
-                    final String ociResourcePrincipalRptEndpoint =
+                    final String resourcePrincipalRptEndpoint =
                             System.getenv(OCI_RESOURCE_PRINCIPAL_RPT_ENDPOINT);
-                    final String ociResourcePrincipalRpstEndpoint =
+                    final String resourcePrincipalRpstEndpoint =
                             System.getenv(OCI_RESOURCE_PRINCIPAL_RPST_ENDPOINT);
                     return build_1_1(
-                            ociResourcePrincipalRptEndpoint, ociResourcePrincipalRpstEndpoint);
+                            resourcePrincipalRptEndpoint, resourcePrincipalRpstEndpoint);
                 case RP_VERSION_2_1:
                 case RP_VERSION_2_1_1:
                     final String resourcePrincipalRptEndpointFor2_1_or_2_1_1 =
@@ -297,6 +304,8 @@ public class ResourcePrincipalProvider
                             resourcePrincipalPassphrase,
                             resourcePrincipalRegion,
                             resourcePrincipalSessionToken);
+                case RP_VERSION_3_0:
+                    return build_3_0();
                 default:
                     throw new IllegalArgumentException(
                             OCI_RESOURCE_PRINCIPAL_VERSION +
@@ -316,15 +325,13 @@ public class ResourcePrincipalProvider
             if (ociResourcePrincipalRpstEndpoint != null) {
                 federationEndpoint = ociResourcePrincipalRpstEndpoint;
             }
+
+            // auto detect endpoint and region
             autoDetectEndpointUsingMetadataUrl();
-            SessionKeyPairSupplier sessSupplier =
-                    new SessionKeyPairSupplier.JDKKeyPairSupplier();
 
-            ResourcePrincipalTokenSupplier<InstancePrincipalsProvider> tokenSupplier =
-                    createTokenSupplier(sessSupplier);
-
+            tokenSupplier = createTokenSupplier(sessionKeySupplier);
             return new ResourcePrincipalProvider(
-                    tokenSupplier, sessSupplier, region);
+                    tokenSupplier, sessionKeySupplier, region);
         }
 
         /**
@@ -365,7 +372,7 @@ public class ResourcePrincipalProvider
                 }
             }
 
-            SessionKeyPairSupplier sessSupplier =
+            sessionKeySupplier =
                     getSessionKeySupplierFromPemAndPassphrase(
                             resourcePrincipalPrivateKey,
                             resourcePrincipalPassphrase
@@ -381,24 +388,23 @@ public class ResourcePrincipalProvider
 
             String resourcePrincipalTokenPath = createTokenPath(
                     DEFAULT_OCI_RESOURCE_PRINCIPAL_RPT_PATH_FORV2_1_OR_2_1_1,
-                    provider.getResourceId()
+                    resourcePrincipalResourceId
             );
 
-            ResourcePrincipalTokenSupplier<KeyPairProvider> tokenSupplier =
-                    new ResourcePrincipalTokenSupplier<>(
+            tokenSupplier =
+                    new ResourcePrincipalV2TokenSupplier(
                             resourcePrincipalRptEndpoint,
                             resourcePrincipalRpstEndpoint,
                             resourcePrincipalTokenPath,
-                            sessSupplier,
+                            sessionKeySupplier,
                             provider,
-                            null
-                    );
+                            null);
 
             // auto detect region
             autoDetectEndpointUsingMetadataUrl();
 
             return new ResourcePrincipalProvider(
-                    tokenSupplier, sessSupplier, region);
+                    tokenSupplier, sessionKeySupplier, region);
         }
 
         /**
@@ -452,7 +458,7 @@ public class ResourcePrincipalProvider
             }
 
 
-            SessionKeyPairSupplier sessSupplier =
+            sessionKeySupplier =
                     getSessionKeySupplierFromPemAndPassphrase(
                             resourcePrincipalPrivateKey,
                             resourcePrincipalPassphrase
@@ -470,21 +476,20 @@ public class ResourcePrincipalProvider
             resourcePrincipalTokenPath =
                     createTokenPath(resourcePrincipalTokenPath, resourcePrincipalResourceId);
 
-            ResourcePrincipalTokenSupplier<KeyPairProvider> tokenSupplier =
-                    new ResourcePrincipalTokenSupplier<>(
+            tokenSupplier =
+                    new ResourcePrincipalV2TokenSupplier(
                             resourcePrincipalRptEndpoint,
                             resourcePrincipalRpstEndpoint,
                             resourcePrincipalTokenPath,
-                            sessSupplier,
+                            sessionKeySupplier,
                             provider,
-                            securityContext
-                    );
+                            securityContext);
 
             // auto detect region
             autoDetectEndpointUsingMetadataUrl();
 
             return new ResourcePrincipalProvider(
-                    tokenSupplier, sessSupplier, region);
+                    tokenSupplier, sessionKeySupplier, region);
         }
 
         public ResourcePrincipalProvider build_2_2(
@@ -493,14 +498,14 @@ public class ResourcePrincipalProvider
                 String rpRegion,
                 String rpst
         ) {
-            SessionKeyPairSupplier sessKeySupplier =
+            final SessionKeyPairSupplier sessKeySupplier =
                     getSessionKeySupplierFromPemAndPassphrase(rpPrivateKey, kp);
 
             if (rpst == null) {
                 throw new IllegalArgumentException(
                         OCI_RESOURCE_PRINCIPAL_RPST + " environment variable missing");
             }
-            TokenSupplier tokenSupplier;
+            final TokenSupplier tokenSupplier;
             if (new File(rpst).isAbsolute()) {
                 logTrace(logger, "Valid file for RPST." +
                         " Creating instance of FileSecurityTokenSupplier");
@@ -513,13 +518,21 @@ public class ResourcePrincipalProvider
                         sessKeySupplier, rpst);
             }
 
-
             if (rpRegion == null) {
                 throw new IllegalArgumentException(
                         OCI_RESOURCE_PRINCIPAL_REGION + " environment variable missing");
             }
-            Region r = Region.fromRegionId(rpRegion);
-            return new ResourcePrincipalProvider(tokenSupplier, sessKeySupplier, r);
+            final Region region = Region.fromRegionId(rpRegion);
+            return new ResourcePrincipalProvider(tokenSupplier, sessKeySupplier, region);
+        }
+
+        /**
+         * Helper method that interprets the runtime environment to build a v3.0-configured client
+         *
+         * @return ResourcePrincipalAuthenticationDetailsProvider
+         */
+        public ResourcePrincipalProvider build_3_0() {
+            return ResourcePrincipalV3Provider.builder().build();
         }
 
         private KeyPairProvider getKeyPairProvider(
@@ -567,7 +580,7 @@ public class ResourcePrincipalProvider
                     resourcePrincipalVersion);
         }
 
-        private ResourcePrincipalTokenSupplier<InstancePrincipalsProvider> createTokenSupplier(
+        private ResourcePrincipalV1TokenSupplier createTokenSupplier(
                 SessionKeyPairSupplier sessionKeyPairSupplier) {
             createRptPathProvider();
 
@@ -577,25 +590,24 @@ public class ResourcePrincipalProvider
                             .setLeafCertificateSupplier(leafCertificateSupplier)
                             .setIntermediateCertificateSuppliers(intermediateCertificateSuppliers)
                             // InstancePrincipalsProvider and
-                            // FederationSecurityTokenSupplier's
+                            // ResourcePrincipalV1TokenSupplier's
                             // sessionKeysSupplier must be different. BTW
                             // FederationSecurityTokenSupplier and
                             // ResourcePrincipalProvider's sessionKeysSupplier
                             // must be same.
                             .build();
 
-            // Make a NoSQLHandleConfig out of federation endpoint as anyway it is only used as
-            // dummy endpoint for getting the "null" value of ssl context and ssl handshake timeout
+            // Prepare the provider to build the underlying HTTP client.
             provider.prepare(new NoSQLHandleConfig(federationEndpoint));
 
-            return new ResourcePrincipalTokenSupplier<>(
+            String resourcePrincipalTokenPath = resourcePrincipalTokenPathProvider.getPath();
+
+            return new ResourcePrincipalV1TokenSupplier(
                     resourcePrincipalTokenEndpoint,
                     federationEndpoint,
-                    resourcePrincipalTokenPathProvider.getPath(),
+                    resourcePrincipalTokenPath,
                     sessionKeyPairSupplier,
-                    provider,
-                    null
-            );
+                    provider);
         }
 
         private String createTokenPath(String resourcePrincipalTokenPath, String resourceId) {
@@ -605,7 +617,7 @@ public class ResourcePrincipalProvider
 
         protected void createRptPathProvider() {
             if (resourcePrincipalTokenPathProvider == null) {
-                resourcePrincipalTokenPathProvider = new RptPathProvider();
+                resourcePrincipalTokenPathProvider = new RptPathProvider.DefaultRptPathProvider();
             }
         }
     }
@@ -644,5 +656,4 @@ public class ResourcePrincipalProvider
         }
         return sessKeySupplier;
     }
-
 }

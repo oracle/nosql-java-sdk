@@ -41,7 +41,7 @@ import io.netty.handler.ssl.SslContextBuilder;
  * Reference to the OCI SDK for Java
  * <code>com.oracle.bmc.auth.internal X509FederationClient</code>
  */
-class SecurityTokenSupplier {
+class SecurityTokenSupplier implements TokenSupplier {
     private String tenantId;
     private int timeoutMS;
     private URI federationURL;
@@ -51,6 +51,7 @@ class SecurityTokenSupplier {
     private final SessionKeyPairSupplier keyPairSupplier;
     private final String purpose;
     private long minTokenLifetime;
+    private volatile SecurityToken securityToken;
     private final Logger logger;
 
     SecurityTokenSupplier(String federationEndpoint,
@@ -77,21 +78,33 @@ class SecurityTokenSupplier {
         this.logger = logger;
     }
 
-    String getSecurityToken() {
+    @Override
+    public String getSecurityToken() {
         return refreshAndGetTokenInternal();
     }
 
-    void setMinTokenLifetime(long lifetimeMS) {
+    @Override
+    public String getStringClaim(String key) {
+        if (securityToken == null) {
+            refreshAndGetTokenInternal();
+        }
+        return securityToken.getStringClaim(key);
+    }
+
+    @Override
+    public void setMinTokenLifetime(long lifetimeMS) {
         this.minTokenLifetime = lifetimeMS;
     }
 
-    void close() {
+    @Override
+    public void close() {
         if (federationClient != null) {
             federationClient.shutdown();
         }
     }
 
-    synchronized void prepare(NoSQLHandleConfig config) {
+    @Override
+    public synchronized void prepare(NoSQLHandleConfig config) {
         if (federationClient == null) {
             federationClient = buildHttpClient(
                 federationURL,
@@ -203,13 +216,14 @@ class SecurityTokenSupplier {
                 }
             }
 
-            String securityToken = getSecurityTokenInternal(
+            String token = getSecurityTokenInternal(
                 Utils.base64EncodeNoChunking(publicKey),
                 Utils.base64EncodeNoChunking(certificateAndKeyPair),
                 intermediateStrings);
 
-            SecurityToken st = new SecurityToken(securityToken, keyPairSupplier);
+            SecurityToken st = new SecurityToken(token, keyPairSupplier);
             st.validate(minTokenLifetime, logger);
+            securityToken = st;
             return st.getSecurityToken();
         } catch (Exception e) {
             throw new SecurityInfoNotReadyException(e.getMessage(), e);

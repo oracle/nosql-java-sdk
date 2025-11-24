@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,7 +9,6 @@ package oracle.nosql.driver.iam;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.util.Set;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
@@ -17,7 +16,6 @@ import oracle.nosql.driver.Region;
 import oracle.nosql.driver.Region.RegionProvider;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityTokenBasedProvider;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
-import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
 
 /**
  * Internal use only
@@ -27,12 +25,12 @@ import oracle.nosql.driver.iam.SessionKeyPairSupplier.JDKKeyPairSupplier;
  * token issued by IAM to do the actual request signing.
  * @hidden
  */
-public class InstancePrincipalsProvider
+class InstancePrincipalsProvider
     implements AuthenticationProfileProvider,
                RegionProvider,
                SecurityTokenBasedProvider {
 
-    protected final SecurityTokenSupplier tokenSupplier;
+    protected final TokenSupplier tokenSupplier;
     protected final DefaultSessionKeySupplier sessionKeySupplier;
     private final Region region;
 
@@ -42,7 +40,7 @@ public class InstancePrincipalsProvider
      * @param keyPairSupplier the SessionKeyPairSupplier
      * @param region the region
      */
-    public InstancePrincipalsProvider(SecurityTokenSupplier tokenSupplier,
+    public InstancePrincipalsProvider(TokenSupplier tokenSupplier,
                                       SessionKeyPairSupplier keyPairSupplier,
                                       Region region) {
         this.tokenSupplier = tokenSupplier;
@@ -103,76 +101,6 @@ public class InstancePrincipalsProvider
      * @hidden
      */
     public static class InstancePrincipalsProviderBuilder extends BaseProviderBuilder<InstancePrincipalsProviderBuilder> {
-
-        /* The default purpose value in federation requests against IAM */
-        private static final String DEFAULT_PURPOSE = "DEFAULT";
-
-        private String purpose = DEFAULT_PURPOSE;
-        private Logger logger;
-
-        public String getFederationEndpoint() {
-            return federationEndpoint;
-        }
-
-        public String getPurpose() {
-            return purpose;
-        }
-
-        /**
-         * @hidden
-         * @param purpose the purpose
-         * @return this
-         */
-        public InstancePrincipalsProviderBuilder setPurpose(String purpose) {
-            this.purpose = purpose;
-            return this;
-        }
-
-        public SessionKeyPairSupplier getSesssionKeyPairSupplier() {
-            return sessSupplier;
-        }
-
-        /**
-         * @hidden
-         * @param sessSupplier the supplier
-         * @return this
-         */
-        public InstancePrincipalsProviderBuilder
-            setSessionKeyPairSupplier(SessionKeyPairSupplier sessSupplier) {
-            this.sessSupplier = sessSupplier;
-            return this;
-        }
-
-        public Logger getLogger() {
-            return logger;
-        }
-
-        /**
-         * @hidden
-         * @param logger the logger
-         * @return this
-         */
-        public InstancePrincipalsProviderBuilder setLogger(Logger logger) {
-            this.logger = logger;
-            return this;
-        }
-
-        public Set<CertificateSupplier> getIntermediateCertificateSuppliers() {
-            return intermediateCertificateSuppliers;
-        }
-
-        /**
-         * @hidden
-         * @param suppliers suppliers
-         * @return this
-         */
-        public InstancePrincipalsProviderBuilder
-            setIntermediateCertificateSuppliers(
-                Set<CertificateSupplier> suppliers) {
-            this.intermediateCertificateSuppliers = suppliers;
-            return this;
-        }
-
         /**
          * Builds the InstancePrincipalsProvider instance
          * @return the instance
@@ -184,20 +112,18 @@ public class InstancePrincipalsProvider
             autoDetectEndpointUsingMetadataUrl();
             autoDetectCertificatesUsingMetadataUrl();
 
-            SessionKeyPairSupplier sessSupplierToUse = sessSupplier != null ? sessSupplier : new JDKKeyPairSupplier();
-
-            SecurityTokenSupplier tokenSupplier =
+            TokenSupplier tokenSupplier =
                     new SecurityTokenSupplier(federationEndpoint,
                             tenantId,
                             leafCertificateSupplier,
                             intermediateCertificateSuppliers,
-                            sessSupplierToUse,
+                            sessionKeySupplier,
                             purpose,
                             timeout,
                             logger);
 
             return new InstancePrincipalsProvider(tokenSupplier,
-                    sessSupplierToUse,
+                    sessionKeySupplier,
                     region);
         }
 

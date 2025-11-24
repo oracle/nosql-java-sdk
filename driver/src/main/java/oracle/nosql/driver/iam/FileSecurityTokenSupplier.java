@@ -1,6 +1,7 @@
 package oracle.nosql.driver.iam;
 
-import oracle.nosql.driver.SecurityInfoNotReadyException;
+import static oracle.nosql.driver.iam.Utils.logTrace;
+import static oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -9,7 +10,8 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.logging.Logger;
 
-import static oracle.nosql.driver.iam.Utils.logTrace;
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.SecurityInfoNotReadyException;
 
 /**
  * @hidden
@@ -19,24 +21,20 @@ import static oracle.nosql.driver.iam.Utils.logTrace;
  * Reference to the OCI SDK for Java
  * <code>com.oracle.bmc.auth.internal.FileBasedResourcePrincipalFederationClient</code>
  */
-public class FileSecurityTokenSupplier
-        extends TokenSupplier {
+class FileSecurityTokenSupplier
+        implements TokenSupplier {
 
     private static final Logger logger = Logger.getLogger(FileSecurityTokenSupplier.class.getName());
 
     private final SessionKeyPairSupplier sessionKeyPairSupplier;
     private final String sessionTokenPath;
     private volatile SecurityTokenSupplier.SecurityToken securityToken;
+    private long minTokenLifetime;
 
     FileSecurityTokenSupplier(SessionKeyPairSupplier sessKeyPairSupplier,
                               String sessionTokenPath) {
         this.sessionKeyPairSupplier = sessKeyPairSupplier;
         this.sessionTokenPath = sessionTokenPath;
-    }
-
-    @Override
-    public void close() {
-
     }
 
     @Override
@@ -52,13 +50,26 @@ public class FileSecurityTokenSupplier
         return securityToken.getStringClaim(key);
     }
 
+    @Override
+    public void setMinTokenLifetime(long lifetimeMS) {
+        this.minTokenLifetime = lifetimeMS;
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public void prepare(NoSQLHandleConfig config) {
+    }
+
     private synchronized String refreshAndGetSecurityToken() {
         logTrace(logger, "Refreshing session keys");
         sessionKeyPairSupplier.refreshKeys();
 
         try {
             logTrace(logger, "Getting security token from file.");
-            SecurityTokenSupplier.SecurityToken token = getSecurityTokenFromFile();
+            SecurityToken token = getSecurityTokenFromFile();
             token.validate(minTokenLifetime, logger);
             securityToken = token;
             return securityToken.getSecurityToken();
@@ -67,7 +78,7 @@ public class FileSecurityTokenSupplier
         }
     }
 
-    SecurityTokenSupplier.SecurityToken getSecurityTokenFromFile() {
+    SecurityToken getSecurityTokenFromFile() {
         KeyPair keyPair = sessionKeyPairSupplier.getKeyPair();
         if (keyPair == null) {
             throw new IllegalArgumentException(
@@ -84,6 +95,6 @@ public class FileSecurityTokenSupplier
                     "Unable to read session token from " + sessionTokenPath, e);
         }
 
-        return new SecurityTokenSupplier.SecurityToken(sessToken, sessionKeyPairSupplier);
+        return new SecurityToken(sessToken, sessionKeyPairSupplier);
     }
 }
