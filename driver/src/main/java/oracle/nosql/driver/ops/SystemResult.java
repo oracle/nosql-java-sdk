@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -173,7 +173,7 @@ public class SystemResult extends Result {
      * This instance is modified with any changes in state.
      *
      * @param handle the NoSQLHandle to use
-     * @param waitMillis the total amount of time to wait, in millseconds. This
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
      * value must be non-zero and greater than delayMillis
      * @param delayMillis the amount of time to wait between polling attempts, in
      * milliseconds. If 0 it will default to 500.
@@ -196,7 +196,7 @@ public class SystemResult extends Result {
         int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
         if (waitMillis < delayMillis) {
             throw new IllegalArgumentException(
-                "Wait milliseconds must be a mininum of " +
+                "Wait milliseconds must be a minimum of " +
                 DELAY_MS + " and greater than delay milliseconds");
         }
         long startTime = System.currentTimeMillis();

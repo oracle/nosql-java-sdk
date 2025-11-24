@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -17,7 +17,8 @@ import oracle.nosql.driver.values.MapValue;
  * If the delete succeeded {@link #getSuccess} returns true.
  * Information about the existing row may be
  * available using {@link #getExistingValue},
- *.{@link #getExistingVersion} and {@link #getExistingModificationTime},
+ *.{@link #getExistingVersion}, {@link #getExistingCreationTime} and
+ *  {@link #getExistingModificationTime},
  * depending on the use of {@link DeleteRequest#setReturnRow} and the result
  * of the operation.
  * @see NoSQLHandle#delete
@@ -57,6 +58,23 @@ public class DeleteResult extends WriteResult {
     }
 
     /**
+     * Returns the creation time if available. This value will
+     * only be available if the conditions specified in
+     * {@link DeleteRequest#setReturnRow} are met.
+     *
+     * Note: If the row was written by a version of the system older than 25.3
+     * the creation time will be equal to the modification time, if it was
+     * written by a system older than 19.5 it will be zero.
+     *
+     * @return the creation time in milliseconds since Jan 1, 1970 GMT
+     *
+     * @since 5.4.18
+     */
+    public long getExistingCreationTime() {
+        return super.getExistingCreationTimeInternal();
+    }
+
+    /**
      * Returns the existing modification time if available. This value will
      * only be available if the conditions specified in
      * {@link DeleteRequest#setReturnRow} are met.
@@ -67,6 +85,17 @@ public class DeleteResult extends WriteResult {
      */
     public long getExistingModificationTime() {
         return super.getExistingModificationTimeInternal();
+    }
+
+    /**
+     * Returns the metadata of the returned row, or null if the row does not
+     * exist or metadata was not set.
+     *
+     * @return the metadata of the row, or null if row does not exist or not set
+     * @since 5.4.18
+     */
+    public String getExistingRowMetadata() {
+        return super.getExistingRowMetadataInternal();
     }
 
     /* from Result */

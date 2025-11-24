@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -99,7 +99,7 @@ public class PathFinder implements FieldValueEventHandler {
     private int depth;
 
     /*
-     * true if currently skipping a map field. used to suppres and
+     * true if currently skipping a map field. used to suppress and
      * endMapField call
      */
     private boolean skipping;
@@ -536,9 +536,9 @@ public class PathFinder implements FieldValueEventHandler {
     }
 
     /**
+     * @hidden
      * A function that is called when a path has been found. It is passed
      * the PathFinder instance and the path that was found.
-     * @hidden
      */
     @FunctionalInterface
     public interface PathFinderCallback {

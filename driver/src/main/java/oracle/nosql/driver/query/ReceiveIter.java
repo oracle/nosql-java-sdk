@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -429,6 +429,8 @@ public class ReceiveIter extends PlanIter {
             rcb.trace("ReceiveIter.initPartitionSort() : got result.\n" +
                       "reached limit = " + result.reachedLimit() +
                       " in phase 1 = " + result.isInPhase1());
+
+            origRequest.addQueryTraces(result.getQueryTraces());
         }
 
         /*
@@ -789,7 +791,7 @@ public class ReceiveIter extends PlanIter {
             if (theRCB.getTraceLevel() >= 1) {
                 StringBuilder sb = new StringBuilder("RemoteScanner : got ");
                 sb.append(theResults.size());
-                sb.append(" remote results. More remote resuls = ");
+                sb.append(" remote results. More remote results = ");
                 sb.append(theMoreRemoteResults);
                 sb.append(" reached limit = ").append(result.reachedLimit());
                 sb.append(" read KB = ").append(result.getReadKB());

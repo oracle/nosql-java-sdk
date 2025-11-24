@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -187,6 +187,8 @@ public final class BinaryProtocol {
     /* added in V4 */
     public static final int TABLE_NOT_READY = 26;
     public static final int UNSUPPORTED_QUERY_VERSION = 27;
+    /* added in V5 */
+    public static final int RECOMPILE_QUERY = 28;
 
     /*
      * Error codes for user throttling, range from 50 to 100(exclusive).

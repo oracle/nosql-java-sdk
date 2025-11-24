@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -217,10 +217,26 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
+         * Returns the creation time associated with the key if
+         * available.
+         * Note: If the row was written by a version of the system older than
+         * 25.3 the creation time will be equal to the modification time, if it
+         * was written by a system older than 19.5 it will be zero.
+         *
+         * @return the creation time if set, in milliseconds sine Jan 1, 1970
+         * GMT
+         *
+         * @since 5.4.18
+         */
+        public long getExistingCreationTime() {
+            return super.getExistingCreationTimeInternal();
+        }
+
+        /**
          * Returns the existing modification time associated with the key if
          * available.
          * @return the modification time if set, in milliseconds sine Jan 1,
-         * 1970
+         * 1970 GMT
          *
          * @since 5.3.0
          */

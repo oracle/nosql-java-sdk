@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -51,9 +51,8 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
-     * internal use only
-     * @return the internal array
      * @hidden
+     * @return the internal array
      */
     public ArrayList<FieldValue> getArrayInternal() {
         return array;
@@ -603,7 +602,6 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
-     * internal use only
      * @hidden
      */
     @Override
@@ -622,11 +620,11 @@ public class ArrayValue extends FieldValue implements Iterable<FieldValue> {
     }
 
     /**
+     * @hidden
      * Sorts the elements of the array according to the given comparator.
      *
      * @param comparator The Comparator to use for comparing the array
      * elements. It must not be null.
-     * @hidden
      */
     public void sort(Comparator<FieldValue> comparator) {
         requireNonNull(comparator, "Comparator must be non-null");

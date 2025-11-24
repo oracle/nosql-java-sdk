@@ -8,19 +8,18 @@
 package oracle.nosql.driver;
 
 /**
- * An exception that is thrown when there is an internal system problem.
- * Most system problems are temporary, so this is a retryable exception.
+ * The query must be recompiled after DDL changes on the tables and/or
+ * indexes that are accessed by the query.
  */
-public class SystemException extends RetryableException {
+public class PrepareQueryException extends NoSQLException {
 
     private static final long serialVersionUID = 1L;
 
     /**
      * @hidden
-     * Simple constructor
-     * @param msg the message to use for the exception
+     * @param msg the exception message
      */
-    public SystemException(String msg) {
+    public PrepareQueryException(String msg) {
         super(msg);
     }
 }

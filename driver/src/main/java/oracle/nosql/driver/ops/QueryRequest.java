@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -22,6 +22,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.VirtualScan;
+import oracle.nosql.driver.values.JsonUtils;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -56,7 +57,7 @@ import oracle.nosql.driver.query.VirtualScan;
  * To compute and retrieve the full result set of a query, the same QueryRequest
  * instance will, in general, have to be executed multiple times (via
  * {@link NoSQLHandle#query}. Each execution returns a {@link QueryResult},
- * which contains a subset of the result set. The following code snipet
+ * which contains a subset of the result set. The following code snippet
  * illustrates a typical query execution:
  * <pre>
  * NoSQLHandle handle = ...;
@@ -80,6 +81,54 @@ import oracle.nosql.driver.query.VirtualScan;
  * local resources held by the query. This also allows the application to reuse
  * the QueryRequest instance to run the same query from the beginning or a
  * different query.
+ * <p>
+ * <p>
+ * <b>Parallel queries</b>
+ * <p>
+ * By default a query request operates over all of the rows in a table. Large
+ * scale analytics, such as Apache Spark, Apache Hadoop, and others benefit
+ * from the ability to split a query into multiple workloads, where each
+ * workload operates on a distinct subset of a table's rows. This feature is
+ * called "parallel query" and is enabled in this driver as of release 5.4.18.
+ * The feature also requires a server that supports the feature. A server that
+ * does not support the feature will always return 0 for the maximum amount
+ * of parallelism mentioned below.
+ * <p>
+ * Parallel query allows an application to create a group of participating
+ * queries that operate in their own threads, processes, or machines. Each
+ * participant query declares itself to be N of M cooperating queries, where
+ * N is the individual operation and M is the total number of cooperating
+ * queries. The maximum value for M is returned in the
+ * {@link PreparedStatement} returned in a {@link PrepareResult}. This
+ * feature works best for queries that operate over the entire set of data or
+ * a simple subset constrained by a predicate. Parallel queries cannot be
+ * performed on aggregations and sorted queries. Sample code to use this
+ * feature looks like this
+ * <pre>
+ * NoSQLHandle handle = ...;
+ * PreparedStatement ps = handle.prepare(new PrepareRequest().setStatement(
+ *     "select * from foo")).getPreparedStatement();
+ * int maxParallelism = ps.getMaximumParallelism();
+ *
+ * // at this point up to maxParallelism queries can be operated independently,
+ * // each one operating on a subset of data. The total number of cooperating
+ * // queries can be up to maxParallelism, but smaller numbers are fine. The
+ * // system decides how to partition the queries across unique rows
+ *
+ * // Consider a maxParallism of 100 and 10 cooperating threads or processes
+ * // are desired. This is an example of what number 3 out of 10 would do to
+ * // execute a cooperating query
+ *
+ * QueryRequest qreq = new QueryRequest().setPreparedStatement(ps).
+ *   setNumberOfOperations(10)  // total number of ops cooperating
+ *   setOperationNumber(3)      // this is number 3 of 10
+ * </pre>
+ *
+ * The query would then be executed as normal but instead of operating over
+ * the entire table the query will operate only on approximately 1/10 of the
+ * data. It is up to the application to aggregate and process results from
+ * cooperating queries. If they are to be run in separate threads or processes
+ * it is up to the application to create those runtime entities as well.
  * <p>
  * QueryRequest instances are not thread-safe. That is, if two or more
  * application threads need to run the same query concurrently, they must
@@ -106,6 +155,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     private MathContext mathContext = MathContext.DECIMAL32;
 
     private Consistency consistency;
+
+    private String rowMetadata;
 
     private String statement;
 
@@ -145,6 +196,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private boolean inTestMode;
 
+    /* these next 2 are related to parallel queries */
+    private int operationNumber;
+
+    private int numberOfOperations;
+
     /**
      * Default constructor for QueryRequest
      */
@@ -172,11 +228,14 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
+        internalReq.rowMetadata = rowMetadata;
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
         internalReq.topoSeqNum = topoSeqNum;
         internalReq.inTestMode = inTestMode;
+        internalReq.operationNumber = operationNumber;
+        internalReq.numberOfOperations = numberOfOperations;
         return internalReq;
     }
 
@@ -188,6 +247,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
         internalReq.statement = statement;
+        internalReq.rowMetadata = rowMetadata;
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
@@ -484,6 +544,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Returns the limit on number of items returned by the operation. If
      * not set by the application this value will be 0 which means no limit set.
      *
+     * For update query with on-premise service, returns the update limit on
+     * the number of records that can be updated in single update query. If not
+     * set by the application this value will be 0 which means no application
+     * limit set.
+     *
      * @return the limit, or 0 if not set
      */
     public int getLimit() {
@@ -494,7 +559,14 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * Sets the limit on number of items returned by the operation. This allows
      * an operation to return less than the default amount of data.
      *
-     * @param limit the limit in terms of number of items returned
+     * For update query, if with on-premise service, this is to set the update
+     * limit on the number of records that can be updated in single query, if
+     * not set by the application, default service limit is used. If with cloud
+     * service, this update limit will be ignored, the maximum of records that
+     * can be updated is limited by other cloud limits maxWriteKB and maxReadKB.
+     *
+     * @param limit the limit in terms of number of items returned, or the
+     * maximum of records that can be updated in a update query.
      *
      * @return this
      *
@@ -853,6 +925,58 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
+     * Sets the row metadata to use for the operation. This setting is optional
+     * and only applies if the query modifies or deletes any rows using an
+     * INSERT, UPDATE, UPSERT or DELETE statement. If the query is read-only
+     * this setting is ignored. This is an optional parameter.<p>
+     *
+     * Row metadata is associated to a certain version of a row. Any subsequent
+     * write operation will use its own row metadata value. If not specified
+     * null will be used by default.
+     * NOTE that if you have previously written a record with metadata and a
+     * subsequent write does not supply metadata, the metadata associated with
+     * the row will be null. Therefore, if you wish to have metadata
+     * associated with every write operation, you must supply a valid JSON
+     * construct to this method.<p>
+     *
+     * @param rowMetadata the row metadata, must be null or a valid JSON
+     *    construct: object, array, string, number, true, false or null,
+     *    otherwise an IllegalArgumentException is thrown.
+     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     *    JSON construct
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setRowMetadata(String rowMetadata) {
+        if (rowMetadata == null) {
+            this.rowMetadata = null;
+            return this;
+        }
+
+        JsonUtils.validateJsonConstruct(rowMetadata);
+        this.rowMetadata = rowMetadata;
+        return this;
+    }
+
+    /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
+     * Returns the row metadata set for this request, or null if not set.
+     *
+     * @return the row metadata
+     * @since 5.4.18
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
+    }
+
+    /**
      * Sets the request timeout value, in milliseconds. This overrides any
      * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
      * The value must be positive.
@@ -901,6 +1025,60 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * Returns the total number of operations in a coordinated parallel
+     * query operation or 0 if this is not a parallel query.
+     * @return the number of operations
+     * @since 5.4.18
+     */
+    public int getNumberOfOperations() {
+        return numberOfOperations;
+    }
+
+    /**
+     * Returns the individual operation number for this query if it is
+     * participating in a coordinated parallel query operation or 0 if not.
+     * The value is 1-based.
+     * @return the operation number
+     * @since 5.4.18
+     */
+    public int getOperationNumber() {
+        return operationNumber;
+    }
+
+    /**
+     * Sets the total number of operations in a coordinated parallel
+     * query operation. This value will only be valid if the request
+     * contains a prepared query and must be less than or equal to
+     * the value returned by {@link PreparedStatement#getMaximumParallelism}.
+     * Validation is performed during query execution.
+     *
+     * @param numberOfOperations the number of operations
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setNumberOfOperations(int numberOfOperations) {
+        this.numberOfOperations = numberOfOperations;
+        return this;
+    }
+
+    /**
+     * Sets the individual operation number for this query if it is
+     * participating in a coordinated parallel query operation. This number
+     * must be less than or equal to the total number of operations.
+     * The operation number is 1-based and the value will only be valid if
+     * the request contains a prepared query.
+     * Validation is performed during query execution.
+     *
+     * @param operationNumber the operation number
+     * @return this
+     * @since 5.4.18
+     */
+    public QueryRequest setOperationNumber(int operationNumber) {
+        this.operationNumber = operationNumber;
+        return this;
+    }
+
+    /**
      * @hidden
      */
     @Override
@@ -945,6 +1123,43 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         if (statement == null && preparedStatement == null) {
             throw new IllegalArgumentException(
                 "Either statement or prepared statement should be set");
+        }
+        /*
+         * Parallel queries have multiple requirements:
+         * o only for prepared queries
+         * o if set, both number of operations and op number need to be set
+         * o operation number must be <= number of operations
+         * o number of operations must be <= the max
+         */
+
+        /* only check one of the 2 params. The need for both is below */
+        if (getNumberOfOperations() > 0) {
+            if (!isPrepared()) {
+                throw new IllegalArgumentException(
+                    "Parallel queries are only allowed on prepared queries");
+            }
+            /* check both non-zero and value of operation number */
+            if (getOperationNumber() > getNumberOfOperations() ||
+                getOperationNumber() <= 0) {
+                throw new IllegalArgumentException(
+                    "Invalid parallel query operation number " +
+                    getOperationNumber() + ", must be non-negative and <= " +
+                    getNumberOfOperations());
+            }
+            /* check max */
+            int max = getPreparedStatement().getMaximumParallelism();
+            if (getNumberOfOperations() > max) {
+                throw new IllegalArgumentException(
+                    "Invalid parallel query number of operations " +
+                    getNumberOfOperations() + ", must be <= to the maximum: " +
+                    max);
+            }
+        } else if (getOperationNumber() != 0 ||
+                   getNumberOfOperations() < 0) {
+            throw new IllegalArgumentException(
+                "Invalid parallel query operation number " +
+                getOperationNumber() + ", both operation number and " +
+                "number of operations must be non-negative");
         }
     }
 

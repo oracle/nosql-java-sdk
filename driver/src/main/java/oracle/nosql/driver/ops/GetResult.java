@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -27,8 +27,10 @@ public class GetResult extends Result {
     private MapValue value;
     private Version version;
     private long expirationTime;
+    private long creationTime;
     private long modificationTime;
     private Client client;
+    private String rowMetadata;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -64,7 +66,7 @@ public class GetResult extends Result {
      * row does not expire. This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the expiration time in milliseconds since January 1, 1970,
+     * @return the expiration time in milliseconds since January 1, 1970, GMT,
      * or zero if the row never expires or the row does not exist
      */
     public long getExpirationTime() {
@@ -72,11 +74,35 @@ public class GetResult extends Result {
     }
 
     /**
+     * Returns the creation time of the row.
+     * This value is valid only if the operation
+     * successfully returned a row ({@link #getValue} returns non-null).
+     *
+     * Note: If the row was written by a version of the system older than 25.3
+     * the creation time will be equal to the modification time, if it was
+     * written by a system older than 19.5 it will be zero.
+     *
+     * @return the creation time in milliseconds since January 1, 1970, GMT,
+     * or zero if the row does not exist
+     *
+     * @since 5.4.18
+     * @hidden
+     */
+    public long getCreationTime() {
+        if (creationTime < 0 && client != null) {
+            client.oneTimeMessage("The requested feature is not supported by " +
+                "the connected server: getCreationTime");
+            return 0;
+        }
+        return creationTime;
+    }
+
+    /**
      * Returns the modification time of the row.
      * This value is valid only if the operation
      * successfully returned a row ({@link #getValue} returns non-null).
      *
-     * @return the modification time in milliseconds since January 1, 1970,
+     * @return the modification time in milliseconds since January 1, 1970, GMT,
      * or zero if the row does not exist
      *
      * @since 5.3.0
@@ -84,7 +110,7 @@ public class GetResult extends Result {
     public long getModificationTime() {
         if (modificationTime < 0 && client != null) {
             client.oneTimeMessage("The requested feature is not supported by " +
-                                  "the connected server: getModificationTime");
+                "the connected server: getModificationTime");
             return 0;
         }
         return modificationTime;
@@ -106,6 +132,43 @@ public class GetResult extends Result {
     }
 
     /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
+     * Returns the metadata of the returned row, or null if the row does not
+     * exist or metadata was not set.
+     *
+     * @return the metadata of the row, or null if row does not exist or not set
+     *
+     * @since 5.4.18
+     */
+    public String getRowMetadata() {
+        return rowMetadata;
+    }
+
+    /**
+     * This method is **EXPERIMENTAL** and its behavior, signature, or
+     * even its existence may change without prior notice in future versions.
+     * Use with caution.<p>
+     *
+     * Internal use only.<p>
+     *
+     * Sets the rowMetadata of this object.
+     *
+     * @param rowMetadata the row metadata
+     *
+     * @return this
+     *
+     * @since 5.4.18
+     * @hidden
+     */
+    public GetResult setRowMetadata(String rowMetadata) {
+        this.rowMetadata = rowMetadata;
+        return this;
+    }
+
+    /**
      * Internal use only.
      *
      * Sets the expiration time.
@@ -117,6 +180,21 @@ public class GetResult extends Result {
      */
     public GetResult setExpirationTime(long expirationTime) {
         this.expirationTime = expirationTime;
+        return this;
+    }
+
+    /**
+     * Internal use only.
+     *
+     * Sets the creation time.
+     *
+     * @param creationTime the creation time
+     *
+     * @return this
+     * @hidden
+     */
+    public GetResult setCreationTime(long creationTime) {
+        this.creationTime = creationTime;
         return this;
     }
 

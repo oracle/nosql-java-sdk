@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -27,7 +27,7 @@ public abstract class DurableRequest extends Request {
      * Returns the durability setting for this operation.
      * On-prem only.
      *
-     * @return durability, if set. Otherwise null.
+     * @return durability, if set, otherwise null.
      */
     public Durability getDurability() {
         return durability;

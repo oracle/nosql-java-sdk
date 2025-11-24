@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -58,8 +58,8 @@ import oracle.nosql.driver.values.TimestampValue;
  * <pre>
  *  Tag value: 0
  *  Value:
- *    4-byte (unpacked int) – size of the entire array in bytes
- *    4-byte (unpacked int) – number of elements in the array
+ *    4-byte (unpacked int) - size of the entire array in bytes
+ *    4-byte (unpacked int) - number of elements in the array
  *  The array fields, which are NSON values. Because NSON is schemaless the
  *  array elements may be of any type
  * </pre>
@@ -101,13 +101,13 @@ import oracle.nosql.driver.values.TimestampValue;
  * <pre>
  *  Tag value: 6
  *  Value:
- *    4-byte (unpacked int) – size of the entire map in bytes (value as written
+ *    4-byte (unpacked int) - size of the entire map in bytes (value as written
  *      by Java's DataOutput.writeInt)
- *    4-byte (unpacked int) – number of elements in the map (value as written
+ *    4-byte (unpacked int) - number of elements in the map (value as written
  *      by Java's DataOutput.writeInt)
  *    The map fields, which are:
- *      key – String (see String below), cannot be null
- *      value – an NSON value. Because NSON is schemaless the map values may be
+ *      key - String (see String below), cannot be null
+ *      value - an NSON value. Because NSON is schemaless the map values may be
  *              of any type
  * </pre>
  * </li>
@@ -147,8 +147,8 @@ import oracle.nosql.driver.values.TimestampValue;
  * </li>
  * <li> Packed formats (TBD)
  * <pre>
- *   packed int, long -- – describe algorithm
- *   unpacked int – endian?
+ *   packed int, long -- - describe algorithm
+ *   unpacked int - endian?
  *   Java BigDecimal/number format
  * </pre>
  * </li>
@@ -988,6 +988,170 @@ public class Nson {
 
         /* cast must work */
         return (MapValue) readFieldValue(in);
+    }
+
+    /**
+     * Write a key/value integer map field to an Nson serializer.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the integer value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     int value) throws IOException {
+        ns.startMapField(fieldName);
+        ns.integerValue(value);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value long map field to an Nson serializer.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the long value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     long value) throws IOException {
+        ns.startMapField(fieldName);
+        ns.longValue(value);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value byte array map field to an Nson serializer.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the byte array value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     byte[] value) throws IOException {
+        ns.startMapField(fieldName);
+        ns.binaryValue(value);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value byte array map field to an Nson serializer,
+     * given a specific offset and length.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the byte arrayinteger value to write
+     * @param offset the offset into the given byte array to start from
+     * @param length the number of bytes from the offset to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     byte[] value,
+                                     int offset,
+                                     int length) throws IOException {
+        ns.startMapField(fieldName);
+        ns.binaryValue(value, offset, length);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value string array map field to an Nson serializer.
+     * Note: a null or empty array will result in nothing being written.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the string array value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     String[] value) throws IOException {
+        if (value == null || value.length == 0) {
+            return;
+        }
+        ns.startMapField(fieldName);
+        ns.startArray(0);
+        for (String s : value) {
+            ns.stringValue(s);
+            ns.incrSize(1);
+        }
+        ns.endArray(0);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value integer array map field to an Nson serializer.
+     * Note: a null or empty array will result in nothing being written.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the integer array value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     int[] value) throws IOException {
+        if (value == null || value.length == 0) {
+            return;
+        }
+        ns.startMapField(fieldName);
+        ns.startArray(0);
+        for (int i : value) {
+            ns.integerValue(i);
+            ns.incrSize(1);
+        }
+        ns.endArray(0);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value string map field to an Nson serializer.
+     * Note: a null value will result in nothing being written.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the string value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     String value) throws IOException {
+        /* allow null to be a no-op */
+        if (value == null) {
+            return;
+        }
+        ns.startMapField(fieldName);
+        ns.stringValue(value);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value boolean map field to an Nson serializer.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the boolean value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     boolean value) throws IOException {
+        ns.startMapField(fieldName);
+        ns.booleanValue(value);
+        ns.endMapField(fieldName);
+    }
+
+    /**
+     * Write a key/value MapValue map field to an Nson serializer.
+     * This will write a new map object with the given name.
+     * @param ns the serializer to use
+     * @param fieldName the name of the key
+     * @param value the MapValue value to write
+     * @throws IOException if there are problems writing to the serializer
+     */
+    public static void writeMapField(NsonSerializer ns,
+                                     String fieldName,
+                                     MapValue value) throws IOException {
+        ns.startMapField(fieldName);
+        FieldValueEventHandler.generate(value, ns);
+        ns.endMapField(fieldName);
     }
 
     private static void readType(ByteInputStream in, int expected)

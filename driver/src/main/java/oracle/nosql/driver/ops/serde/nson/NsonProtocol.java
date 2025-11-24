@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -55,6 +55,7 @@ public class NsonProtocol {
     public static String LIST_MAX_TO_READ = "lx";
     public static String LIST_START_INDEX = "ls";
     public static String MATCH_VERSION = "mv";
+    public static String MAX_QUERY_PARALLELISM = "mp";
     public static String MAX_READ_KB = "mr";
     public static String MAX_SHARD_USAGE_PERCENT = "ms";
     public static String MAX_WRITE_KB = "mw";
@@ -62,6 +63,7 @@ public class NsonProtocol {
     public static String NAMESPACE = "ns";
     public static String NUMBER_LIMIT = "nl";
     public static String NUM_OPERATIONS = "no";
+    public static String NUM_QUERY_OPERATIONS = "nq";
     public static String OPERATION = "op";
     public static String OPERATIONS = "os";
     public static String OPERATION_ID = "od";
@@ -74,6 +76,7 @@ public class NsonProtocol {
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
     public static String QUERY_NAME = "qn";
+    public static String QUERY_OPERATION_NUM = "on";
     public static String QUERY_VERSION = "qv";
     public static String RANGE = "rg";
     public static String RANGE_PATH = "rp";
@@ -108,6 +111,8 @@ public class NsonProtocol {
     public static String VIRTUAL_SCANS = "vssa";
     public static String VIRTUAL_SCAN_SID = "vssid";
     public static String VIRTUAL_SCAN_PID = "vspid";
+    public static String VIRTUAL_SCAN_NUM_TABLES = "vsnt";
+    public static String VIRTUAL_SCAN_CURRENT_INDEX_RANGE = "vscir";
     public static String VIRTUAL_SCAN_PRIM_KEY = "vspk";
     public static String VIRTUAL_SCAN_SEC_KEY = "vssk";
     public static String VIRTUAL_SCAN_MOVE_AFTER = "vsma";
@@ -158,14 +163,17 @@ public class NsonProtocol {
 
     /* row metadata */
     public static String EXPIRATION = "xp";
+    public static String CREATION_TIME = "ct";
     public static String MODIFIED = "md";
     public static String ROW = "r";
+    public static String ROW_METADATA = "mt";
     public static String ROW_VERSION = "rv";
 
     /* operation metadata */
     public static String EXISTING_MOD_TIME = "em";
     public static String EXISTING_VALUE = "el";
     public static String EXISTING_VERSION = "ev";
+    public static String EXISTING_ROW_METADATA = "ed";
     public static String GENERATED = "gn";
     public static String RETURN_INFO = "ri";
 
@@ -223,6 +231,7 @@ public class NsonProtocol {
         {LIST_MAX_TO_READ,"LIST_MAX_TO_READ"},
         {LIST_START_INDEX,"LIST_START_INDEX"},
         {MATCH_VERSION,"MATCH_VERSION"},
+        {MAX_QUERY_PARALLELISM,"MAX_QUERY_PARALLELISM"},
         {MAX_READ_KB,"MAX_READ_KB"},
         {MAX_SHARD_USAGE_PERCENT,"MAX_SHARD_USAGE_PERCENT"},
         {MAX_WRITE_KB,"MAX_WRITE_KB"},
@@ -230,6 +239,7 @@ public class NsonProtocol {
         {NAMESPACE,"NAMESPACE"},
         {NUMBER_LIMIT,"NUMBER_LIMIT"},
         {NUM_OPERATIONS,"NUM_OPERATIONS"},
+        {NUM_QUERY_OPERATIONS,"NUM_QUERY_OPERATIONS"},
         {OPERATION,"OPERATION"},
         {OPERATIONS,"OPERATIONS"},
         {OPERATION_ID,"OPERATION_ID"},
@@ -242,6 +252,7 @@ public class NsonProtocol {
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
         {QUERY_NAME,"QUERY_NAME"},
+        {QUERY_OPERATION_NUM,"QUERY_OPERATION_NUM"},
         {QUERY_VERSION,"QUERY_VERSION"},
         {RANGE,"RANGE"},
         {RANGE_PATH,"RANGE_PATH"},
@@ -276,6 +287,8 @@ public class NsonProtocol {
         {VIRTUAL_SCANS,"VIRTUAL_SCANS"},
         {VIRTUAL_SCAN_SID,"VIRTUAL_SCAN_SID"},
         {VIRTUAL_SCAN_PID,"VIRTUAL_SCAN_PID"},
+        {VIRTUAL_SCAN_NUM_TABLES,"VIRTUAL_SCAN_NUM_TABLES"},
+        {VIRTUAL_SCAN_CURRENT_INDEX_RANGE,"VIRTUAL_SCAN_CURRENT_INDEX_RANGE"},
         {VIRTUAL_SCAN_PRIM_KEY,"VIRTUAL_SCAN_PRIM_KEY"},
         {VIRTUAL_SCAN_SEC_KEY,"VIRTUAL_SCAN_SEC_KEY"},
         {VIRTUAL_SCAN_MOVE_AFTER,"VIRTUAL_SCAN_MOVE_AFTER"},
@@ -314,12 +327,15 @@ public class NsonProtocol {
         {STORAGE_GB,"STORAGE_GB"},
         {WRITE_KB,"WRITE_KB"},
         {EXPIRATION,"EXPIRATION"},
+        {CREATION_TIME,"CREATION_TIME"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
+        {ROW_METADATA,"ROW_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
         {EXISTING_VERSION,"EXISTING_VERSION"},
+        {EXISTING_ROW_METADATA,"EXISTING_ROW_METADATA"},
         {GENERATED,"GENERATED"},
         {RETURN_INFO,"RETURN_INFO"},
         {DRIVER_QUERY_PLAN,"DRIVER_QUERY_PLAN"},

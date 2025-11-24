@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,6 +8,7 @@
 package oracle.nosql.driver.values;
 
 /**
+ * @hidden
  * Only used by hidden scan interface
  *
  * A {@link FieldValue} instance representing an empty value. This type
@@ -17,7 +18,6 @@ package oracle.nosql.driver.values;
  * {@link JsonNullValue} value, which is a concrete value. It is also different
  * from NullValue which represents a null/missing field in a fully-typed
  * field in the table schema as opposed to a JSON field
- * @hidden
  */
 public class EmptyValue extends FieldValue {
 

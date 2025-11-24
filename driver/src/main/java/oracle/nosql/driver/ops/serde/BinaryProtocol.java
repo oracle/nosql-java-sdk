@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,65 +8,7 @@
 package oracle.nosql.driver.ops.serde;
 
 import static oracle.nosql.driver.http.Client.trace;
-import static oracle.nosql.driver.util.BinaryProtocol.ABSOLUTE;
-import static oracle.nosql.driver.util.BinaryProtocol.ACTIVE;
-import static oracle.nosql.driver.util.BinaryProtocol.ON_DEMAND;
-import static oracle.nosql.driver.util.BinaryProtocol.BAD_PROTOCOL_MESSAGE;
-import static oracle.nosql.driver.util.BinaryProtocol.BATCH_OP_NUMBER_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.BATCH_REQUEST_SIZE_LIMIT;
-import static oracle.nosql.driver.util.BinaryProtocol.COMPLETE;
-import static oracle.nosql.driver.util.BinaryProtocol.CREATING;
-import static oracle.nosql.driver.util.BinaryProtocol.DROPPED;
-import static oracle.nosql.driver.util.BinaryProtocol.DROPPING;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SYNC;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NO_SYNC;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_WRITE_NO_SYNC;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_ALL;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_NONE;
-import static oracle.nosql.driver.util.BinaryProtocol.DURABILITY_SIMPLE_MAJORITY;
-import static oracle.nosql.driver.util.BinaryProtocol.ETAG_MISMATCH;
-import static oracle.nosql.driver.util.BinaryProtocol.EVENTUAL;
-import static oracle.nosql.driver.util.BinaryProtocol.EVOLUTION_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_ARGUMENT;
-import static oracle.nosql.driver.util.BinaryProtocol.ILLEGAL_STATE;
-import static oracle.nosql.driver.util.BinaryProtocol.INDEX_EXISTS;
-import static oracle.nosql.driver.util.BinaryProtocol.INDEX_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.INDEX_NOT_FOUND;
-import static oracle.nosql.driver.util.BinaryProtocol.INSUFFICIENT_PERMISSION;
-import static oracle.nosql.driver.util.BinaryProtocol.INVALID_AUTHORIZATION;
-import static oracle.nosql.driver.util.BinaryProtocol.KEY_SIZE_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.OPERATION_NOT_SUPPORTED;
-import static oracle.nosql.driver.util.BinaryProtocol.PROVISIONED;
-import static oracle.nosql.driver.util.BinaryProtocol.READ_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT;
-import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_SIZE_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.REQUEST_TIMEOUT;
-import static oracle.nosql.driver.util.BinaryProtocol.RESOURCE_EXISTS;
-import static oracle.nosql.driver.util.BinaryProtocol.RESOURCE_NOT_FOUND;
-import static oracle.nosql.driver.util.BinaryProtocol.RETRY_AUTHENTICATION;
-import static oracle.nosql.driver.util.BinaryProtocol.ROW_SIZE_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.SECURITY_INFO_UNAVAILABLE;
-import static oracle.nosql.driver.util.BinaryProtocol.SERVER_ERROR;
-import static oracle.nosql.driver.util.BinaryProtocol.SERVICE_UNAVAILABLE;
-import static oracle.nosql.driver.util.BinaryProtocol.SIZE_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.TABLE_DEPLOYMENT_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.TABLE_EXISTS;
-import static oracle.nosql.driver.util.BinaryProtocol.TABLE_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
-import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_READY;
-import static oracle.nosql.driver.util.BinaryProtocol.TENANT_DEPLOYMENT_LIMIT_EXCEEDED;
-import static oracle.nosql.driver.util.BinaryProtocol.TTL_DAYS;
-import static oracle.nosql.driver.util.BinaryProtocol.TTL_HOURS;
-import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_ERROR;
-import static oracle.nosql.driver.util.BinaryProtocol.UNKNOWN_OPERATION;
-import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_PROTOCOL;
-import static oracle.nosql.driver.util.BinaryProtocol.UNSUPPORTED_QUERY_VERSION;
-import static oracle.nosql.driver.util.BinaryProtocol.UPDATING;
-import static oracle.nosql.driver.util.BinaryProtocol.V2;
-import static oracle.nosql.driver.util.BinaryProtocol.V3;
-import static oracle.nosql.driver.util.BinaryProtocol.WORKING;
-import static oracle.nosql.driver.util.BinaryProtocol.WRITE_LIMIT_EXCEEDED;
+import static oracle.nosql.driver.util.BinaryProtocol.*;
 
 import java.io.IOException;
 
@@ -85,6 +27,7 @@ import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.OperationThrottlingException;
+import oracle.nosql.driver.PrepareQueryException;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.RequestSizeLimitException;
 import oracle.nosql.driver.RequestTimeoutException;
@@ -134,7 +77,7 @@ public class BinaryProtocol extends Nson {
      * Serialization
      *
      * Methods related to data come from Nson. Methods here refer
-     * to objects in the prototol other than data
+     * to objects in the protocol other than data
      */
 
     static void writeTimeout(ByteOutputStream out, int timeout)
@@ -492,6 +435,8 @@ public class BinaryProtocol extends Nson {
             return new TableNotReadyException(msg);
         case ETAG_MISMATCH:
             return new IllegalArgumentException(msg);
+        case RECOMPILE_QUERY:
+            return new PrepareQueryException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);

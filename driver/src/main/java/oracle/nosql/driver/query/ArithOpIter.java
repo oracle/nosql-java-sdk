@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -25,7 +25,7 @@ import oracle.nosql.driver.util.SerializationUtil;
  *
  * any_atomic? ArithOp(any?, ....)
  *
- * An instance of this iterator implements either addition/substraction among
+ * An instance of this iterator implements either addition/subtraction among
  * two or more input values, or multiplication/division among two or more input
  * values. For example, arg1 + arg2 - arg3 + arg4, or arg1 * arg2 * arg3 / arg4.
  *
@@ -38,7 +38,7 @@ import oracle.nosql.driver.util.SerializationUtil;
 public class ArithOpIter extends PlanIter {
 
     /**
-     * Whether this iterator performs addition/substraction or
+     * Whether this iterator performs addition/subtraction or
      * multiplication/division.
      */
     private final FuncCode theCode;

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2024 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -92,6 +92,7 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
@@ -184,7 +185,7 @@ public class Client {
     private static final int SEC_ERROR_DELAY_MS = 100;
 
     /*
-     * singe thread executor for updating table limits
+     * single thread executor for updating table limits
      */
     private ExecutorService threadPool;
 
@@ -260,18 +261,7 @@ public class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(
-            url.getHost(),
-            url.getPort(),
-            httpConfig.getNumThreads(),
-            httpConfig.getConnectionPoolMinSize(),
-            httpConfig.getConnectionPoolInactivityPeriod(),
-            httpConfig.getMaxContentLength(),
-            httpConfig.getMaxChunkSize(),
-            sslCtx,
-            config.getSSLHandshakeTimeout(),
-            "NoSQL Driver",
-            logger);
+        httpClient = createHttpClient(url, httpConfig, sslCtx, logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -312,6 +302,31 @@ public class Client {
 
         /* for internal testing */
         prepareFilename = System.getProperty("test.preparefilename");
+    }
+
+    /**
+     * @hidden
+     * Creates a new HttpClient instance based on the provided configuration
+     * and SSL context.
+     *
+     * Make it protected for unit test.
+     */
+    protected HttpClient createHttpClient(URL url,
+                                          NoSQLHandleConfig httpConfig,
+                                          SslContext sslCtx,
+                                          Logger logger) {
+        return new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            httpConfig.getSSLHandshakeTimeout(),
+            "NoSQL Driver",
+            logger);
     }
 
     /**
@@ -633,7 +648,7 @@ public class Client {
                  */
                 kvRequest.setTimeoutInternal(thisIterationTimeoutMs);
                 serialVersionUsed = writeContent(buffer, kvRequest,
-                    queryVersionUsed);
+                                                 queryVersionUsed);
                 kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
@@ -798,7 +813,7 @@ public class Client {
                 if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
-                    satp.bootstrapLogin();
+                    satp.bootstrapLogin(kvRequest);
                     kvRequest.addRetryException(rae.getClass());
                     kvRequest.incrementRetries();
                     exception = rae;
@@ -813,10 +828,12 @@ public class Client {
             } catch (InvalidAuthorizationException iae) {
                 /*
                  * Allow a single retry for invalid/expired auth
-                 * This includes "clock skew" errors
-                 * This does not include permissions-related errors
+                 *
+                 * This includes "clock skew" errors or signature refresh
+                 * failures. This does not include permissions-related errors,
+                 * which would be a UnauthorizedException.
                  */
-                if (kvRequest.getNumRetries() > 0) {
+                if (retriedInvalidAuthorizationException(kvRequest)) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
@@ -1474,6 +1491,22 @@ public class Client {
         }
     }
 
+    /**
+     * Returns whether an {@link InvalidAuthorizationException} has been
+     * retried for the given request.
+     *
+     * @param request the request to check
+     * @return true if an {@link InvalidAuthorizationException} has been
+     *         retried for the request, false otherwise
+     */
+    private boolean retriedInvalidAuthorizationException(Request request) {
+        final RetryStats rs = request.getRetryStats();
+        if (rs == null || rs.getRetries() <= 0) {
+            return false;
+        }
+
+        return rs.getNumExceptions(InvalidAuthorizationException.class) > 0;
+    }
 
     private void handleRetry(RetryableException re,
                             Request kvRequest) {
@@ -1628,14 +1661,17 @@ public class Client {
      *         false: already at lowest version number.
      */
     private synchronized boolean decrementQueryVersion(short versionUsed) {
+
         if (queryVersion != versionUsed) {
             return true;
         }
-        if (queryVersion == QueryDriver.QUERY_V4) {
-            queryVersion = QueryDriver.QUERY_V3;
-            return true;
+
+        if (queryVersion == QueryDriver.QUERY_V3) {
+            return false;
         }
-        return false;
+
+        --queryVersion;
+        return true;
     }
 
     /**
