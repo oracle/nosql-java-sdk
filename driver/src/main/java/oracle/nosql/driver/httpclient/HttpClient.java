@@ -12,10 +12,9 @@ import static io.netty.handler.codec.http.HttpMethod.HEAD;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static oracle.nosql.driver.util.HttpConstants.CONNECTION;
 import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
@@ -25,6 +24,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -98,22 +98,13 @@ public class HttpClient {
     public static final AttributeKey<CompletableFuture<FullHttpResponse>>
         STATE_KEY = AttributeKey.valueOf("rqstate");
 
-    //private final FixedChannelPool pool;
-    private final ConnectionPool pool;
-    private final HttpClientChannelPoolHandler poolHandler;
-
+    private final IdleEvictFixedChannelPool pool;
     private final int maxContentLength;
     private final int maxChunkSize;
 
     private final String host;
     private final int port;
     private final String name;
-
-    /*
-     * Amount of time to wait for acquiring a channel before timing
-     * out and possibly retrying
-     */
-    private final int acquireRetryIntervalMs;
 
     /*
      * Non-null if using SSL
@@ -164,7 +155,9 @@ public class HttpClient {
                               true, /* minimal client */
                               DEFAULT_MAX_CONTENT_LENGTH,
                               DEFAULT_MAX_CHUNK_SIZE,
-                              sslCtx, handshakeTimeoutMs, name, logger);
+                              sslCtx, handshakeTimeoutMs, name, logger,
+                              1, /* max connections */
+                              1  /* max pending connections */);
     }
 
     /**
@@ -208,7 +201,60 @@ public class HttpClient {
 
         this(host, port, numThreads, connectionPoolMinSize,
              inactivityPeriodSeconds, false /* not minimal */,
-             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name, logger);
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name,
+             logger,
+             100 /* max connections */,
+             10_000 /* max pending connections */);
+    }
+
+    /**
+     * Creates a new HttpClient class capable of sending Netty HttpRequest
+     * instances and receiving replies. This is a concurrent, asynchronous
+     * interface capable of sending and receiving on multiple HTTP channels
+     * at the same time.
+     *
+     * @param host the hostname for the HTTP server
+     * @param port the port for the HTTP server
+     * @param numThreads the number of async threads to use for Netty
+     * notifications. If 0, a default value is used based on the number of
+     * cores
+     * @param connectionPoolMinSize the number of connections to keep in the
+     * pool and keep alive using a minimal HTTP request. If 0, none are kept
+     * alive
+     * @param inactivityPeriodSeconds the number of seconds to keep an
+     * inactive channel/connection before removing it. 0 means use the default,
+     * a negative number means there is no timeout and channels are not
+     * removed
+     * @param maxContentLength maximum size in bytes of requests/responses.
+     * If 0, a default value is used (32MB).
+     * @param maxChunkSize maximum size in bytes of chunked response messages.
+     * If 0, a default value is used (64KB).
+     * @param sslCtx if non-null, SSL context to use for connections.
+     * @param handshakeTimeoutMs if not zero, timeout to use for SSL handshake
+     * @param name A name to use in logging messages for this client.
+     * @param logger A logger to use for logging messages.
+     * @param maxConnections Maximum size of the connection pool
+     * @param maxPendingConnections The maximum number of pending acquires
+     * for the pool
+     */
+    public HttpClient(String host,
+                      int port,
+                      int numThreads,
+                      int connectionPoolMinSize,
+                      int inactivityPeriodSeconds,
+                      int maxContentLength,
+                      int maxChunkSize,
+                      SslContext sslCtx,
+                      int handshakeTimeoutMs,
+                      String name,
+                      Logger logger,
+                      int maxConnections,
+                      int maxPendingConnections) {
+
+        this(host, port, numThreads, connectionPoolMinSize,
+             inactivityPeriodSeconds, false /* not minimal */,
+             maxContentLength, maxChunkSize, sslCtx, handshakeTimeoutMs, name,
+             logger, maxConnections, maxPendingConnections);
     }
 
     /*
@@ -225,7 +271,9 @@ public class HttpClient {
                        SslContext sslCtx,
                        int handshakeTimeoutMs,
                        String name,
-                       Logger logger) {
+                       Logger logger,
+                       int maxConnections,
+                       int maxPendingConnections) {
 
         this.logger = logger;
         this.sslCtx = sslCtx;
@@ -247,13 +295,6 @@ public class HttpClient {
             numThreads = cores*2;
         }
 
-        /* default pool min */
-        if (connectionPoolMinSize == 0) {
-            connectionPoolMinSize = DEFAULT_MIN_POOL_SIZE;
-        } else if (connectionPoolMinSize < 0) {
-            connectionPoolMinSize = 0; // no min size
-        }
-
         workerGroup = new NioEventLoopGroup(numThreads);
         Bootstrap b = new Bootstrap();
 
@@ -263,32 +304,11 @@ public class HttpClient {
         b.option(ChannelOption.TCP_NODELAY, true);
         b.remoteAddress(host, port);
 
-        poolHandler =
-            new HttpClientChannelPoolHandler(this);
-        pool = new ConnectionPool(b, poolHandler, logger,
-                                  isMinimalClient,
-                                  connectionPoolMinSize,
-                                  inactivityPeriodSeconds);
-
-        /*
-         * Don't do keepalive if min size is not set. That configuration
-         * doesn't care about keep connections alive. Also don't set for
-         * minimal clients.
-         */
-        if (!isMinimalClient && connectionPoolMinSize > 0) {
-            /* this is the main request client */
-            pool.setKeepAlive(new ConnectionPool.KeepAlive() {
-                    @Override
-                    public boolean keepAlive(Channel ch) {
-                        return doKeepAlive(ch);
-                    }
-                });
-        }
-
-        /* TODO: eventually add this to Config? */
-        acquireRetryIntervalMs = Integer.getInteger(
-                                    "oracle.nosql.driver.acquire.retryinterval",
-                                    1000);
+        ChannelPoolHandler handler = new HttpClientChannelPoolHandler(this);
+        pool = new IdleEvictFixedChannelPool(b, handler,
+                                             maxConnections,
+                                             maxPendingConnections,
+                                             inactivityPeriodSeconds);
     }
 
     SslContext getSslContext() {
@@ -366,20 +386,24 @@ public class HttpClient {
     }
 
     public int getAcquiredChannelCount() {
-        return pool.getAcquiredChannelCount();
+        return pool.getStats().acquired;
     }
 
     public int getTotalChannelCount() {
-        return pool.getTotalChannels();
+        return pool.getStats().total;
     }
 
     public int getFreeChannelCount() {
-        return pool.getFreeChannels();
+        return pool.getStats().idle;
+    }
+
+    public int getPendingAcquires() {
+        return pool.getStats().pending;
     }
 
     /* available for testing */
     ConnectionPool getConnectionPool() {
-        return pool;
+        return null;
     }
 
     /**
@@ -399,6 +423,22 @@ public class HttpClient {
             syncUninterruptibly();
     }
 
+    private CompletableFuture<Channel> getChannel() {
+        CompletableFuture<Channel> acquireFuture = new CompletableFuture<>();
+        pool.acquire().addListener((FutureListener<Channel>) channelFuture -> {
+            if (channelFuture.isSuccess()) {
+                Channel channel = channelFuture.getNow();
+                if (!acquireFuture.complete(channel)) {
+                    /* future already completed release channel back to pool */
+                    pool.release(channel);
+                }
+            } else {
+                acquireFuture.completeExceptionally(channelFuture.cause());
+            }
+        });
+        return acquireFuture;
+    }
+
     public void releaseChannel(Channel channel) {
         /* Clear any response handler state from channel before releasing it */
         channel.attr(STATE_KEY).set(null);
@@ -415,7 +455,8 @@ public class HttpClient {
      */
     public void removeChannel(Channel channel) {
         logFine(logger, "closing and removing channel " + channel);
-        pool.removeChannel(channel);
+        /* below line is unnecessary. Pool will take care of closed channels */
+        //pool.removeChannel(channel);
     }
 
     /**
@@ -436,48 +477,56 @@ public class HttpClient {
             new CompletableFuture<>();
         long deadlineNs = System.nanoTime() +
                           TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-        pool.acquire().addListener((FutureListener<Channel>) channelFuture -> {
-            if (channelFuture.isSuccess()) {
-                Channel channel = channelFuture.getNow();
 
-                if (isTimeout(deadlineNs)) {
-                    String msg = "Timed out trying to acquire channel";
-                    logInfo(logger, "HttpClient " + name + " " + msg);
-                    /* release channel and request Bytebuf */
-                    releaseChannel(channel);
-                    ReferenceCountUtil.release(request);
+        /* Acquire a channel from the pool */
+        CompletableFuture<Channel> acuireFuture = getChannel();
+
+        /* setup timeout on channel acquisition */
+        acuireFuture.orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
+
+        /* when acquire future completes exceptionally, release request bytebuf
+         * and complete the response future
+         */
+        acuireFuture.whenComplete((ch, err) -> {
+            if (err != null) {
+                ReferenceCountUtil.release(request);
+                /* Unwrap to check the real cause */
+                Throwable cause = err instanceof CompletionException ?
+                    err.getCause() : err;
+                if (cause instanceof TimeoutException) {
+                    final String msg = "Timed out trying to acquire channel";
                     responseFuture.completeExceptionally(
-                        new TimeoutException(msg));
-                    return;
+                        new CompletionException(new TimeoutException(msg)));
                 }
+                /* Re-throw original if it wasn't a timeout */
+                responseFuture.completeExceptionally(cause);
+            }
+        });
 
-                long remainingTimeoutNs = deadlineNs - System.nanoTime();
-                long remainingTimeoutMs = Math.max(1,
-                    TimeUnit.NANOSECONDS.toMillis(remainingTimeoutNs));
+        /* send request on acquired channel */
+        acuireFuture.thenAccept(channel -> {
+            long remainingTimeoutNs = deadlineNs - System.nanoTime();
+            long remainingTimeoutMs = Math.max(1,
+                TimeUnit.NANOSECONDS.toMillis(remainingTimeoutNs));
 
-                /* Execute the request on the acquired channel */
-                CompletableFuture<FullHttpResponse> requestExecutionFuture =
+            /* Execute the request on the acquired channel */
+            CompletableFuture<FullHttpResponse> requestExecutionFuture =
                     runRequest(request, channel, remainingTimeoutMs);
 
-                /* When the request execution future completes (either
-                 * successfully or exceptionally),
-                 * complete the public responseFuture and ensure the channel
-                 * is released back to the pool.
-                 */
-                requestExecutionFuture.whenComplete((response, throwable) -> {
-                    /* Always release the channel */
-                    releaseChannel(channel);
-                    if (throwable != null) {
-                        responseFuture.completeExceptionally(throwable);
-                    } else {
-                        responseFuture.complete(response);
-                    }
-                });
-            } else {
-                /* channel acquisition failed */
-                //TODO send proper exception
-                responseFuture.completeExceptionally(channelFuture.cause());
-            }
+            /* When the request execution future completes (either
+             * successfully or exceptionally),
+             * complete the public responseFuture and ensure the channel
+             * is released back to the pool.
+             */
+            requestExecutionFuture.whenComplete((response, throwable) -> {
+                /* Always release the channel */
+                releaseChannel(channel);
+                if (throwable != null) {
+                    responseFuture.completeExceptionally(throwable);
+                } else {
+                    responseFuture.complete(response);
+                }
+            });
         });
         return responseFuture;
     }
@@ -519,12 +568,9 @@ public class HttpClient {
         return responseFuture;
     }
 
-    private static boolean isTimeout(long deadlineNs) {
-        return System.nanoTime() >= deadlineNs;
-    }
-
     /**
-     * Use HTTP HEAD method to refresh the channel
+     * Use HTTP HEAD method to refresh the channel.
+     * TODO Remove this once approved
      */
     boolean doKeepAlive(Channel ch) {
         final int keepAliveTimeout = 3000; /* ms */

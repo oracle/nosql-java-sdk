@@ -80,6 +80,7 @@ public class ProxyTestBase {
     protected static String TRACE = "test.trace";
     protected static int DEFAULT_DDL_TIMEOUT = 15000;
     protected static int DEFAULT_DML_TIMEOUT = 5000;
+    protected static int DEFAULT_REQUEST_TIMEOUT = 5000;
     protected static String TEST_TABLE_NAME = "drivertest";
     protected static int INACTIVITY_PERIOD_SECS = 2;
     protected static String NETTY_LEAK_PROP="test.detectleaks";
@@ -472,7 +473,7 @@ public class ProxyTestBase {
          * 5 retries, default retry algorithm
          */
         config.configureDefaultRetryHandler(5, 0);
-        config.setRequestTimeout(30000);
+        config.setRequestTimeout(DEFAULT_REQUEST_TIMEOUT);
 
         /* remove idle connections after this many seconds */
         config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
@@ -494,7 +495,7 @@ public class ProxyTestBase {
          * 5 retries, default retry algorithm
          */
         config.configureDefaultRetryHandler(5, 0);
-        config.setRequestTimeout(30000);
+        config.setRequestTimeout(DEFAULT_REQUEST_TIMEOUT);
 
         /* remove idle connections after this many seconds */
         config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);

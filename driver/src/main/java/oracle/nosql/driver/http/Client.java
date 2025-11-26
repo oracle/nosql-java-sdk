@@ -410,7 +410,9 @@ public class Client {
             sslCtx,
             httpConfig.getSSLHandshakeTimeout(),
             "NoSQL Driver",
-            logger);
+            logger,
+            httpConfig.getConnectionPoolSize(),
+            httpConfig.getPoolMaxPending());
     }
 
     /**
