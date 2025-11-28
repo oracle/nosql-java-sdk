@@ -12,7 +12,12 @@ import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.ops.TableLimits.CapacityMode;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * TableResult is returned from {@link NoSQLHandle#getTable} and
@@ -782,6 +787,111 @@ public class TableResult extends Result {
                                          ie.getMessage());
             }
         }
+    }
+
+    /**
+     * Asynchronously waits for a table operation to complete. Table operations
+     * are asynchronous. This is a polling style wait that delays for
+     * the specified number of milliseconds between each polling operation.
+     * The returned future completes when the table reaches a
+     * <em>terminal</em> state,
+     * which is either {@link State#ACTIVE} or {@link State#DROPPED}.
+     * <p>
+     * This instance must be the return value of a previous
+     * {@link NoSQLHandle#tableRequest} and contain a non-null operation id
+     * representing the in-progress operation unless the operation has
+     * already completed.
+     * <p>
+     * This instance is modified with any change in table state or metadata.
+     *
+     * @param handle the Async NoSQLHandle to use
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
+     * value must be non-zero and greater than delayMillis
+     * @param delayMillis the amount of time to wait between polling attempts,
+     * in milliseconds. If 0 it will default to 500.
+     *
+     * @return Returns a {@link CompletableFuture} which completes
+     * successfully when operation is completed within waitMillis otherwise
+     * completes exceptionally with {@link IllegalArgumentException}
+     * if the parameters are not valid.
+     * Completes exceptionally with {@link RequestTimeoutException}
+     * if the operation times out.
+     */
+    public CompletableFuture<Void> waitForCompletionAsync
+            (NoSQLHandleAsyncImpl handle, int waitMillis, int delayMillis) {
+
+        if (isTerminal()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (operationId == null) {
+            Throwable t = new IllegalArgumentException(
+                "Operation state must not be null");
+            return CompletableFuture.failedFuture(t);
+        }
+
+        /* TODO: try to share code with waitForState? */
+        final int DELAY_MS = 500;
+
+        final int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
+        if (waitMillis < delayMillis) {
+            Throwable t = new IllegalArgumentException(
+                "Wait milliseconds must be a minimum of " +
+                DELAY_MS + " and greater than delay milliseconds");
+            return CompletableFuture.failedFuture(t);
+        }
+
+        final long startTime = System.currentTimeMillis();
+        final CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+        final ScheduledExecutorService taskExecutor = handle.getTaskExecutor();
+
+        GetTableRequest getTable =
+            new GetTableRequest().setTableName(tableName).
+            setOperationId(operationId).setCompartment(
+                compartmentOrNamespace);
+
+        Runnable poll = new Runnable() {
+            @Override
+            public void run() {
+                long curTime = System.currentTimeMillis();
+                if ((curTime - startTime) > waitMillis) {
+                    Throwable t = new RequestTimeoutException(
+                        waitMillis,
+                        "Operation not completed in expected time");
+                    resultFuture.completeExceptionally(t);
+                    return;
+                }
+                handle.getTable(getTable).whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        resultFuture.completeExceptionally(ex);
+                        return;
+                    }
+                    /*
+                     * partial "copy" of possibly modified state. Don't modify
+                     * operationId as that is what we are waiting to complete
+                     */
+                    state = res.getTableState();
+                    limits = res.getTableLimits();
+                    schema = res.getSchema();
+                    matchETag = res.getMatchETag();
+                    ddl = res.getDdl();
+                    isFrozen = res.isFrozen();
+                    isLocalReplicaInitialized = res.isLocalReplicaInitialized();
+                    replicas = res.getReplicas();
+
+                    if (isTerminal()) {
+                        resultFuture.complete(null);
+                    } else {
+                        /* Schedule next poll */
+                        taskExecutor.schedule(this, delayMS,
+                            TimeUnit.MILLISECONDS);
+                    }
+                });
+            }
+        };
+        /* Kick off the first poll immediately */
+        taskExecutor.execute(poll);
+        return resultFuture;
     }
 
     private boolean isTerminal() {

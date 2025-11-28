@@ -3,3 +3,5 @@ target
 *.diff
 Fortify*
 logging.properties
+.idea
+.oca

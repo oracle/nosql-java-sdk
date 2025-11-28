@@ -10,6 +10,11 @@ package oracle.nosql.driver.ops;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * On-premises only.
@@ -232,5 +237,85 @@ public class SystemResult extends Result {
                                          ie.getMessage());
             }
         } while (!state.equals(State.COMPLETE));
+    }
+
+    /**
+     * Asynchronously waits for the operation to be complete.
+     * This is a polling style wait that delays for the specified number of
+     * milliseconds between each polling operation.
+     *
+     * This instance is modified with any changes in state.
+     *
+     * @param handle the Async NoSQLHandle to use
+     * @param waitMillis the total amount of time to wait, in milliseconds. This
+     * value must be non-zero and greater than delayMillis
+     * @param delayMillis the amount of time to wait between polling attempts,
+     * in milliseconds. If 0 it will default to 500.
+     *
+     * @return Returns a {@link CompletableFuture} which completes
+     * successfully when operation is completed within waitMillis otherwise
+     * completes exceptionally with {@link IllegalArgumentException}
+     * if the operation times out or the parameters are not valid.
+     * Completes exceptionally with {@link NoSQLException}
+     * if the operation id used is unknown or the operation has failed.
+     */
+    public CompletableFuture<Void> waitForCompletionAsync(
+            NoSQLHandleAsyncImpl handle, int waitMillis, int delayMillis) {
+
+        if (state.equals(State.COMPLETE)) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        final int DELAY_MS = 500;
+
+        final int delayMS = (delayMillis != 0 ? delayMillis : DELAY_MS);
+        if (waitMillis < delayMillis) {
+            Throwable t = new  IllegalArgumentException(
+                "Wait milliseconds must be a minimum of " +
+                DELAY_MS + " and greater than delay milliseconds");
+            return CompletableFuture.failedFuture(t);
+        }
+        final long startTime = System.currentTimeMillis();
+        SystemStatusRequest ds = new SystemStatusRequest()
+            .setOperationId(operationId);
+
+        final CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+        final ScheduledExecutorService taskExecutor = handle.getTaskExecutor();
+
+        Runnable poll = new Runnable() {
+            @Override
+            public void run() {
+                final long curTime = System.currentTimeMillis();
+                if ((curTime - startTime) > waitMillis) {
+                    Throwable t = new RequestTimeoutException(
+                        waitMillis,
+                        "Operation not completed within timeout: " +
+                        statement);
+                    resultFuture.completeExceptionally(t);
+                    return;
+                }
+                handle.systemStatus(ds)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        resultFuture.completeExceptionally(ex);
+                        return;
+                    }
+                    /* Update state */
+                    resultString = res.resultString;
+                    state = res.state;
+
+                    if (state.equals(State.COMPLETE)) {
+                        resultFuture.complete(null);
+                    } else {
+                        /* Schedule next poll */
+                        taskExecutor.schedule(this, delayMS,
+                            TimeUnit.MILLISECONDS);
+                    }
+                });
+            }
+        };
+        /* Kick off the first poll immediately */
+        taskExecutor.execute(poll);
+        return resultFuture;
     }
 }

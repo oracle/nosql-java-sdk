@@ -102,6 +102,8 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public static final boolean DEFAULT_ENABLE_LOG = true;
 
+    private static final int DEFAULT_CONNECTION_POOL_SIZE = 100;
+    private static final int DEFAULT_CONNECTION_PENDING_SIZE = 10_000;
 
     /*
      * The url used to contact an HTTP proxy
@@ -276,6 +278,16 @@ public class NoSQLHandleConfig implements Cloneable {
      * Additional extension to user agent http header.
      */
     private String extensionUserAgent;
+
+    /**
+     * Maximum size of the connection pool
+     */
+    private int connectionPoolSize = DEFAULT_CONNECTION_POOL_SIZE;
+
+    /**
+     * The maximum number of pending acquires for the pool
+     */
+    private int poolMaxPending = DEFAULT_CONNECTION_PENDING_SIZE;
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -724,19 +736,23 @@ public class NoSQLHandleConfig implements Cloneable {
      * Sets the maximum number of individual connections to use to connect
      * to the service. Each request/response pair uses a connection. The
      * pool exists to allow concurrent requests and will bound the number of
-     * concurrent requests. Additional requests will wait for a connection to
-     * become available. If requests need to wait for a significant time
-     * additional connections may be created regardless of the pool size.
-     * The default value if not set is number of available CPUs * 2.
+     * concurrent requests. Additional requests upto
+     * {@link NoSQLHandleConfig#poolMaxPending} will wait for a connection
+     * to become available.
+     * Default value is {@value DEFAULT_CONNECTION_POOL_SIZE}
      *
      * @param poolSize the pool size
      *
      * @return this
-     * @deprecated The connection pool no longer supports a size setting.
-     * It will expand as needed based on concurrent demand.
+     *
+     * @since 6.0.0
      */
-    @Deprecated
     public NoSQLHandleConfig setConnectionPoolSize(int poolSize) {
+        if (poolSize <= 0) {
+            throw new IllegalArgumentException(
+                "Connection pool size must be positive");
+        }
+        this.connectionPoolSize = poolSize;
         return this;
     }
 
@@ -789,16 +805,20 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Sets the maximum number of pending acquire operations allowed on the
      * connection pool. This number is used if the degree of concurrency
-     * desired exceeds the size of the connection pool temporarily. The
-     * default value is 3.
+     * desired exceeds the size of the connection pool temporarily.
+     * Default value is {@value DEFAULT_CONNECTION_PENDING_SIZE}.
      *
      * @param poolMaxPending the maximum number allowed
      *
      * @return this
-     * @deprecated The connection pool no longer supports pending requests.
+     * @since 6.0.0
      */
-    @Deprecated
     public NoSQLHandleConfig setPoolMaxPending(int poolMaxPending) {
+        if (poolMaxPending <= 0) {
+            throw new IllegalArgumentException("pool max pending value must " +
+                    "be positive");
+        }
+        this.poolMaxPending = poolMaxPending;
         return this;
     }
 
@@ -869,13 +889,12 @@ public class NoSQLHandleConfig implements Cloneable {
      * concurrent requests. Additional requests will wait for a connection to
      * become available.
      *
-     * @return 0
-     * @deprecated The connection pool no longer supports a size setting.
-     * It will expand as needed based on concurrent demand.
+     * @return the pool size
+     *
+     * @since 6.0.0
      */
-    @Deprecated
     public int getConnectionPoolSize() {
-        return 0;
+        return connectionPoolSize;
     }
 
     /**
@@ -908,12 +927,11 @@ public class NoSQLHandleConfig implements Cloneable {
      * Returns the maximum number of pending acquire operations allowed on
      * the connection pool.
      *
-     * @return 0
-     * @deprecated The connection pool no longer supports pending requests.
+     * @return the max pool pending
+     * @since 6.0.0
      */
-    @Deprecated
     public int getPoolMaxPending() {
-        return 0;
+        return poolMaxPending;
     }
 
     /**

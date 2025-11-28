@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.util;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,5 +68,20 @@ public class LogUtil {
 
     public static boolean isLoggable(Logger logger, Level level) {
         return (logger != null && logger.isLoggable(level));
+    }
+
+    /**
+     * Returns the stack trace.
+     *
+     * @param t the exception
+     */
+    public static String getStackTrace(Throwable t) {
+        if (t == null) {
+            return null;
+        }
+        final StringWriter sw = new StringWriter();
+        final PrintWriter pw = new PrintWriter(sw);
+        t.printStackTrace(pw);
+        return sw.toString();
     }
 }

@@ -7,8 +7,7 @@
 
 package oracle.nosql.driver.iam;
 
-import io.netty.channel.Channel;
-import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.SslContext;
 import oracle.nosql.driver.AuthorizationProvider;
@@ -18,7 +17,6 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.values.MapValue;
@@ -26,6 +24,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.net.URL;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
@@ -79,7 +79,7 @@ public class AuthRetryTest extends DriverTestBase {
 
     private class TestClient extends Client {
         public TestClient(Logger logger, NoSQLHandleConfig config) {
-            super(logger, config);
+            super(logger, config, Executors.newSingleThreadScheduledExecutor());
         }
 
         @Override
@@ -101,9 +101,8 @@ public class AuthRetryTest extends DriverTestBase {
         }
 
         @Override
-        public void runRequest(HttpRequest request,
-                               ResponseHandler handler,
-                               Channel channel) {
+        public CompletableFuture<FullHttpResponse>
+            runRequest(HttpRequest request, int timeoutMS) {
             /*
              * Simulate an authentication failure scenario where the initial
              * attempt throws SecurityInfoNotReadyException, and subsequent
@@ -111,26 +110,14 @@ public class AuthRetryTest extends DriverTestBase {
              */
             int count = execCount.incrementAndGet();
             if (count == 1) {
-                throw new SecurityInfoNotReadyException("test");
+                CompletableFuture.failedFuture(
+                    new SecurityInfoNotReadyException("test"));
             } else {
                 iaeCount.incrementAndGet();
-                throw new InvalidAuthorizationException("test");
+                CompletableFuture.failedFuture(
+                    new InvalidAuthorizationException("test"));
             }
-        }
-
-        @Override
-        public Channel getChannel(int timeoutMs) {
-            /*
-             * Utilize Netty's EmbeddedChannel to create a mock channel that
-             * remains active, enabling the request execution to proceed with
-             * a valid channel for error simulation purposes.
-             */
-            return new EmbeddedChannel() {
-                @Override
-                public boolean isActive() {
-                    return true;
-                }
-            };
+            return null;
         }
     }
 }

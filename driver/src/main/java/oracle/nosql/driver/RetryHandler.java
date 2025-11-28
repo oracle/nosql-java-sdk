@@ -69,4 +69,21 @@ public interface RetryHandler {
      * @param re the exception that was thrown
      */
     void delay(Request request, int numRetries, RetryableException re);
+
+    /**
+     * This method is called when a {@link RetryableException} is thrown and it
+     * is determined that the request will be retried based on the return value
+     * of {@link #doRetry}. It returns the number of milliseconds to delay
+     * before retrying the request.
+     *
+     * @param request the Request that has triggered the exception
+     *
+     * @param numRetries the number of retries that have occurred for the
+     *  operation
+     *
+     * @param re the exception that was thrown
+     *
+     * @return Retry delay time in milliseconds
+     */
+    int delayTime(Request request, int numRetries, RetryableException re);
 }

@@ -7,18 +7,23 @@
 
 package oracle.nosql.driver.httpclient;
 
+import static oracle.nosql.driver.httpclient.HttpClient.STATE_KEY;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.LogUtil.isFineEnabled;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logWarning;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.timeout.ReadTimeoutException;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 
 /**
  *
@@ -34,8 +39,8 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        final RequestState state =
-            ctx.channel().attr(HttpClient.STATE_KEY).get();
+        final CompletableFuture<FullHttpResponse> responseFuture =
+            ctx.channel().attr(STATE_KEY).getAndSet(null);
 
         /*
          * TODO/think about:
@@ -44,10 +49,15 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
          *  o redirects
          */
 
+        /* Remove timeout handler upon response arrival */
+        if (ctx.pipeline().get(ReadTimeoutHandler.class) != null) {
+           ctx.pipeline().remove(ReadTimeoutHandler.class);
+        }
+
         if (msg instanceof FullHttpResponse) {
             FullHttpResponse fhr = (FullHttpResponse) msg;
 
-            if (state == null) {
+            if (responseFuture == null) {
                 /*
                  * This message came in after the client was done processing
                  * a request in a different thread.
@@ -65,14 +75,7 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
                 fhr.release();
                 return;
             }
-
-            state.setResponse(fhr);
-
-            /*
-             * Notify the response handler
-             */
-            state.getHandler().receive(state);
-
+            responseFuture.complete(fhr);
             return;
         }
         logWarning(logger,
@@ -82,24 +85,31 @@ public class HttpClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        final RequestState state =
-            ctx.channel().attr(HttpClient.STATE_KEY).get();
-        if (state != null) {
+        final CompletableFuture<FullHttpResponse> responseFuture =
+            ctx.channel().attr(STATE_KEY).getAndSet(null);
+        if (responseFuture != null) {
             /* handleException logs */
-            state.getHandler().handleException("HttpClientHandler read failed",
-                                               cause);
+            logFine(logger, "HttpClientHandler read failed, cause: " + cause);
+            Throwable err = cause;
+            if (err instanceof ReadTimeoutException) {
+                err = new TimeoutException("Request timed out while waiting "
+                    + "for the response from the server");
+            }
+            responseFuture.completeExceptionally(err);
         }
         ctx.close();
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        final RequestState state =
-            ctx.channel().attr(HttpClient.STATE_KEY).get();
+    public void channelInactive(ChannelHandlerContext ctx) {
+        final CompletableFuture<FullHttpResponse> responseFuture =
+            ctx.channel().attr(STATE_KEY).getAndSet(null);
         /* handleException logs */
-        if (state != null) {
+        if (responseFuture != null && !responseFuture.isDone()) {
             String msg = "Channel is inactive: " + ctx.channel();
-            state.getHandler().handleException(msg, new IOException(msg));
+            Throwable cause = new IOException(msg);
+            logFine(logger, msg + ", cause: " + cause);
+            responseFuture.completeExceptionally(cause);
         }
         /* should the context be closed? */
         ctx.close();

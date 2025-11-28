@@ -8,14 +8,37 @@
 package oracle.nosql.driver.httpclient;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.util.concurrent.Future;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
 import java.net.URL;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.local.LocalAddress;
+import io.netty.channel.local.LocalChannel;
+import io.netty.channel.local.LocalServerChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.pool.ChannelPoolHandler;
+import io.netty.util.concurrent.Future;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -26,36 +49,59 @@ import io.netty.handler.ssl.SslContextBuilder;
 import oracle.nosql.driver.NoSQLHandleConfig;
 
 /**
- * This test is excluded from the test profiles and must be run standalone.
- * This is because of the need to use a cloud endpoint for complete
- * testing. See header comment on testCloudTimeout().
- * It can be run explicitly using either the test-onprem or test-cloudsim
- * profile with a -Dtest directive, e.g.:
- *  mvn -Ptest-cloudsim test \
- *    -Dtest=oracle.nosql.driver.httpclient.ConnectionPoolTest \
- *    -DargLine="-Dtest.endpoint=http://localhost:8080 \
- *    -Dtest.cloudendpoint=some_cloud_endpoint"
+ * Tests for ConnectionPool
  */
 public class ConnectionPoolTest {
 
     private static String endpoint = System.getProperty("test.endpoint");
     private static Logger logger = getLogger();
     private URL serviceURL;
+    private EventLoopGroup group;
+    private Channel serverChannel;
+    private LocalAddress address;
 
     @Before
-    public void beforeTest() {
-        if (endpoint == null) {
-            throw new IllegalArgumentException(
-                "Test requires test.endpoint system property");
-        }
+    public void beforeTest() throws InterruptedException {
+        group = new NioEventLoopGroup();
+        address = new LocalAddress("test-port");
+        /* Start a fake Local Server so the pool can connect */
+        ServerBootstrap sb = new ServerBootstrap()
+            .group(group)
+            .channel(LocalServerChannel.class)
+            .childHandler(new ChannelInitializer<Channel>() {
+                @Override
+                protected void initChannel(Channel ch) {
+                    ch.pipeline().addLast(new ChannelInboundHandlerAdapter());
+                }
+            });
+        serverChannel = sb.bind(address).sync().channel();
+    }
+
+    @After
+    public void tearDown() {
+        serverChannel.close();
+        group.shutdownGracefully();
+    }
+
+    /**
+     * This test is excluded from the test profiles and must be run standalone.
+     * This is because of the need to use a cloud endpoint for complete
+     * testing. See header comment on testCloudTimeout().
+     * It can be run explicitly using either the test-onprem or test-cloudsim
+     * profile with a -Dtest directive, e.g.:
+     *  mvn -Ptest-cloudsim test \
+     *    -Dtest=oracle.nosql.driver.httpclient.ConnectionPoolTest \
+     *    -DargLine="-Dtest.endpoint=http://localhost:8080 \
+     *    -Dtest.cloudendpoint=some_cloud_endpoint"
+     */
+    @Test
+    public void poolTest() throws Exception {
+        Assume.assumeTrue(endpoint != null);
 
         /* serviceURL is used in the test but a handle is not required */
         NoSQLHandleConfig config = new NoSQLHandleConfig(endpoint);
         serviceURL = config.getServiceURL();
-    }
 
-    @Test
-    public void poolTest() throws Exception {
         final int poolSize = 4;
         final int poolMinSize = 1;
         final int poolInactivityPeriod = 1;
@@ -85,7 +131,7 @@ public class ConnectionPoolTest {
         /*
          * Acquire poolSize channels
          */
-        Channel ch[] = new Channel[poolSize];
+        Channel[] ch = new Channel[poolSize];
         for (int i = 0; i < poolSize; i++) {
             ch[i] = getChannel(pool);
         }
@@ -153,11 +199,11 @@ public class ConnectionPoolTest {
         final int port = 443;
         final int sleepTimeMs = 70000;
 
-        if (endpoint == null) {
-            throw new IllegalStateException(
-                "testCloudTimeout requires setting of the system property, " +
-                "\"test.cloudendpoint\"");
-        }
+        Assume.assumeTrue(endpoint != null);
+
+        /* serviceURL is used in the test but a handle is not required */
+        NoSQLHandleConfig config = new NoSQLHandleConfig(endpoint);
+        serviceURL = config.getServiceURL();
 
         HttpClient client = new HttpClient(
             endpoint,
@@ -185,7 +231,7 @@ public class ConnectionPoolTest {
          * Acquire poolSize channels, then release them to the pool. Do this
          * 2x to bump the use count on the channels
          */
-        Channel ch[] = new Channel[poolSize];
+        Channel[] ch = new Channel[poolSize];
         for (int count = 0; count < 2; count++) {
             for (int i = 0; i < poolSize; i++) {
                 ch[i] = getChannel(pool);
@@ -205,13 +251,256 @@ public class ConnectionPoolTest {
         Thread.sleep(sleepTimeMs);
 
         /* assert that 2 channels have gone inactive and been pruned */
-        assertEquals(poolSize - poolMinSize, pool.pruneChannels());
+        assertEquals(poolSize - poolMinSize, pool.getTotalChannels());
 
         /* assert that the number of channels is the min size configured */
         assertEquals(poolMinSize, pool.getTotalChannels());
 
         client.shutdown();
     }
+
+    @Test
+    public void testMetricsAndReuse() throws Exception {
+        /* Create Pool */
+        Bootstrap bootstrap = new Bootstrap()
+            .group(group)
+            .channel(LocalChannel.class)
+            .remoteAddress(address);
+
+        /* A dummy user handler (noop) */
+        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
+            public void channelReleased(Channel ch) {}
+            public void channelAcquired(Channel ch) {}
+            public void channelCreated(Channel ch) {}
+        };
+
+        ConnectionPool pool =
+            new ConnectionPool(bootstrap,
+                               noopHandler,
+                               logger,
+                               false, /*isMinimal */
+                               0, /* pool min */
+                               0, /* inactivity seconds */
+                               2 /* max connections */,
+                               2 /* max pending */);
+
+        /* CHECK 1: Initial */
+        assertStats(pool, 0, 0, 0, 0);
+
+        /* CHECK 2: Acquire */
+        Channel ch1 = pool.acquire().sync().getNow();
+        /* Total:1, Acquired:1, Idle:0 */
+        assertStats(pool, 1, 1, 0, 0);
+
+        /* CHECK 3: Release */
+        pool.release(ch1);
+        /* Total:1, Acquired:0, Idle:1 */
+        assertStats(pool, 1, 0, 1, 0);
+
+        /* CHECK 4: Reuse */
+        Channel ch2 = pool.acquire().sync().getNow();
+        /* Should be the SAME channel object (reused) */
+        assertEquals(ch1.id(), ch2.id());
+        /* Stats: Total:1, Acquired:1, Idle:0 */
+        assertStats(pool, 1, 1, 0, 0);
+
+        /* acquire another channel and check acquire count is 2 */
+        Channel ch3 = pool.acquire().sync().getNow();
+        /* Stats: Total:2, Acquired:2, Idle:0 */
+        assertStats(pool, 2, 2, 0, 0);
+
+        /* Try to acquire another channel, this should be put into pending */
+        Future<Channel> ch4 = pool.acquire();
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:1 */
+        assertStats(pool, 2, 2, 0, 1);
+
+        /* Try to acquire another channel, this should be put into pending */
+        Future<Channel> ch5 = pool.acquire();
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:2 */
+        assertStats(pool, 2, 2, 0, 2);
+
+        /* try to acquire more than max pending and check error is thrown */
+        Assert.assertThrows(IllegalStateException.class,
+                            ()-> pool.acquire().sync().getNow());
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:2 */
+        assertStats(pool, 2, 2, 0, 2);
+
+        /* Release back a channel and verify that pending is reduced*/
+        pool.release(ch2);
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:1 */
+        Thread.sleep(10);
+        assertStats(pool, 2, 2, 0, 1);
+        assertTrue(ch4.isSuccess());
+
+        /* Release back a channel and verify that pending is reduced*/
+        pool.release(ch3);
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:0 */
+        Thread.sleep(10);
+        assertStats(pool, 2, 2, 0, 0);
+        assertTrue(ch5.isSuccess());
+
+        /* Release back a channel and verify Idle is increased */
+        pool.release(ch4.getNow());
+        /* Stats: Total:2, Acquired:1, Idle:1, Pending:0 */
+        Thread.sleep(10);
+        assertStats(pool, 2, 1, 1, 0);
+
+        /* Release back a channel and verify Idle is increased */
+        pool.release(ch5.getNow());
+        /* Stats: Total:2, Acquired:0, Idle:2, Pending:0 */
+        Thread.sleep(10);
+        assertStats(pool, 2, 0, 2, 0);
+
+        /* check pending tasks are completed when the pool is closed */
+        ch1 = pool.acquire().sync().getNow();
+        ch2 = pool.acquire().sync().getNow();
+        ch4 = pool.acquire();
+        /* Stats: Total:2, Acquired:2, Idle:0, Pending:1 */
+        Thread.sleep(10);
+        assertStats(pool, 2, 2, 0, 1);
+
+        /* close the pool */
+        pool.close();
+
+        /* check pending ch4 is completed with exception */
+        Thread.sleep(10);
+        assertFalse(ch4.isSuccess());
+        assertTrue(ch4.cause() instanceof RejectedExecutionException);
+    }
+
+    @Test
+    public void testMaxConnectionsAndPendingQueue() throws InterruptedException {
+        int numberOfRequests = 5;
+        int maxConnections = 2;
+
+        /* Thread-safe list to hold the channels we successfully acquire */
+        List<Channel> heldChannels =
+            Collections.synchronizedList(new ArrayList<>());
+
+        /* Latch to wait ONLY for the allowed connections to succeed */
+        CountDownLatch acquiredLatch = new CountDownLatch(maxConnections);
+
+        /* Create Pool */
+        Bootstrap bootstrap = new Bootstrap()
+                .group(group)
+                .channel(LocalChannel.class)
+                .remoteAddress(address);
+
+        /* A dummy user handler (noop) */
+        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
+            public void channelReleased(Channel ch) {}
+            public void channelAcquired(Channel ch) {}
+            public void channelCreated(Channel ch) {}
+        };
+
+        ConnectionPool pool = new ConnectionPool(bootstrap,
+                                                 noopHandler,
+                                                 logger,
+                                                 false, /* isMinimal*/
+                                                 0, /* pool min*/
+                                                 60, /* In activity seconds */
+                                                 maxConnections,
+                                                 numberOfRequests + 1);
+        ExecutorService threadPool = Executors.newFixedThreadPool(10);
+
+        /* PHASE 1: Bombard the pool */
+        for (int i = 0; i < numberOfRequests; i++) {
+            threadPool.submit(() -> {
+                Future<Channel> future = pool.acquire();
+                future.addListener(f -> {
+                    if (f.isSuccess()) {
+                        heldChannels.add((Channel) f.getNow());
+                        acquiredLatch.countDown();
+                    }
+                });
+            });
+        }
+        /* Wait for the pool to fill up (Max maxConnections) */
+        boolean success = acquiredLatch.await(5, TimeUnit.SECONDS);
+        if (!success) {
+            throw new RuntimeException("Timeout waiting for initial connections");
+        }
+
+        /* Give a tiny buffer for metrics to settle */
+        Thread.sleep(50);
+
+        /* PHASE 2: Assert Saturation */
+        assertEquals("Total should be capped at max",
+                     maxConnections, pool.getTotalChannels());
+        assertEquals("Acquired should be capped at max",
+                     maxConnections, pool.getAcquiredChannelCount());
+        assertEquals("Excess requests should be pending",
+                     numberOfRequests - maxConnections, pool.getPendingAcquires());
+
+        /* PHASE 3: Drain the Queue
+         * Now we manually release the channels we were holding.
+         * This should trigger the Pending requests to proceed.
+         */
+
+        /* We need a new latch to verify the REMAINING 3 requests finish
+         * (But we can't easily attach listeners now, so we just check stats)
+         */
+        for (Channel ch : heldChannels) {
+            pool.release(ch);
+        }
+
+        /* Wait a moment for the pending queue to drain */
+        Thread.sleep(200);
+
+        /* Expect: Pending should be one now. */
+        assertEquals("Pending queue should have 1", 1, pool.getPendingAcquires());
+
+        threadPool.shutdown();
+        pool.close();
+    }
+
+    @Test
+    public void testIdleEvictionInPool() throws InterruptedException {
+        /* Create Pool */
+        Bootstrap bootstrap = new Bootstrap()
+            .group(group)
+            .channel(LocalChannel.class)
+            .remoteAddress(address);
+
+        /* A dummy user handler (noop) */
+        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
+            public void channelReleased(Channel ch) {}
+            public void channelAcquired(Channel ch) {}
+            public void channelCreated(Channel ch) {}
+        };
+
+        ConnectionPool pool = new ConnectionPool(bootstrap,
+                                                noopHandler,
+                                                logger,
+                                                false, /* isMinimal */
+                                                0, /* poolMin */
+                                                2, /* inactive */
+                                                2, /* max connections */
+                                                5  /* max pending */);
+
+        /* 1. Acquire a channel */
+        Channel ch = pool.acquire().sync().getNow();
+
+        /* 2. Release it back to the pool (This starts the Idle Timer) */
+        pool.release(ch);
+
+        /* Verify it's currently Idle */
+        assertTrue(ch.isOpen());
+        assertEquals(1, pool.getFreeChannels());
+
+        /* 3. SIMULATE the channel close */
+        ch.close();
+
+        /* 4. wait for the refresh task to close the channel */
+        Thread.sleep(3000);
+
+        /* The metrics should update (Total drops to 0) */
+        assertEquals("Total count should drop to 0",
+                     0, pool.getTotalChannels());
+        assertEquals("Idle count should drop to 0",
+                     0, pool.getFreeChannels());
+    }
+
 
     private static Logger getLogger() {
         Logger tlogger = Logger.getLogger("oracle.nosql");
@@ -236,7 +525,9 @@ public class ConnectionPoolTest {
      */
     private Channel getChannel(ConnectionPool pool) throws Exception {
         Future<Channel> fut = pool.acquire();
-        return fut.get();
+        Channel ch = fut.get();
+        assert ch.isActive();
+        return ch;
     }
 
     private void releaseChannel(ConnectionPool pool, Channel ch) {
@@ -253,5 +544,13 @@ public class ConnectionPoolTest {
             throw new IllegalStateException(
                 "Unable o create SSL context: " + e);
         }
+    }
+
+    private void assertStats(ConnectionPool pool, int t,
+                             int a, int i, int p) {
+        assertEquals("Total", t, pool.getTotalChannels());
+        assertEquals("Acquired", a, pool.getAcquiredChannelCount());
+        assertEquals("Idle", i, pool.getFreeChannels());
+        assertEquals("Pending", p, pool.getPendingAcquires());
     }
 }

@@ -15,7 +15,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.AuthorizationProvider;
@@ -24,6 +26,7 @@ import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.util.ConcurrentUtil;
 import oracle.nosql.driver.util.HttpRequestUtil;
 import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
 import oracle.nosql.driver.values.JsonUtils;
@@ -98,7 +101,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Login token expiration time.
      */
-    private long expirationTime;
+    private volatile long expirationTime;
 
     /*
      * A timer task used to periodically renew the login token.
@@ -153,7 +156,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     /*
      * Whether this provider is closed
      */
-    private boolean isClosed = false;
+    private volatile boolean isClosed = false;
 
     /*
      *  SslContext used by http client
@@ -170,6 +173,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     public static boolean disableSSLHook;
 
+    private final ReentrantLock lock = new ReentrantLock();
 
     /**
      * This method is used for access to a store without security enabled.
@@ -223,8 +227,9 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      *
      * Bootstrap login using the provided credentials
      */
-    public synchronized void bootstrapLogin(Request request) {
+    public void bootstrapLogin(Request request) {
 
+        ConcurrentUtil.synchronizedCall(lock, () -> {
         /* re-check the authString in case of a race */
         if (!isSecure || isClosed || authString.get() != null) {
             return;
@@ -277,7 +282,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             throw iae;
         } catch (Exception e) {
             throw new NoSQLException("Bootstrap login fail", e);
-        }
+        }});
     }
 
     /**
@@ -285,26 +290,33 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      */
     @Override
     public String getAuthorizationString(Request request) {
+        return ConcurrentUtil.awaitFuture(getAuthorizationStringAsync(request));
+    }
 
-        if (!isSecure) {
-            return null;
+    /**
+     * @hidden
+     */
+    @Override
+    public CompletableFuture<String>
+        getAuthorizationStringAsync(Request request) {
+
+        if (!isSecure || isClosed) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        /*
-         * Already close
-         */
-        if (isClosed) {
-            return null;
+        String token = authString.get();
+        if (token != null) {
+            return CompletableFuture.completedFuture(token);
         }
 
-        /*
-         * If there is no cached auth string, re-authentication to retrieve
-         * the login token and generate the auth string.
+        /* Run bootstrap login asynchronously, reusing existing sync logic. */
+        /* TODO: supplyAsync runs in JVM common fork-join pool.
+         * Do we need a separate executor?
          */
-        if (authString.get() == null) {
+        return CompletableFuture.supplyAsync(() -> {
             bootstrapLogin(request);
-        }
-        return authString.get();
+            return authString.get();
+        });
     }
 
     /**
@@ -319,13 +331,29 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         }
     }
 
+    @Override
+    public void flushCache() {
+        ConcurrentUtil.synchronizedCall(lock,
+        () -> {
+            if (!isSecure || isClosed) {
+                return;
+            }
+            authString.set(null);
+            expirationTime = 0;
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+        });
+    }
+
     /**
      * Closes the provider, releasing resources such as a stored login
      * token.
      */
     @Override
-    public synchronized void close() {
-
+    public void close() {
+        ConcurrentUtil.synchronizedCall(lock, () -> {
         /*
          * Don't do anything for non-secure case
          */
@@ -363,6 +391,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             timer.cancel();
             timer = null;
         }
+        });
     }
 
     /**

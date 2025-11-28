@@ -61,7 +61,7 @@ public abstract class Request {
     /**
      * @hidden
      */
-    private long startNanos;
+    private volatile long startNanos;
 
     /**
      * @hidden

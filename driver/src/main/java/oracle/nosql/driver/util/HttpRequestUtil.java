@@ -23,23 +23,22 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
+import io.netty.buffer.Unpooled;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
-import oracle.nosql.driver.httpclient.ResponseHandler;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
  * Utility to issue HTTP request using {@link HttpClient}.
@@ -209,41 +208,36 @@ public class HttpRequestUtil {
         final long startTime = System.currentTimeMillis();
         int numRetries = 0;
         Throwable exception = null;
-        HttpResponse res = null;
 
         do {
             if (numRetries > 0) {
                 logInfo(logger, "Client, doing retry: " + numRetries +
-                        (exception != null ? ", exception: " + exception : ""));
+                    (exception != null ? ", exception: " + exception : ""));
             }
-            Channel channel = null;
-            ResponseHandler responseHandler = null;
             try {
-                channel = httpClient.getChannel(timeoutMs);
-                responseHandler =
-                    new ResponseHandler(httpClient, logger, channel);
-
                 FullHttpRequest request;
                 if (payload == null) {
                     request = buildRequest(uri, method, headers);
                 } else {
-                    request = buildRequest(
-                        uri, headers, method, payload, channel);
+                    request = buildRequest(uri, headers, method, payload);
                 }
                 addRequiredHeaders(request);
                 logFine(logger, request.headers().toString());
-                httpClient.runRequest(request, responseHandler, channel);
-                if (responseHandler.await(timeoutMs)) {
-                    throw new TimeoutException("Request timed out after " +
-                        timeoutMs + " milliseconds");
-                }
-
-                final HttpResponseStatus status = responseHandler.getStatus();
-                if (status == null) {
-                    throw new IllegalStateException("Invalid null response");
-                }
-                res = processResponse(status.code(),
-                                      responseHandler.getContent());
+                CompletableFuture<HttpResponse> httpResponse =
+                    httpClient.runRequest(request, timeoutMs)
+                    .thenApply(fhr -> {
+                        if (fhr.status() == null) {
+                            throw new IllegalStateException(
+                                "Invalid null response");
+                        }
+                        try {
+                            final int code = fhr.status().code();
+                            return processResponse(code, fhr.content());
+                        } finally {
+                            fhr.release();
+                        }
+                    });
+                HttpResponse res = httpResponse.get();
 
                 /*
                  * Retry upon status code larger than 500, in general,
@@ -251,50 +245,53 @@ public class HttpRequestUtil {
                  */
                 if (res.getStatusCode() >= 500) {
                     logFine(logger,
-                            "Remote server temporarily unavailable," +
-                            " status code " + res.getStatusCode() +
-                            " , response " + res.getOutput());
+                        "Remote server temporarily unavailable," +
+                        " status code " + res.getStatusCode() +
+                        " , response " + res.getOutput());
                     delay();
                     ++numRetries;
                     continue;
                 }
                 return res;
-            } catch (RuntimeException e) {
-                logFine(logger, "Client execute runtime exception: " +
-                        e.getMessage());
-                throw e;
-            } catch (IOException ioe) {
-                String name = ioe.getClass().getName();
-                logFine(logger, "Client execute IOException, name: " +
-                        name + ", message: " + ioe.getMessage());
-                /*
-                 * An exception in the channel, e.g. the server may have
-                 * disconnected. Retry.
-                 */
-                exception = ioe;
-                ++numRetries;
-                if (ioe instanceof SSLException) {
-                    /* disconnect the channel to force a new one */
-                    if (channel != null) {
+            }  catch (ExecutionException ee) {
+                Throwable cause = ee.getCause();
+                if (cause instanceof IOException) {
+                    IOException ioe = (IOException) cause;
+                    String name = ioe.getClass().getName();
+                    logFine(logger, "Client execute IOException, name: " +
+                            name + ", message: " + ioe.getMessage());
+                    /*
+                     * An exception in the channel, e.g. the server may have
+                     * disconnected. Retry.
+                     */
+                    exception = ioe;
+                    ++numRetries;
+                    if (ioe instanceof SSLException) {
+                        /* disconnect the channel to force a new one */
+                    /*if (channel != null) {
                         logFine(logger,
                                 "Client disconnecting channel due to: " + ioe);
                         channel.disconnect();
+                    }*/
+                        //TODO what to do?
+                    } else {
+                        delay();
                     }
-                } else {
-                    delay();
+                    continue;
+                } else if (cause instanceof TimeoutException) {
+                    throw new RuntimeException("Timeout exception: host=" +
+                        httpClient.getHost() + " port=" +
+                        httpClient.getPort() + " uri=" +
+                        uri, cause);
                 }
-                continue;
+                throw new RuntimeException("Unable to execute request: ", ee);
+
+            } catch (RuntimeException e) {
+                logFine(logger, "Client execute runtime exception: " +
+                    e.getMessage());
+                throw e;
             } catch (InterruptedException ie) {
-                throw new RuntimeException(
-                    "Client interrupted exception: ", ie);
-            } catch (ExecutionException ee) {
-                throw new RuntimeException(
-                    "Unable to execute request: ", ee);
-            } catch (TimeoutException te) {
-                throw new RuntimeException("Timeout exception: host=" +
-                                           httpClient.getHost() + " port=" +
-                                           httpClient.getPort() + " uri=" +
-                                           uri, te);
+                throw new RuntimeException("Client interrupted exception: ", ie);
             } catch (Throwable t) {
                 /*
                  * this is likely an exception from Netty, perhaps a bad
@@ -308,10 +305,6 @@ public class HttpRequestUtil {
                 delay();
                 ++numRetries;
                 continue;
-            } finally {
-                if (responseHandler != null) {
-                    responseHandler.close();
-                }
             }
         } while ((System.currentTimeMillis()- startTime) < timeoutMs);
 
@@ -333,10 +326,8 @@ public class HttpRequestUtil {
     private static FullHttpRequest buildRequest(String requestURI,
                                                 HttpHeaders headers,
                                                 HttpMethod method,
-                                                byte[] payload,
-                                                Channel channel) {
-        final ByteBuf buffer = channel.alloc().directBuffer();
-        buffer.writeBytes(payload);
+                                                byte[] payload) {
+        final ByteBuf buffer = Unpooled.wrappedBuffer(payload);
 
         final FullHttpRequest request =
             new DefaultFullHttpRequest(HTTP_1_1, method, requestURI,

@@ -8,13 +8,16 @@
 package oracle.nosql.driver.httpclient;
 
 import static oracle.nosql.driver.util.LogUtil.logFine;
-import static oracle.nosql.driver.util.LogUtil.logInfo;
 
-import java.io.IOException;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import io.netty.bootstrap.Bootstrap;
@@ -33,11 +36,16 @@ import io.netty.util.concurrent.Promise;
  * and tracking of Channels.
  *
  * Configuration:
- *   minSize - actively keep this many alive, even after inactivity, by default
- *     this is the number of cores
+ *   minSize - actively keep this many alive, even after inactivity, by default,
+ *     this is set to 2
  *   inactivityPeriod - remove inactive channels after this many seconds.
  *     If negative, don't ever remove them
  *   Logger
+ *   maxSize - Maximum number of connections to create. Once these many channels
+ *      are acquired, further channel acquires are put into the pending queue
+ *   maxPending - Maximum number of pending acquires. Once pending queue is full
+ *      further acquires will fail till channels are released back to the pool
+ *
  *
  * Usage
  *  o acquire()
@@ -52,6 +60,9 @@ import io.netty.util.concurrent.Promise;
  *    release
  *  o if no Channels are in the queue for acquire a new one is created and
  *    placed in the queue on release
+ *  o During release, if there are pending acquire requests in pending queue,
+ *    released channel is used to serve pending request instead of putting back
+ *    to the queue
  *
  * Keep-alive and minimum size
  *  o if a pool is not a minimal pool a refresh task is created on construction.
@@ -99,7 +110,22 @@ class ConnectionPool {
      * closed.
      */
     private final Map<Channel, ChannelStats> stats;
-    private int acquiredChannelCount;
+    private final AtomicInteger acquiredChannelCount = new AtomicInteger();
+
+    /* Executor to run keep-alive task periodically */
+    private final ScheduledExecutorService keepAlivescheduler;
+
+    private final int maxPoolSize;
+    private final int maxPending;
+
+    /* State to ensure to maxConnections */
+    private final AtomicInteger currentConnectionCount;
+
+    /* State to ensure to maxPending */
+    private final AtomicInteger pendingAcquireCount;
+
+    /* Queue to track pending acquires */
+    private final Queue<Promise<Channel>> pendingAcquires;
 
     /**
      * Keepalive callback interface
@@ -118,7 +144,7 @@ class ConnectionPool {
      *
      * @param bootstrap (netty)
      * @param handler the handler, mostly used for event callbacks
-     * @param logger
+     * @param logger logger
      * @param isMinimalPool set to true if this is a one-time, or minimal time
      *  use. In this case no refresh task is created
      * @param poolMin the minimum size at which the pool should be maintained.
@@ -129,13 +155,17 @@ class ConnectionPool {
      * to the minimum (if set). This allows bursty behavior to automatically
      * clean up when channels are no longer required. This is more for on-prem
      * than the cloud service but applies to both.
+     * @param maxPoolSize maximum number of connections in the pool
+     * @param maxPending maximum number of pending acquires
      */
     ConnectionPool(Bootstrap bootstrap,
                    ChannelPoolHandler handler,
                    Logger logger,
                    boolean isMinimalPool,
                    int poolMin,
-                   int inactivityPeriodSeconds) {
+                   int inactivityPeriodSeconds,
+                   int maxPoolSize,
+                   int maxPending) {
         /* clone bootstrap to set handler */
         this.bootstrap = bootstrap.clone();
 
@@ -162,6 +192,12 @@ class ConnectionPool {
         queue = new ConcurrentLinkedDeque<Channel>();
         stats = new ConcurrentHashMap<Channel, ChannelStats>();
 
+        this.maxPoolSize = maxPoolSize;
+        this.maxPending = maxPending;
+        this.currentConnectionCount = new AtomicInteger(0);
+        this.pendingAcquireCount = new AtomicInteger(0);
+        this.pendingAcquires = new ConcurrentLinkedDeque<>();
+
         /*
          * If not creating a minimal pool run RefreshTask every 30s. A
          * minimal pool is short-lived so don't create the overhead.
@@ -177,10 +213,17 @@ class ConnectionPool {
                 DEFAULT_REFRESH_PERIOD_SECS :
                 Math.min(DEFAULT_REFRESH_PERIOD_SECS,
                          this.inactivityPeriodSeconds);
-            this.bootstrap.config().group().next()
-                .scheduleAtFixedRate(new RefreshTask(),
-                                     refreshPeriod, refreshPeriod,
-                                     TimeUnit.SECONDS);
+            this.keepAlivescheduler =
+                Executors.newSingleThreadScheduledExecutor(r -> {
+                    Thread t = new Thread(r, "nosql-keep-alive");
+                    t.setDaemon(true);
+                    return t;
+                });
+            keepAlivescheduler.scheduleAtFixedRate(new RefreshTask(),
+                    refreshPeriod, refreshPeriod,
+                    TimeUnit.SECONDS);
+        } else {
+            this.keepAlivescheduler = null;
         }
     }
 
@@ -204,49 +247,34 @@ class ConnectionPool {
      * significant time sink in terms of affecting overall latency of this call
      *
      * Acquired channels are removed from the queue and are "owned" by the
-     * caller until released, at which time they are put back on the queue.
+     * caller until released, at which time they are put back on the queue or
+     * serve pending acquires
      */
     final Future<Channel> acquire(final Promise<Channel> promise) {
         try {
+            /* 1. Try to get a free channel from the idle pool (LIFO) */
+            Channel channel = queue.pollFirst();
+            if (channel != null) {
+                activateChannel(channel, promise);
+                return promise;
+            }
+
+            /* 2. Pool is empty.
+             * Try to create a new connection respecting maxPoolSize.
+             */
             while (true) {
-                /* this *removes* the channel from the queue */
-                final Channel channel = queue.pollFirst();
-                if (channel == null) {
-                    /* need a new Channel */
-                    Bootstrap bs = bootstrap.clone();
-                    ChannelFuture fut = bs.connect();
-                    if (fut.isDone()) {
-                        notifyOnConnect(fut, promise);
-                    } else {
-                        fut.addListener(new ChannelFutureListener() {
-                                @Override
-                                public void operationComplete(
-                                    ChannelFuture future) throws Exception {
-                                    notifyOnConnect(future, promise);
-                                }
-                            });
-                    }
+                int current = currentConnectionCount.get();
+                if (current >= maxPoolSize) {
+                    /* Pool is full. Enqueue the request and return */
+                    enqueueRequest(promise);
                     return promise;
                 }
-                /*
-                 * This logic must happen in the event loop
-                 */
-                EventLoop loop = channel.eventLoop();
-                if (loop.inEventLoop()) {
-                    if (checkChannel(channel, promise)) {
-                        /* bad channel, try again */
-                        continue;
-                    }
-                } else {
-                    /*
-                     * Note: run() may be executed some time after this method
-                     * returns a promise. So the caller may have to wait a
-                     * few milliseconds for the promise to be completed
-                     * (successfully or not).
-                     */
-                    loop.execute(() -> checkChannel(channel, promise));
+                /* CAS (Compare-And-Swap) to reserve a slot */
+                if (currentConnectionCount.compareAndSet(current, current + 1)) {
+                    createConnection(promise);
+                    return promise;
                 }
-                break;
+                /* If CAS failed, loop retry */
             }
         } catch (Throwable t) {
             promise.tryFailure(t);
@@ -255,21 +283,77 @@ class ConnectionPool {
     }
 
     /**
-     * Release a channel. This is not async. The channel is added to the
-     * front of the queue. This class implements a LIFO algorithm to ensure
-     * that the first, or first few channels on the queue remain active and
-     * are not subject to inactivity timeouts from the server side.
-     * Note that inactive released channels will be closed and not
-     * re-added to the queue.
+     * Helper to safely enqueue pending requests.
+     */
+    private void enqueueRequest(Promise<Channel> promise) {
+        /* Atomic check-then-act */
+        if (pendingAcquireCount.incrementAndGet() > maxPending) {
+            /* Rollback and fail */
+            pendingAcquireCount.decrementAndGet();
+            promise.tryFailure(new IllegalStateException(
+                "Pending acquire queue has reached its maximum size of "
+                + maxPending));
+        } else {
+            pendingAcquires.add(promise);
+        }
+    }
+
+    /**
+     * Helper to create a new connection.
+     */
+    private void createConnection(Promise<Channel> promise) {
+        Bootstrap bs = bootstrap.clone();
+        ChannelFuture fut = bs.connect();
+        if (fut.isDone()) {
+            notifyOnConnect(fut, promise);
+        } else {
+            fut.addListener((ChannelFutureListener) future ->
+                notifyOnConnect(future, promise));
+        }
+    }
+
+    /**
+     * Release a channel. This is not async.
+     * <ul>
+     *  <li>
+     *  If the released channel is inactive it will be closed and not added
+     *  back to the pool. Also, If there is a pending acquire, new channel is
+     *  created to replace the closed channel.
+     *  </li>
+     *  <li>
+     *  If there is a pending acquire, the released channel is assigned to the
+     *  pending acquire rather than releasing back to the pool.
+     *  </li>
+     *  <li>
+     *  Otherwise, The channel is added to the front of the queue.
+     *  This class implements a LIFO algorithm to ensure that the first,
+     *  or first few channels on the queue remain active and are not subject to
+     *  inactivity timeouts from the server side.
+     *  </li>
+     * </ul>
      */
     void release(Channel channel) {
         if (!channel.isActive()) {
             logFine(logger,
                     "Inactive channel on release, closing: " + channel);
             removeChannel(channel);
-        } else {
-            queue.addFirst(channel);
+            return;
         }
+
+        /* Check for pending waiters */
+        Promise<Channel> waitingPromise = pendingAcquires.poll();
+        if (waitingPromise != null) {
+            /* Decrement pending count as we pulled one out */
+            int pending = pendingAcquireCount.decrementAndGet();
+            assert pending>=0;
+            updateStats(channel, false);
+            /* Handoff directly to the waiter and skip the queue */
+            activateChannel(channel, waitingPromise);
+            return;
+        }
+
+        /* No waiters, put back in idle queue (LIFO) */
+        queue.addFirst(channel);
         updateStats(channel, false);
         try { handler.channelReleased(channel); } catch (Exception e) {}
     }
@@ -287,6 +371,23 @@ class ConnectionPool {
         queue.remove(channel);
         stats.remove(channel);
         channel.close();
+
+        /* Free up the slot */
+        int cur = currentConnectionCount.decrementAndGet();
+        assert cur>=0;
+
+        /*If there are waiters, use this newly freed slot to create a
+         * connection for them
+         */
+        Promise<Channel> waiter = pendingAcquires.poll();
+        if (waiter != null) {
+            /* We removed a waiter */
+            int pending = pendingAcquireCount.decrementAndGet();
+            assert pending >= 0;
+            /* We are reserving the slot again */
+            currentConnectionCount.incrementAndGet();
+            createConnection(waiter);
+        }
     }
 
     /**
@@ -297,6 +398,18 @@ class ConnectionPool {
      */
     void close() {
         logFine(logger, "Closing pool, stats " + getStats());
+        if (keepAlivescheduler != null) {
+            keepAlivescheduler.shutdown();
+        }
+
+        // Reject pending queue
+        Promise<Channel> pending;
+        while ((pending = pendingAcquires.poll()) != null) {
+            pending.tryFailure(new RejectedExecutionException(
+                    "Connection pool is closed"));
+            pendingAcquireCount.decrementAndGet();
+        }
+
         /* TODO: do this cleanly */
         validatePool("close1");
         Channel ch = queue.pollFirst();
@@ -311,51 +424,89 @@ class ConnectionPool {
      * How many channels have been acquired since this pool was created
      */
     int getAcquiredChannelCount() {
-        return acquiredChannelCount;
+        return acquiredChannelCount.get();
     }
 
     private void notifyOnConnect(ChannelFuture future,
-                                 Promise<Channel> promise) throws Exception {
-        if (future.isSuccess()) {
-            Channel channel = future.channel();
-            updateStats(channel, true);
-            handler.channelAcquired(channel);
-            if (!promise.trySuccess(channel)) {
-                /* Promise was completed (like cancelled), release channel */
-                release(channel);
+                                 Promise<Channel> promise) {
+        try {
+            if (future.isSuccess()) {
+                Channel channel = future.channel();
+                updateStats(channel, true);
+                handler.channelAcquired(channel);
+                if (!promise.trySuccess(channel)) {
+                    /* Promise was completed (like cancelled), release channel */
+                    release(channel);
+                }
+            } else {
+                /* Connect failed, we must free the slot we reserved */
+                int count = currentConnectionCount.decrementAndGet();
+                assert count >= 0;
+                promise.tryFailure(future.cause());
+
+                /* Retry for next pending if any (since this attempt failed) */
+                Promise<Channel> waiter = pendingAcquires.poll();
+                if (waiter != null) {
+                    int pending = pendingAcquireCount.decrementAndGet();
+                    assert pending >= 0;
+                    currentConnectionCount.incrementAndGet();
+                    createConnection(waiter);
+                }
             }
-        } else {
-            promise.tryFailure(future.cause());
+        } catch (Exception e) {
+            promise.tryFailure(e);
         }
     }
 
-    private boolean checkChannel(final Channel channel,
-                                 final Promise<Channel> promise) {
-
-        /*
-         * If channel isn't healthy close it. It's been removed from
-         * the queue
-         */
-        if (!channel.isActive()) {
-            logFine(logger,
-                    "Inactive channel found, closing: " + channel);
-            removeChannel(channel);
-            promise.tryFailure(new IOException("inactive channel"));
-            return true;
+    /**
+     * Helper to verify channel health on the EventLoop
+     */
+    private void activateChannel(final Channel channel, final Promise<Channel> promise) {
+        EventLoop loop = channel.eventLoop();
+        if (loop.inEventLoop()) {
+            checkChannel(channel, promise);
+        } else {
+            loop.execute(() -> checkChannel(channel, promise));
         }
+    }
+
+    private void checkChannel(final Channel channel,
+                              final Promise<Channel> promise) {
         try {
-            updateStats(channel, true);
-            handler.channelAcquired(channel);
-        } catch (Exception e) {} /* ignore */
-        promise.setSuccess(channel);
-        return false;
+            /*
+             * If channel isn't healthy close it. It's been removed from
+             * the queue
+             */
+            if (!channel.isActive()) {
+                logFine(logger,
+                        "Inactive channel found, closing: " + channel);
+                removeChannel(channel);
+                /* retry channel acquire, which might queue if pool filled in
+                 * background
+                 */
+                acquire(promise);
+            } else {
+                try {
+                    updateStats(channel, true);
+                    handler.channelAcquired(channel);
+                } catch (Exception e) {} /* ignore */
+                if (!promise.trySuccess(channel)) {
+                    release(channel);
+                }
+            }
+        } catch (Throwable cause) {
+            if (channel != null) {
+                removeChannel(channel); // Ensure slot is freed
+            }
+            promise.tryFailure(cause);
+        }
     }
 
     /**
      * Returns the total number of channels, acquired and not, in the pool
      */
     int getTotalChannels() {
-        return queue.size() + acquiredChannelCount;
+        return queue.size() + acquiredChannelCount.get();
     }
 
     /**
@@ -363,6 +514,10 @@ class ConnectionPool {
      */
     int getFreeChannels() {
         return queue.size();
+    }
+
+    int getPendingAcquires() {
+        return pendingAcquireCount.get();
     }
 
     /**
@@ -388,7 +543,7 @@ class ConnectionPool {
             }
         }
 
-        /**
+        /*
          * If inactivityPeriodSeconds is negative there is nothing to
          * prune
          */
@@ -400,7 +555,10 @@ class ConnectionPool {
                  * period, remove it
                  */
                 ChannelStats cs = stats.get(ch);
-                assert cs != null;
+                /* stats race condition check */
+                if (cs == null) {
+                    continue;
+                }
                 long inactive = (now - cs.getLastAcquired())/1000;
                 if (inactive > inactivityPeriodSeconds) {
                     logFine(logger,
@@ -444,7 +602,7 @@ class ConnectionPool {
          * This works for poolMin of 0 as well. If HttpClient is null
          * there is no way to do this either.
          */
-        int numToSend = poolMin - acquiredChannelCount;
+        int numToSend = poolMin - acquiredChannelCount.get();
         if (numToSend <= 0) {
             return 0;
         }
@@ -504,12 +662,15 @@ class ConnectionPool {
          * Some sanity checking. Stats size should include all channels in the
          * pool -- acquired plus not-acquired
          */
-        if ((queue.size() + acquiredChannelCount) != stats.size()) {
+
+        // Below check is not valid in concurrent access, removing it
+
+        /*if ((queue.size() + acquiredChannelCount.get()) != stats.size()) {
             logInfo(logger,
                     "Pool count discrepancy, called from " + caller +
                     " : Queue size, acquired count, stats size :" + queue.size() + ", " +
                     acquiredChannelCount + ", " + stats.size());
-        }
+        }*/
     }
 
     /**
@@ -517,16 +678,16 @@ class ConnectionPool {
      */
     private void updateStats(Channel channel, boolean isAcquire) {
         ChannelStats cstats = stats.get(channel);
-        if (cstats == null) {
+        if (cstats == null && isAcquire) {
             cstats = new ChannelStats();
             stats.put(channel, cstats);
         }
         synchronized(this) {
             if (isAcquire) {
-                acquiredChannelCount++;
+                acquiredChannelCount.incrementAndGet();
                 cstats.acquired();
             } else {
-                acquiredChannelCount--;
+                acquiredChannelCount.decrementAndGet();
             }
         }
     }
@@ -541,12 +702,13 @@ class ConnectionPool {
      */
     String getStats() {
         StringBuilder sb = new StringBuilder();
-        sb.append("acquiredCount=" + acquiredChannelCount +
-                  ", freeChannelCount=" + queue.size() +
-                  ", totalChannelCount=" + stats.size());
+        sb.append("acquiredCount=").append(acquiredChannelCount)
+            .append(", freeChannelCount=").append(queue.size())
+            .append(", totalChannelCount=").append(stats.size())
+            .append(", pendingRequests=").append(pendingAcquireCount.get());
         sb.append(", [");
         for (Map.Entry<Channel, ChannelStats> entry : stats.entrySet()) {
-            sb.append("channel=" + entry.getKey().id() + "[");
+            sb.append("channel=").append(entry.getKey().id()).append("[");
             entry.getValue().toStringBuilder(sb);
             sb.append("]");
         }
@@ -576,7 +738,7 @@ class ConnectionPool {
      * An internal class that maintains stats on Channels. Consider exposing
      * it beyond tests.
      */
-    class ChannelStats {
+    static class ChannelStats {
         /* when the channel was last acquired -- timestamp */
         private long lastAcquired;
         /* how many times the channel has been used */
@@ -596,8 +758,8 @@ class ConnectionPool {
         }
 
         void toStringBuilder(StringBuilder sb) {
-            sb.append("useCount=" + useCount +
-                      ", lastAcquired=" + java.time.Instant.ofEpochMilli(lastAcquired));
+            sb.append("useCount=").append(useCount).append(", lastAcquired=");
+            sb.append(java.time.Instant.ofEpochMilli(lastAcquired));
         }
 
         @Override

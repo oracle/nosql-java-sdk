@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [6.0.0] [Unreleased]
+
+### TODO
+
 ## [5.4.18] 2025-10-01
 
 ### Added

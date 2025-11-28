@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.18</version>
+  <version>6.0.0</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -39,8 +39,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
     <copyright>Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.</copyright>
@@ -274,8 +274,8 @@
         <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
-          <source>1.8</source>
-          <target>1.8</target>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <compilerArgument>-Xlint:all</compilerArgument>

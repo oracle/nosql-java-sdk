@@ -4,6 +4,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
  */
+ /* TODO: need add NoSQLHandleAsync? */
 /**
  * Contains the public API for using the Oracle NoSQL Database
  * as well as configuration and common parameter classes used in
