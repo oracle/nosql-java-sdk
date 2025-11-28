@@ -24,6 +24,7 @@ import oracle.nosql.driver.values.MapValue;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -46,6 +47,7 @@ import static org.junit.Assert.assertNotNull;
  * warm-up phase is to warm-up the netty connections
  * load phase to randomly run one of put, get, delete and query
  */
+@Ignore("Performance test is too heavy to run as unit test")
 public class PerformanceTest extends ProxyTestBase {
     private static final String table = "perf_test";
     private static final String ddl = "create table if not exists " + table +

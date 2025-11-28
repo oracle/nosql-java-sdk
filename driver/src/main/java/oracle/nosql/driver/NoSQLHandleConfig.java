@@ -776,12 +776,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @return this
      *
      * @since 5.3.2
-     * @deprecated since 6.0.0 - The connection pool no longer supports minimum
-     * size. Idle connections will be removed based on
-     * {@link NoSQLHandleConfig#connectionPoolInactivityPeriod}
-     * @see NoSQLHandleConfig#connectionPoolInactivityPeriod
      */
-    @Deprecated
     public NoSQLHandleConfig setConnectionPoolMinSize(int poolMinSize) {
         this.connectionPoolMinSize = poolMinSize;
         return this;

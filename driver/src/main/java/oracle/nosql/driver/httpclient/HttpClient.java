@@ -24,7 +24,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -98,7 +97,10 @@ public class HttpClient {
     public static final AttributeKey<CompletableFuture<FullHttpResponse>>
         STATE_KEY = AttributeKey.valueOf("rqstate");
 
-    private final IdleEvictFixedChannelPool pool;
+    //private final FixedChannelPool pool;
+    private final ConnectionPool pool;
+    private final HttpClientChannelPoolHandler poolHandler;
+
     private final int maxContentLength;
     private final int maxChunkSize;
 
@@ -295,6 +297,13 @@ public class HttpClient {
             numThreads = cores*2;
         }
 
+        /* default pool min */
+        if (connectionPoolMinSize == 0) {
+            connectionPoolMinSize = DEFAULT_MIN_POOL_SIZE;
+        } else if (connectionPoolMinSize < 0) {
+            connectionPoolMinSize = 0; // no min size
+        }
+
         workerGroup = new NioEventLoopGroup(numThreads);
         Bootstrap b = new Bootstrap();
 
@@ -304,11 +313,29 @@ public class HttpClient {
         b.option(ChannelOption.TCP_NODELAY, true);
         b.remoteAddress(host, port);
 
-        ChannelPoolHandler handler = new HttpClientChannelPoolHandler(this);
-        pool = new IdleEvictFixedChannelPool(b, handler,
-                                             maxConnections,
-                                             maxPendingConnections,
-                                             inactivityPeriodSeconds);
+        poolHandler =
+            new HttpClientChannelPoolHandler(this);
+        pool = new ConnectionPool(b, poolHandler, logger,
+                                  isMinimalClient,
+                                  connectionPoolMinSize,
+                                  inactivityPeriodSeconds,
+                                  maxConnections,
+                                  maxPendingConnections);
+
+        /*
+         * Don't do keepalive if min size is not set. That configuration
+         * doesn't care about keep connections alive. Also don't set for
+         * minimal clients.
+         */
+        if (!isMinimalClient && connectionPoolMinSize > 0) {
+            /* this is the main request client */
+            pool.setKeepAlive(new ConnectionPool.KeepAlive() {
+                    @Override
+                    public boolean keepAlive(Channel ch) {
+                        return doKeepAlive(ch);
+                    }
+                });
+        }
     }
 
     SslContext getSslContext() {
@@ -386,24 +413,24 @@ public class HttpClient {
     }
 
     public int getAcquiredChannelCount() {
-        return pool.getStats().acquired;
+        return pool.getAcquiredChannelCount();
     }
 
     public int getTotalChannelCount() {
-        return pool.getStats().total;
+        return pool.getTotalChannels();
     }
 
     public int getFreeChannelCount() {
-        return pool.getStats().idle;
+        return pool.getFreeChannels();
     }
 
-    public int getPendingAcquires() {
-        return pool.getStats().pending;
+    public int getPendingChannelsCount() {
+        return pool.getPendingAcquires();
     }
 
     /* available for testing */
     ConnectionPool getConnectionPool() {
-        return null;
+        return pool;
     }
 
     /**
@@ -455,8 +482,7 @@ public class HttpClient {
      */
     public void removeChannel(Channel channel) {
         logFine(logger, "closing and removing channel " + channel);
-        /* below line is unnecessary. Pool will take care of closed channels */
-        //pool.removeChannel(channel);
+        pool.removeChannel(channel);
     }
 
     /**
@@ -569,8 +595,7 @@ public class HttpClient {
     }
 
     /**
-     * Use HTTP HEAD method to refresh the channel.
-     * TODO Remove this once approved
+     * Use HTTP HEAD method to refresh the channel
      */
     boolean doKeepAlive(Channel ch) {
         final int keepAliveTimeout = 3000; /* ms */
