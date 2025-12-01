@@ -85,6 +85,18 @@ public class NoSQLHandleConfig implements Cloneable {
         "com.oracle.nosql.sdk.nosqldriver.stats.enable-log";
 
     /**
+     * Java property for connection pool size
+     */
+    public static final String CONNECTION_SIZE_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.connection.size";
+
+    /**
+     *
+     */
+    public static final String CONNECTION_PENDING_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.connection.pending";
+
+    /**
      * Statistics logging interval in seconds. Default 600 sec, ie. 10 min.
      */
     public static final int DEFAULT_STATS_INTERVAL = 600;
@@ -102,8 +114,8 @@ public class NoSQLHandleConfig implements Cloneable {
      */
     public static final boolean DEFAULT_ENABLE_LOG = true;
 
-    private static final int DEFAULT_CONNECTION_POOL_SIZE = 100;
-    private static final int DEFAULT_CONNECTION_PENDING_SIZE = 10_000;
+    static final int DEFAULT_CONNECTION_POOL_SIZE = 100;
+    static final int DEFAULT_CONNECTION_PENDING_SIZE = 10_000;
 
     /*
      * The url used to contact an HTTP proxy
@@ -282,12 +294,16 @@ public class NoSQLHandleConfig implements Cloneable {
     /**
      * Maximum size of the connection pool
      */
-    private int connectionPoolSize = DEFAULT_CONNECTION_POOL_SIZE;
+    private int connectionPoolSize =
+        getAndVerifyPropertyPositive(CONNECTION_SIZE_PROPERTY,
+                                     DEFAULT_CONNECTION_POOL_SIZE);
 
     /**
      * The maximum number of pending acquires for the pool
      */
-    private int poolMaxPending = DEFAULT_CONNECTION_PENDING_SIZE;
+    private int poolMaxPending =
+        getAndVerifyPropertyPositive(CONNECTION_PENDING_PROPERTY,
+                                     DEFAULT_CONNECTION_PENDING_SIZE);
 
     /**
      * Specifies an endpoint or region id to use to connect to the Oracle
@@ -1704,5 +1720,16 @@ public class NoSQLHandleConfig implements Cloneable {
                 extensionUserAgent.length());
         }
         this.extensionUserAgent = extensionUserAgent;
+    }
+
+    static int getAndVerifyPropertyPositive(String property,
+                                            int defaultVal) {
+        final int val = Integer.getInteger(property, defaultVal);
+        if (val <= 0) {
+            final String msg =
+                String.format("Property %s must be larger than zero", property);
+            throw new IllegalArgumentException(msg);
+        }
+        return val;
     }
 }

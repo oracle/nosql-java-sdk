@@ -9,6 +9,7 @@ package oracle.nosql.driver;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -105,6 +106,47 @@ public class HandleConfigTest {
         assertTrue("SDK version \"" + version +
                    "\" should have at least three dot-separated parts",
                    arr.length > 2);
+    }
+
+    @Test
+    public void testConnectionPoolConfig() {
+        NoSQLHandleConfig cfg = new NoSQLHandleConfig("http://foo.com");
+        /* verify default connection pool values */
+        assertEquals(NoSQLHandleConfig.DEFAULT_CONNECTION_POOL_SIZE,
+                     cfg.getConnectionPoolSize());
+        assertEquals(NoSQLHandleConfig.DEFAULT_CONNECTION_PENDING_SIZE,
+                     cfg.getPoolMaxPending());
+        try {
+            /* set connection pool properties and verify */
+            System.setProperty(NoSQLHandleConfig.CONNECTION_SIZE_PROPERTY,
+                               "50");
+            System.setProperty(NoSQLHandleConfig.CONNECTION_PENDING_PROPERTY,
+                               "100");
+
+            cfg = new NoSQLHandleConfig("http://foo.com");
+            assertEquals(50, cfg.getConnectionPoolSize());
+            assertEquals(100, cfg.getPoolMaxPending());
+
+            /* manually set connection pool values and verify */
+            cfg = new NoSQLHandleConfig("http://foo.com");
+            cfg.setConnectionPoolSize(5);
+            cfg.setPoolMaxPending(2);
+            assertEquals(5, cfg.getConnectionPoolSize());
+            assertEquals(2, cfg.getPoolMaxPending());
+
+            /* set invalid value for properties and verify */
+            System.setProperty(NoSQLHandleConfig.CONNECTION_SIZE_PROPERTY, "0");
+            System.setProperty(NoSQLHandleConfig.CONNECTION_PENDING_PROPERTY,
+                               "0");
+            IllegalArgumentException iae =
+                assertThrows(IllegalArgumentException.class,
+                             () -> new NoSQLHandleConfig("http://foo.com"));
+            assertTrue(iae.getMessage().contains("must be larger than zero"));
+
+        } finally {
+            System.clearProperty(NoSQLHandleConfig.CONNECTION_SIZE_PROPERTY);
+            System.clearProperty(NoSQLHandleConfig.CONNECTION_PENDING_PROPERTY);
+        }
     }
 
     private void expectIllegalArg(String endpoint) {

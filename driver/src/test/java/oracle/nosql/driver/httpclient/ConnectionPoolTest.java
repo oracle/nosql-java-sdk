@@ -268,21 +268,7 @@ public class ConnectionPoolTest {
             .remoteAddress(address);
 
         /* A dummy user handler (noop) */
-        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
-            public void channelReleased(Channel ch) {}
-            public void channelAcquired(Channel ch) {}
-            public void channelCreated(Channel ch) {}
-        };
-
-        ConnectionPool pool =
-            new ConnectionPool(bootstrap,
-                               noopHandler,
-                               logger,
-                               false, /*isMinimal */
-                               0, /* pool min */
-                               0, /* inactivity seconds */
-                               2 /* max connections */,
-                               2 /* max pending */);
+        ConnectionPool pool = getConnectionPool(bootstrap, 0, 2, 2);
 
         /* CHECK 1: Initial */
         assertStats(pool, 0, 0, 0, 0);
@@ -387,20 +373,8 @@ public class ConnectionPoolTest {
                 .remoteAddress(address);
 
         /* A dummy user handler (noop) */
-        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
-            public void channelReleased(Channel ch) {}
-            public void channelAcquired(Channel ch) {}
-            public void channelCreated(Channel ch) {}
-        };
-
-        ConnectionPool pool = new ConnectionPool(bootstrap,
-                                                 noopHandler,
-                                                 logger,
-                                                 false, /* isMinimal*/
-                                                 0, /* pool min*/
-                                                 60, /* In activity seconds */
-                                                 maxConnections,
-                                                 numberOfRequests + 1);
+        ConnectionPool pool = getConnectionPool(bootstrap, 60, maxConnections,
+                                                numberOfRequests + 1);
         ExecutorService threadPool = Executors.newFixedThreadPool(10);
 
         /* PHASE 1: Bombard the pool */
@@ -430,7 +404,8 @@ public class ConnectionPoolTest {
         assertEquals("Acquired should be capped at max",
                      maxConnections, pool.getAcquiredChannelCount());
         assertEquals("Excess requests should be pending",
-                     numberOfRequests - maxConnections, pool.getPendingAcquires());
+                     numberOfRequests - maxConnections,
+                     pool.getPendingAcquires());
 
         /* PHASE 3: Drain the Queue
          * Now we manually release the channels we were holding.
@@ -454,6 +429,30 @@ public class ConnectionPoolTest {
         pool.close();
     }
 
+    private static ConnectionPool getConnectionPool(Bootstrap bootstrap,
+                                                    int inactivityPeriodSeconds,
+                                                    int maxConnections,
+                                                    int numberOfRequests) {
+        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
+            @Override public void channelReleased(Channel ch) {}
+
+            @Override public void channelAcquired(Channel ch) {}
+
+            @Override public void channelCreated(Channel ch) {}
+        };
+
+        ConnectionPool pool =
+            new ConnectionPool(bootstrap,
+                               noopHandler,
+                               logger,
+                               false, /* isMinimal*/
+                               0, /* pool min*/
+                               inactivityPeriodSeconds, /* Inactivity seconds */
+                               maxConnections,
+                               numberOfRequests);
+        return pool;
+    }
+
     @Test
     public void testIdleEvictionInPool() throws InterruptedException {
         /* Create Pool */
@@ -463,20 +462,7 @@ public class ConnectionPoolTest {
             .remoteAddress(address);
 
         /* A dummy user handler (noop) */
-        ChannelPoolHandler noopHandler = new ChannelPoolHandler() {
-            public void channelReleased(Channel ch) {}
-            public void channelAcquired(Channel ch) {}
-            public void channelCreated(Channel ch) {}
-        };
-
-        ConnectionPool pool = new ConnectionPool(bootstrap,
-                                                noopHandler,
-                                                logger,
-                                                false, /* isMinimal */
-                                                0, /* poolMin */
-                                                2, /* inactive */
-                                                2, /* max connections */
-                                                5  /* max pending */);
+        ConnectionPool pool = getConnectionPool(bootstrap, 2, 2, 5);
 
         /* 1. Acquire a channel */
         Channel ch = pool.acquire().sync().getNow();
