@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Fixed
+- Fixed bug in Realms when adding a new realm
+
 ## [5.4.18] 2025-10-01
 
 ### Added
