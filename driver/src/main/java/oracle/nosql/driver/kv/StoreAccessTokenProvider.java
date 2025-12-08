@@ -229,7 +229,23 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         if (!isSecure || isClosed || authString.get() != null) {
             return;
         }
+        loginInternal(request);
 
+    }
+
+    /**
+     * @hidden
+     *
+     * Re-login using the provided credentials
+     */
+    public synchronized void login(Request request) {
+        if (!isSecure || isClosed) {
+            return;
+        }
+        loginInternal(request);
+    }
+
+    private void loginInternal(Request request) {
         try {
             /*
              * Convert the user:password pair in base 64 format with
@@ -243,12 +259,12 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              * Use the request timeout for this operation if available
              */
             int timeoutMs = (request != null ?
-                             request.getTimeoutInternal() : 0);
+                request.getTimeoutInternal() : 0);
             /*
              * Send request to server for login token
              */
             HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
-                                                LOGIN_SERVICE, timeoutMs);
+                LOGIN_SERVICE, timeoutMs);
 
             /*
              * login fail
@@ -266,7 +282,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              * Generate the authentication string using login token
              */
             authString.set(BEARER_PREFIX +
-                           parseJsonResult(response.getOutput()));
+                parseJsonResult(response.getOutput()));
 
             /*
              * Schedule login token renew thread
