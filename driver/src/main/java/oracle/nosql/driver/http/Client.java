@@ -813,10 +813,13 @@ public class Client {
                 if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
-                    satp.bootstrapLogin(kvRequest);
+                    satp.login(kvRequest);
                     kvRequest.addRetryException(rae.getClass());
                     kvRequest.incrementRetries();
                     exception = rae;
+                    logFine(logger,
+                        "Client re-auth on AuthenticationException: " +
+                            rae.getMessage());
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
