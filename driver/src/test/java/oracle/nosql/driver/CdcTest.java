@@ -157,7 +157,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-           enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -284,7 +284,154 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-           enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
+        }
+    }
+
+    @Test
+    public void atTimeTest() throws Exception {
+        /* check that specifying AT_TIME works properly */
+
+        assumeFalse(onprem);
+        assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
+
+        Consumer consumer = null;
+
+        String tableName = "cdcAtTime";
+        try {
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists " + tableName +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            /* Enable CDC on table */
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
+
+            /* Put 10 records */
+            for (int i=0; i<10; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* wait one second */
+            Thread.sleep(1000);
+            /* get current timestamp */
+            long startAt = System.currentTimeMillis();
+
+            /* Put 10 more records */
+            for (int i=10; i<20; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* create CDC consumer */
+            consumer = new ConsumerBuilder()
+                .addTable(tableName, null, StartLocation.atTime(startAt))
+                .groupId("startTime1")
+                .commitManual()
+                .handle(handle)
+                .build();
+
+
+            /* poll for records, expect only the last 10 */
+            pollAndCheckManyEvents(consumer, tableName, 10, 10, 19, false, 10);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
+        }
+    }
+
+    @Test
+    public void atTimeTest2() throws Exception {
+        /*
+         * Slight variation of atTimeTest: write 10 records,
+         * then create consumer with AT_TIME = now. Then write 10
+         * more records and then poll. Verify we only get the last 10.
+         */
+
+        assumeFalse(onprem);
+        assumeTrue(Boolean.getBoolean("test.all"));
+        myBeforeTest();
+
+        Consumer consumer = null;
+
+        String tableName = "cdcAtTime2";
+        try {
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists " + tableName +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 5),
+                20000);
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            /* Enable CDC on table */
+            enableDisableCDCWithRateLimiting(handle, tableName, true);
+
+            /* Put 10 records */
+            for (int i=0; i<10; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* wait one second */
+            Thread.sleep(1000);
+            /* get current timestamp */
+            long startAt = System.currentTimeMillis();
+
+            /* create CDC consumer */
+            consumer = new ConsumerBuilder()
+                .addTable(tableName, null, StartLocation.atTime(startAt))
+                .groupId("startTime2")
+                .commitManual()
+                .handle(handle)
+                .build();
+
+            /* Put 10 more records */
+            for (int i=10; i<20; i++) {
+                MapValue value = new MapValue().put("id", i).put("name", "jane");
+                PutRequest putRequest = new PutRequest()
+                    .setValue(value)
+                    .setTableName(tableName);
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* poll for records, expect only the last 10 */
+            pollAndCheckManyEvents(consumer, tableName, 10, 10, 19, false, 10);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (consumer != null) {
+                consumer.close();
+            }
+            enableDisableCDCWithRateLimiting(handle, tableName, false);
         }
     }
 

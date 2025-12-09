@@ -900,10 +900,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                         }
                         writeMapField(ns, TABLE_OCID, tcfg.tableOcid);
                         if (tcfg.startLocation != null) {
-                            writeMapField(ns, START_LOCATION, tcfg.startLocation.location.ordinal());
+                            /* Note: start time must be first in Nson stream */
                             if (tcfg.startLocation.startTime > 0) {
                                 writeLongMapField(ns, START_TIME, tcfg.startLocation.startTime);
                             }
+                            writeMapField(ns, START_LOCATION, tcfg.startLocation.location.ordinal());
                         }
                         if (tcfg.isRemove) {
                             writeMapField(ns, IS_REMOVE, true);
