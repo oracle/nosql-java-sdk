@@ -128,6 +128,35 @@ import oracle.nosql.driver.values.MapValue;
  * Instances of NoSQLHandleAsync are thread-safe and expected to be shared among
  * threads.
  * </p>
+ *
+ * <h2><a id="asyncThreadModel">Thread Model for Asynchronous Execution</a></h2>
+ * The async APIs are non-blocking in that they return without waiting for any
+ * events such as network read and write, or security handshake. The actual
+ * handling of such events happens inside an internal thread pool which has a
+ * fixed number of threads. These async methods return widely accepted
+ * asynchronous flow-control or computation classes, namely, the
+ * {@link CompletableFuture} and {@link Flow.Publisher}, from which
+ * user-supplied actions are triggered after the execution results are
+ * available. We implement these interfaces in a way such that user-supplied
+ * actions will be performed by a thread in the internal thread pool.
+ * Therefore, these actions must be non-blocking to avoid interfering with
+ * internal event processing.
+ * This requirement corresponds to those defined in the async classes (see the
+ * policies for implementing {@code CompletionStage} in
+ * {@link CompletableFuture}). If the triggered method needs to perform a
+ * blocking action or heavy CPU bound task, use a separate executor to perform
+ * the action. For example:
+ * <p>
+ * <pre>
+ *  asyncHandle.get(request)
+ *      // Uses ForkJoinPool.commonPool for the blocking action
+ *      .thenApplyAsync(getResult -> {
+ *          doBlockingAction(getResult));
+ *          return getResult;
+ *      }
+ * </pre>
+ * </p>
+ * @since 6.0.0
  */
 public interface NoSQLHandleAsync extends AutoCloseable {
 
@@ -160,7 +189,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -178,6 +207,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<DeleteResult> delete(DeleteRequest request);
 
@@ -195,7 +227,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -213,6 +245,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<GetResult> get(GetRequest request);
 
@@ -261,7 +296,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -278,6 +313,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * any other reason.
      * </li>
      * </ul>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<PutResult> put(PutRequest request);
 
@@ -296,7 +334,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -322,6 +360,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<WriteMultipleResult> writeMultiple(WriteMultipleRequest request);
 
@@ -332,7 +373,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -350,6 +391,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<MultiDeleteResult> multiDelete(MultiDeleteRequest request);
 
@@ -391,7 +435,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </pre>
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -409,6 +453,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<QueryResult> query(QueryRequest request);
 
@@ -468,6 +515,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @throws NoSQLException if the operation cannot be performed for any other
      * reason
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     Flow.Publisher<MapValue> queryPaginator(QueryRequest request);
     /**
@@ -480,7 +530,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -498,6 +548,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<PrepareResult> prepare(PrepareRequest request);
 
@@ -511,7 +564,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -529,6 +582,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableResult> tableRequest(TableRequest request);
 
@@ -546,7 +602,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param pollIntervalMs the polling interval for the wait operation.
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -567,6 +623,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableResult> doTableRequest(TableRequest request,
                                                   int timeoutMs,
@@ -594,7 +653,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -612,6 +671,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<SystemResult> systemRequest(SystemRequest request);
 
@@ -623,7 +685,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -641,6 +703,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<SystemResult> systemStatus(SystemStatusRequest request);
 
@@ -653,7 +718,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -674,6 +739,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableResult> getTable(GetTableRequest request);
 
@@ -687,7 +755,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -708,6 +776,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableUsageResult> getTableUsage(TableUsageRequest request);
 
@@ -719,7 +790,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -737,6 +808,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<ListTablesResult> listTables(ListTablesRequest request);
 
@@ -747,7 +821,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -765,6 +839,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<GetIndexesResult> getIndexes(GetIndexesRequest request);
 
@@ -773,7 +850,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * <p>
      * Returns the namespaces in a store as an array of String.
      *
-     * @return a {@link CompletableFuture} which completes with the namespaces
+     * @return A {@link CompletableFuture} which completes with the namespaces
      * or null if none are found.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -791,6 +868,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<String[]> listNamespaces();
 
@@ -799,7 +879,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * <p>
      * Returns the roles in a store as an array of String.
      *
-     * @return a {@link CompletableFuture} which completes with the list of
+     * @return A {@link CompletableFuture} which completes with the list of
      * roles or null if none are found.
      *<p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -816,6 +896,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * any other reason.
      * </li>
      * </ul>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<String[]> listRoles();
 
@@ -824,7 +907,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * <p>
      * Returns the users in a store as an array of {@link UserInfo}.
      *
-     * @return a {@link CompletableFuture} which completes with the users
+     * @return A {@link CompletableFuture} which completes with the users
      * or null if none are found.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -842,6 +925,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<UserInfo[]> listUsers();
 
@@ -869,7 +955,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param pollIntervalMs the polling interval for the wait operation.
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -890,6 +976,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<SystemResult> doSystemRequest(String statement,
                                                     int timeoutMs,
@@ -905,7 +994,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -923,8 +1012,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
-     * TODO remove
-     * @since 5.4.13
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableResult> addReplica(AddReplicaRequest request);
 
@@ -938,7 +1028,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -956,8 +1046,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
-     * TODO remove since
-     * @since 5.4.13
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<TableResult> dropReplica(DropReplicaRequest request);
 
@@ -968,7 +1059,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @param request the input parameters for the operation
      *
-     * @return a {@link CompletableFuture} which completes with the result of
+     * @return A {@link CompletableFuture} which completes with the result of
      * the operation.
      * <p>
      * The returned {@link CompletableFuture} may complete exceptionally with
@@ -989,8 +1080,9 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * </li>
      * </ul>
      * </p>
-     * TODO remove since
-     * @since 5.4.13
+     * @since 6.0.0
+     * @see
+     * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
     CompletableFuture<ReplicaStatsResult> getReplicaStats(ReplicaStatsRequest request);
 
@@ -1000,7 +1092,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @return the StatsControl object
      *
-     * @since 5.2.30
+     * @since 6.0.0
      */
     StatsControl getStatsControl();
 

@@ -9,6 +9,7 @@ package oracle.nosql.driver.util;
 
 import oracle.nosql.driver.NoSQLException;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -50,6 +51,7 @@ public class ConcurrentUtil {
             return future.get();
         } catch (ExecutionException e) {
             final Throwable cause = e.getCause();
+            appendCurrentStack(cause);
             if (cause instanceof RuntimeException) {
                 throw ((RuntimeException) cause);
             }
@@ -74,5 +76,16 @@ public class ConcurrentUtil {
             }
             actual = actual.getCause();
         }
+    }
+
+    private static void appendCurrentStack(Throwable exception) {
+        Objects.requireNonNull(exception, "exception");
+        final StackTraceElement[] existing = exception.getStackTrace();
+        final StackTraceElement[] current = new Throwable().getStackTrace();
+        final StackTraceElement[] updated =
+                new StackTraceElement[existing.length + current.length];
+        System.arraycopy(existing, 0, updated, 0, existing.length);
+        System.arraycopy(current, 0, updated, existing.length, current.length);
+        exception.setStackTrace(updated);
     }
 }
