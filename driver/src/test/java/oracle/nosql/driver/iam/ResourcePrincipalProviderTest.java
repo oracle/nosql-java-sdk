@@ -25,8 +25,6 @@ import org.junit.Test;
 import oracle.nosql.driver.DriverTestBase;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Region;
-import oracle.nosql.driver.iam.ResourcePrincipalTokenSupplier.FileSecurityTokenSupplier;
-import oracle.nosql.driver.iam.ResourcePrincipalTokenSupplier.FixedSecurityTokenSupplier;
 import oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FileKeyPairSupplier;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.FixedKeyPairSupplier;
@@ -35,28 +33,28 @@ import oracle.nosql.driver.ops.GetRequest;
 
 public class ResourcePrincipalProviderTest extends DriverTestBase {
     private static String TOKEN =
-        "{" +
-        "\"sub\": \"ocid1.resource.oc1.phx.resource\"," +
-        "\"opc-certtype\": \"resource\"," +
-        "\"iss\": \"authService.oracle.com\"," +
-        "\"res_compartment\": \"compartmentId\"," +
-        "\"res_tenant\": \"tenantId\"," +
-        "\"fprint\": \"fingerprint\"," +
-        "\"ptype\": \"instance\"," +
-        "\"aud\": \"oci\"," +
-        "\"opc-tag\": \"V1,ocid1.dynamicgroup.oc1..dgroup\"," +
-        "\"ttype\": \"x509\"," +
-        "\"opc-instance\": \"ocid1.instance.oc1.phx.instance\"," +
-        "\"exp\": %s," +
-        "\"opc-compartment\": \"TestTenant\"," +
-        "\"iat\": 19888762000," +
-        "\"jti\": \"jti\"," +
-        "\"tenant\": \"TestTenant\"," +
-        "\"jwk\": \"{\\\"kid\\\":\\\"kid\\\"," +
-        "\\\"n\\\":\\\"%s\\\",\\\"e\\\":\\\"%s\\\"," +
-        "\\\"kty\\\":\\\"RSA\\\",\\\"alg\\\":\\\"RS256\\\"," +
-        "\\\"use\\\":\\\"sig\\\"}\"," +
-        "\"opc-tenant\": \"TestTenant\"}";
+            "{" +
+                    "\"sub\": \"ocid1.resource.oc1.phx.resource\"," +
+                    "\"opc-certtype\": \"resource\"," +
+                    "\"iss\": \"authService.oracle.com\"," +
+                    "\"res_compartment\": \"compartmentId\"," +
+                    "\"res_tenant\": \"tenantId\"," +
+                    "\"fprint\": \"fingerprint\"," +
+                    "\"ptype\": \"instance\"," +
+                    "\"aud\": \"oci\"," +
+                    "\"opc-tag\": \"V1,ocid1.dynamicgroup.oc1..dgroup\"," +
+                    "\"ttype\": \"x509\"," +
+                    "\"opc-instance\": \"ocid1.instance.oc1.phx.instance\"," +
+                    "\"exp\": %s," +
+                    "\"opc-compartment\": \"TestTenant\"," +
+                    "\"iat\": 19888762000," +
+                    "\"jti\": \"jti\"," +
+                    "\"tenant\": \"TestTenant\"," +
+                    "\"jwk\": \"{\\\"kid\\\":\\\"kid\\\"," +
+                    "\\\"n\\\":\\\"%s\\\",\\\"e\\\":\\\"%s\\\"," +
+                    "\\\"kty\\\":\\\"RSA\\\",\\\"alg\\\":\\\"RS256\\\"," +
+                    "\\\"use\\\":\\\"sig\\\"}\"," +
+                    "\"opc-tenant\": \"TestTenant\"}";
     private static KeyPairInfo keypair;
 
     @BeforeClass
@@ -76,7 +74,7 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
 
     @Test
     public void testKeyPairSupplier()
-        throws Exception {
+            throws Exception {
 
         String key = generatePrivateKeyFile("key.pem", null);
         SessionKeyPairSupplier supplier = new FileKeyPairSupplier(key, null);
@@ -86,9 +84,9 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         Files.write(passphraseFile.toPath(), "123456".getBytes());
 
         String encKey = generatePrivateKeyFile("enckey1.pem",
-                                               "123456".toCharArray());
+                "123456".toCharArray());
         supplier = new FileKeyPairSupplier(encKey,
-                                           passphraseFile.getAbsolutePath());
+                passphraseFile.getAbsolutePath());
         assertNotNull(supplier.getKeyPair());
 
         try {
@@ -100,8 +98,8 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
 
         try {
             supplier = new FileKeyPairSupplier(
-                generatePrivateKeyFile("enckey2.pem", "123456".toCharArray()),
-                "non-existent-passphrase");
+                    generatePrivateKeyFile("enckey2.pem", "123456".toCharArray()),
+                    "non-existent-passphrase");
             fail("expected");
         } catch (IllegalStateException ise) {
             assertThat(ise.getMessage(), "Unable to read");
@@ -111,8 +109,8 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         Files.write(passphraseFile.toPath(), "1234".getBytes());
         try {
             supplier = new FileKeyPairSupplier(
-                generatePrivateKeyFile("enckey3.pem", "123456".toCharArray()),
-                passphraseFile.getAbsolutePath());
+                    generatePrivateKeyFile("enckey3.pem", "123456".toCharArray()),
+                    passphraseFile.getAbsolutePath());
             fail("expected");
         } catch (IllegalArgumentException iae) {
             assertThat(iae.getMessage(), "passphrase is incorrect");
@@ -137,56 +135,55 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
 
     @Test
     public void testResourcePrincipalTokenSupplier()
-        throws Exception {
+            throws Exception {
 
         String token = securityToken(TOKEN, keypair.getPublicKey());
         Path keyFile = Files.write(Paths.get(getTestDir(), "key.pem"),
-                                   keypair.getKey().getBytes(),
-                                   StandardOpenOption.CREATE);
+                keypair.getKey().getBytes(),
+                StandardOpenOption.CREATE);
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
-            keyFile.toAbsolutePath().toString(), null);
-        ResourcePrincipalTokenSupplier supplier =
-            new FixedSecurityTokenSupplier(keySupplier, token, null);
+                keyFile.toAbsolutePath().toString(), null);
+        FixedSecurityTokenSupplier supplier =
+                new FixedSecurityTokenSupplier(keySupplier, token);
         assertEquals(supplier.getSecurityToken(), token);
         assertEquals(supplier.getStringClaim(
-                     ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
-                     "compartmentId");
+                        ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
+                "compartmentId");
         assertEquals(supplier.getStringClaim(
-                     ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
-                     "tenantId");
+                        ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
+                "tenantId");
 
         File tokenFile = new File(getTestDir(), "token");
         Files.write(tokenFile.toPath(), token.getBytes());
         FileSecurityTokenSupplier fileSupplier =
-            new FileSecurityTokenSupplier(keySupplier,
-                                          tokenFile.getAbsolutePath(),
-                                          null);
+                new FileSecurityTokenSupplier(keySupplier,
+                        tokenFile.getAbsolutePath());
         SecurityToken st = fileSupplier.getSecurityTokenFromFile();
         assertEquals(st.getSecurityToken(), token);
         assertEquals(st.getStringClaim(
-                     ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
-                     "compartmentId");
+                        ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
+                "compartmentId");
         assertEquals(st.getStringClaim(
-                     ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
-                     "tenantId");
+                        ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
+                "tenantId");
     }
 
     @Test
     public void testResourcePrincipal()
-        throws Exception {
+            throws Exception {
 
         String token = securityToken(TOKEN, keypair.getPublicKey());
         Path keyFile = Files.write(Paths.get(getTestDir(), "key.pem"),
-                                   keypair.getKey().getBytes(),
-                                   StandardOpenOption.CREATE);
+                keypair.getKey().getBytes(),
+                StandardOpenOption.CREATE);
         SessionKeyPairSupplier keySupplier = new FileKeyPairSupplier(
-            keyFile.toAbsolutePath().toString(), null);
-        ResourcePrincipalTokenSupplier tokenSupplier =
-            new FixedSecurityTokenSupplier(keySupplier, token, null);
+                keyFile.toAbsolutePath().toString(), null);
+        FixedSecurityTokenSupplier tokenSupplier =
+                new FixedSecurityTokenSupplier(keySupplier, token);
         ResourcePrincipalProvider rpProvider =
-            new ResourcePrincipalProvider(tokenSupplier,
-                                          keySupplier,
-                                          Region.US_ASHBURN_1);
+                new ResourcePrincipalProvider(tokenSupplier,
+                        keySupplier,
+                        Region.US_ASHBURN_1);
 
         assertNotNull(rpProvider.getKeyId());
 
@@ -201,10 +198,10 @@ public class ResourcePrincipalProviderTest extends DriverTestBase {
         assertNotNull(signature);
 
         assertEquals(provider.getResourcePrincipalClaim(
-                     ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
-                     "compartmentId");
+                        ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY),
+                "compartmentId");
         assertEquals(provider.getResourcePrincipalClaim(
-                     ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
-                     "tenantId");
+                        ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY),
+                "tenantId");
     }
 }

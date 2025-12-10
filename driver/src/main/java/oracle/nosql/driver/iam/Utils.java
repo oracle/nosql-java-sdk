@@ -14,6 +14,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -93,6 +97,11 @@ class Utils {
         "exp", "jwk", "n", "e",
         SignatureProvider.ResourcePrincipalClaimKeys.COMPARTMENT_ID_CLAIM_KEY,
         SignatureProvider.ResourcePrincipalClaimKeys.TENANT_ID_CLAIM_KEY};
+
+    /* fields in Resource Principal Token JSON */
+    private static final String[] RESOURCE_PRINCIPAL_TOKEN_FIELDS = {
+            "resourcePrincipalToken",
+            "servicePrincipalSessionToken"};
 
     static String getIAMURL(String regionIdOrCode) {
         Region region = Region.fromRegionIdOrCode(regionIdOrCode);
@@ -202,6 +211,25 @@ class Utils {
      */
     static byte[] toByteArray(RSAPrivateKey key) {
         return Pem.encoder().with(Pem.Format.LEGACY).encode(key);
+    }
+
+    /**
+     * Convert the input stream to a byte array.
+     *
+     * @param inputStream input stream
+     * @return byte array
+     */
+    static byte[] toByteArray(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!(inputStream instanceof BufferedInputStream)) {
+            inputStream = new BufferedInputStream(inputStream);
+        }
+        byte[] buf = new byte[4096];
+        int bytesRead = 0;
+        while (-1 != (bytesRead = inputStream.read(buf))) {
+            baos.write(buf, 0, bytesRead);
+        }
+        return baos.toByteArray();
     }
 
     /**
@@ -393,6 +421,28 @@ class Utils {
         }
     }
 
+    static byte[] stringToUtf8Bytes(String input) {
+        if (input == null) {
+            return new byte[0]; // Return empty byte array if input is null
+        }
+        CharBuffer charBuf = CharBuffer.wrap(input);
+        ByteBuffer byteBuf = StandardCharsets.UTF_8.encode(charBuf);
+        byte[] bytes = new byte[byteBuf.remaining()];
+        byteBuf.get(bytes);
+        return bytes;
+    }
+
+    /*
+     * Return true if this string is either null or just whitespace.
+     */
+    static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    static boolean isNotBlank(String s) {
+        return !isBlank(s);
+    }
+
     static JsonParser createParser(String json)
         throws IOException {
 
@@ -441,6 +491,29 @@ class Utils {
         return null;
     }
 
+    /**
+     * Replace the placeholders in the template with the values in the replacement mapping.
+     *
+     * @param template template string
+     * @param replacements map from key to replacement value
+     * @param prefix prefix of the placeholder
+     * @param suffix suffix of the placeholder
+     * @return replaced string
+     */
+    static String replace(
+            String template, Map<String, String> replacements, String prefix, String suffix) {
+        String result = template;
+        for (Map.Entry<String, String> e : replacements.entrySet()) {
+            result =
+                    result.replaceAll(
+                            Pattern.quote(prefix)
+                                    + Pattern.quote(e.getKey())
+                                    + Pattern.quote(suffix),
+                            e.getValue());
+        }
+        return result;
+    }
+
     /*
      * Parse JSON response that only has one field token.
      * { "token": "...."}
@@ -464,6 +537,39 @@ class Utils {
             throw new IllegalStateException(
                 "Error parsing security token " + response +
                     " " + ioe.getMessage());
+        }
+    }
+
+    /*
+     * Parse JSON Resource Principal Token response.
+     * {
+     *  "resourcePrincipalToken": "....",
+     *  "servicePrincipalSessionToken": "...."
+     * }
+     */
+    static Map<String, String> parseResourcePrincipalTokenResponse(String response) {
+        try {
+            Map<String, String> results = new HashMap<>();
+            JsonParser parser = createParser(response);
+            if (parser.getCurrentToken() == null) {
+                parser.nextToken();
+            }
+            while (parser.getCurrentToken() != null) {
+                String field = findField(response, parser, RESOURCE_PRINCIPAL_TOKEN_FIELDS);
+                if (field != null) {
+                    parser.nextToken();
+                    results.put(field, parser.getText());
+                }
+            }
+            if(results.isEmpty()) {
+                throw new IllegalStateException(
+                        "Unable to find resource principal tokens in " + response);
+            }
+            return results;
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                    "Error parsing resource principal tokens " + response +
+                            " " + ioe.getMessage());
         }
     }
 
@@ -524,6 +630,29 @@ class Utils {
                 parser.nextToken();
                 reults.put(field, parser.getText());
             }
+        }
+    }
+
+    static String convertMapToJson(Map<String, String> map) {
+        StringWriter writer = new StringWriter();
+
+        try {
+            JsonFactory factory = new JsonFactory();
+            JsonGenerator generator = factory.createGenerator(writer);
+
+            generator.writeStartObject();
+
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                generator.writeStringField(entry.getKey(), entry.getValue());
+            }
+
+            generator.writeEndObject();
+            generator.close();
+
+            return writer.toString();
+        } catch (IOException ioe) {
+            throw new IllegalStateException(
+                    "Error converting Map to JSON "+ ioe.getMessage());
         }
     }
 

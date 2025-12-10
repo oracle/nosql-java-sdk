@@ -13,10 +13,10 @@ import static oracle.nosql.driver.util.HttpConstants.*;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URI;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -36,8 +36,10 @@ import io.netty.handler.codec.http.HttpHeaders;
  */
 class FederationRequestHelper {
     /* signing headers used to obtain security token */
-    private static final String SIGNING_HEADERS =
-        "date (request-target) content-length content-type x-content-sha256";
+    private static final String SIGNING_HEADERS_WITH_PAYLOAD =
+            "date (request-target) content-length content-type x-content-sha256";
+    private static final String SIGNING_HEADERS_WITHOUT_PAYLOAD =
+            "date (request-target)";
     private static final String APP_JSON = "application/json";
     private static final String DEFAULT_FINGERPRINT = "SHA256";
 
@@ -48,15 +50,21 @@ class FederationRequestHelper {
                                    X509CertificateKeyPair pair,
                                    String body,
                                    Logger logger) {
-        CharBuffer charBuf = CharBuffer.wrap(body);
-        ByteBuffer buf = StandardCharsets.UTF_8.encode(charBuf);
-        byte[] payloadByte = new byte[buf.remaining()];
-        buf.get(payloadByte);
+        byte[] payloadByte = Utils.stringToUtf8Bytes(body);
 
         HttpResponse response = HttpRequestUtil.doPostRequest(
-            client, endpoint.toString(),
-            headers(tenantId, endpoint, payloadByte, pair, logger),
-            payloadByte, timeoutMs, logger);
+                client,
+                endpoint.toString(),
+                setHeaders(
+                        endpoint,
+                        payloadByte,
+                        keyId(tenantId, pair),
+                        pair.getKey(),
+                        logger
+                ),
+                payloadByte,
+                timeoutMs,
+                logger);
 
         int responseCode = response.getStatusCode();
         if (responseCode > 299) {
@@ -85,11 +93,11 @@ class FederationRequestHelper {
      *  "fingerprintAlgorithm", "SHA256"
      * }
      */
-    static String getFederationRequestBody(String publicKey,
-                                           String certificate,
-                                           Set<String> interCerts,
-                                           String purpose) {
-
+    static String getInstancePrincipalSessionTokenRequestBody(
+            String publicKey,
+            String certificate,
+            Set<String> interCerts,
+            String purpose) {
         try {
             StringWriter sw = new StringWriter();
             try (JsonGenerator gen = createGenerator(sw)) {
@@ -116,51 +124,108 @@ class FederationRequestHelper {
         }
     }
 
-    private static HttpHeaders headers(String tenantId,
-                                       URI endpoint,
-                                       byte[] body,
-                                       X509CertificateKeyPair pair,
-                                       Logger logger) {
+    /*
+     * Request body:
+     * {
+     *  "resourcePrincipalToken": "....",
+     *  "servicePrincipalSessionToken": "....",
+     *  "sessionPublicKey": "publicKey"
+     * }
+     */
+    static String getResourcePrincipalSessionTokenRequestBody(
+            String resourcePrincipalToken,
+            String servicePrincipalSessionToken,
+            String sessionPublicKey){
+        Map<String, String> jsonMap = new HashMap<>();
+        jsonMap.put("resourcePrincipalToken", resourcePrincipalToken);
+        jsonMap.put("servicePrincipalSessionToken", servicePrincipalSessionToken);
+        jsonMap.put("sessionPublicKey", sessionPublicKey);
+        return convertMapToJson(jsonMap);
+    }
 
-        String date = createFormatter().format(new Date());
-        String bodySha = computeBodySHA256(body);
+    static HttpHeaders setHeaders(URI uri,
+                                  String keyId,
+                                  PrivateKey privateKey,
+                                  Logger logger) {
+        final String date = createFormatter().format(new Date());
         StringBuilder sign = new StringBuilder();
         sign.append(DATE).append(HEADER_DELIMITER)
-            .append(date).append("\n")
-            .append(REQUEST_TARGET).append(HEADER_DELIMITER)
-            .append("post ").append(endpoint.getPath()).append("\n")
-            .append(CONTENT_LENGTH.toLowerCase()).append(HEADER_DELIMITER)
-            .append(Integer.toString(body.length)).append("\n")
-            .append(CONTENT_TYPE.toLowerCase()).append(HEADER_DELIMITER)
-            .append(APP_JSON).append("\n")
-            .append(CONTENT_SHA).append(HEADER_DELIMITER)
-            .append(bodySha);
+                .append(date).append("\n")
+                .append(REQUEST_TARGET).append(HEADER_DELIMITER)
+                .append("get ").append(uri.getPath());
 
-        logTrace(logger, "Federation request signing content " +
-                 sign.toString());
+        logTrace(logger, "Resource Principal Token request" +
+                " signing content " + sign);
+
         String signature;
         try {
-             signature = sign(sign.toString(), pair.getKey());
+            signature = sign(sign.toString(), privateKey);
         } catch (Exception e) {
             return null;
         }
-        String authHeader = String.format(
-            SIGNATURE_HEADER_FORMAT,
-            SIGNING_HEADERS,
-            keyId(tenantId, pair),
-            RSA,
-            signature,
-            SINGATURE_VERSION);
 
-        logTrace(logger, "Federation request authorization header " +
-                 authHeader);
+        String authHeader = String.format(
+                SIGNATURE_HEADER_FORMAT,
+                SIGNING_HEADERS_WITHOUT_PAYLOAD,
+                keyId,
+                RSA,
+                signature,
+                SINGATURE_VERSION);
+
+
+        logTrace(logger, "Resource Principal Token request" +
+                " authorization header " + authHeader);
         HttpHeaders headers = new DefaultHttpHeaders();
         return headers
-            .set(CONTENT_TYPE.toLowerCase(), APP_JSON)
-            .set(CONTENT_SHA, bodySha)
-            .set(CONTENT_LENGTH.toLowerCase(), body.length)
-            .set(DATE, date)
-            .set(AUTHORIZATION.toLowerCase(), authHeader);
+                .set(DATE, date)
+                .set(AUTHORIZATION.toLowerCase(), authHeader);
+    }
+
+    static HttpHeaders setHeaders(URI uri,
+                                  byte[] body,
+                                  String keyId,
+                                  PrivateKey privateKey,
+                                  Logger logger) {
+        final String date = createFormatter().format(new Date());
+        String bodySha = computeBodySHA256(body);
+        StringBuilder sign = new StringBuilder();
+        sign.append(DATE).append(HEADER_DELIMITER)
+                .append(date).append("\n")
+                .append(REQUEST_TARGET).append(HEADER_DELIMITER)
+                .append("post ").append(uri.getPath()).append("\n")
+                .append(CONTENT_LENGTH.toLowerCase()).append(HEADER_DELIMITER)
+                .append(body.length).append("\n")
+                .append(CONTENT_TYPE.toLowerCase()).append(HEADER_DELIMITER)
+                .append(APP_JSON).append("\n")
+                .append(CONTENT_SHA).append(HEADER_DELIMITER)
+                .append(bodySha);
+
+        logTrace(logger, "Federation Request signing content " +
+                sign);
+        String signature;
+        try {
+            signature = sign(sign.toString(), privateKey);
+        } catch (Exception e) {
+            return null;
+        }
+
+        String authHeader = String.format(
+                SIGNATURE_HEADER_FORMAT,
+                SIGNING_HEADERS_WITH_PAYLOAD,
+                keyId,
+                RSA,
+                signature,
+                SINGATURE_VERSION);
+
+        logTrace(logger, "Federation request authorization header " +
+                authHeader);
+        HttpHeaders headers = new DefaultHttpHeaders();
+        return headers
+                .set(DATE, date)
+                .set(AUTHORIZATION.toLowerCase(), authHeader)
+                .set(CONTENT_TYPE.toLowerCase(), APP_JSON)
+                .set(CONTENT_SHA, bodySha)
+                .set(CONTENT_LENGTH.toLowerCase(), body.length);
     }
 
     private static String keyId(String tenantId, X509CertificateKeyPair pair) {

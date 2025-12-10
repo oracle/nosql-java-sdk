@@ -243,7 +243,8 @@ public class HttpRequestUtil {
                     throw new IllegalStateException("Invalid null response");
                 }
                 res = processResponse(status.code(),
-                                      responseHandler.getContent());
+                        responseHandler.getContent(),
+                        responseHandler.getHeaders());
 
                 /*
                  * Retry upon status code larger than 500, in general,
@@ -374,12 +375,14 @@ public class HttpRequestUtil {
      * A simple response processing method, just return response content
      * in String with its status code.
      */
-    private static HttpResponse processResponse(int status, ByteBuf content) {
+    private static HttpResponse processResponse(int status,
+                                                ByteBuf content,
+                                                HttpHeaders headers) {
         String output = null;
         if (content != null) {
             output = content.toString(utf8);
         }
-        return new HttpResponse(status, output);
+        return new HttpResponse(status, output, headers);
     }
 
     /**
@@ -388,10 +391,12 @@ public class HttpRequestUtil {
     public static class HttpResponse {
         private final int statusCode;
         private final String output;
+        private final HttpHeaders headers;
 
-        public HttpResponse(int statusCode, String output) {
+        public HttpResponse(int statusCode, String output, HttpHeaders headers) {
             this.statusCode = statusCode;
             this.output = output;
+            this.headers = headers;
         }
 
         public int getStatusCode() {
@@ -402,10 +407,15 @@ public class HttpRequestUtil {
             return output;
         }
 
+        public HttpHeaders getHeaders() {
+            return headers;
+        }
+
         @Override
         public String toString() {
             return "HttpResponse [statusCode=" + statusCode + "," +
-                   "output=" + output + "]";
+                   "output=" + output + "," + "headers=" +
+                    (headers == null ? "null" : headers.toString()) +  "]";
         }
     }
 }
