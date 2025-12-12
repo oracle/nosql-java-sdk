@@ -187,7 +187,7 @@ public class TableRequest extends Request {
      * @return this
      */
     public TableRequest setCDCEnabled(boolean enabled) {
-        /* only create the object of a change in CDC is desired */
+        /* only create the object if a change in CDC is desired */
         this.cdcEnabled = new Boolean(enabled);
         return this;
     }

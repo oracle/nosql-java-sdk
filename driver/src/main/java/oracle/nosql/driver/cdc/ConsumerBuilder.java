@@ -352,12 +352,10 @@ public class ConsumerBuilder {
         if (tcfg.tableName == null || tcfg.tableName.isEmpty()) {
             throw new IllegalArgumentException("missing table name in consumer configuration");
         }
-        if (tcfg.compartmentOcid != null) {
-// TODO: config allows different compartments, but user is in one compartment, and GetTable()
-// uses the single user's compartment.... hmmm.
-        }
-        /* TODO: config.compartmentOcid */
         GetTableRequest req = new GetTableRequest().setTableName(tcfg.tableName);
+        if (tcfg.compartmentOcid != null) {
+            req.setCompartment(tcfg.compartmentOcid);
+        }
         try {
             TableResult res = handle.getTable(req);
             tcfg.tableOcid = res.getTableId();

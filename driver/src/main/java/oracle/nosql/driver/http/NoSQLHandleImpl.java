@@ -425,10 +425,12 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                                  boolean enabled,
                                  int timeoutMs,
                                  int pollIntervalMs) {
-        // TODO: resolve compartmentOCID: this is currently on a per-handle-only basis
         TableRequest req = new TableRequest()
             .setTableName(tableName)
             .setCDCEnabled(enabled);
+        if (compartmentId != null) {
+            req.setCompartment(compartmentId);
+        }
         try {
             TableResult res = tableRequest(req);
             if (res == null) {
