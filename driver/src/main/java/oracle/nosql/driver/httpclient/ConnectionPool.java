@@ -78,7 +78,7 @@ import io.netty.util.concurrent.Promise;
  *       65s (a default that cannot be modified).
  */
 
-class ConnectionPool {
+public class ConnectionPool {
 
     /* remove channels that have not been used in this many seconds */
     final static int DEFAULT_INACTIVITY_PERIOD_SECS = 30;
@@ -362,12 +362,9 @@ class ConnectionPool {
      * Close and remove channel from pool.
      * The channel may or may not currently be in the queue.
      * This will normally only be called on channels that were acquired and
-     * found to be inactive or otherwise invalid, but it may also occasionally
-     * be called by an async netty callback when netty sees that a channel
-     * has been disconnected or become otherwise inactive. In the latter case,
-     * the channel is likely still in the queue and will be removed.
+     * found to be inactive.
      */
-    public void removeChannel(Channel channel) {
+    private void removeChannel(Channel channel) {
         queue.remove(channel);
         stats.remove(channel);
         channel.close();
@@ -792,5 +789,42 @@ class ConnectionPool {
                 logFine(logger, "Exception in RefreshTask: " + e);
             }
         }
+    }
+
+    /**
+     * DTO for connection pool metrics.
+     */
+    public static class PoolMetrics {
+        public final int maxConnections;
+        public final int acquiredConnections;
+        public final int pendingAcquires;
+        public final int idleConnections;
+        public final int totalConnections;  // acquired + idle
+
+        private PoolMetrics(int maxConnections, int acquiredConnections, int pendingAcquires, int idleConnections) {
+            this.maxConnections = maxConnections;
+            this.acquiredConnections = acquiredConnections;
+            this.pendingAcquires = pendingAcquires;
+            this.idleConnections = idleConnections;
+            this.totalConnections = acquiredConnections + idleConnections;
+        }
+
+        @Override
+        public String toString() {
+            return "ConnectionPoolMetrics{" +
+                    "max=" + maxConnections +
+                    ", acquired=" + acquiredConnections +
+                    ", pending=" + pendingAcquires +
+                    ", total" + "=" + totalConnections +
+                    ", idle=" + idleConnections +
+                    "}";
+        }
+    }
+
+    PoolMetrics getMetrics() {
+        return new PoolMetrics(this.maxPoolSize,
+                               getAcquiredChannelCount(),
+                               getPendingAcquires(),
+                               getFreeChannels());
     }
 }

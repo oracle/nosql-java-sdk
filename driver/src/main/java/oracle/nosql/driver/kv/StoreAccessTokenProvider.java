@@ -364,19 +364,21 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
         /*
          * Send request for logout
          */
-        try {
-            final HttpResponse response =
-                sendRequest(authString.get(), LOGOUT_SERVICE, 0);
-            if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
+        if (authString.get() != null) {
+            try {
+                final HttpResponse response =
+                    sendRequest(authString.get(), LOGOUT_SERVICE, 0);
+                if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
+                    if (logger != null) {
+                        logger.info("Failed to logout user " + userName +
+                                    ": " + response.getOutput());
+                    }
+                }
+            } catch (Exception e) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
-                                ": " + response.getOutput());
+                                ": " + e);
                 }
-            }
-        } catch (Exception e) {
-            if (logger != null) {
-                logger.info("Failed to logout user " + userName +
-                            ": " + e);
             }
         }
 

@@ -433,6 +433,10 @@ public class HttpClient {
         return pool;
     }
 
+    public ConnectionPool.PoolMetrics getPoolMetrics() {
+        return pool.getMetrics();
+    }
+
     /**
      * Cleanly shut down the client.
      */
@@ -475,14 +479,6 @@ public class HttpClient {
          * from the pool. Don't wait for completion.
          */
         pool.release(channel);
-    }
-
-    /**
-     * Close and remove channel from client pool.
-     */
-    public void removeChannel(Channel channel) {
-        logFine(logger, "closing and removing channel " + channel);
-        pool.removeChannel(channel);
     }
 
     /**
@@ -570,15 +566,25 @@ public class HttpClient {
      * {@link FullHttpResponse#release()} or
      * {@link ReferenceCountUtil#release(Object)}
      */
-    public CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
+    private CompletableFuture<FullHttpResponse> runRequest(HttpRequest request,
                                                           Channel channel,
                                                           long timeoutMs) {
         CompletableFuture<FullHttpResponse>
             responseFuture = new CompletableFuture<>();
-        /* Attach the CompletableFuture to the channel's attributes */
+
+        /* Attach the responseFuture to the channel's attribute.
+         * This responseFuture is completed by HttpClientHandler when response
+         * arrives from the server.
+         */
         channel.attr(STATE_KEY).set(responseFuture);
 
-        /* Add timeout handler to the pipeline */
+        /* Add timeout handler to the pipeline.
+         * Timeout handler makes sure that responseFuture completes within
+         * timeoutMs. This also makes sure that response future always
+         * completes even during network disconnection, and the channel is
+         * released back to the pool. The timeout handler is removed in
+         * HttpClientHandler upon response from the server.
+         */
         channel.pipeline().addFirst(
             new ReadTimeoutHandler(timeoutMs, TimeUnit.MILLISECONDS));
 
@@ -586,9 +592,16 @@ public class HttpClient {
         channel.writeAndFlush(request)
         .addListener((ChannelFutureListener) writeFuture -> {
             if (!writeFuture.isSuccess()) {
-                /* If write fails, complete the future exceptionally */
+                /* If write fails, remove channel attr and timeout handler and
+                 * complete the response future exceptionally.
+                 * When this happens, HttpClientHandler won't be called as
+                 * request is not sent to the server.
+                 */
+                Throwable err = writeFuture.cause();
+                logFine(logger, "HttpClient: send failed, cause:" + err);
                 channel.attr(STATE_KEY).set(null);
-                responseFuture.completeExceptionally(writeFuture.cause());
+                channel.pipeline().remove(ReadTimeoutHandler.class);
+                responseFuture.completeExceptionally(err);
             }
         });
         return responseFuture;

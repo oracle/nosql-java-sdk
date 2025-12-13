@@ -197,6 +197,8 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
                         .setSslContext(config.getSslContext())
                         .setSslHandshakeTimeout(
                                 config.getSSLHandshakeTimeout());
+                /* Check credentials are correct in initial phase only */
+                stProvider.getAuthorizationString(null /* request */);
             }
 
         } else if (ap instanceof SignatureProvider) {

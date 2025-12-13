@@ -26,6 +26,7 @@ import java.util.logging.Level;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.ThrottlingException;
+import oracle.nosql.driver.httpclient.ConnectionPool;
 import oracle.nosql.driver.kv.AuthenticationException;
 import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
@@ -239,41 +240,71 @@ public class Stats {
     }
 
     /**
-     * Stores connection aggregated statistics. Min, max, avg show the number of
-     * simultaneously opened connections.
+     * Stores connection aggregated statistics. Min, max, avg for various
+     * connection metrics.
      */
     private static class ConnectionStats {
-        private long count;
-        private int min = Integer.MAX_VALUE;
-        private int max;
-        private long sum;
+        private final MetricStats maxConnections = new MetricStats();
+        private final MetricStats acquiredConnections = new MetricStats();
+        private final MetricStats pendingAcquires = new MetricStats();
+        private final MetricStats idleConnections = new MetricStats();
+        private final MetricStats totalConnections = new MetricStats();
 
-        synchronized void observe(int connections) {
-            if (connections < min) {
-                min = connections;
-            }
-            if (connections > max) {
-                max = connections;
-            }
-            sum += connections;
-            count++;
+        synchronized void observe(ConnectionPool.PoolMetrics poolMetrics) {
+            maxConnections.observe(poolMetrics.maxConnections);
+            acquiredConnections.observe(poolMetrics.acquiredConnections);
+            pendingAcquires.observe(poolMetrics.pendingAcquires);
+            idleConnections.observe(poolMetrics.idleConnections);
+            totalConnections.observe(poolMetrics.totalConnections);
         }
 
         synchronized void toJSON(MapValue root) {
-            if (count > 0) {
-                MapValue connections = new MapValue();
-                connections.put("min", min);
-                connections.put("max", max);
-                connections.put("avg", 1.0 * sum / count);
-                root.put("connections", connections);
-            }
+            MapValue all = new MapValue();
+            maxConnections.toJSON("maxConnections", all);
+            acquiredConnections.toJSON("acquiredConnections", all);
+            pendingAcquires.toJSON("pendingAcquires", all);
+            idleConnections.toJSON("idleConnections", all);
+            totalConnections.toJSON("totalConnections", all);
+            root.put("connections", all);
         }
 
         synchronized void clear() {
-            count = 0;
-            min = Integer.MAX_VALUE;
-            max = 0;
-            sum = 0;
+            maxConnections.clear();
+            acquiredConnections.clear();
+            pendingAcquires.clear();
+            idleConnections.clear();
+            totalConnections.clear();
+        }
+
+        private static class MetricStats {
+            long count;
+            int min = Integer.MAX_VALUE;
+            int max;
+            long sum;
+
+            void observe(int value) {
+                if (value < min) min = value;
+                if (value > max) max = value;
+                sum += value;
+                count++;
+            }
+
+            void toJSON(String name, MapValue root) {
+                if (count > 0) {
+                    MapValue m = new MapValue();
+                    m.put("min", min);
+                    m.put("max", max);
+                    m.put("avg", (double) sum / count);
+                    root.put(name, m);
+                }
+            }
+
+            void clear() {
+                count = 0;
+                min = Integer.MAX_VALUE;
+                max = 0;
+                sum = 0;
+            }
         }
     }
 
@@ -545,8 +576,8 @@ public class Stats {
      * response sizes and latency.
      */
     void observeError(Request kvRequest,
-        int connections) {
-        observe(kvRequest, true, connections, -1, -1, -1);
+        ConnectionPool.PoolMetrics poolMetrics) {
+        observe(kvRequest, true, poolMetrics, -1, -1, -1);
     }
 
     /**
@@ -556,14 +587,16 @@ public class Stats {
      *
      * @param kvRequest The request object.
      * @param error Hard error, ie. return error to user.
-     * @param connections The number of active connections in the pool.
+     * @param poolMetrics The connection pool metrics.
      * @param reqSize Request size in bytes.
      * @param resSize Result size in bytes.
      * @param requestLatency Latency on the wire, in milliseconds, it doesn't
      *                       include retry delay or rate limit delay.
      */
     void observe(Request kvRequest, boolean error,
-        int connections, int reqSize, int resSize, int requestLatency) {
+                 ConnectionPool.PoolMetrics poolMetrics, int reqSize,
+                 int resSize,
+                 int requestLatency) {
 
         int authCount = 0, throttleCount = 0, retries = 0, retryDelay = 0;
         RetryStats retryStats = kvRequest.getRetryStats();
@@ -604,7 +637,7 @@ public class Stats {
         rStat.observe(error, retries, retryDelay, rateLimitDelay, authCount,
             throttleCount, reqSize, resSize, requestLatency);
 
-        connectionStats.observe(connections);
+        connectionStats.observe(poolMetrics);
 
         if (extraQueryStats == null &&
             statsControl.getProfile().ordinal() >=

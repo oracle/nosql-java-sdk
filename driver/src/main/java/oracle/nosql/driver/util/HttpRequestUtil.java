@@ -266,17 +266,7 @@ public class HttpRequestUtil {
                      */
                     exception = ioe;
                     ++numRetries;
-                    if (ioe instanceof SSLException) {
-                        /* disconnect the channel to force a new one */
-                    /*if (channel != null) {
-                        logFine(logger,
-                                "Client disconnecting channel due to: " + ioe);
-                        channel.disconnect();
-                    }*/
-                        //TODO what to do?
-                    } else {
-                        delay();
-                    }
+                    delay();
                     continue;
                 } else if (cause instanceof TimeoutException) {
                     throw new RuntimeException("Timeout exception: host=" +
