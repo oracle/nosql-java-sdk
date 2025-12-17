@@ -578,7 +578,7 @@ public class Region {
                               boolean add) {
             Realm realm = ALL_REALMS.get(realmId);
             if (realm == null && add) {
-                realm = new Realm(realmId, secondLevelDomain);
+                realm = new Realm(secondLevelDomain, realmId);
             }
             return realm;
         }
@@ -633,7 +633,7 @@ public class Region {
                         return realm;
                     }
                 }
-                return new Realm(realmId, secondLevelDomain);
+                return new Realm(secondLevelDomain, realmId);
             } finally {
                 writeLock.unlock();
             }
