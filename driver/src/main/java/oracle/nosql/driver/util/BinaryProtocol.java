@@ -80,7 +80,9 @@ public final class BinaryProtocol {
         UNUSED_42(42), // REMOVE_CONFIG_KMS_KEY(42)
         CHANGE_STREAM_CONSUMER(43),
         CHANGE_STREAM_POLL(44),
-        ADD_MV_INDEX(45);
+        CHANGE_STREAM_ENABLE(45),
+        CHANGE_STREAM_DISABLE(46),
+        ADD_MV_INDEX(47);
 
         private static final OpCode[] VALUES = values();
         OpCode(int code) {

@@ -43,7 +43,7 @@ import oracle.nosql.driver.values.MapValue;
 
 import org.junit.Test;
 
-public class CdcTest extends ProxyTestBase {
+public class ChangeStreamTest extends ProxyTestBase {
 
     @Override
     public void beforeTest() throws Exception {
