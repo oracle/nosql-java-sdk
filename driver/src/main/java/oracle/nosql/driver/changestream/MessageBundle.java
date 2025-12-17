@@ -5,7 +5,7 @@
  *  https://oss.oracle.com/licenses/upl/
  */
 
-package oracle.nosql.driver.cdc;
+package oracle.nosql.driver.changestream;
 
 import java.util.List;
 import java.time.Duration;

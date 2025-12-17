@@ -20,13 +20,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import oracle.nosql.driver.cdc.Consumer;
-import oracle.nosql.driver.cdc.ConsumerBuilder;
-import oracle.nosql.driver.cdc.Event;
-import oracle.nosql.driver.cdc.Message;
-import oracle.nosql.driver.cdc.MessageBundle;
-import oracle.nosql.driver.cdc.Record;
-import oracle.nosql.driver.cdc.StartLocation;
+import oracle.nosql.driver.changestream.Consumer;
+import oracle.nosql.driver.changestream.ConsumerBuilder;
+import oracle.nosql.driver.changestream.Event;
+import oracle.nosql.driver.changestream.Message;
+import oracle.nosql.driver.changestream.MessageBundle;
+import oracle.nosql.driver.changestream.Record;
+import oracle.nosql.driver.changestream.StartLocation;
 
 import oracle.nosql.driver.ops.DeleteRequest;
 import oracle.nosql.driver.ops.DeleteResult;
@@ -44,20 +44,6 @@ import oracle.nosql.driver.values.MapValue;
 import org.junit.Test;
 
 public class CdcTest extends ProxyTestBase {
-
-    /*
-     * consumers may have metadata associated with them for debugging/testing purposes.
-     * One value indicates if the CDC operations are limited due to using CloudSim.
-     * Note this is independent of the "cloudsim" test mode, because that can use
-     * either internal proxy cloudsim CDC client, or the real cloud CDC client.
-     */
-    private boolean isCloudsimCDC(Consumer consumer) {
-        MapValue md = consumer.getMetaData();
-        if (md != null && md.get("cloudsim") != null) {
-            return true;
-        }
-        return false;
-    }
 
     @Override
     public void beforeTest() throws Exception {
@@ -99,7 +85,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcSmoke";
+        String tableName = "changestreamSmoke";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -110,10 +96,10 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table: wait up to 10 seconds */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table: wait up to 10 seconds */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.latest())
                 .groupId("test_group")
@@ -138,7 +124,7 @@ public class CdcTest extends ProxyTestBase {
             assertNotNull(res1.getJsonValue());
 
             /* poll for same record */
-            /* CDC values do not contain the key fields */
+            /* Change Streaming values do not contain the key fields */
             MapValue expval = new MapValue().put("name", "jane");
             pollAndCheckEvent(consumer, tableName, key, expval);
 
@@ -157,7 +143,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -173,7 +159,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcCloseOpen";
+        String tableName = "changestreamCloseOpen";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -184,23 +170,16 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.earliest())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
                 .build();
-
-            boolean cloudsimCDC = isCloudsimCDC(consumer);
-
-            if (!cloudsimCDC) {
-                /* give producer a bit of time to set up table */
-                Thread.sleep(2000);
-            }
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
@@ -217,10 +196,6 @@ public class CdcTest extends ProxyTestBase {
 
             /* close the consumer, without committing */
             consumer.close();
-            if (!cloudsimCDC) {
-                /* give cdc client a bit of time to process close */
-                Thread.sleep(1000);
-            }
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
@@ -251,10 +226,6 @@ public class CdcTest extends ProxyTestBase {
 
             /* close consumer */
             consumer.close();
-            if (!cloudsimCDC) {
-                /* give cdc client a bit of time to process close */
-                Thread.sleep(1000);
-            }
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
@@ -284,7 +255,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -298,7 +269,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcAtTime";
+        String tableName = "changestreamAtTime";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -309,8 +280,8 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
@@ -337,7 +308,7 @@ public class CdcTest extends ProxyTestBase {
                 assertNotNull(res.getVersion());
             }
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.atTime(startAt))
                 .groupId("startTime1")
@@ -356,7 +327,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -374,7 +345,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcAtTime2";
+        String tableName = "changestreamAtTime2";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -385,8 +356,8 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
@@ -403,7 +374,7 @@ public class CdcTest extends ProxyTestBase {
             /* get current timestamp */
             long startAt = System.currentTimeMillis();
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.atTime(startAt))
                 .groupId("startTime2")
@@ -431,7 +402,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -445,7 +416,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcManualCommit";
+        String tableName = "changestreamManualCommit";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -456,23 +427,16 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("manCom1")
                 .commitManual()
                 .handle(handle)
                 .build();
-
-            boolean cloudsimCDC = isCloudsimCDC(consumer);
-
-            if (!cloudsimCDC) {
-                /* give producer a bit of time to set up table */
-                Thread.sleep(2000);
-            }
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
@@ -529,7 +493,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -543,7 +507,7 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName = "cdcAutoCommit";
+        String tableName = "changestreamAutoCommit";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -554,23 +518,16 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumer */
+            /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.firstUncommitted())
                 .groupId("autoCom1")
                 .commitAutomatic()
                 .handle(handle)
                 .build();
-
-            boolean cloudsimCDC = isCloudsimCDC(consumer);
-
-            if (!cloudsimCDC) {
-                /* give producer a bit of time to set up table */
-                Thread.sleep(2000);
-            }
 
             /* Put 10 records */
             for (int i=0; i<10; i++) {
@@ -627,7 +584,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -643,7 +600,7 @@ public class CdcTest extends ProxyTestBase {
         Consumer consumer1 = null;
         Consumer consumer2 = null;
 
-        String tableName = "cdcMultiConsumer";
+        String tableName = "changestreamMultiConsumer";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -654,12 +611,12 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
+            /* Enable Change Streaming on table */
             if (verbose)
-                System.out.println("Enable cdc on " + tableName);
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+                System.out.println("Enable changestream on " + tableName);
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumers */
+            /* create Change Streaming consumers */
             consumer1 = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiCons1")
@@ -741,7 +698,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer2 != null) {
                 consumer2.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -754,7 +711,7 @@ public class CdcTest extends ProxyTestBase {
         Consumer consumer1 = null;
         Consumer consumer2 = null;
 
-        String tableName = "cdcMultiConsumer";
+        String tableName = "changestreamMultiConsumer";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -765,10 +722,10 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
-            enableDisableCDCWithRateLimiting(handle,tableName, true);
+            /* Enable Change Streaming on table */
+            enableDisableStreamingWithRateLimiting(handle,tableName, true);
 
-            /* create CDC consumers with different groups */
+            /* create Change Streaming consumers with different groups */
             consumer1 = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.earliest())
                 .groupId("multiGroup1")
@@ -838,7 +795,7 @@ public class CdcTest extends ProxyTestBase {
             if (consumer2 != null) {
                 consumer2.close();
             }
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -850,8 +807,8 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName1 = "cdcMultiTable1";
-        String tableName2 = "cdcMultiTable2";
+        String tableName1 = "changestreamMultiTable1";
+        String tableName2 = "changestreamMultiTable2";
 
         try {
             /* Create table1 */
@@ -863,8 +820,8 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
 
-            /* Enable CDC on table1 */
-            enableDisableCDCWithRateLimiting(handle, tableName1, true);
+            /* Enable Change Streaming on table1 */
+            enableDisableStreamingWithRateLimiting(handle, tableName1, true);
 
             /* Create table2 */
             TableResult tres2 = tableOperation(
@@ -875,10 +832,10 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
 
-            /* Enable CDC on table2 */
-            enableDisableCDCWithRateLimiting(handle, tableName2, true);
+            /* Enable Change Streaming on table2 */
+            enableDisableStreamingWithRateLimiting(handle, tableName2, true);
 
-            /* create CDC consumer for both tables */
+            /* create Change Streaming consumer for both tables */
             consumer = new ConsumerBuilder()
                 .addTable(tableName1, null, StartLocation.earliest())
                 .addTable(tableName2, null, StartLocation.earliest())
@@ -935,9 +892,9 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            /* disable CDC on tables */
-            enableDisableCDCWithRateLimiting(handle, tableName1, false);
-            enableDisableCDCWithRateLimiting(handle, tableName2, false);
+            /* disable Change Streaming on tables */
+            enableDisableStreamingWithRateLimiting(handle, tableName1, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName2, false);
         }
     }
 
@@ -949,9 +906,9 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String tableName1 = "cdcAddRemoveTable1";
-        String tableName2 = "cdcAddRemoveTable2";
-        String tableName3 = "cdcAddRemoveTable3";
+        String tableName1 = "changestreamAddRemoveTable1";
+        String tableName2 = "changestreamAddRemoveTable2";
+        String tableName3 = "changestreamAddRemoveTable3";
 
         boolean table1Enabled = false;
         boolean table2Enabled = false;
@@ -967,8 +924,8 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
 
-            /* Enable CDC on table1 */
-            enableDisableCDCWithRateLimiting(handle, tableName1, true);
+            /* Enable Change Streaming on table1 */
+            enableDisableStreamingWithRateLimiting(handle, tableName1, true);
             table1Enabled = true;
 
             /* Create table2 */
@@ -980,8 +937,8 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
 
-            /* Enable CDC on table2 */
-            enableDisableCDCWithRateLimiting(handle, tableName2, true);
+            /* Enable Change Streaming on table2 */
+            enableDisableStreamingWithRateLimiting(handle, tableName2, true);
             table2Enabled = true;
 
             /* Create table3 */
@@ -993,11 +950,11 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres3.getTableState());
 
-            /* Enable CDC on table3 */
-            enableDisableCDCWithRateLimiting(handle, tableName3, true);
+            /* Enable Change Streaming on table3 */
+            enableDisableStreamingWithRateLimiting(handle, tableName3, true);
             table3Enabled = true;
 
-            /* create CDC consumer for table1 */
+            /* create Change Streaming consumer for table1 */
             consumer = new ConsumerBuilder()
                 .addTable(tableName1, null, StartLocation.earliest())
                 .groupId("addRemoveTable1")
@@ -1122,10 +1079,10 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            /* disable CDC on tables */
-            if (table1Enabled) enableDisableCDCWithRateLimiting(handle, tableName1, false);
-            if (table2Enabled) enableDisableCDCWithRateLimiting(handle, tableName2, false);
-            if (table3Enabled) enableDisableCDCWithRateLimiting(handle, tableName3, false);
+            /* disable Change Streaming on tables */
+            if (table1Enabled) enableDisableStreamingWithRateLimiting(handle, tableName1, false);
+            if (table2Enabled) enableDisableStreamingWithRateLimiting(handle, tableName2, false);
+            if (table3Enabled) enableDisableStreamingWithRateLimiting(handle, tableName3, false);
         }
     }
 
@@ -1137,8 +1094,8 @@ public class CdcTest extends ProxyTestBase {
 
         Consumer consumer = null;
 
-        String parentTableName = "cdcParent1";
-        String childTableName = "cdcParent1.child";
+        String parentTableName = "changestreamParent1";
+        String childTableName = "changestreamParent1.child";
 
         try {
             /* Create parent table */
@@ -1150,9 +1107,9 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, pres.getTableState());
 
-            /* Enable CDC on parent */
-// TODO: test only enabling CDC on child
-            enableDisableCDCWithRateLimiting(handle, parentTableName, true);
+            /* Enable Change Streaming on parent */
+// TODO: test only enabling Change Streaming on child
+            enableDisableStreamingWithRateLimiting(handle, parentTableName, true);
 
             /* Create child table */
             TableResult cres = tableOperation(
@@ -1163,10 +1120,10 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, cres.getTableState());
 
-            /* Enable CDC on child */
-            enableDisableCDCWithRateLimiting(handle, childTableName, true);
+            /* Enable Change Streaming on child */
+            enableDisableStreamingWithRateLimiting(handle, childTableName, true);
 
-            /* create CDC consumer for both tables */
+            /* create Change Streaming consumer for both tables */
             consumer = new ConsumerBuilder()
                 .addTable(parentTableName, null, StartLocation.earliest())
                 .addTable(childTableName, null, StartLocation.earliest())
@@ -1225,9 +1182,9 @@ public class CdcTest extends ProxyTestBase {
             if (consumer != null) {
                 consumer.close();
             }
-            /* disable CDC on tables */
-            enableDisableCDCWithRateLimiting(handle, childTableName, false);
-            enableDisableCDCWithRateLimiting(handle, parentTableName,
+            /* disable Change Streaming on tables */
+            enableDisableStreamingWithRateLimiting(handle, childTableName, false);
+            enableDisableStreamingWithRateLimiting(handle, parentTableName,
                     false);
         }
     }
@@ -1241,7 +1198,7 @@ public class CdcTest extends ProxyTestBase {
         Consumer consumer1 = null;
         Consumer consumer2 = null;
 
-        String tableName = "cdcDeleteGroup";
+        String tableName = "changestreamDeleteGroup";
         try {
             /* Create a table */
             TableResult tres = tableOperation(
@@ -1252,12 +1209,12 @@ public class CdcTest extends ProxyTestBase {
                 20000);
             assertEquals(TableResult.State.ACTIVE, tres.getTableState());
 
-            /* Enable CDC on table */
+            /* Enable Change Streaming on table */
             if (verbose)
-                System.out.println("Enable cdc on " + tableName);
-            enableDisableCDCWithRateLimiting(handle, tableName, true);
+                System.out.println("Enable changestream on " + tableName);
+            enableDisableStreamingWithRateLimiting(handle, tableName, true);
 
-            /* create CDC consumers */
+            /* create Change Streaming consumers */
             consumer1 = new ConsumerBuilder()
                 .addTable(tableName, null, StartLocation.earliest())
                 .groupId("deleteGroup")
@@ -1333,7 +1290,7 @@ public class CdcTest extends ProxyTestBase {
             e.printStackTrace();
             fail("Exception in test: " + e);
         } finally {
-            enableDisableCDCWithRateLimiting(handle, tableName, false);
+            enableDisableStreamingWithRateLimiting(handle, tableName, false);
         }
     }
 
@@ -1364,7 +1321,7 @@ public class CdcTest extends ProxyTestBase {
                                    MapValue expKey,
                                    MapValue expValue) {
         /*
-         * Poll until we get this event back, then verify the returned CDC event matches
+         * Poll until we get this event back, then verify the returned Change Streaming event matches
          * the record that was written.
          */
         MessageBundle bundle = consumer.poll(1, Duration.ofSeconds(10));
@@ -1459,19 +1416,19 @@ public class CdcTest extends ProxyTestBase {
         }
     }
 
-    private void enableDisableCDCWithRateLimiting(NoSQLHandle handle,
-                                           String tableName,
-                                           boolean enableOrDisable)
+    private void enableDisableStreamingWithRateLimiting(NoSQLHandle handle,
+                                                        String tableName,
+                                                        boolean enableOrDisable)
             throws InterruptedException {
         int retries = 5;
         while (retries > 0) {
             try {
                 ddlLimitOp();
-                handle.enableCDC(tableName, null, enableOrDisable, 20000, 500);
+                handle.enableChangeStreaming(tableName, null, enableOrDisable, 20000, 500);
                 break;
             } catch (OperationThrottlingException e) {
                 if (verbose) {
-                    System.out.println("Enabling cdc on table " + tableName +
+                    System.out.println("Enabling changestream on table " + tableName +
                             " incurred throttling exception, will retry in 20 " +
                             "seconds: " + e);
                 }

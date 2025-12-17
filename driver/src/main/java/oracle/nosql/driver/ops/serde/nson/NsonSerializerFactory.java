@@ -49,16 +49,16 @@ import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
-import oracle.nosql.driver.cdc.ConsumerBuilder;
-import oracle.nosql.driver.cdc.ConsumerRequest;
-import oracle.nosql.driver.cdc.ConsumerResult;
-import oracle.nosql.driver.cdc.Event;
-import oracle.nosql.driver.cdc.Image;
-import oracle.nosql.driver.cdc.Message;
-import oracle.nosql.driver.cdc.MessageBundle;
-import oracle.nosql.driver.cdc.PollRequest;
-import oracle.nosql.driver.cdc.PollResult;
-import oracle.nosql.driver.cdc.Record;
+import oracle.nosql.driver.changestream.ConsumerBuilder;
+import oracle.nosql.driver.changestream.ConsumerRequest;
+import oracle.nosql.driver.changestream.ConsumerResult;
+import oracle.nosql.driver.changestream.Event;
+import oracle.nosql.driver.changestream.Image;
+import oracle.nosql.driver.changestream.Message;
+import oracle.nosql.driver.changestream.MessageBundle;
+import oracle.nosql.driver.changestream.PollRequest;
+import oracle.nosql.driver.changestream.PollResult;
+import oracle.nosql.driver.changestream.Record;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
@@ -414,10 +414,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchETag() != null) {
                 writeMapField(ns, ETAG, rq.getMatchETag());
             }
-            // Do not write CDC info unless specifically set in request
-            if (rq.getCDCEnablement() != null) {
-                writeMapField(ns, CDC_ENABLED,
-                              rq.getCDCEnablement().booleanValue());
+            // Do not write Change Streaming info unless specifically set in request
+            if (rq.getChangeStreamingEnablement() != null) {
+                writeMapField(ns, CHANGE_STREAM_ENABLED,
+                              rq.getChangeStreamingEnablement().booleanValue());
             }
             endMap(ns, PAYLOAD);
 
@@ -866,7 +866,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // header
             startMap(ns, HEADER);
-            writeHeader(ns, OpCode.CDC_CONSUMER.ordinal(), rq);
+            writeHeader(ns, OpCode.CHANGE_STREAM_CONSUMER.ordinal(), rq);
             endMap(ns, HEADER);
 
             // payload
@@ -963,7 +963,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // header
             startMap(ns, HEADER);
-            writeHeader(ns, OpCode.CDC_POLL.ordinal(), rq);
+            writeHeader(ns, OpCode.CHANGE_STREAM_POLL.ordinal(), rq);
             endMap(ns, HEADER);
 
             // payload

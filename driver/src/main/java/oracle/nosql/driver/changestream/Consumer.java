@@ -5,19 +5,19 @@
  *  https://oss.oracle.com/licenses/upl/
  */
 
-package oracle.nosql.driver.cdc;
+package oracle.nosql.driver.changestream;
 
 import java.time.Duration;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.OperationNotSupportedException;
-import oracle.nosql.driver.cdc.ConsumerRequest.RequestMode;
+import oracle.nosql.driver.changestream.ConsumerRequest.RequestMode;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.values.MapValue;
 
 /**
- * The main object used for Change Data Capture.
+ * The main object used for Change Streaming.
  *
  * To get an instance of this class, use {@link ConsumerBuilder}.
  */
@@ -44,7 +44,7 @@ public class Consumer {
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -96,7 +96,7 @@ public class Consumer {
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -128,7 +128,7 @@ public class Consumer {
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -155,14 +155,14 @@ public class Consumer {
             this.cursor = res.cursor;
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
     }
 
     /*
-     * Get Change Data Capture messages for a consumer.
+     * Get Change Streaming messages for a consumer.
      *
      * @param limit max number of change messages to return in the bundle. This value can be set to
      * zero to specify that this consumer is alive and active in the group without actually
@@ -229,7 +229,7 @@ public class Consumer {
             return mb;
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -246,8 +246,8 @@ public class Consumer {
 
     /**
      * Adds a table to the consumer group.
-     * The table must have already been CDC enabled via the OCI console or
-     * a NoSQL SDK {@link NoSQLHandle#enableCDC} request.
+     * The table must have already been enabled for Change Streaming via the OCI console or
+     * a NoSQL SDK {@link NoSQLHandle#enableChangeStreaming} request.
      *
      * If the given table already exists in the group, this call is ignored and will return no error.
      *
@@ -289,7 +289,7 @@ public class Consumer {
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -330,7 +330,7 @@ public class Consumer {
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }
@@ -348,7 +348,7 @@ public class Consumer {
                 (ConsumerResult) ((NoSQLHandleImpl)handle).getClient().execute(req);
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
         }

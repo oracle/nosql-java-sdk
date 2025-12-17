@@ -26,7 +26,7 @@ public class NsonProtocol {
     public static String ABORT_ON_FAIL = "a";
     public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
-    public static String CDC_ENABLED = "ce";
+    public static String CHANGE_STREAM_ENABLED = "ce";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
     public static String CONSUMER_METADATA = "cm";
@@ -230,7 +230,7 @@ public class NsonProtocol {
         {ABORT_ON_FAIL,"ABORT_ON_FAIL"},
         {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
-        {CDC_ENABLED,"CDC_ENABLED"},
+        {CHANGE_STREAM_ENABLED,"CHANGE_STREAM_ENABLED"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
         {CONSUMER_METADATA,"CONSUMER_METADATA"},

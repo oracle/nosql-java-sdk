@@ -5,7 +5,7 @@
  *  https: *oss.oracle.com/licenses/upl/
  */
 
-package oracle.nosql.driver.cdc;
+package oracle.nosql.driver.changestream;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -184,8 +184,8 @@ public class ConsumerBuilder {
     /**
      * Adds a table to the consumer config.
      *
-     * The table must have already been CDC enabled via the OCI console or
-     * a NoSQL SDK {@link NoSQLHandle#enableCDC} request.
+     * The table must have already have Change Streaming enabled via the OCI console or
+     * a NoSQL SDK {@link NoSQLHandle#enableChangeStreaming} request.
      *
      * tableName: required. This may be the Ocid of the table, if available.
      *

@@ -5,7 +5,7 @@
  *  https://oss.oracle.com/licenses/upl/
  */
 
-package oracle.nosql.driver.cdc;
+package oracle.nosql.driver.changestream;
 
 import java.util.ArrayList;
 import java.util.List;

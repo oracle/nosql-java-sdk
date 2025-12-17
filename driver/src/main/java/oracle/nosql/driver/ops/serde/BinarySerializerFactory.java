@@ -143,13 +143,13 @@ public class BinarySerializerFactory implements SerializerFactory {
     @Override
     public Serializer createConsumerSerializer() {
         throw new UnsupportedProtocolException(
-            "CDC is not supported with serial version: " + V3);
+            "Change Streaming is not supported with serial version: " + V3);
     }
 
     @Override
     public Serializer createPollSerializer() {
         throw new UnsupportedProtocolException(
-            "CDC is not supported with serial version: " + V3);
+            "Change Streaming is not supported with serial version: " + V3);
     }
 
     /* deserializers */
@@ -244,13 +244,13 @@ public class BinarySerializerFactory implements SerializerFactory {
     @Override
     public Serializer createConsumerDeserializer() {
         throw new UnsupportedProtocolException(
-            "CDC is not supported with serial version: " + V3);
+            "Change Streaming is not supported with serial version: " + V3);
     }
 
     @Override
     public Serializer createPollDeserializer() {
         throw new UnsupportedProtocolException(
-            "CDC is not supported with serial version: " + V3);
+            "Change Streaming is not supported with serial version: " + V3);
     }
 
     @Override

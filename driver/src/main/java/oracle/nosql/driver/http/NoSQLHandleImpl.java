@@ -420,27 +420,27 @@ public class NoSQLHandleImpl implements NoSQLHandle {
     }
 
     @Override
-    public TableResult enableCDC(String tableName,
-                                 String compartmentId,
-                                 boolean enabled,
-                                 int timeoutMs,
-                                 int pollIntervalMs) {
+    public TableResult enableChangeStreaming(String tableName,
+                                             String compartmentId,
+                                             boolean enabled,
+                                             int timeoutMs,
+                                             int pollIntervalMs) {
         TableRequest req = new TableRequest()
             .setTableName(tableName)
-            .setCDCEnabled(enabled);
+            .setChangeStreamingEnabled(enabled);
         if (compartmentId != null) {
             req.setCompartment(compartmentId);
         }
         try {
             TableResult res = tableRequest(req);
             if (res == null) {
-                throw new IllegalStateException("No response from server for CDC operation");
+                throw new IllegalStateException("No response from server for Change Streaming operation");
             }
             res.waitForCompletion(this, timeoutMs, pollIntervalMs);
             return res;
         } catch (Exception e) {
             if (e.toString().contains("must have either statement or limits")) {
-                throw new OperationNotSupportedException("CDC not supported by server");
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
        }

@@ -78,8 +78,8 @@ public final class BinaryProtocol {
         UNUSED_40(40), // GET_CONFIG_KMS_KEY(40)
         UNUSED_41(41), // UPDATE_CONFIG_KMS_KEY(41)
         UNUSED_42(42), // REMOVE_CONFIG_KMS_KEY(42)
-        CDC_CONSUMER(43),
-        CDC_POLL(44),
+        CHANGE_STREAM_CONSUMER(43),
+        CHANGE_STREAM_POLL(44),
         ADD_MV_INDEX(45);
 
         private static final OpCode[] VALUES = values();

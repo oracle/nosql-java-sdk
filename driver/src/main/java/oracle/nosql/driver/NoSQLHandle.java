@@ -712,7 +712,7 @@ public interface NoSQLHandle extends AutoCloseable {
     StatsControl getStatsControl();
 
     /**
-     * Enable or disable Change Data Capture on a table.
+     * Enable or disable Change Streaming on a table.
      * <p>
      * Cloud srvice only.
      * <p>
@@ -726,7 +726,7 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @param tableName the name of the table to operate on
      * @param compartmentId optional compartment Id (OCID) for the table
-     * @param enabled Set to true to enable CDC, false to disable CDC
+     * @param enabled Set to true to enable streaming, false to disable streaming
      * @param timeoutMs the amount of time to wait for completion, in
      * milliseconds.
      * @param pollIntervalMs the polling interval for the wait operation.
@@ -739,11 +739,11 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * @since 5.4.20
      */
-    TableResult enableCDC(String tableName,
-                          String compartmentId,
-                          boolean enabled,
-                          int timeoutMs,
-                          int pollIntervalMs);
+    TableResult enableChangeStreaming(String tableName,
+                                      String compartmentId,
+                                      boolean enabled,
+                                      int timeoutMs,
+                                      int pollIntervalMs);
 
     /**
      * Closes the handle, releasing its memory and network resources. Once

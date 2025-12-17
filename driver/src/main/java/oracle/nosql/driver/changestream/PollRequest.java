@@ -5,7 +5,7 @@
  *  https://oss.oracle.com/licenses/upl/
  */
 
-package oracle.nosql.driver.cdc;
+package oracle.nosql.driver.changestream;
 
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.serde.Serializer;
@@ -13,7 +13,7 @@ import oracle.nosql.driver.ops.serde.SerializerFactory;
 
 /*
  * @hidden
- * Internal request class used for CDC poll operations
+ * Internal request class used for Change Streaming poll operations
  */
 public class PollRequest extends Request {
 

@@ -48,7 +48,7 @@ public class TableRequest extends Request {
     private FreeFormTags freeFormTags;
     private DefinedTags definedTags;
     private String matchETag;
-    private Boolean cdcEnabled;
+    private Boolean changeStreamEnabled;
 
     /**
      * Sets the name or id of a compartment to be used for this operation.
@@ -182,21 +182,21 @@ public class TableRequest extends Request {
      *
      * Cloud service only.
      * <p>
-     * @param enabled Set to true to enable CDC for the table, false to disable.
+     * @param enabled Set to true to enable Change Streaming for the table, false to disable.
      *
      * @return this
      */
-    public TableRequest setCDCEnabled(boolean enabled) {
-        /* only create the object if a change in CDC is desired */
-        this.cdcEnabled = new Boolean(enabled);
+    public TableRequest setChangeStreamingEnabled(boolean enabled) {
+        /* only create the object if a change in Change Streaming is desired */
+        this.changeStreamEnabled = new Boolean(enabled);
         return this;
     }
 
     /*
      * @hidden
      */
-    public Boolean getCDCEnablement() {
-        return cdcEnabled;
+    public Boolean getChangeStreamingEnablement() {
+        return changeStreamEnabled;
     }
 
     /**
