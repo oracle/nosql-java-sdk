@@ -95,9 +95,11 @@ class InstanceMetadataHelper {
             }
 
             logTrace(logger, "Instance metadata " + response.getOutput());
-            String insRegion = findRegion(response.getOutput());
-            logTrace(logger, "Instance region " + insRegion);
-            return new InstanceMetadata(insRegion, baseMetadataURL);
+            String insRegion = findKeyValue("canonicalRegionName", response.getOutput());
+            String instanceId = findKeyValue("id", response.getOutput());
+            logTrace(logger, "Instance region: " + insRegion +
+                    ", Instance id: " + instanceId);
+            return new InstanceMetadata(insRegion, instanceId, baseMetadataURL);
         } finally {
             if (client != null) {
                 client.shutdown();
@@ -111,7 +113,7 @@ class InstanceMetadataHelper {
             .set(AUTHORIZATION, AUTHORIZATION_HEADER_VALUE);
     }
 
-    private static String findRegion(String response) {
+    private static String findKeyValue(String key, String response) {
         try {
             JsonParser parser = factory.createParser(response);
             if (parser.getCurrentToken() == null) {
@@ -119,7 +121,7 @@ class InstanceMetadataHelper {
             }
             while (parser.getCurrentToken() != null) {
                 String field = findField(
-                    response, parser, "canonicalRegionName");
+                    response, parser, key);
                 if (field != null) {
                     parser.nextToken();
                     return parser.getText();
@@ -135,16 +137,22 @@ class InstanceMetadataHelper {
     }
 
     static class InstanceMetadata {
-        private String region;
-        private String baseMetadataURL;
+        private final String region;
+        private final String id;
+        private final String baseMetadataURL;
 
-        InstanceMetadata(String region, String baseMetadataURL) {
+        InstanceMetadata(String region, String id, String baseMetadataURL) {
             this.region = region;
+            this.id = id;
             this.baseMetadataURL = baseMetadataURL;
         }
 
         String getRegion() {
             return region;
+        }
+
+        String getId() {
+            return id;
         }
 
         String getBaseURL() {
