@@ -25,7 +25,7 @@ import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
  * token issued by IAM to do the actual request signing.
  * @hidden
  */
-class InstancePrincipalsProvider
+public class InstancePrincipalsProvider
     implements AuthenticationProfileProvider,
                RegionProvider,
                SecurityTokenBasedProvider {
