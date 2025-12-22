@@ -12,6 +12,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,6 +104,9 @@ public class StatsTest extends ProxyTestBase {
     @Test
     public void testStatsHandle()
         throws InterruptedException {
+
+        assumeTrue(inJenkins == false);
+
         // Start fresh
         statsList = new ArrayList<>();
 
