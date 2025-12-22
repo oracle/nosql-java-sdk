@@ -61,7 +61,9 @@ public class RateLimiterTest extends ProxyTestBase {
 
     @Test
     public void retryStatsTest() throws Exception {
-        testRetryStats(500, 500, 500, 10);
+        /* fails in jenkins because DRL is enabled by default */
+        assumeTrue(inJenkins == false);
+        testRetryStats(500, 500, 500, 20);
     }
 
     private void testRetryStats(int maxRows,
@@ -79,7 +81,7 @@ public class RateLimiterTest extends ProxyTestBase {
 
         /*
          * With these settings, we should get many internal throttling
-         * errors. This is on porpuse, tov erify that retry stats are
+         * errors. This is on purpose, to verify that retry stats are
          * properly returned in both QueryRequest and QueryResult objects.
          */
         runLimitedOpsOnTable(readLimit, writeLimit, testSeconds,
@@ -387,13 +389,11 @@ public class RateLimiterTest extends ProxyTestBase {
                         responseRetryStats.addStats(res.getRetryStats());
                     }
                     while (!queryReq.isDone());
-                }
-                catch (ReadThrottlingException rte) {
+                } catch (ReadThrottlingException rte) {
                     if (skipAllLimiting == false) {
                         fail("Expected no throttling exceptions, got one");
                     }
-                }
-                catch (RequestTimeoutException te) {
+                } catch (RequestTimeoutException te) {
                     /* this may happen for very small limit tests */
                 }
                 /*
