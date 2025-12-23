@@ -2,10 +2,19 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [5.4.19] 2025-12-23
+
+### Added
+- Cloud only: Added/updated support for Resource Principal versions
+  1.1, 2.1.1, 2.1.2, 2.2, and 3.0.
 
 ### Fixed
 - Fixed bug in Realms when adding a new realm
+- On-premises only: fixed a login bug introduced in 5.4.15 release
+  when StoreAccessTokenProvider has a cached token.
+
+### Changed
+- Updated netty version to 4.1.129.Final
 
 ## [5.4.18] 2025-10-01
 
