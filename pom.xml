@@ -6,7 +6,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosql-java-sdk</artifactId>
-  <version>5.4.19-SNAPSHOT</version>
+  <version>5.4.19</version>
   <packaging>pom</packaging>
   <name>Oracle NoSQL SDK</name>
   <description>
