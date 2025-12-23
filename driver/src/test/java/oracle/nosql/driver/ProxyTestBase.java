@@ -128,6 +128,9 @@ public class ProxyTestBase {
     /* optionally wait for the connection pool to drain */
     protected static boolean waitForPool = false;
 
+    /* this enables skipping a few tests in jenkins runs */
+    protected static boolean inJenkins = false;
+
     /*
      * track existing tables and don't drop them
      */
@@ -202,6 +205,12 @@ public class ProxyTestBase {
         /* convert ops/min to ops/sec */
         ddlOpLimiter = new SimpleRateLimiter(
                                (double)limitPerMin * 0.016, 60.0);
+
+        /* check environment for jenkins test runs */
+        String jUrl = System.getenv("JENKINS_URL");
+        if (jUrl != null && jUrl.length() > 0) {
+            inJenkins = true;
+        }
 
         proxyVersion = intVersion(System.getProperty(PROXY_VERSION_PROP));
         if (proxyVersion <= 0) {
