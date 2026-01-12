@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [In progress]
+
+### Changed
+- renamed get/set RowMetadata to get/set LastWriteMetadata.
+
 ## [5.4.19] 2025-12-23
 
 ### Added

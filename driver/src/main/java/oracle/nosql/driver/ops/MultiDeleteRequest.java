@@ -42,7 +42,7 @@ public class MultiDeleteRequest extends DurableRequest {
     private byte[] continuationKey;
     private FieldRange range;
     private int maxWriteKB;
-    private String rowMetadata;
+    private String lastWriteMetadata;
 
     /**
      * Cloud service only.
@@ -235,50 +235,46 @@ public class MultiDeleteRequest extends DurableRequest {
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
+     * Sets the write metadata to use for this request.
+     * This is an optional parameter.<p>
      *
-     * Sets the row metadata to use for this request. This is an optional
-     * parameter.<p>
-     *
-     * Row metadata is associated to a certain version of a row. Any subsequent
-     * write operation will use its own row metadata value. If not specified
-     * null will be used by default.
+     * Last write metadata is associated to a certain version of a row. Any
+     * subsequent write operation will use its own write metadata value. If not
+     * specified null will be used by default.
      * NOTE that if you have previously written a record with metadata and a
      * subsequent write does not supply metadata, the metadata associated with
      * the row will be null. Therefore, if you wish to have metadata
      * associated with every write operation, you must supply a valid JSON
      * construct to this method.<p>
      *
-     * @param rowMetadata the row metadata, must be null or a valid JSON
+     * @param lastWriteMetadata the write metadata, must be null or a valid JSON
      *    construct: object, array, string, number, true, false or null,
      *    otherwise an IllegalArgumentException is thrown.
-     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * @throws IllegalArgumentException if lastWriteMetadata not null and invalid
      *    JSON construct
      *
+     * @since 5.4.20
      * @return this
-     * @since 5.4.18
      */
-    public MultiDeleteRequest setRowMetadata(String rowMetadata) {
-        if (rowMetadata == null) {
-            this.rowMetadata = null;
+    public MultiDeleteRequest setLastWriteMetadata(String lastWriteMetadata) {
+        if (lastWriteMetadata == null) {
+            this.lastWriteMetadata = null;
             return this;
         }
 
-        JsonUtils.validateJsonConstruct(rowMetadata);
-        this.rowMetadata = rowMetadata;
+        JsonUtils.validateJsonConstruct(lastWriteMetadata);
+        this.lastWriteMetadata = lastWriteMetadata;
         return this;
     }
 
     /**
-     * Returns the row metadata set for this request, or null if not set.
+     * Returns the write metadata set for this request, or null if not set.
      *
-     * @return the row metadata
+     * @return the write metadata
      * @since 5.4.18
      */
-    public String getRowMetadata() {
-        return rowMetadata;
+    public String getLastWriteMetadata() {
+        return lastWriteMetadata;
     }
 
     /**

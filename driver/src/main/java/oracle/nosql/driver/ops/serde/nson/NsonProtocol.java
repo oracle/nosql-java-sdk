@@ -161,12 +161,12 @@ public class NsonProtocol {
     public static String STORAGE_GB = "sg";
     public static String WRITE_KB = "wk";
 
-    /* row metadata */
+    /* last write metadata */
     public static String EXPIRATION = "xp";
     public static String CREATION_TIME = "ct";
     public static String MODIFIED = "md";
     public static String ROW = "r";
-    public static String ROW_METADATA = "mt";
+    public static String LAST_WRITE_METADATA = "mt";
     public static String ROW_VERSION = "rv";
 
     /* operation metadata */
@@ -330,7 +330,7 @@ public class NsonProtocol {
         {CREATION_TIME,"CREATION_TIME"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
-        {ROW_METADATA,"ROW_METADATA"},
+        {LAST_WRITE_METADATA,"ROW_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
