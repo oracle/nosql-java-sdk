@@ -2835,7 +2835,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                     /* below requires change to WriteRequest */
                     // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
                     //result.setExistingExpiration(Nson.readNsonLong(in));
-                } else if (name.equals(EXISTING_ROW_METADATA)) {
+                } else if (name.equals(EXISTING_LAST_WRITE_METADATA)) {
                     result.setExistingLastWriteMetadata(Nson.readNsonString(in));
                 } else {
                     skipUnknownField(walker, name);

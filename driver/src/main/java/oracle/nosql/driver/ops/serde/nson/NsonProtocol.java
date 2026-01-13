@@ -173,7 +173,7 @@ public class NsonProtocol {
     public static String EXISTING_MOD_TIME = "em";
     public static String EXISTING_VALUE = "el";
     public static String EXISTING_VERSION = "ev";
-    public static String EXISTING_ROW_METADATA = "ed";
+    public static String EXISTING_LAST_WRITE_METADATA = "ed";
     public static String GENERATED = "gn";
     public static String RETURN_INFO = "ri";
 
@@ -330,12 +330,12 @@ public class NsonProtocol {
         {CREATION_TIME,"CREATION_TIME"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
-        {LAST_WRITE_METADATA,"ROW_METADATA"},
+        {LAST_WRITE_METADATA,"LAST_WRITE_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
         {EXISTING_VERSION,"EXISTING_VERSION"},
-        {EXISTING_ROW_METADATA,"EXISTING_ROW_METADATA"},
+        {EXISTING_LAST_WRITE_METADATA,"EXISTING_LAST_WRITE_METADATA"},
         {GENERATED,"GENERATED"},
         {RETURN_INFO,"RETURN_INFO"},
         {DRIVER_QUERY_PLAN,"DRIVER_QUERY_PLAN"},
