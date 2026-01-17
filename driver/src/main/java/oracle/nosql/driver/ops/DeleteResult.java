@@ -94,8 +94,8 @@ public class DeleteResult extends WriteResult {
      * @return the metadata of the row, or null if row does not exist or not set
      * @since 5.4.18
      */
-    public String getExistingRowMetadata() {
-        return super.getExistingRowMetadataInternal();
+    public String getExistingLastWriteMetadata() {
+        return super.getExistingLastWriteMetadataInternal();
     }
 
     /* from Result */

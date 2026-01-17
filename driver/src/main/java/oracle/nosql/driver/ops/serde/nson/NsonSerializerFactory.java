@@ -592,8 +592,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchVersion() != null) {
                 writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
             }
-            if (rq.getRowMetadata() != null) {
-                writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+            if (rq.getLastWriteMetadata() != null) {
+                writeMapField(ns, LAST_WRITE_METADATA, rq.getLastWriteMetadata());
             }
 
 
@@ -646,7 +646,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeContinuationKey(ns, rq.getContinuationKey());
             writeFieldRange(ns, rq.getRange());
             writeKey(ns, rq);
-            writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+            writeMapField(ns, LAST_WRITE_METADATA, rq.getLastWriteMetadata());
             endMap(ns, PAYLOAD);
             ns.endMap(0); // top level object
         }
@@ -798,8 +798,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getMatchVersion() != null) {
                 writeMapField(ns, ROW_VERSION, rq.getMatchVersion().getBytes());
             }
-            if (rq.getRowMetadata() != null) {
-                writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+            if (rq.getLastWriteMetadata() != null) {
+                writeMapField(ns, LAST_WRITE_METADATA, rq.getLastWriteMetadata());
             }
 
             /* writeValue uses the output stream directly */
@@ -910,8 +910,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                 if (rq.getVirtualScan() != null) {
                     writeVirtualScan(ns, rq.getVirtualScan(), queryVersion);
                 }
-                if (rq.getRowMetadata() != null) {
-                    writeMapField(ns, ROW_METADATA, rq.getRowMetadata());
+                if (rq.getLastWriteMetadata() != null) {
+                    writeMapField(ns, LAST_WRITE_METADATA, rq.getLastWriteMetadata());
                 }
             }
 
@@ -2774,7 +2774,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         /**
-         * Reads the row from a get operation which includes row metadata
+         * Reads the row from a get operation which includes last write metadata
          * and the value
          */
         static void readRow(ByteInputStream in, GetResult result)
@@ -2795,8 +2795,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(ROW_VERSION)) {
                     result.setVersion(Version.createVersion(
                                           Nson.readNsonBinary(in)));
-                } else if (name.equals(ROW_METADATA)) {
-                    result.setRowMetadata(Nson.readNsonString(in));
+                } else if (name.equals(LAST_WRITE_METADATA)) {
+                    result.setLastWriteMetadata(Nson.readNsonString(in));
                 } else if (name.equals(VALUE)) {
                     result.setValue((MapValue)Nson.readFieldValue(in));
                 } else {
@@ -2835,8 +2835,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     /* below requires change to WriteRequest */
                     // TODO } else if (name.equals(EXISTING_EXPIRATION)) {
                     //result.setExistingExpiration(Nson.readNsonLong(in));
-                } else if (name.equals(EXISTING_ROW_METADATA)) {
-                    result.setExistingRowMetadata(Nson.readNsonString(in));
+                } else if (name.equals(EXISTING_LAST_WRITE_METADATA)) {
+                    result.setExistingLastWriteMetadata(Nson.readNsonString(in));
                 } else {
                     skipUnknownField(walker, name);
                 }

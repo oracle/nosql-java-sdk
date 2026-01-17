@@ -156,7 +156,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private Consistency consistency;
 
-    private String rowMetadata;
+    private String lastWriteMetadata;
 
     private String statement;
 
@@ -228,7 +228,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
-        internalReq.rowMetadata = rowMetadata;
+        internalReq.lastWriteMetadata = lastWriteMetadata;
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
@@ -247,7 +247,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
         internalReq.statement = statement;
-        internalReq.rowMetadata = rowMetadata;
+        internalReq.lastWriteMetadata = lastWriteMetadata;
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
@@ -925,17 +925,13 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
-     *
-     * Sets the row metadata to use for the operation. This setting is optional
+     * Sets the write metadata to use for the operation. This setting is optional
      * and only applies if the query modifies or deletes any rows using an
      * INSERT, UPDATE, UPSERT or DELETE statement. If the query is read-only
      * this setting is ignored. This is an optional parameter.<p>
      *
-     * Row metadata is associated to a certain version of a row. Any subsequent
-     * write operation will use its own row metadata value. If not specified
+     * Write metadata is associated to a certain version of a row. Any subsequent
+     * write operation will use its own write metadata value. If not specified
      * null will be used by default.
      * NOTE that if you have previously written a record with metadata and a
      * subsequent write does not supply metadata, the metadata associated with
@@ -943,37 +939,33 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * associated with every write operation, you must supply a valid JSON
      * construct to this method.<p>
      *
-     * @param rowMetadata the row metadata, must be null or a valid JSON
+     * @param lastWriteMetadata the write metadata, must be null or a valid JSON
      *    construct: object, array, string, number, true, false or null,
      *    otherwise an IllegalArgumentException is thrown.
-     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * @throws IllegalArgumentException if lastWriteMetadata not null and invalid
      *    JSON construct
      * @return this
-     * @since 5.4.18
+     * @since 5.4.20
      */
-    public QueryRequest setRowMetadata(String rowMetadata) {
-        if (rowMetadata == null) {
-            this.rowMetadata = null;
+    public QueryRequest setLastWriteMetadata(String lastWriteMetadata) {
+        if (lastWriteMetadata == null) {
+            this.lastWriteMetadata = null;
             return this;
         }
 
-        JsonUtils.validateJsonConstruct(rowMetadata);
-        this.rowMetadata = rowMetadata;
+        JsonUtils.validateJsonConstruct(lastWriteMetadata);
+        this.lastWriteMetadata = lastWriteMetadata;
         return this;
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
+     * Returns the write metadata set for this request, or null if not set.
      *
-     * Returns the row metadata set for this request, or null if not set.
-     *
-     * @return the row metadata
-     * @since 5.4.18
+     * @return the write metadata
+     * @since 5.4.20
      */
-    public String getRowMetadata() {
-        return rowMetadata;
+    public String getLastWriteMetadata() {
+        return lastWriteMetadata;
     }
 
     /**

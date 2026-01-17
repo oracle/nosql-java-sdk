@@ -438,33 +438,29 @@ public class PutRequest extends WriteRequest {
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
+     * Sets the write metadata to use for this request.
+     * This is an optional parameter.<p>
      *
-     * Sets the row metadata to use for this request. This is an optional
-     * parameter.<p>
-     *
-     * Row metadata is associated to a certain version of a row. Any subsequent
-     * write operation will use its own row metadata value. If not specified
-     * null will be used by default.
+     * Last write metadata is associated to a certain version of a row. Any
+     * subsequent write operation will use its own write metadata value. If not
+     * specified null will be used by default.
      * NOTE that if you have previously written a record with metadata and a
      * subsequent write does not supply metadata, the metadata associated with
      * the row will be null. Therefore, if you wish to have metadata
      * associated with every write operation, you must supply a valid JSON
      * construct to this method.<p>
      *
-     * @param rowMetadata the row metadata, must be null or a valid JSON
+     * @param lastWriteMetadata the write metadata, must be null or a valid JSON
      *    construct: object, array, string, number, true, false or null,
      *    otherwise an IllegalArgumentException is thrown.
-     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * @throws IllegalArgumentException if lastWriteMetadata not null and invalid
      *    JSON construct
      *
-     * @since 5.4.18
+     * @since 5.4.20
      * @return this
      */
-    public PutRequest setRowMetadata(String rowMetadata) {
-        super.setRowMetadata(rowMetadata);
+    public PutRequest setLastWriteMetadata(String lastWriteMetadata) {
+        super.setLastWriteMetadata(lastWriteMetadata);
         return this;
     }
 
