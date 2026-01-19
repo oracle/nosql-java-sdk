@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver.ops;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,11 +36,14 @@ public class PreparedStatement {
     private final String querySchema;
 
     /*
-     * The serialized PreparedStatement created at the backend store. It is
-     * opaque for the driver. It is received from the proxy and sent back to
-     * the proxy every time a new batch of results is needed.
+     * The serialized PreparedStatements created at the backend store. There is
+     * one of them for each union branch (or a single one if the query has no
+     * UNION). They are opaque for the driver. They are received from the proxy
+     * and one of them (the one corresponding to the current UNION branch that
+     * is being executed) is sent back to the proxy every time a new batch of
+     * results is needed.
      */
-    private final byte[] proxyStatement;
+    private final ArrayList<byte[]> proxyStatements;
 
     /*
      * The part of the query plan that must be executed at the driver. It is
@@ -79,15 +83,17 @@ public class PreparedStatement {
 
 
     /*
-     * The namespace returned from a prepared query result, if any.
+     * The namespaces returned from a prepared query result. One for each
+     * UNION branch.
      */
-    private final String namespace;
+    private final ArrayList<String> namespaces;
 
 
     /*
-     * The table name returned from a prepared query result, if any.
+     * The top-table names returned from a prepared query result. One for
+     * each UNION branch.
      */
-    private final String tableName;
+    private final ArrayList<String> topTableNames;
 
     /*
      * the operation code for the query.
@@ -128,32 +134,31 @@ public class PreparedStatement {
         String sqlText,
         String queryPlan,
         String querySchema,
-        byte[] proxyStatement,
+        ArrayList<byte[]> proxyStatements,
         PlanIter driverPlan,
         int numIterators,
         int numRegisters,
         Map<String, Integer> externalVars,
-        String namespace,
-        String tableName,
+        ArrayList<String> namespaces,
+        ArrayList<String> tableNames,
         byte operation,
         int maxParallelism) {
 
-        /* 10 is arbitrary. TODO: put magic number in it for validation? */
-        if (proxyStatement == null || proxyStatement.length < 10) {
+        if (proxyStatements.isEmpty()) {
             throw new IllegalArgumentException(
-                "Invalid prepared query, cannot be null");
+                "Invalid prepared query: no proxy-side query");
         }
 
         this.sqlText = sqlText;
         this.queryPlan = queryPlan;
         this.querySchema = querySchema;
-        this.proxyStatement = proxyStatement;
+        this.proxyStatements = proxyStatements;
         this.driverQueryPlan = driverPlan;
         this.numIterators = numIterators;
         this.numRegisters = numRegisters;
         this.variables = externalVars;
-        this.namespace = namespace;
-        this.tableName = tableName;
+        this.namespaces = namespaces;
+        this.topTableNames = tableNames;
         this.operation = operation;
         this.maxParallelism = maxParallelism;
     }
@@ -170,13 +175,13 @@ public class PreparedStatement {
         return new PreparedStatement(sqlText,
                                      queryPlan,
                                      querySchema,
-                                     proxyStatement,
+                                     proxyStatements,
                                      driverQueryPlan,
                                      numIterators,
                                      numRegisters,
                                      variables,
-                                     namespace,
-                                     tableName,
+                                     namespaces,
+                                     topTableNames,
                                      operation,
                                      maxParallelism);
     }
@@ -313,8 +318,8 @@ public class PreparedStatement {
      * @return the serialized query
      * @hidden
      */
-    public final byte[] getStatement() {
-        return proxyStatement;
+    public final byte[] getProxyStatement(int branch) {
+        return proxyStatements.get(branch);
     }
 
     /**
@@ -391,8 +396,8 @@ public class PreparedStatement {
      * @return namespace from prepared statement, if any
      * @hidden
      */
-    public String getNamespace() {
-        return namespace;
+    public String getNamespace(int branch) {
+        return namespaces.get(branch);
     }
 
     /**
@@ -400,8 +405,8 @@ public class PreparedStatement {
      * @return table name from prepared statement, if any
      * @hidden
      */
-    public String getTableName() {
-        return tableName;
+    public String getTopTableName(int branch) {
+        return topTableNames.get(branch);
     }
 
     /**

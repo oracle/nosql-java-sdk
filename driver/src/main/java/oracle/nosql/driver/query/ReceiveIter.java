@@ -736,10 +736,16 @@ public class ReceiveIter extends PlanIter {
                 reqCopy.setLimit((int)numResults);
             }
 
+            if (!theRCB.reachedLimit()) {
+                reqCopy.setMaxReadKB(origRequest.getMaxReadKB() -
+                                     theRCB.getReadKB());
+            }
+
             if (theRCB.getTraceLevel() >= 1) {
                 theRCB.trace("RemoteScanner : executing remote batch " +
-                             origRequest.getBatchCounter() + ". spid = " +
-                             theShardOrPartId);
+                             origRequest.getBatchCounter() +
+                             " with max read KB " + reqCopy.getMaxReadKB() +
+                             ". spid = " + theShardOrPartId);
                 if (theVirtualScan != null) {
                     theRCB.trace("RemoteScanner : request is for virtual scan:\n" +
                                  theVirtualScan);

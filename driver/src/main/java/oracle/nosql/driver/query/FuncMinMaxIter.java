@@ -99,7 +99,7 @@ public class FuncMinMaxIter extends PlanIter {
         }
     }
 
-    private static void minmaxNewVal(
+    static void minmaxNewVal(
         RuntimeControlBlock rcb,
         AggrIterState state,
         FuncCode fncode,

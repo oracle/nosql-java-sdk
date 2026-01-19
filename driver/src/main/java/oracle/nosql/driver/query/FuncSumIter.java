@@ -101,12 +101,6 @@ public class FuncSumIter extends PlanIter {
                 rcb.trace("Summing up value " + val);
             }
 
-            if (val.isNull()) {
-                continue;
-            }
-
-            state.theNullInputOnly = false;
-
             sumNewValue(state, val);
         }
     }
@@ -117,6 +111,7 @@ public class FuncSumIter extends PlanIter {
 
         switch (val.getType()) {
         case INTEGER: {
+            state.theGotNumericInput = true;
             ++state.theCount;
             switch (state.theSumType) {
             case LONG:
@@ -135,6 +130,7 @@ public class FuncSumIter extends PlanIter {
             break;
         }
         case LONG: {
+            state.theGotNumericInput = true;
             ++state.theCount;
             switch (state.theSumType) {
             case LONG:
@@ -153,6 +149,7 @@ public class FuncSumIter extends PlanIter {
             break;
         }
         case DOUBLE: {
+            state.theGotNumericInput = true;
             ++state.theCount;
             switch (state.theSumType) {
             case LONG:
@@ -173,6 +170,7 @@ public class FuncSumIter extends PlanIter {
             break;
         }
         case NUMBER: {
+            state.theGotNumericInput = true;
             ++state.theCount;
             if (state.theNumberSum == null) {
                 state.theNumberSum = new BigDecimal(0);
@@ -180,13 +178,13 @@ public class FuncSumIter extends PlanIter {
 
             switch (state.theSumType) {
             case LONG:
-                state.theNumberSum =  new BigDecimal(state.theLongSum);
+                state.theNumberSum = new BigDecimal(state.theLongSum);
                 state.theNumberSum =
                     state.theNumberSum.add(((NumberValue)val).getValue());
                 state.theSumType = Type.NUMBER;
                 break;
             case DOUBLE:
-                state.theNumberSum =  new BigDecimal(state.theDoubleSum);
+                state.theNumberSum = new BigDecimal(state.theDoubleSum);
                 state.theNumberSum =
                     state.theNumberSum.add(((NumberValue)val).getValue());
                 state.theSumType = Type.NUMBER;
@@ -220,7 +218,7 @@ public class FuncSumIter extends PlanIter {
         AggrIterState state = (AggrIterState)rcb.getState(theStatePos);
         FieldValue res = null;
 
-        if (state.theNullInputOnly) {
+        if (!state.theGotNumericInput) {
             return NullValue.getInstance();
         }
 

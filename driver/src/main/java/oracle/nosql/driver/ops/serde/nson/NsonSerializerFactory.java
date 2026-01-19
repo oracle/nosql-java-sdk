@@ -872,10 +872,13 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, QUERY_VERSION, (int)queryVersion);
             boolean isPrepared = rq.isPrepared();
             if (isPrepared) {
+                QueryDriver driver = rq.getDriver();
+                int unionBranch = (driver != null ? driver.getUnionBranch() : 0);
+                byte[] proxyPlan = rq.getPreparedStatement().
+                                      getProxyStatement(unionBranch);
                 writeMapField(ns, IS_PREPARED, isPrepared);
                 writeMapField(ns, IS_SIMPLE_QUERY, rq.isSimpleQuery());
-                writeMapField(ns, PREPARED_QUERY,
-                              rq.getPreparedStatement().getStatement());
+                writeMapField(ns, PREPARED_QUERY, proxyPlan);
                 /*
                  * validation of parallel ops is handled in
                  * QueryRequest.validate
@@ -1008,13 +1011,12 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             boolean isPreparedRequest = (prep != null);
 
-            byte[] proxyPreparedQuery = null;
+            ArrayList<String> namespaces = new ArrayList<>();
+            ArrayList<String> tableNames = new ArrayList<>();
+            ArrayList<byte[]> proxyPreparedQueries = new ArrayList<>();
 
             DriverPlanInfo dpi = null;
-
             String queryPlan = null;
-            String tableName = null;
-            String namespace = null;
             String querySchema = null;
             byte operation = 0;
             int proxyTopoSeqNum = -1; /* QUERY_V3 and earlier */
@@ -1046,7 +1048,31 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readPhase1Results(arr, qres);
 
                 } else if (name.equals(PREPARED_QUERY)) {
-                    proxyPreparedQuery = Nson.readNsonBinary(in);
+                    proxyPreparedQueries.add(Nson.readNsonBinary(in));
+
+                } else if (name.equals(QUERY_BRANCHES)) {
+                    readType(in, Nson.TYPE_ARRAY);
+                    in.readInt(); /* length of array in bytes */
+                    int numBranches = in.readInt(); /* number of array elements */
+
+                    for (int i = 0; i < numBranches; ++i) {
+                        MapWalker walker2 = getMapWalker(in);
+                        while (walker2.hasNext()) {
+                            walker2.next();
+                            String name2 = walker2.getCurrentName();
+                            if (name2.equals(NAMESPACE)) {
+                                namespaces.add(Nson.readNsonString(in));
+                            } else if (name2.equals(TABLE_NAME)) {
+                                tableNames.add(Nson.readNsonString(in));
+                            } else if (name2.equals(PREPARED_QUERY)) {
+                                proxyPreparedQueries.add(Nson.readNsonBinary(in));
+                            } else {
+                                throw new IOException(
+                                    "Unexpected field in query branch: " +
+                                    name2);
+                            }
+                        }
+                    }
 
                 } else if (name.equals(DRIVER_QUERY_PLAN)) {
                     dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
@@ -1056,10 +1082,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                     qres.setReachedLimit(Nson.readNsonBoolean(in));
 
                 } else if (name.equals(TABLE_NAME)) {
-                    tableName = Nson.readNsonString(in);
+                    tableNames.add(Nson.readNsonString(in));
 
                 } else if (name.equals(NAMESPACE)) {
-                    namespace = Nson.readNsonString(in);
+                    namespaces.add(Nson.readNsonString(in));
 
                 } else if (name.equals(QUERY_PLAN_STRING)) {
                     queryPlan = Nson.readNsonString(in);
@@ -1136,13 +1162,13 @@ public class NsonSerializerFactory implements SerializerFactory {
             prep = new PreparedStatement(statement,
                                          queryPlan,
                                          querySchema,
-                                         proxyPreparedQuery,
+                                         proxyPreparedQueries,
                                          (dpi!=null)?dpi.driverQueryPlan:null,
                                          (dpi!=null)?dpi.numIterators:0,
                                          (dpi!=null)?dpi.numRegisters:0,
                                          (dpi!=null)?dpi.externalVars:null,
-                                         namespace,
-                                         tableName,
+                                         namespaces,
+                                         tableNames,
                                          operation,
                                          maxParallelism);
             if (pres != null) {

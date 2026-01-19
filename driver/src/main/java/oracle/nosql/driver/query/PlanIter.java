@@ -102,25 +102,27 @@ public abstract class PlanIter {
      */
     public static enum PlanIterKind {
 
-        RECV(17),
-        SFW(14),
-        SORT(47),
-
         CONST(0),
         VAR_REF(1),
         EXTERNAL_VAR_REF(2),
-
-        FIELD_STEP(11),
-
+        ARRAY_CONSTRUCTOR(3),
+        VALUE_COMPARE(5),
+        AND_OR(7),
         ARITH_OP(8),
-
+        FIELD_STEP(11),
+        SFW(14),
         FN_SIZE(15),
+        RECV(17),
+        CASE(19),
+        IS_NULL(26),
         FN_SUM(39),
         FN_MIN_MAX(41),
-
+        SEQ_AGGR(48),
+        SORT(47),
         GROUP(65),
         SORT2(66),
-        FN_COLLECT(78);
+        FN_COLLECT(78),
+        UNION(90);
 
         private static final PlanIterKind[] VALUES = values();
 
@@ -151,8 +153,20 @@ public abstract class PlanIter {
      */
     static enum FuncCode {
 
+        OP_AND(0),
+        OP_OR(1),
+        OP_EQ(2),
+        OP_NEQ(3),
+        OP_GT(4),
+        OP_GE(5),
+        OP_LT(6),
+        OP_LE(7),
+
         OP_ADD_SUB(14),
         OP_MULT_DIV(15),
+
+        OP_IS_NULL(22),
+        OP_IS_NOT_NULL(23),
 
         FN_COUNT_STAR(42),
         FN_COUNT(43),
@@ -160,6 +174,15 @@ public abstract class PlanIter {
         FN_SUM(45),
         FN_MIN(47),
         FN_MAX(48),
+        FN_SEQ_COUNT(49),
+        FN_SEQ_SUM(50),
+        FN_SEQ_AVG(51),
+        FN_SEQ_MIN(52),
+        FN_SEQ_MAX(53),
+        FN_SEQ_COUNT_I(76),
+        FN_SEQ_COUNT_NUMBERS_I(77),
+        FN_SEQ_MIN_I(78),
+        FN_SEQ_MAX_I(79),
         FN_ARRAY_COLLECT(91),
         FN_ARRAY_COLLECT_DISTINCT(92);
 
@@ -306,6 +329,36 @@ public abstract class PlanIter {
         StringBuilder sb,
         QueryFormatter formatter);
 
+    void displayInputIter(
+        StringBuilder sb,
+        QueryFormatter formatter,
+        PlanIter iter) {
+
+        formatter.indent(sb);
+        sb.append("\"input iterator\" :\n");
+        iter.display(sb, formatter);
+    }
+
+    void displayInputIters(
+        StringBuilder sb,
+        QueryFormatter formatter,
+        PlanIter[] iters) {
+
+        formatter.indent(sb);
+        sb.append("\"input iterators\" : [\n");
+        formatter.incIndent();
+        for (int i = 0; i < iters.length; ++i) {
+            iters[i].display(sb, formatter);
+            if (i < iters.length - 1) {
+                sb.append(",\n");
+            }
+        }
+        sb.append("\n");
+        formatter.decIndent();
+        formatter.indent(sb);
+        sb.append("]");
+    }
+
     public static PlanIter deserializeIter(
         ByteInputStream in,
         short serialVersion) throws IOException {
@@ -364,6 +417,27 @@ public abstract class PlanIter {
             break;
         case FN_COLLECT:
             iter = new FuncCollectIter(in, serialVersion);
+            break;
+        case UNION:
+            iter = new UnionIter(in, serialVersion);
+            break;
+        case AND_OR:
+            iter = new AndOrIter(in, serialVersion);
+            break;
+        case VALUE_COMPARE:
+            iter = new CompareOpIter(in, serialVersion);
+            break;
+        case IS_NULL:
+            iter = new IsNullIter(in, serialVersion);
+            break;
+        case SEQ_AGGR:
+            iter = new FuncSeqAggrIter(in, serialVersion);
+            break;
+        case ARRAY_CONSTRUCTOR:
+            iter = new ArrayConstrIter(in, serialVersion);
+            break;
+        case CASE:
+            iter = new CaseIter(in, serialVersion);
             break;
         default:
             throw new QueryStateException(
