@@ -82,7 +82,11 @@ public class GroupIter extends PlanIter {
 
         boolean theGotNumericInput;
 
-        AggrValue(FuncCode aggrIterKind) {
+        boolean theIsRegrouping;
+
+        AggrValue(FuncCode aggrIterKind, boolean isRegrouping) {
+
+            theIsRegrouping = isRegrouping;
 
             switch (aggrIterKind) {
             case FN_COUNT:
@@ -149,12 +153,20 @@ public class GroupIter extends PlanIter {
                 }
             } else {
                 ArrayValue collectArray = (ArrayValue)theValue;
-                ArrayValue arrayVal = (ArrayValue)val;
-                collectArray.addAll(arrayVal.iterator());
-                if (countMemory) {
-                    rcb.incMemoryConsumption(val.sizeof() +
-                                             SizeOf.OBJECT_REF_OVERHEAD *
-                                             arrayVal.size());
+                if (theIsRegrouping) {
+                    ArrayValue arrayVal = (ArrayValue)val;
+                    collectArray.addAll(arrayVal.iterator());
+                    if (countMemory) {
+                        rcb.incMemoryConsumption(val.sizeof() +
+                                                 SizeOf.OBJECT_REF_OVERHEAD *
+                                                 arrayVal.size());
+                    }
+                } else {
+                    collectArray.add(val);
+                    if (countMemory) {
+                        rcb.incMemoryConsumption(val.sizeof() +
+                                                 SizeOf.OBJECT_REF_OVERHEAD);
+                    }
                 }
             }
         }
@@ -364,11 +376,13 @@ public class GroupIter extends PlanIter {
 
     private final boolean theCountMemory;
 
-    public GroupIter(ByteInputStream in, short serialVersion) throws IOException {
+    private final boolean theIsRegrouping;
 
-        super(in, serialVersion);
+    public GroupIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        theInput = deserializeIter(in, serialVersion);
+        super(in, queryVersion);
+
+        theInput = deserializeIter(in, queryVersion);
         theNumGBColumns = in.readInt();
         theColumnNames = SerializationUtil.readStringArray(in);
 
@@ -384,6 +398,11 @@ public class GroupIter extends PlanIter {
         theIsDistinct = in.readBoolean();
         theRemoveProducedResult = in.readBoolean();
         theCountMemory = in.readBoolean();
+        if (queryVersion >= QueryDriver.QUERY_V6) {
+            theIsRegrouping = in.readBoolean();
+        } else {
+            theIsRegrouping = false;
+        }
     }
 
     @Override
@@ -511,7 +530,7 @@ public class GroupIter extends PlanIter {
                 long aggrTupleSize = 0;
 
                 for (i = 0; i < numAggrColumns; ++i) {
-                    aggrTuple[i] = new AggrValue(theAggrFuncs[i]);
+                    aggrTuple[i] = new AggrValue(theAggrFuncs[i], theIsRegrouping);
                     if (theCountMemory) {
                         aggrTupleSize += aggrTuple[i].sizeof();
                     }

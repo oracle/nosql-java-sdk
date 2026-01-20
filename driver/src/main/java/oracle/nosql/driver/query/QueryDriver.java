@@ -38,7 +38,10 @@ public class QueryDriver {
     /* Changed VirtualScan info exchanged between sdk and proxy */
     public static final short QUERY_V5 = 5;
 
-    public static final short QUERY_VERSION = QUERY_V5;
+    /* Added UNION */
+    public static final short QUERY_V6 = 6;
+
+    public static final short QUERY_VERSION = QUERY_V6;
 
     private static final int BATCH_SIZE = 100;
 
@@ -88,6 +91,10 @@ public class QueryDriver {
 
     public void setPrepCost(int cost) {
         thePrepCost = cost;
+    }
+
+    public int getUnionBranch() {
+        return theRCB.getUnionBranch();
     }
 
     /**
