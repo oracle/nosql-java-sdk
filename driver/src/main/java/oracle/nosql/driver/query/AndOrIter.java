@@ -21,13 +21,13 @@ public class AndOrIter extends PlanIter {
 
     private final PlanIter[] theArgs;
 
-    public AndOrIter(ByteInputStream in, short serialVersion)
+    public AndOrIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         short ordinal = in.readShort();
         theCode = FuncCode.valueOf(ordinal);
-        theArgs = deserializeIters(in, serialVersion);
+        theArgs = deserializeIters(in, queryVersion);
     }
 
     @Override

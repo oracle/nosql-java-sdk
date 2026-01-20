@@ -378,11 +378,11 @@ public class GroupIter extends PlanIter {
 
     private final boolean theIsRegrouping;
 
-    public GroupIter(ByteInputStream in, short serialVersion) throws IOException {
+    public GroupIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
 
-        theInput = deserializeIter(in, serialVersion);
+        theInput = deserializeIter(in, queryVersion);
         theNumGBColumns = in.readInt();
         theColumnNames = SerializationUtil.readStringArray(in);
 
@@ -398,7 +398,11 @@ public class GroupIter extends PlanIter {
         theIsDistinct = in.readBoolean();
         theRemoveProducedResult = in.readBoolean();
         theCountMemory = in.readBoolean();
-        theIsRegrouping = in.readBoolean();
+        if (queryVersion >= QueryDriver.QUERY_V6) {
+            theIsRegrouping = in.readBoolean();
+        } else {
+            theIsRegrouping = false;
+        }
     }
 
     @Override

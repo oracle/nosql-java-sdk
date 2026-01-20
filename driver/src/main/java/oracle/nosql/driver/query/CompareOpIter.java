@@ -58,14 +58,14 @@ public class CompareOpIter extends PlanIter {
 
     private final PlanIter theRightOp;
 
-    public CompareOpIter(ByteInputStream in, short serialVersion)
+    public CompareOpIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         short ordinal = in.readShort();
         theCode = FuncCode.valueOf(ordinal);
-        theLeftOp = deserializeIter(in, serialVersion);
-        theRightOp = deserializeIter(in, serialVersion);
+        theLeftOp = deserializeIter(in, queryVersion);
+        theRightOp = deserializeIter(in, queryVersion);
     }
 
     @Override

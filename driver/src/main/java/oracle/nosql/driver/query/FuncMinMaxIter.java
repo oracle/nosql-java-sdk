@@ -26,11 +26,11 @@ public class FuncMinMaxIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    FuncMinMaxIter(ByteInputStream in, short serialVersion) throws IOException {
-        super(in, serialVersion);
+    FuncMinMaxIter(ByteInputStream in, short queryVersion) throws IOException {
+        super(in, queryVersion);
         short ordinal = in.readShort();
         theFuncCode = FuncCode.valueOf(ordinal);
-        theInput = deserializeIter(in, serialVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override

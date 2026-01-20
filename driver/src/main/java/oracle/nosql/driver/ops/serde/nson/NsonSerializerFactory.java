@@ -1076,7 +1076,7 @@ public class NsonSerializerFactory implements SerializerFactory {
 
                 } else if (name.equals(DRIVER_QUERY_PLAN)) {
                     dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
-                                            serialVersion);
+                                            queryVersion);
 
                 } else if (name.equals(REACHED_LIMIT) && qres != null) {
                     qres.setReachedLimit(Nson.readNsonBoolean(in));
@@ -1267,7 +1267,7 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         private static DriverPlanInfo getDriverPlanInfo(byte[] arr,
-                                                        short serialVersion)
+                                                        short queryVersion)
             throws IOException {
             if (arr == null || arr.length == 0) {
                 return null;
@@ -1275,7 +1275,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             ByteBuf buf = Unpooled.wrappedBuffer(arr);
             ByteInputStream bis = new NettyByteInputStream(buf);
             DriverPlanInfo dpi = new DriverPlanInfo();
-            dpi.driverQueryPlan = PlanIter.deserializeIter(bis, serialVersion);
+            dpi.driverQueryPlan = PlanIter.deserializeIter(bis, queryVersion);
             if (dpi.driverQueryPlan == null) {
                 return null;
             }

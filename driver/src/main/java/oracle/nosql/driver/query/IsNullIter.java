@@ -21,13 +21,13 @@ public class IsNullIter extends PlanIter {
 
     private final PlanIter theArg;
 
-    public IsNullIter(ByteInputStream in, short serialVersion)
+    public IsNullIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         short ordinal = in.readShort();
         theCode = FuncCode.valueOf(ordinal);
-        theArg = deserializeIter(in, serialVersion);
+        theArg = deserializeIter(in, queryVersion);
     }
 
     @Override

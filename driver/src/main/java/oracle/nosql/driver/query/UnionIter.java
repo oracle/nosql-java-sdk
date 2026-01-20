@@ -124,11 +124,11 @@ public class UnionIter extends PlanIter {
 
     private final SortSpec[] theSortSpecs;
 
-    public UnionIter(ByteInputStream in, short serialVersion)
+    public UnionIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
-        theBranches = deserializeIters(in, serialVersion);
+        super(in, queryVersion);
+        theBranches = deserializeIters(in, queryVersion);
         theSortFields = SerializationUtil.readStringArray(in);
         theSortSpecs = readSortSpecs(in);
     }

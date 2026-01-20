@@ -20,12 +20,12 @@ public class ArrayConstrIter extends PlanIter {
 
     private final boolean theIsConditional;
 
-    public ArrayConstrIter(ByteInputStream in, short serialVersion)
+    public ArrayConstrIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         theIsConditional = in.readBoolean();
-        theArgs = deserializeIters(in, serialVersion);
+        theArgs = deserializeIters(in, queryVersion);
     }
 
     @Override

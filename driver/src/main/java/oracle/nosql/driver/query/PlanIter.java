@@ -216,7 +216,7 @@ public abstract class PlanIter {
 
     protected PlanIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
         theResultReg = readPositiveInt(in, true);
         theStatePos = readPositiveInt(in);
@@ -361,7 +361,7 @@ public abstract class PlanIter {
 
     public static PlanIter deserializeIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
         int ord = in.readByte();
 
@@ -380,64 +380,64 @@ public abstract class PlanIter {
         switch (kind) {
         case SORT:
         case SORT2:
-            iter = new SortIter(in, kind, serialVersion);
+            iter = new SortIter(in, kind, queryVersion);
             break;
         case GROUP:
-            iter = new GroupIter(in, serialVersion);
+            iter = new GroupIter(in, queryVersion);
             break;
         case SFW:
-            iter = new SFWIter(in, serialVersion);
+            iter = new SFWIter(in, queryVersion);
             break;
         case RECV:
-            iter = new ReceiveIter(in, serialVersion);
+            iter = new ReceiveIter(in, queryVersion);
             break;
         case CONST:
-            iter = new ConstIter(in, serialVersion);
+            iter = new ConstIter(in, queryVersion);
             break;
         case VAR_REF:
-            iter = new VarRefIter(in, serialVersion);
+            iter = new VarRefIter(in, queryVersion);
             break;
         case EXTERNAL_VAR_REF:
-            iter = new ExternalVarRefIter(in, serialVersion);
+            iter = new ExternalVarRefIter(in, queryVersion);
             break;
         case FIELD_STEP:
-            iter = new FieldStepIter(in, serialVersion);
+            iter = new FieldStepIter(in, queryVersion);
             break;
         case ARITH_OP:
-            iter = new ArithOpIter(in, serialVersion);
+            iter = new ArithOpIter(in, queryVersion);
             break;
         case FN_SIZE:
-            iter = new FuncSizeIter(in, serialVersion);
+            iter = new FuncSizeIter(in, queryVersion);
             break;
         case FN_SUM:
-            iter = new FuncSumIter(in, serialVersion);
+            iter = new FuncSumIter(in, queryVersion);
             break;
         case FN_MIN_MAX:
-            iter = new FuncMinMaxIter(in, serialVersion);
+            iter = new FuncMinMaxIter(in, queryVersion);
             break;
         case FN_COLLECT:
-            iter = new FuncCollectIter(in, serialVersion);
+            iter = new FuncCollectIter(in, queryVersion);
             break;
         case UNION:
-            iter = new UnionIter(in, serialVersion);
+            iter = new UnionIter(in, queryVersion);
             break;
         case AND_OR:
-            iter = new AndOrIter(in, serialVersion);
+            iter = new AndOrIter(in, queryVersion);
             break;
         case VALUE_COMPARE:
-            iter = new CompareOpIter(in, serialVersion);
+            iter = new CompareOpIter(in, queryVersion);
             break;
         case IS_NULL:
-            iter = new IsNullIter(in, serialVersion);
+            iter = new IsNullIter(in, queryVersion);
             break;
         case SEQ_AGGR:
-            iter = new FuncSeqAggrIter(in, serialVersion);
+            iter = new FuncSeqAggrIter(in, queryVersion);
             break;
         case ARRAY_CONSTRUCTOR:
-            iter = new ArrayConstrIter(in, serialVersion);
+            iter = new ArrayConstrIter(in, queryVersion);
             break;
         case CASE:
-            iter = new CaseIter(in, serialVersion);
+            iter = new CaseIter(in, queryVersion);
             break;
         default:
             throw new QueryStateException(
@@ -453,12 +453,12 @@ public abstract class PlanIter {
 
     static PlanIter[] deserializeIters(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
         final int numArgs = SerializationUtil.readSequenceLength(in);
         final PlanIter[] iters = new PlanIter[numArgs];
         for (int i = 0; i < numArgs; i++) {
-            iters[i] = deserializeIter(in, serialVersion);
+            iters[i] = deserializeIter(in, queryVersion);
         }
         return iters;
     }

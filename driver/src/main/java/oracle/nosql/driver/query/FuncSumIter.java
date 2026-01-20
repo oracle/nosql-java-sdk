@@ -35,9 +35,9 @@ public class FuncSumIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    FuncSumIter(ByteInputStream in, short serialVersion) throws IOException {
-        super(in, serialVersion);
-        theInput = deserializeIter(in, serialVersion);
+    FuncSumIter(ByteInputStream in, short queryVersion) throws IOException {
+        super(in, queryVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override

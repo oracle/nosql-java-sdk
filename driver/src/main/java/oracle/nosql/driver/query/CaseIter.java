@@ -28,13 +28,13 @@ public class CaseIter extends PlanIter {
 
     private final PlanIter theElseIter;
 
-    public CaseIter(ByteInputStream in, short serialVersion)
+    public CaseIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
-        theCondIters = deserializeIters(in, serialVersion);
-        theThenIters = deserializeIters(in, serialVersion);
-        theElseIter = deserializeIter(in, serialVersion);
+        super(in, queryVersion);
+        theCondIters = deserializeIters(in, queryVersion);
+        theThenIters = deserializeIters(in, queryVersion);
+        theElseIter = deserializeIter(in, queryVersion);
     }
 
     @Override

@@ -24,13 +24,13 @@ public class FuncSeqAggrIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    public FuncSeqAggrIter(ByteInputStream in, short serialVersion)
+    public FuncSeqAggrIter(ByteInputStream in, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         short ordinal = in.readShort();
         theCode = FuncCode.valueOf(ordinal);
-        theInput = deserializeIter(in, serialVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override

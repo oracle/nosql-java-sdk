@@ -190,9 +190,9 @@ public class ReceiveIter extends PlanIter {
 
     public ReceiveIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
 
         short ordinal = in.readShort();
         theDistributionKind = DistributionKind.values()[ordinal];

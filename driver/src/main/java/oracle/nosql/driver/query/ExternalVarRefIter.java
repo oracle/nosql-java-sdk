@@ -37,9 +37,9 @@ public class ExternalVarRefIter extends PlanIter {
 
     ExternalVarRefIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         theName = SerializationUtil.readString(in);
         theId = readPositiveInt(in);
     }
