@@ -280,9 +280,14 @@ public class StatsTest extends ProxyTestBase {
             statsList.stream()
                 .filter(s -> s.get("connections") != null &&
                     s.get("connections").isMap() &&
-                    s.get("connections").asMap().get("min") != null &&
-                    s.get("connections").asMap().get("max") != null &&
-                    s.get("connections").asMap().get("avg") != null )
+                    s.get("connections").asMap()
+                        .get("totalConnections") != null &&
+                    s.get("connections").asMap().get("totalConnections").asMap()
+                        .get("min") != null &&
+                    s.get("connections").asMap().get("totalConnections").asMap()
+                        .get("max") != null &&
+                    s.get("connections").asMap().get("totalConnections").asMap()
+                        .get("avg") != null)
                 .count();
         assertTrue(count >=1);
 
@@ -492,7 +497,7 @@ public class StatsTest extends ProxyTestBase {
             statsList.stream()
                 .filter(s -> s.get("connections") != null)
                 .count();
-        assertEquals(count, 0);
+        assertTrue(count > 0);
 
         //  - All entries should not have any queries
         count =

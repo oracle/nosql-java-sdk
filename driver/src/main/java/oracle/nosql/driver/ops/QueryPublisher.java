@@ -7,30 +7,60 @@
 
 package oracle.nosql.driver.ops;
 
-import oracle.nosql.driver.http.NoSQLHandleAsyncImpl;
 import oracle.nosql.driver.values.MapValue;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Publisher for query pagination.
+ * A {@link Flow.Publisher} that wraps a
+ * {@link oracle.nosql.driver.NoSQLHandleAsync#query(QueryRequest)} to
+ * iteratively request pages and stream all items from a paginated query.
+ *
+ * <p>Key properties:
+ * <ul>
+ * <li>Single subscription </li>
+ * <li>Backpressure-aware: items are emitted only up to the downstream demand.</li>
+ * <li>At most one remote call in-flight at a time.</li>
+ * <li>Buffers up to a single page beyond current demand.</li>
+ * <li>Terminates with {@code onComplete()} after all pages are consumed and
+ *  the buffer is drained, or with {@code onError(Throwable)} if the remote
+ *  call fails.</li>
+ * <li>Per Reactive Streams rule 3.9, non-positive requests trigger
+ * {@code onError(IllegalArgumentException)}.</li>
+ * </ul>
+ *
+ * <p>Thread-safety:
+ * <ul>
+ * <li>This publisher supports concurrent calls to
+ * {@link Flow.Subscription#request(long)} and
+ * {@link Flow.Subscription#cancel()}.</li>
+ * <li>Signals to the subscriber are serialized
+ * (no concurrent {@code onNext} calls).</li>
+ * </ul>
+ * @implSpec The publisher:
+ * <ul>
+ * <li>Starts fetching only when there is outstanding demand and no buffered items.</li>
+ * <li>Never emits more than requested items; any overage from a page is buffered.</li>
+ * <li>Checks completion both while emitting and after emission even if demand becomes zero,
+ * ensuring {@code onComplete()} can be delivered without additional demand.</li>
+ * <li>Attempts to cancel any in-flight future on {@code cancel()}.</li>
+ * </ul>
  */
-public class QueryPublisher implements Flow.Publisher<MapValue> {
+final class QueryPublisher implements Flow.Publisher<List<MapValue>> {
 
-    private final NoSQLHandleAsyncImpl handle;
-    private final QueryRequest request;
+    final QueryPaginatorResult queryPaginatorResult;
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
 
-    public QueryPublisher(NoSQLHandleAsyncImpl handle, QueryRequest request) {
-        this.handle = handle;
-        this.request = request;
+    public QueryPublisher(QueryPaginatorResult queryPaginatorResult) {
+        this.queryPaginatorResult = queryPaginatorResult;
     }
 
     @Override
-    public void subscribe(Flow.Subscriber<? super MapValue> subscriber) {
+    public void subscribe(Flow.Subscriber<? super List<MapValue>> subscriber) {
+        Objects.requireNonNull(subscriber, "subscriber should not be null");
         /* only allow one subscriber */
         if (!subscribed.compareAndSet(false, true)) {
             subscriber.onSubscribe(new Flow.Subscription() {
@@ -45,69 +75,16 @@ public class QueryPublisher implements Flow.Publisher<MapValue> {
             return;
         }
 
-        subscriber.onSubscribe(new Flow.Subscription() {
-            private final AtomicBoolean cancelled = new AtomicBoolean(false);
-            private final AtomicLong demand = new AtomicLong(0);
-            private int currentIndex = 0;
-            private List<MapValue> currentBatch = List.of();
-            /* first run triggered? */
-            private boolean started = false;
-
-            @Override
-            public void request(long n) {
-                if (n <= 0 || cancelled.get()) return;
-                demand.addAndGet(n);
-                fetchNext();
-            }
-
-            @Override
-            public void cancel() {
-                cancelled.set(true);
-                /* close the query request */
-                request.close();
-            }
-
-            private void fetchNext() {
-                if (cancelled.get()) return;
-
-                /* If batch exhausted, fetch next Result */
-                if (currentIndex >= currentBatch.size()) {
-                    if (started && request.isDone()) {
-                        /* close the query request */
-                        request.close();
-                        subscriber.onComplete();
-                        return;
-                    }
-                    started = true;
-                    handle.query(request).whenComplete((result, error) -> {
-                        if (cancelled.get()) return;
-                        if (error != null) {
-                            request.close();
-                            subscriber.onError(error);
-                        } else {
-                            currentBatch = result.getResults();
-                            currentIndex = 0;
-                            fetchNext(); /* continue with new batch */
-                        }
-                    });
-                    return;
-                }
-
-                /* Emit items while demand > 0 and we still have rows */
-                while (demand.get() > 0
-                        && currentIndex < currentBatch.size()
-                        && !cancelled.get()) {
-                    subscriber.onNext(currentBatch.get(currentIndex++));
-                    demand.decrementAndGet();
-                }
-
-                // If demand still positive but batch finished, fetch more
-                if (demand.get() > 0
-                        && currentIndex >= currentBatch.size()
-                        && !cancelled.get()) {
-                    fetchNext();
-                }
-            }
-        });
+        QuerySubscription subscription =
+            new QuerySubscription(queryPaginatorResult, subscriber);
+        try {
+            subscriber.onSubscribe(subscription);
+        } catch (Throwable t) {
+            IllegalStateException err =
+                new IllegalStateException(subscriber +
+                    " violated the Reactive Streams rule 2.13 by throwing an" +
+                    " exception from onSubscribe.", t);
+            subscription.signalError(err);
+        }
     }
 }

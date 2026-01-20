@@ -89,7 +89,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
 
     @Override
     public QueryResult query(QueryRequest request) {
-        return ConcurrentUtil.awaitFuture(asyncHandle.queryAsync(request));
+        return ConcurrentUtil.awaitFuture(asyncHandle.query(request));
     }
 
     @Override

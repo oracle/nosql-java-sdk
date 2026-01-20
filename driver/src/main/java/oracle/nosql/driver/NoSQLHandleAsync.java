@@ -28,6 +28,7 @@ import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
+import oracle.nosql.driver.ops.QueryPaginatorResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.ReplicaStatsRequest;
@@ -49,7 +50,7 @@ import oracle.nosql.driver.values.MapValue;
  * NoSQLHandleAsync is an asynchronous handle that can be used to access Oracle
  * NoSQL tables. To create a connection represented by NoSQLHandleAsync,
  * request an instance using {@link NoSQLHandleFactory#createNoSQLHandleAsync}
- * and {@link NoSQLHandleConfig}, which allows an application to specify
+ *  and {@link NoSQLHandleConfig}, which allows an application to specify
  * default values and other configuration information to be used by the handle.
  * <p>
  * The same interface is available to both users of the Oracle NoSQL Database
@@ -413,24 +414,39 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * {@link QueryRequest#setMaxReadKB}. This limits the amount of data
      * <em>read</em> and not the amount of data <em>returned</em>, which means
      * that a query can return zero results but still have more data to read.
-     * This situation is detected by checking if the {@link QueryResult} has a
-     * continuation key, using {@link QueryResult#getContinuationKey}. For this
+     * This situation is detected by checking if the {@link QueryRequest} is
+     * completed, using {@link QueryRequest#isDone()}. For this
      * reason queries should always operate in a loop, acquiring more results,
-     * until the continuation key is null, indicating that the query is done.
-     * Inside the loop the continuation key is applied to the
-     * {@link QueryRequest} using {@link QueryRequest#setContinuationKey}.
-     * <p>
-     * Note: Since Query might use resources until they reach the end, it
-     * is necessary to close the QueryRequest or use the
-     * try-with-resources statement:
+     * until the {@link QueryRequest#isDone()} is true, indicating that the
+     * query is done.
+     * <br><br>
+     * Note: Since query might use resources until they reach the end, it
+     * is necessary to close the QueryRequest.
+     * <br><br>
+     * Usage:
      * <pre>
-     * try (
-     * QueryRequest qreq = new QueryRequest()
-     * .setStatement("select * from MyTable");
-     * QueryIterableResult qir = handle.queryIterable(qreq)) {
-     * for( MapValue row : qir) {
-     * // do something with row
-     * }
+     * {@code
+     *  QueryRequest queryRequest = new QueryRequest().setStatement("select * from MyTable");
+     *  CompletableFuture<Void> queryFuture = processQuery(asyncHandle, queryRequest);
+     *  queryFuture.whenComplete((res, ex) -> {
+     *      // close the query request
+     *      queryRequest.close();
+     *  }
+     *
+     *  CompletableFuture<Void> processQuery(NoSQLHandleAsync asyncHandle,
+     *                                       QueryRequest queryRequest) {
+     *      return handle.query(queryRequest)
+     *          .thenComposeAsync(queryResult -> {
+     *              for (MapValue row : queryResult.getResults()) {
+     *                  // do something with row
+     *              }
+     *              if (!queryRequest.isDone()) {
+     *                  // recursively call processQuery untill isDone
+     *                  return processQuery(asyncHandle, queryRequest);
+     *              }
+     *             return CompletableFuture.completedFuture(null);
+     *      });
+     *  }
      * }
      * </pre>
      * @param request the input parameters for the operation
@@ -461,8 +477,13 @@ public interface NoSQLHandleAsync extends AutoCloseable {
 
     /**
      * Queries a table based on the query statement specified in the
-     * {@link QueryRequest} while returning an {@link java.util.concurrent.Flow.Publisher}.
-     * The return {@link Flow.Publisher} can be subscribed only once.
+     * {@link QueryRequest} while returning an {@link QueryPaginatorResult}
+     * which provides a {@code Flow.Publisher<List<MapValue>>} to stream
+     * the result set.
+     * <p>
+     * If {@link QueryRequest#setLimit(int)} is set, the publisher will send
+     * at most limit items in
+     * {@link java.util.concurrent.Flow.Subscriber#onNext(Object)} call.
      * <p>
      * Queries that include a full shard key will execute much more efficiently
      * than more distributed queries that must go to multiple shards.
@@ -474,41 +495,74 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * are not supported by this interface. Those operations must be performed using
      * {@link #tableRequest} or {@link #systemRequest} as appropriate.
      * <p>
-     * Note: Publisher will close the {@link QueryRequest}
-     * <p>
-     * usage:
+     * Note:
+     * <ul>
+     * <li>
+     * Publisher will close the {@link QueryRequest} upon completion or
+     * cancellation or error
+     * </li>
+     * <li>Publisher can be subscribed only once.</li>
+     * </ul>
+     * <br/>
+     * Usage:
+     * <ol>
+     * <li>
+     * Using Java Flow Publisher and Subscriber
      * <pre>
-     * {@code
-     *  QueryRequest queryRequest = new QueryRequest()
-     *      .setStatement("select * from table");
-     *  handle.queryPaginator(queryRequest)
-     *      .subscribe(new Flow.Subscriber<MapValue>() {
-     *          @Override
-     *          public void onSubscribe(Flow.Subscription subscription) {
-     *             subscription.request(Long.MAX_VALUE);
-     *          }
+     * QueryRequest queryRequest = new QueryRequest()
+     *     .setStatement("select * from table");
+     * QueryPaginatorResult paginatorResult = handle.queryPaginator(queryRequest);
+     * Flow.Publisher&lt;List&lt;MapValue&gt;&gt; paginator = paginatorResult.getResults();
+     * paginator.subscribe(new Flow.Subscriber&lt;List&lt;MapValue&gt;&gt;() {
      *
-     *         @Override
-     *         public void onNext(MapValue queryItem) {
-     *             // consume query result
-     *         }
+     *     &#064;Override
+     *     public void onSubscribe(Flow.Subscription subscription) {
+     *        // request rows from publisher
+     *        subscription.request(Long.MAX_VALUE);
+     *     }
      *
-     *         @Override
-     *         public void onError(Throwable throwable) {
-     *             // handle error
-     *         }
+     *     &#064;Override
+     *     public void onNext(List&lt;MapValue&gt; page) {
+     *         // consume a page
+     *         queryItems.forEach(System.out::println);
+     *     }
      *
-     *         @Override
-     *         public void onComplete() {
-     *             // handle complete
-     *         }
-     *      });
-     * }
+     *     &#064;Override
+     *     public void onError(Throwable throwable) {
+     *         // Error occurred. Publisher no longer serve rows
+     *     }
+     *
+     *     &#064;Override
+     *     public void onComplete() {
+     *         // All rows are served. Access stats
+     *         System.out.println(
+     *             "Consumed ReadUnits = " + paginatorResult.getReadUnits);
+     *     }
+     *  });
+     *  }
      * </pre>
+     * </li>
+     *
+     * <li>
+     * Using Project reactor Flux
+     * <blockquote></><pre>
+     * QueryRequest queryRequest = new QueryRequest()
+     *     .setStatement("select * from table");
+     * QueryPaginatorResult paginatorResult = handle.queryPaginator(queryRequest);
+     * Flow.Publisher<MapValue> paginator = paginatorResult.getResults();
+     * // Map Publisher to Flux
+     * Flux<List<MapValue>> flux = JdkFlowAdapter.flowPublisherToFlux(paginator);
+     * flux.subscribe(page -> {
+     *    // process page
+     *    page.forEach(System.out::println);
+     * });
+     * </pre>
+     * </li>
+     * </ol>
      *
      * @param request the input parameters for the operation
      *
-     * @return The {@link Flow.Publisher} of {@link MapValue}
+     * @return The {@link QueryPaginatorResult}
      *
      * @throws IllegalArgumentException if any of the parameters are invalid or
      * required parameters are missing
@@ -519,7 +573,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      * @see
      * <a href="#asyncThreadModel">Thread model for asynchronous execution </a>
      */
-    Flow.Publisher<MapValue> queryPaginator(QueryRequest request);
+    QueryPaginatorResult queryPaginator(QueryRequest request);
     /**
      * Prepares a query for execution and reuse asynchronously. See
      * {@link #query} for general information and restrictions. It is
@@ -1092,7 +1146,7 @@ public interface NoSQLHandleAsync extends AutoCloseable {
      *
      * @return the StatsControl object
      *
-     * @since 6.0.0
+     * @since 5.2.30
      */
     StatsControl getStatsControl();
 

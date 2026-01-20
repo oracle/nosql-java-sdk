@@ -34,7 +34,7 @@ import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
 import oracle.nosql.driver.ops.PutRequest;
 import oracle.nosql.driver.ops.PutResult;
-import oracle.nosql.driver.ops.QueryPublisher;
+import oracle.nosql.driver.ops.QueryPaginatorResult;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.ReplicaStatsRequest;
@@ -60,7 +60,6 @@ import javax.net.ssl.SSLException;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Flow;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -243,26 +242,12 @@ public class NoSQLHandleAsyncImpl implements NoSQLHandleAsync {
 
     @Override
     public CompletableFuture<QueryResult> query(QueryRequest request) {
-        return queryAsync(request);
-    }
-
-    CompletableFuture<QueryResult> queryAsync(QueryRequest request) {
-        return executeASync(request)
-            .thenCompose(result -> {
-                /* Complex queries need RCB, run asynchronously */
-                if (!request.isSimpleQuery()) {
-                    // TODO supplyAsync runs in fork-join pool.
-                    //  Change to dedicated pool
-                    return CompletableFuture.supplyAsync(() -> result);
-                }
-                return CompletableFuture.completedFuture(result);
-            })
-            .thenApply(result -> ((QueryResult) result));
+        return executeASync(request);
     }
 
     @Override
-    public Flow.Publisher<MapValue> queryPaginator(QueryRequest request) {
-        return new QueryPublisher(this, request);
+    public QueryPaginatorResult queryPaginator(QueryRequest request) {
+        return new QueryPaginatorResult(request, this);
     }
 
     @Override

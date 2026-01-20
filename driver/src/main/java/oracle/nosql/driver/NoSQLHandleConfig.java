@@ -91,7 +91,7 @@ public class NoSQLHandleConfig implements Cloneable {
         "com.oracle.nosql.sdk.nosqldriver.connection.size";
 
     /**
-     *
+     * Java property for connection pool pending size
      */
     public static final String CONNECTION_PENDING_PROPERTY =
         "com.oracle.nosql.sdk.nosqldriver.connection.pending";
