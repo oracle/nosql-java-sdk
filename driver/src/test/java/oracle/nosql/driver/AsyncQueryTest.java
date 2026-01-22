@@ -136,12 +136,8 @@ public class AsyncQueryTest extends ProxyTestBase {
 
     @Override
     public void afterTest() throws Exception {
-        QueryRequest qreq = newQueryRequest();
-        qreq.setStatement("DELETE FROM testTable");
-        Flow.Publisher<List<MapValue>> publisher =
-            asyncHandle.queryPaginator(qreq).getResults();
-        JdkFlowAdapter.flowPublisherToFlux(publisher).blockLast();
-        tableOperationAsync(asyncHandle, "DROP TABLE testTable", null).join();
+        tableOperationAsync(asyncHandle, "DROP TABLE IF EXISTS " + tableName,
+                null).join();
         super.afterTest();
     }
 
@@ -1353,7 +1349,7 @@ public class AsyncQueryTest extends ProxyTestBase {
             fail("Namespaces not supported in table names");
         } catch (Exception e) {
             if (onprem) {
-                assertTrue(e instanceof TableNotFoundException);
+                assertTrue(e.getCause() instanceof TableNotFoundException);
             } else {
                 assertTrue(e.getMessage().toLowerCase()
                            .contains("namespace"));
