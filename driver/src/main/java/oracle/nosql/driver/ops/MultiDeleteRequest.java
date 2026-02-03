@@ -273,6 +273,7 @@ public class MultiDeleteRequest extends DurableRequest {
      * @return the write metadata
      * @since 5.4.18
      */
+    @Override
     public String getLastWriteMetadata() {
         return lastWriteMetadata;
     }

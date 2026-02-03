@@ -603,6 +603,14 @@ public abstract class Request {
         return oboToken;
     }
 
+    /*
+     * @hidden
+     * Internal use only
+     */
+    public String getLastWriteMetadata() {
+        return null;
+    }
+
     /**
      * Copy internal fields to another Request object.
      * Use direct member assignment to avoid value checks that only apply
