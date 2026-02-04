@@ -225,7 +225,7 @@ public class Client {
     private String userAgent;
 
     /* Features that the connected server supports (bitflags) */
-    private long features;
+    private volatile long features;
 
     private volatile TopologyInfo topology;
 
@@ -237,7 +237,7 @@ public class Client {
      * If this is zero, then certain logic may be indeterminate (example:
      * features flags that depend on server response headers).
      */
-    private long numOKResponses;
+    private volatile long numOKResponses;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
