@@ -1671,6 +1671,79 @@ public class BasicTest extends ProxyTestBase {
         }
     }
 
+    @Test
+    public void testLastWriteMetadata() {
+
+        NoSQLHandle extraHandle = null;
+        try {
+            MapValue key = new MapValue().put("id", 10);
+            MapValue value = new MapValue().put("id", 10).put("name", "jane");
+
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists testusers(id integer, " +
+                "name string, primary key(id))",
+                new TableLimits(500, 500, 50));
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            final String jsonMetadata = "{\"abc\":\"def\"}";
+
+            /* PUT */
+            PutRequest putRequest = new PutRequest()
+                .setValue(value)
+                .setTableName("testusers")
+                .setLastWriteMetadata(jsonMetadata);
+
+            /*
+             * Note: this version check is just for pre-26.1.3 servers,
+             * Which do not support LWM. But after that, the support is
+             * based on the "features" flag in the proxy response header...
+             */
+            if (!checkKVVersion(26, 1, 3)) {
+                /* this should throw an error */
+                try {
+                    PutResult res = handle.put(putRequest);
+                    assertNotNull(res.getVersion());
+                } catch (Exception e) {
+                    /* success */
+                    return; /* no point in going forward */
+                }
+                fail("Last Write Metadata should have thrown error");
+            } else {
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* GET */
+            GetRequest getRequest = new GetRequest()
+                .setKey(key)
+                .setTableName("testusers");
+
+            GetResult res1 = handle.get(getRequest);
+            String lwm = res1.getLastWriteMetadata();
+            assertTrue(lwm != null && lwm.equals(jsonMetadata));
+
+            /* TODO: delete: how to verify LWM?? */
+
+            /*
+             * Create a new handle to verify that the "features" logic
+             * works correctly when the PutRequest is the very first
+             * request sent to the server
+             */
+            extraHandle = getHandle(endpoint);
+            PutResult res = extraHandle.put(putRequest);
+            assertNotNull(res.getVersion());
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (extraHandle != null) {
+                extraHandle.close();
+            }
+        }
+    }
+
     private void checkRecentTime(long modTime, boolean modTimeRecent) {
         if (modTimeRecent) {
             if (modTime < (System.currentTimeMillis() - 2000)) {

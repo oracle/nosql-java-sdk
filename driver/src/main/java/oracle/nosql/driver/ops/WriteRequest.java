@@ -61,6 +61,7 @@ public abstract class WriteRequest extends DurableRequest {
      *
      * @since 5.4.20
      */
+    @Override
     public String getLastWriteMetadata() {
         return lastWriteMetadata;
     }

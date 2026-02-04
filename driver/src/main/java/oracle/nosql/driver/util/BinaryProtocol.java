@@ -289,4 +289,9 @@ public final class BinaryProtocol {
 
     /* The limit on a query string */
     public static final int QUERY_SIZE_LIMIT = 10 * 1024;
+
+    /*
+     * Features: added in KV 26.X, SDK 5.4.20+
+     */
+    public static final long FEATURE_FLAG_LAST_WRITE_METADATA = 1L << 0;
 }

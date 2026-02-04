@@ -964,6 +964,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
      * @return the write metadata
      * @since 5.4.20
      */
+    @Override
     public String getLastWriteMetadata() {
         return lastWriteMetadata;
     }
