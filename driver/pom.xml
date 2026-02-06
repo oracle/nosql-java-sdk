@@ -39,12 +39,12 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-    <copyright>Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.</copyright>
-    <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
+    <copyright>Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.</copyright>
+    <java.apidoc>https://docs.oracle.com/en/java/javase/11/docs/api/</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.129.Final</netty.version>
     <jackson.version>2.18.2</jackson.version>
@@ -274,8 +274,8 @@
         <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
-          <source>1.8</source>
-          <target>1.8</target>
+          <source>11</source>
+          <target>11</target>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <compilerArgument>-Xlint:all</compilerArgument>
@@ -380,7 +380,7 @@
         <configuration>
           <quiet>true</quiet>
           <doclint>-missing</doclint>
-          <source>8</source>
+          <source>11</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>
           <!-- exclude these packages.
