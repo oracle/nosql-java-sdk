@@ -22,9 +22,9 @@ public class ConstIter extends PlanIter {
 
     final FieldValue theValue;
 
-    ConstIter(ByteInputStream in, short serialVersion) throws IOException {
+    ConstIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         theValue = BinaryProtocol.readFieldValue(in);
     }
 

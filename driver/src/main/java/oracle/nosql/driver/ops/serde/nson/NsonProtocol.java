@@ -75,6 +75,7 @@ public class NsonProtocol {
     public static String PREPARED_QUERY = "pq";
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
+    public static String QUERY_BRANCHES = "qb";
     public static String QUERY_NAME = "qn";
     public static String QUERY_OPERATION_NUM = "on";
     public static String QUERY_VERSION = "qv";
@@ -251,6 +252,7 @@ public class NsonProtocol {
         {PREPARED_QUERY,"PREPARED_QUERY"},
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
+        {QUERY_BRANCHES,"QUERY_BRANCHES"},
         {QUERY_NAME,"QUERY_NAME"},
         {QUERY_OPERATION_NUM,"QUERY_OPERATION_NUM"},
         {QUERY_VERSION,"QUERY_VERSION"},

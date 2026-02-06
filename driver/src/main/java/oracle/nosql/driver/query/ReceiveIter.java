@@ -190,9 +190,9 @@ public class ReceiveIter extends PlanIter {
 
     public ReceiveIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
 
         short ordinal = in.readShort();
         theDistributionKind = DistributionKind.values()[ordinal];
@@ -736,10 +736,16 @@ public class ReceiveIter extends PlanIter {
                 reqCopy.setLimit((int)numResults);
             }
 
+            if (!theRCB.reachedLimit()) {
+                reqCopy.setMaxReadKB(origRequest.getMaxReadKB() -
+                                     theRCB.getReadKB());
+            }
+
             if (theRCB.getTraceLevel() >= 1) {
                 theRCB.trace("RemoteScanner : executing remote batch " +
-                             origRequest.getBatchCounter() + ". spid = " +
-                             theShardOrPartId);
+                             origRequest.getBatchCounter() +
+                             " with max read KB " + reqCopy.getMaxReadKB() +
+                             ". spid = " + theShardOrPartId);
                 if (theVirtualScan != null) {
                     theRCB.trace("RemoteScanner : request is for virtual scan:\n" +
                                  theVirtualScan);
