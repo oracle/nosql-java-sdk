@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -18,7 +18,7 @@ import oracle.nosql.driver.values.JsonUtils;
 public abstract class WriteRequest extends DurableRequest {
 
     private boolean returnRow;
-    private String rowMetadata;
+    private String lastWriteMetadata;
 
     protected WriteRequest() {}
 
@@ -55,54 +55,47 @@ public abstract class WriteRequest extends DurableRequest {
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
+     * Returns the last write metadata to be used for this request.
      *
-     * Returns the row metadata to be used for this request.
+     * @return the last write metadata, or null if not set
      *
-     * @return the row metadata, or null if not set
-     *
-     * @since 5.4.18
+     * @since 5.4.20
      */
-    public String getRowMetadata() {
-        return rowMetadata;
+    @Override
+    public String getLastWriteMetadata() {
+        return lastWriteMetadata;
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
-     *
-     * Sets the row metadata to use for this request.
+     * Sets the write metadata to use for this request.
      * This is an optional parameter.<p>
      *
-     * Row metadata is associated to a certain version of a row. Any subsequent
-     * write operation will use its own row metadata value. If not specified
-     * null will be used by default.
+     * Last write metadata is associated to a certain version of a row. Any
+     * subsequent write operation will use its own write metadata value. If not
+     * specified null will be used by default.
      * NOTE that if you have previously written a record with metadata and a
      * subsequent write does not supply metadata, the metadata associated with
      * the row will be null. Therefore, if you wish to have metadata
      * associated with every write operation, you must supply a valid JSON
      * construct to this method.<p>
      *
-     * @param rowMetadata the row metadata, must be null or a valid JSON
+     * @param lastWriteMetadata the write metadata, must be null or a valid JSON
      *    construct: object, array, string, number, true, false or null,
      *    otherwise an IllegalArgumentException is thrown.
-     * @throws IllegalArgumentException if rowMetadata not null and invalid
+     * @throws IllegalArgumentException if lastWriteMetadata not null and invalid
      *    JSON construct
      *
-     * @since 5.4.18
+     * @since 5.4.20
      * @return this
      */
-    public WriteRequest setRowMetadata(String rowMetadata) {
-        if (rowMetadata == null) {
-            this.rowMetadata = null;
+    public WriteRequest setLastWriteMetadata(String lastWriteMetadata) {
+        if (lastWriteMetadata == null) {
+            this.lastWriteMetadata = null;
             return this;
         }
 
-        JsonUtils.validateJsonConstruct(rowMetadata);
-        this.rowMetadata = rowMetadata;
+        JsonUtils.validateJsonConstruct(lastWriteMetadata);
+        this.lastWriteMetadata = lastWriteMetadata;
         return this;
     }
 }

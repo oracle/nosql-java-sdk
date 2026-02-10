@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -20,7 +20,7 @@ public class WriteResult extends Result {
     private MapValue existingValue;
     private long existingCreationTime;
     private long existingModificationTime;
-    private String existingRowMetadata;
+    private String existingLastWriteMetadata;
     private Client client;
 
     protected WriteResult() {}
@@ -35,13 +35,13 @@ public class WriteResult extends Result {
     }
 
     /**
-     * Returns the associated row metadata
-     * @return the row metadata or null
+     * Returns the associated write metadata
+     * @return the write metadata or null
      * @since 5.4.18
      * @hidden
      */
-    public String getExistingRowMetadataInternal() {
-        return existingRowMetadata;
+    public String getExistingLastWriteMetadataInternal() {
+        return existingLastWriteMetadata;
     }
 
     /**
@@ -134,13 +134,13 @@ public class WriteResult extends Result {
     /**
      * Internal use only.
      *
-     * @param existingRowMetadata the row metadata
+     * @param existingLastWriteMetadata the last write metadata
      * @return this
      * @since 5.4.18
      * @hidden
      */
-    public WriteResult setExistingRowMetadata(String existingRowMetadata) {
-        this.existingRowMetadata = existingRowMetadata;
+    public WriteResult setExistingLastWriteMetadata(String existingLastWriteMetadata) {
+        this.existingLastWriteMetadata = existingLastWriteMetadata;
         return this;
     }
 

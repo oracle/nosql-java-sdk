@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -301,4 +301,9 @@ public final class BinaryProtocol {
 
     /* The limit on a query string */
     public static final int QUERY_SIZE_LIMIT = 10 * 1024;
+
+    /*
+     * Features: added in KV 26.X, SDK 5.4.20+
+     */
+    public static final long FEATURE_FLAG_LAST_WRITE_METADATA = 1L << 0;
 }

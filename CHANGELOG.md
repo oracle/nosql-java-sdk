@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [In progress]
+
+### Changed
+- Renamed get/set RowMetadata to get/set LastWriteMetadata.
+- Updated java minimum version to 11
+- Updated copyrights to 2026
+
 ## [5.4.19] 2025-12-23
 
 ### Added
