@@ -339,10 +339,10 @@ public class Consumer {
     public static void deleteGroup(NoSQLHandle handle, String groupId, String compartmentOcid) {
         /* TODO: use timeout */
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
-            .groupId(groupId);
+            .groupId(groupId)
+            .compartmentOcid(compartmentOcid);
         ConsumerRequest req = new ConsumerRequest(RequestMode.DELETE).
-                                     setBuilder(tempBuilder).
-                                     setCompartment(compartmentOcid);
+                                     setBuilder(tempBuilder);
         try {
             ConsumerResult res =
                 (ConsumerResult) ((NoSQLHandleImpl)handle).getClient().execute(req);

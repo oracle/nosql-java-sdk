@@ -366,7 +366,16 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
         }
     }
 
-    public ConsumerBuilder setCompartmentOcid(String compartmentOcid) {
+    /**
+     * Set the cloud compartment ID to use for this consumer.
+     * This is optional. If not compartment is specified, the default
+     * (root) compartment of the tenancy is used.
+     * Tables added to the consumer can be in different compartments,
+     * as specified in addTable() and removeTable().
+     *
+     * @param compartmentOcid The OCID of the compartment to use
+     */
+    public ConsumerBuilder compartmentOcid(String compartmentOcid) {
         this.compartmentOcid = compartmentOcid;
         return this;
     }
