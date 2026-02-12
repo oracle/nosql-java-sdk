@@ -249,7 +249,7 @@ public class WriteMultipleResult extends Result {
          * exist or metadata was not set.
          *
          * @return the metadata of the row, or null if row does not exist or not set
-         * @since 5.4.18
+         * @since 5.4.20
          */
         public String getExistingLastWriteMetadata() {
             return super.getExistingLastWriteMetadataInternal();
