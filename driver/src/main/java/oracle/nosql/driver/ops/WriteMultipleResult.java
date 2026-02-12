@@ -245,6 +245,17 @@ public class WriteMultipleResult extends Result {
         }
 
         /**
+         * Returns the metadata of the returned row, or null if the row does not
+         * exist or metadata was not set.
+         *
+         * @return the metadata of the row, or null if row does not exist or not set
+         * @since 5.4.18
+         */
+        public String getExistingLastWriteMetadata() {
+            return super.getExistingLastWriteMetadataInternal();
+        }
+
+        /**
          * Returns the value generated if the operation created a new value.
          * This can happen if the table contains an identity column or string
          * column declared as a generated UUID. If the table has no such
