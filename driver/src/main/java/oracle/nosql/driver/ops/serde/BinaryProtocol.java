@@ -18,6 +18,7 @@ import oracle.nosql.driver.DeploymentException;
 import oracle.nosql.driver.Durability;
 import oracle.nosql.driver.EvolutionLimitException;
 import oracle.nosql.driver.FieldRange;
+import oracle.nosql.driver.ProxyRemoteException;
 import oracle.nosql.driver.IndexExistsException;
 import oracle.nosql.driver.IndexLimitException;
 import oracle.nosql.driver.IndexNotFoundException;
@@ -437,6 +438,9 @@ public class BinaryProtocol extends Nson {
             return new IllegalArgumentException(msg);
         case RECOMPILE_QUERY:
             return new PrepareQueryException(msg);
+
+        case REMOTE_ERROR:
+            return new ProxyRemoteException(msg);
         default:
             return new NoSQLException("Unknown error code " + code + ": " +
                                       msg);
