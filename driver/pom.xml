@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.20.CS2-SNAPSHOT</version>
+  <version>5.4.20.CS3-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -46,8 +46,8 @@
     <copyright>Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>https://docs.oracle.com/en/java/javase/11/docs/api/</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.129.Final</netty.version>
-    <jackson.version>2.18.2</jackson.version>
+    <netty.version>4.1.131.Final</netty.version>
+    <jackson.version>2.18.5</jackson.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>

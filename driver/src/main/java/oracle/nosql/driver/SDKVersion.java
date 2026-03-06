@@ -12,5 +12,5 @@ public class SDKVersion {
     /**
      * The full X.Y.Z version of the current SDK
      */
-    public static final String VERSION = "5.4.20.CS1-SNAPSHOT";
+    public static final String VERSION = "5.4.20.CS3-SNAPSHOT";
 }
