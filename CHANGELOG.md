@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Updated netty version to 4.1.131.Final
 - Updated jackson-core to 2.18.5
 
+### Added
+- Added new OCI Region codes
+
 ## [5.4.19] 2025-12-23
 
 ### Added
