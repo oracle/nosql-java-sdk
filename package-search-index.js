@@ -1,1 +1,1 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"oracle.nosql.driver"},{"l":"oracle.nosql.driver.iam"},{"l":"oracle.nosql.driver.kv"},{"l":"oracle.nosql.driver.ops"},{"l":"oracle.nosql.driver.values"}];updateSearchResults();
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"l":"oracle.nosql.driver"},{"l":"oracle.nosql.driver.iam"},{"l":"oracle.nosql.driver.kv"},{"l":"oracle.nosql.driver.ops"},{"l":"oracle.nosql.driver.values"}];updateSearchResults();
