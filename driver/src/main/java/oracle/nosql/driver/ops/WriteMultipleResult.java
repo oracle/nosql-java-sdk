@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -242,6 +242,17 @@ public class WriteMultipleResult extends Result {
          */
         public long getExistingModificationTime() {
             return super.getExistingModificationTimeInternal();
+        }
+
+        /**
+         * Returns the metadata of the returned row, or null if the row does not
+         * exist or metadata was not set.
+         *
+         * @return the metadata of the row, or null if row does not exist or not set
+         * @since 5.4.20
+         */
+        public String getExistingLastWriteMetadata() {
+            return super.getExistingLastWriteMetadataInternal();
         }
 
         /**

@@ -19,7 +19,7 @@ information.
 
 ## Requirements
 
-Java versions 8 and higher are supported.
+Java versions 11 and higher are supported.
 
 ## Installation
 
@@ -37,7 +37,7 @@ project. The version changes with each release.
 <dependency>
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.18</version>
+  <version>5.4.20</version>
 </dependency>
 ```
 
@@ -181,7 +181,7 @@ is required if using Instance Principal or Resource Principal authorization.
 
 ```
 /*-
- * Copyright (c) 2019, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/

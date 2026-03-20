@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -650,7 +650,7 @@ public class SignatureProvider
      */
     public static SignatureProvider createWithResourcePrincipal(Logger logger) {
         SignatureProvider provider = new SignatureProvider(
-            ResourcePrincipalProvider.build(logger));
+            ResourcePrincipalProvider.builder().build());
         provider.setLogger(logger);
         return provider;
     }

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -154,6 +154,8 @@ public class Region {
     public static final Region US_SANJOSE_1 = register("us-sanjose-1", Realm.OC1, "sjc");
     public static final Region US_SHAWNEE_1 = register("us-shawnee-1", Realm.OC1, "drz");
     public static final Region US_CHICAGO_1 = register("us-chicago-1", Realm.OC1, "ord");
+    public static final Region AP_KULAI_2 = register("ap-kulai-2", Realm.OC1, "jbp");
+    public static final Region AP_DELHI_1 = register("ap-delhi-1", Realm.OC1, "onm");
     public static final Region US_LANGLEY_1 = register("us-langley-1", Realm.OC2, "lfi");
     public static final Region US_LUKE_1 = register("us-luke-1", Realm.OC2, "luf");
     public static final Region US_GOV_ASHBURN_1 = register("us-gov-ashburn-1", Realm.OC3, "ric");
@@ -165,6 +167,7 @@ public class Region {
     public static final Region AP_CHIYODA_1 = register("ap-chiyoda-1", Realm.OC8, "nja");
     public static final Region AP_IBARAKI_1 = register("ap-ibaraki-1", Realm.OC8, "ukb");
     public static final Region ME_DCC_MUSCAT_1 = register("me-dcc-muscat-1", Realm.OC9, "mct");
+    public static final Region ME_IBRI_1 = register("me-ibri-1", Realm.OC9, "ibr");
     public static final Region AP_DCC_CANBERRA_1 = register("ap-dcc-canberra-1", Realm.OC10, "wga");
     public static final Region EU_DCC_DUBLIN_1 = register("eu-dcc-dublin-1", Realm.OC14, "ork");
     public static final Region EU_DCC_DUBLIN_2 = register("eu-dcc-dublin-2", Realm.OC14, "snn");
@@ -203,13 +206,19 @@ public class Region {
     public static final Region ME_RIYADH_2 = register("me-riyadh-2", Realm.OC36, "kzq");
     public static final Region US_TUKWILA_3 = register("us-tukwila-3", Realm.OC39, "nbq");
     public static final Region AP_OSAKA_2 = register("ap-osaka-2", Realm.OC40, "ibg");
+    public static final Region AP_TATEBAYASHI_1 = register("ap-tatebayashi-1", Realm.OC40, "jbb");
     public static final Region ME_DUBAI_3 = register("me-dubai-3", Realm.OC41, "pcz");
     public static final Region US_NEWARK_1 = register("us-newark-1", Realm.OC42, "pgc");
     public static final Region AP_PATHUMTHANI_1 = register("ap-pathumthani-1", Realm.OC43, "mez");
     public static final Region AP_SAMUTPRAKAN_1 = register("ap-samutprakan-1", Realm.OC43, "yik");
     public static final Region UK_LONDON_2 = register("uk-london-2", Realm.OC46, "den");
     public static final Region UK_LONDON_3 = register("uk-london-3", Realm.OC47, "kal");
+    public static final Region UK_LONDON_4 = register("uk-london-4", Realm.OC47, "pyz");
+    public static final Region EU_BUDAPEST_1 = register("eu-budapest-1", Realm.OC51, "jsk");
+    public static final Region SA_RIODEJANEIRO_1 = register("sa-riodejaneiro-1", Realm.OC52, "hnw");
     public static final Region AP_WESTTOKYO_1 = register("ap-westtokyo-1", Realm.OC55, "zwe");
+    public static final Region ME_ABUDHABI_5 = register("me-abudhabi-5", Realm.OC57, "jhz");
+    public static final Region ME_DUBAI_4 = register("me-dubai-4", Realm.OC57, "zqa");
     /* Known Regions end generated code */
 
     /* instance state */
@@ -560,7 +569,10 @@ public class Region {
         static final Realm OC43 = new Realm("thaiaiscloud.com", "oc43");
         static final Realm OC46 = new Realm("oraclecloud46.com", "oc46");
         static final Realm OC47 = new Realm("oraclecloud47.com", "oc47");
+        static final Realm OC51 = new Realm("oraclecloud51.com", "oc51");
+        static final Realm OC52 = new Realm("oraclecloud52.com", "oc52");
         static final Realm OC55 = new Realm("svcl.jp", "oc55");
+        static final Realm OC57 = new Realm("eonecloud.com", "oc57");
         /* Known Realms end generated code */
 
         private Realm(String secondLevelDomain, String realmId) {
@@ -578,7 +590,7 @@ public class Region {
                               boolean add) {
             Realm realm = ALL_REALMS.get(realmId);
             if (realm == null && add) {
-                realm = new Realm(realmId, secondLevelDomain);
+                realm = new Realm(secondLevelDomain, realmId);
             }
             return realm;
         }
@@ -633,7 +645,7 @@ public class Region {
                         return realm;
                     }
                 }
-                return new Realm(realmId, secondLevelDomain);
+                return new Realm(secondLevelDomain, realmId);
             } finally {
                 writeLock.unlock();
             }

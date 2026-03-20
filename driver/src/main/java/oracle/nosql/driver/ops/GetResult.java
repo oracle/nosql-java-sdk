@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -30,7 +30,7 @@ public class GetResult extends Result {
     private long creationTime;
     private long modificationTime;
     private Client client;
-    private String rowMetadata;
+    private String lastWriteMetadata;
 
     /**
      * Returns the value of the returned row, or null if the row does not exist
@@ -132,39 +132,32 @@ public class GetResult extends Result {
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
+     * Returns the metadata used on last write of the returned row, or null if
+     * the row does not exist or metadata was not set.
      *
-     * Returns the metadata of the returned row, or null if the row does not
-     * exist or metadata was not set.
+     * @return the metadata used on last write of the row, or null if row does
+     * not exist or not set
      *
-     * @return the metadata of the row, or null if row does not exist or not set
-     *
-     * @since 5.4.18
+     * @since 5.4.20
      */
-    public String getRowMetadata() {
-        return rowMetadata;
+    public String getLastWriteMetadata() {
+        return lastWriteMetadata;
     }
 
     /**
-     * This method is **EXPERIMENTAL** and its behavior, signature, or
-     * even its existence may change without prior notice in future versions.
-     * Use with caution.<p>
-     *
      * Internal use only.<p>
      *
-     * Sets the rowMetadata of this object.
+     * Sets the lastWriteMetadata of this object.
      *
-     * @param rowMetadata the row metadata
+     * @param lastWriteMetadata the write metadata
      *
      * @return this
      *
-     * @since 5.4.18
+     * @since 5.4.20
      * @hidden
      */
-    public GetResult setRowMetadata(String rowMetadata) {
-        this.rowMetadata = rowMetadata;
+    public GetResult setLastWriteMetadata(String lastWriteMetadata) {
+        this.lastWriteMetadata = lastWriteMetadata;
         return this;
     }
 
