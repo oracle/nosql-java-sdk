@@ -153,7 +153,7 @@ public class JsonReader implements Iterable<MapValue>, AutoCloseable {
         }
 
         public long getLocationOffset() {
-            return parser.getCurrentLocation().getByteOffset();
+            return parser.currentLocation().getByteOffset();
         }
 
         @Override

@@ -1269,7 +1269,7 @@ public class ChangeStreamTest extends ProxyTestBase {
             } while(true);
 
             /* Use a separate call to delete the entire group */
-            Consumer.deleteGroup(handle, "deleteGroup", null);
+            Consumer.deleteGroup(handle, "deleteGroup", null, true);
 
             /* try again to poll for more records. This should fail. */
             try {

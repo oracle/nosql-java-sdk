@@ -50,31 +50,37 @@ public class Consumer {
         }
     }
 
-    /*
-     * Mark the data from the most recent call to poll() as committed: the consumer has
-     * completely processed the data and it should be considered "consumed".
+    /**
+     * Mark the data from the most recent call to poll() as committed.
      *
-     * Note that this commit implies commits on all previously polled messages from the
-     * same consumer (that is, messages that were returned from calls to poll() before
-     * this one).
+     * Calling this method implies that the consumer has completely processed
+     * the data and it should be considered "consumed".
      *
-     * This method is only necessary when using manual commit mode. Otherwise, in auto commit mode, the
-     * commit is implied for all previous data every time poll() is called.
+     * Note that this commit implies commits on all previously polled messages
+     * from the same consumer (that is, messages that were returned from calls
+     * to poll() before this one).
+     *
+     * This method is only necessary when using manual commit mode. Otherwise,
+     * in auto commit mode, the commit is implied for all previous data every
+     * time poll() is called.
      */
     public void commit(Duration timeout) {
         commitInternal(this.cursor, timeout);
     }
 
-    /*
-     * Mark the data from the given MessageBundle as committed: the consumer has
-     * completely processed the data and it should be considered "consumed".
+    /**
+     * Mark the data from the given MessageBundle as committed.
      *
-     * Note that this commit implies commits on all previously polled messages from the
-     * same consumer (that is, messages that were returned from calls to poll() before
-     * this one). Calling commitBundle() on a previous MessageBundle will have no effect.
+     * Calling this method implies that the consumer has completely processed
+     * the data and it should be considered "consumed".
      *
-     * This method is only necessary when using manual commit mode. Otherwise, in auto commit mode, the
-     * commit is implied for all previous data every time Consumer.poll() is called.
+     * Note that this commit implies commits on all previously polled messages
+     * from the same consumer (that is, messages that were returned from calls
+     * to poll() before this one).
+     *
+     * This method is only necessary when using manual commit mode. Otherwise,
+     * in auto commit mode, the commit is implied for all previous data every
+     * time poll() is called.
      */
     public void commitBundle(MessageBundle bundle, Duration timeout) {
         commitInternal(bundle.getCursor(), timeout);
@@ -90,10 +96,10 @@ public class Consumer {
         try {
             ConsumerResult res =
                 (ConsumerResult) handle.getClient().execute(req);
-            // TODO: should commit update the cursor?
-            if (res.cursor != null) {
+            if (res.cursor == null) {
                 throw new NoSQLException("Consumer not committed on server side");
             }
+            this.cursor = res.cursor;
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
                 throw new OperationNotSupportedException("Change Streaming not supported by server");
@@ -136,6 +142,7 @@ public class Consumer {
 
 
     /*
+     * @hidden
      * Reset the consumer.
      *
      * This method will do the same logic as if the consumer called close() and
@@ -161,14 +168,8 @@ public class Consumer {
         }
     }
 
-    /*
+    /**
      * Get Change Streaming messages for a consumer.
-     *
-     * @param limit max number of change messages to return in the bundle. This value can be set to
-     * zero to specify that this consumer is alive and active in the group without actually
-     * returning any change events.
-     *
-     * @param waitTime max amount of time to wait for messages
      *
      * If this is the first call to poll() for a consumer, this call may trigger
      * a rebalance operation to redistribute change data across this and all other active consumers.
@@ -178,6 +179,11 @@ public class Consumer {
      *
      * This method is not thread-safe. Calling poll() on the same consumer instance
      * from multiple threads will result in undefined behavior.
+     *
+     * @param limit max number of change messages to return in the bundle. This value can be set to
+     * zero to specify that this consumer is alive and active in the group without actually
+     * returning any change events.
+     * @param waitTime max amount of time to wait for messages
      */
     public MessageBundle poll(int limit, Duration waitTime) {
         /* TODO: config interval ? */
@@ -245,20 +251,21 @@ public class Consumer {
 
 
     /**
-     * Adds a table to the consumer group.
-     * The table must have already been enabled for Change Streaming via the OCI console or
-     * a NoSQL SDK {@link NoSQLHandle#enableChangeStreaming} request.
+     * Adds a table to the current consumer's group.
      *
-     * If the given table already exists in the group, this call is ignored and will return no error.
+     * The table must have already been enabled for Change Streaming via the
+     * OCI console or a NoSQL SDK {@link NoSQLHandle#enableChangeStreaming}
+     * request.
+     *
+     * If the given table already exists in the group, this call is ignored and
+     * will return no error.
      *
      * Note this will affect all active consumers using the same group ID.
      *
-     * tableName: required. This may be the Ocid of the table, if available.
-     *
-     * compartmentOcid: This is optional. If null, the default compartment Ocid
+     * @param tableName required. This may be the Ocid of the table, if available.
+     * @param compartmentOcid This is optional. If null, the default compartment Ocid
      * for the tenancy is used.
-     *
-     * location: Specify the position of the first element to read in the
+     * @param location Specify the position of the first element to read in the
      * change stream. If a table is already being consumed by other consumers
      * in this group, this consumer's start location for the table will be
      * FIRST_UNCOMMITTED (the start location specified here is ignored). If
@@ -296,15 +303,14 @@ public class Consumer {
     }
 
     /**
-     * Removes a table from the consumer group.
+     * Removes a table from the current consumer's group.
      *
      * If the given table does not exist in the group, this call is ignored and will return no error.
      *
      * Note this will affect all active consumers using the same group ID.
      *
-     * tableName: required. This may be the Ocid of the table, if available.
-     *
-     * compartmentOcid: This is optional. If null, the default compartment Ocid
+     * @param tableName required. This may be the Ocid of the table, if available.
+     * @param compartmentOcid This is optional. If null, the default compartment Ocid
      * for the tenancy is used.
      */
     public void removeTable(String tableName,
@@ -336,11 +342,40 @@ public class Consumer {
         }
     }
 
-    public static void deleteGroup(NoSQLHandle handle, String groupId, String compartmentOcid) {
+    /**
+     * Delete the consumer group.
+     *
+     * This is a static method that does not require an active Consumer.
+     *
+     * This method can be used to clear out any remaining
+     * consumer group information after consumers have been closed.
+     * Typically this will happen automatically, but not until all
+     * read (committed) data in the group has expired (typically 2 days).
+     * Using this method allows re-using a group ID to have all
+     * new locations directly after closing all active consumers in the group.
+     * All server-side information for the group (current offsets/locations,
+     * distribution map, etc) will be removed.
+     *
+     * @param handle a handle to a NoSQL client connection
+     * @param groupId the group ID to be removed
+     * @param compartmentOcid optional: compartment OCID. If not specified, the
+     * root compartment OCID of the tenancy is used
+     * @param forceStop If true, stop all active consumption across all
+     * consumers in the group. Any active consumers in the group will get
+     * errors if they attempt to do any Change Streams operation after this
+     * method succeeds.
+     */
+    public static void deleteGroup(NoSQLHandle handle,
+                                   String groupId,
+                                   String compartmentOcid,
+                                   boolean forceStop) {
         /* TODO: use timeout */
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
             .groupId(groupId)
             .compartmentOcid(compartmentOcid);
+        if (forceStop) {
+            tempBuilder.forceReset = true;
+        }
         ConsumerRequest req = new ConsumerRequest(RequestMode.DELETE).
                                      setBuilder(tempBuilder);
         try {

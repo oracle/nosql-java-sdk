@@ -188,7 +188,7 @@ public class TableRequest extends Request {
      */
     public TableRequest setChangeStreamingEnabled(boolean enabled) {
         /* only create the object if a change in Change Streaming is desired */
-        this.changeStreamEnabled = new Boolean(enabled);
+        this.changeStreamEnabled = Boolean.valueOf(enabled);
         return this;
     }
 

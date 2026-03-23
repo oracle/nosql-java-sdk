@@ -39,8 +39,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.release>11</maven.compiler.release>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
     <copyright>Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.</copyright>
@@ -274,8 +273,7 @@
         <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
-          <source>11</source>
-          <target>11</target>
+          <release>11</release>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <compilerArgument>-Xlint:all</compilerArgument>
