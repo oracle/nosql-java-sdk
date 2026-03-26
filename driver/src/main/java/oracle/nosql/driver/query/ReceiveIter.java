@@ -475,7 +475,7 @@ public class ReceiveIter extends PlanIter {
         }
 
         /*
-         * For simplicity, if the size limit was not reached during this
+         * For simplicity, if the batch limit was not reached during this
          * batch of sort phase 1, we don't start a new batch. We let the
          * app do it. Furthermore, this means that each remote fetch will
          * be done with the max amount of read limit, which will reduce the
@@ -734,11 +734,6 @@ public class ReceiveIter extends PlanIter {
                     numResults = 2048;
                 }
                 reqCopy.setLimit((int)numResults);
-            }
-
-            if (!theRCB.reachedLimit()) {
-                reqCopy.setMaxReadKB(origRequest.getMaxReadKB() -
-                                     theRCB.getReadKB());
             }
 
             if (theRCB.getTraceLevel() >= 1) {

@@ -218,17 +218,19 @@ public class UnionIter extends PlanIter {
             rcb.incUnionBranch();
 
             if (rcb.getTraceLevel() >= 3) {
-                rcb.trace("UNION: moved to branch " +
-                          state.theCurrentBranch);
+                rcb.trace("UNION: moved to branch " + state.theCurrentBranch);
             }
 
             if (state.theCurrentBranch < theBranches.length) {
                 branch = theBranches[state.theCurrentBranch];
                 branch.open(rcb);
-            }
 
-            if (rcb.getTraceLevel() >= 3) {
-                rcb.trace("UNION: moved to branch " + state.theCurrentBranch);
+                /* For simplicity, we don't want to allow the possibility of
+                 * another remote fetch during the same batch, so whether or not
+                 * the batch limit has been reached, we set limit flag to true 
+                 * and return false, thus terminating the current batch. */
+                rcb.setReachedLimit(true);
+                return false;
             }
         }
 
@@ -287,9 +289,12 @@ public class UnionIter extends PlanIter {
                 state.theSortedBranches.add(sb);
             }
 
-            if (rcb.reachedLimit()) {
-                return false;
-            }
+            /* For simplicity, we don't want to allow the possibility of
+             * another remote fetch during the same batch, so whether or not
+             * the batch limit has been reached, we set limit flag to true 
+             * and return false, thus terminating the current batch. */
+            rcb.setReachedLimit(true);
+            return false;
         }
     }
 

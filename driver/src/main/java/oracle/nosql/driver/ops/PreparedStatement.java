@@ -118,13 +118,21 @@ public class PreparedStatement {
      * @param sqlText the query
      * @param queryPlan the query plan
      * @param querySchema the query schema
-     * @param proxyStatement proxy statement
+     * @param proxyStatements the serialized PreparedStatements created at the 
+     *        proxy. There is one of them for each union branch (or a single
+     *        one if the query has no UNION). They are opaque for the driver.
+     *        They are received from the proxy and one of them (the one
+     *        corresponding to the current UNION branch that is being executed)
+     *        is sent back to the proxy every time a new batch of results is
+     *        needed.
      * @param driverPlan the portion of the query plan executed on driver
      * @param numIterators num iterators in plan
      * @param numRegisters num registers in the plan
      * @param externalVars external variables for the query
-     * @param namespace namespace, if any, from deserialization
-     * @param tableName table name, if any, from deserialization
+     * @param namespaces the namespaces returned in a prepared query result.
+     *        One for each UNION branch.
+     * @param tableNames the top-table names returned in a prepared query
+     *        result. One for each UNION branch.
      * @param operation operation code for the query
      * @param maxParallelism the maximum degree of parallelism possible for the
      * query
