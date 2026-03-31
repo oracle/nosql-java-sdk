@@ -98,6 +98,6 @@ public class ConsumerRequest extends Request {
 
     @Override
     public boolean shouldRetry() {
-        return false;
+        return true;
     }
 }
