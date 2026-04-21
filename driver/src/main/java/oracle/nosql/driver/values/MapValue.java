@@ -9,6 +9,7 @@ package oracle.nosql.driver.values;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.Collection;
@@ -51,6 +52,15 @@ import oracle.nosql.driver.util.SizeOf;
  */
 public class MapValue extends FieldValue
     implements Iterable<Map.Entry<String, FieldValue>> {
+
+    /**
+     * Java property string for limiting string value length in
+     * {@link #toString()} output. A positive integer truncates printed string
+     * values to that length. Missing, zero, negative, and invalid values are
+     * ignored.
+     */
+    public static final String TOSTRING_MAX_STRING_LENGTH_PROPERTY =
+        "com.oracle.nosql.sdk.nosqldriver.mapvalue.tostring.max-string-length";
 
     private final Map<String, FieldValue> values;
 
@@ -560,6 +570,50 @@ public class MapValue extends FieldValue
             throw new IllegalArgumentException("Field does not exist: " + name);
         }
         return val.getTimestamp();
+    }
+
+    @Override
+    public String toString() {
+        int maxStringLength = getToStringMaxStringLength();
+        if (maxStringLength <= 0) {
+            return super.toString();
+        }
+
+        FieldValueEventHandler handler =
+            new TruncatingJsonSerializer(maxStringLength);
+        try {
+            FieldValueEventHandler.generate(this, handler);
+            return handler.toString();
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException(
+                "Failed to serialize FieldValue into JSON: " +
+                ioe.getMessage());
+        }
+    }
+
+    private static int getToStringMaxStringLength() {
+        Integer maxStringLength =
+            Integer.getInteger(TOSTRING_MAX_STRING_LENGTH_PROPERTY);
+        return (maxStringLength != null ? maxStringLength.intValue() : -1);
+    }
+
+    private static class TruncatingJsonSerializer extends JsonSerializer {
+
+        private final int maxStringLength;
+
+        private TruncatingJsonSerializer(int maxStringLength) {
+            super(null);
+            this.maxStringLength = maxStringLength;
+        }
+
+        @Override
+        public void stringValue(String value) {
+            String out = value;
+            if (value.length() > maxStringLength) {
+                out = value.substring(0, maxStringLength);
+            }
+            super.stringValue(out);
+        }
     }
 
     @Override

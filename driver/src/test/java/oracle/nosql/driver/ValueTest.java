@@ -108,6 +108,36 @@ public class ValueTest extends DriverTestBase {
         assertTrue(mv.toString().contains("NaN"));
     }
 
+    @Test
+    public void testMapValueToStringMaxStringLengthProperty() {
+        final String property = MapValue.TOSTRING_MAX_STRING_LENGTH_PROPERTY;
+        final String previous = System.getProperty(property);
+        try {
+            System.setProperty(property, "3");
+            MapValue mv = new MapValue()
+                .put("text", "abcdef")
+                .put("nested", new MapValue().put("value", "uvwxyz"));
+            assertEquals(
+                "{\"text\":\"abc\",\"nested\":{\"value\":\"uvw\"}}",
+                mv.toString());
+        } finally {
+            restoreProperty(property, previous);
+        }
+    }
+
+    @Test
+    public void testMapValueToStringInvalidMaxStringLengthProperty() {
+        final String property = MapValue.TOSTRING_MAX_STRING_LENGTH_PROPERTY;
+        final String previous = System.getProperty(property);
+        try {
+            System.setProperty(property, "not-an-int");
+            MapValue mv = new MapValue().put("text", "abcdef");
+            assertEquals("{\"text\":\"abcdef\"}", mv.toString());
+        } finally {
+            restoreProperty(property, previous);
+        }
+    }
+
     /**
      * Test "nan"
      */
@@ -237,6 +267,14 @@ public class ValueTest extends DriverTestBase {
         expectParseError(singleQuoteDoc, options);
         expectParseError(nanDoc, options);
         expectParseError(commentDoc, options);
+    }
+
+    private static void restoreProperty(String property, String value) {
+        if (value == null) {
+            System.clearProperty(property);
+        } else {
+            System.setProperty(property, value);
+        }
     }
 
     /**
