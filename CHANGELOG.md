@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [5.4.21] TBD
+
+### Changed
+- Updated netty version to 4.1.132.Final
+
 ## [5.4.20] 2025-03-10
 
 ### Changed
