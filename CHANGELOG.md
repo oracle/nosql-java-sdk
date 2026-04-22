@@ -2,19 +2,19 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [5.4.21] TBD
+## [5.4.21] 2026-04-21
 
 ### Changed
 - Updated netty version to 4.1.132.Final
 
-## [5.4.20] 2025-03-10
+## [5.4.20] 2026-03-10
 
 ### Changed
 - Renamed get/set RowMetadata to get/set LastWriteMetadata.
 - Updated java minimum version to 11
 - Updated copyrights to 2026
 - Updated netty version to 4.1.131.Final
-- Updated jackson-core to 2.18.5
+- Updated jackson-core to 2.18.6
 
 ### Added
 - Added new OCI Region codes
