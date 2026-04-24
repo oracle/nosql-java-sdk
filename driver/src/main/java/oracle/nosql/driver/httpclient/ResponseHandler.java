@@ -8,6 +8,7 @@
 package oracle.nosql.driver.httpclient;
 
 import static oracle.nosql.driver.util.LogUtil.logFine;
+import static oracle.nosql.driver.util.LogUtil.logHeaders;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 
 import java.io.Closeable;
@@ -203,8 +204,8 @@ public class ResponseHandler implements Closeable {
                         ", but got response for request " + resReqId +
                         ": discarding response");
                 if (resReqId == null) {
-                    logFine(logger, "Headers for discarded response: " +
-                            requestState.getHeaders());
+                    logHeaders(logger, "Headers for discarded response",
+                               requestState.getHeaders());
                     if (this.allowRetry) {
                         this.cause = new ProtocolException(
                                 "Received invalid response with no requestId");
