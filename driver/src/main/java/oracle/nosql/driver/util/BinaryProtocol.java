@@ -223,6 +223,14 @@ public final class BinaryProtocol {
     public static final int ILLEGAL_STATE = 126;
 
     /*
+     * A server-side FaultException that appears to have originated from a
+     * remote networking/transport failure. This is intentionally in the
+     * NON-retryable (125+) range so that the Java SDK does not perform
+     * automatic retries; callers can decide whether/how to retry.
+     */
+    public static final int REMOTE_ERROR = 127;
+
+    /*
      * Return true if the errorCode means a user-generated error.
      */
     public static boolean isUserFailure(int errorCode) {
