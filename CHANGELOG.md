@@ -4,6 +4,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [5.4.21] 2026-04-21
 
+### Added
+- Added redaction of sensitive HTTP header values in debug logging by default,
+  plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
+  property to allow full header values when needed for debugging.
+
 ### Changed
 - Updated netty version to 4.1.132.Final
 

@@ -9,6 +9,7 @@ package oracle.nosql.driver.iam;
 
 import static oracle.nosql.driver.iam.Utils.*;
 import static oracle.nosql.driver.util.HttpConstants.*;
+import static oracle.nosql.driver.util.LogUtil.logHeaderValue;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -173,8 +174,10 @@ class FederationRequestHelper {
                 SINGATURE_VERSION);
 
 
-        logTrace(logger, "Resource Principal Token request" +
-                " authorization header " + authHeader);
+        logHeaderValue(logger,
+                       "Resource Principal Token request authorization header",
+                       AUTHORIZATION,
+                       authHeader);
         HttpHeaders headers = new DefaultHttpHeaders();
         return headers
                 .set(DATE, date)
@@ -217,8 +220,10 @@ class FederationRequestHelper {
                 signature,
                 SINGATURE_VERSION);
 
-        logTrace(logger, "Federation request authorization header " +
-                authHeader);
+        logHeaderValue(logger,
+                       "Federation request authorization header",
+                       AUTHORIZATION,
+                       authHeader);
         HttpHeaders headers = new DefaultHttpHeaders();
         return headers
                 .set(DATE, date)
