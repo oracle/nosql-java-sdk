@@ -14,6 +14,8 @@ import static io.netty.handler.codec.http.HttpMethod.GET;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpMethod.PUT;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static oracle.nosql.driver.util.LogUtil.formatHeadersForLog;
+import static oracle.nosql.driver.util.LogUtil.logHeaders;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -231,7 +233,7 @@ public class HttpRequestUtil {
                         uri, headers, method, payload, channel);
                 }
                 addRequiredHeaders(request);
-                logFine(logger, request.headers().toString());
+                logHeaders(logger, "Request headers", request.headers());
                 httpClient.runRequest(request, responseHandler, channel);
                 if (responseHandler.await(timeoutMs)) {
                     throw new TimeoutException("Request timed out after " +
@@ -415,7 +417,7 @@ public class HttpRequestUtil {
         public String toString() {
             return "HttpResponse [statusCode=" + statusCode + "," +
                    "output=" + output + "," + "headers=" +
-                    (headers == null ? "null" : headers.toString()) +  "]";
+                    formatHeadersForLog(headers) +  "]";
         }
     }
 }

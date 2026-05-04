@@ -219,7 +219,7 @@ public class JsonUtils {
                                           JsonOptions options) {
 
         try {
-            JsonToken token = (getNext ? jp.nextToken() : jp.getCurrentToken());
+            JsonToken token = (getNext ? jp.nextToken() : jp.currentToken());
             if (token == null) {
                 throw createParseException("Empty JSON", jp);
             }
@@ -329,7 +329,7 @@ public class JsonUtils {
 
         JsonToken token;
         while ((token = jp.nextToken()) != JsonToken.END_OBJECT) {
-            String fieldName = jp.getCurrentName();
+            String fieldName = jp.currentName();
             if (token == null || fieldName == null) {
                 throw createParseException(
                     "null token or field name parsing JSON object", jp);
@@ -391,7 +391,7 @@ public class JsonUtils {
                                                            JsonParser jp) {
         return new JsonParseException(msg,
                                       jp == null ? null :
-                                      jp.getCurrentLocation());
+                                      jp.currentLocation());
     }
 
     /**
@@ -546,7 +546,7 @@ public class JsonUtils {
                        "generateEventsFromJson: parser must be non-null");
         try {
 
-            JsonToken token = (getNext ? jp.nextToken() : jp.getCurrentToken());
+            JsonToken token = (getNext ? jp.nextToken() : jp.currentToken());
             if (token == null) {
                 throw createParseException("Empty JSON", jp);
             }
@@ -668,7 +668,7 @@ public class JsonUtils {
         handler.startMap(mapSize);
         JsonToken token;
         while ((token = jp.nextToken()) != JsonToken.END_OBJECT) {
-            String fieldName = jp.getCurrentName();
+            String fieldName = jp.currentName();
             if (token == null || fieldName == null) {
                 throw createParseException(
                     "null token or field name parsing JSON object", jp);

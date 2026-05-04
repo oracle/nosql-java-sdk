@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.oracle.nosql.sdk</groupId>
-  <version>5.4.20</version>
+  <version>5.4.21</version>
   <artifactId>nosql-java-sdk-examples</artifactId>
   <name>Oracle NoSQL Database Java Examples</name>
   <description>Java examples for Oracle NoSQL Database</description>
@@ -12,8 +12,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.release>11</maven.compiler.release>
     <!-- don't install, test, or deploy example jar -->
     <maven.install.skip>true</maven.install.skip>
     <maven.deploy.skip>true</maven.deploy.skip>
@@ -25,7 +24,7 @@
     <dependency>
       <groupId>com.oracle.nosql.sdk</groupId>
       <artifactId>nosqldriver</artifactId>
-      <version>5.4.20</version>
+      <version>5.4.21</version>
     </dependency>
   </dependencies>
 
@@ -37,8 +36,7 @@
         <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
-          <source>11</source>
-          <target>11</target>
+          <release>11</release>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <!--  <compilerArgument>-Xlint:all</compilerArgument>  -->

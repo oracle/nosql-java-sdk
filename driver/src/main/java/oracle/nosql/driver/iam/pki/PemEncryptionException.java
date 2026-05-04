@@ -8,6 +8,7 @@
 package oracle.nosql.driver.iam.pki;
 
 public class PemEncryptionException extends PemException {
+    private static final long serialVersionUID = 1L;
 
     PemEncryptionException(Throwable cause) {
         super(cause);
