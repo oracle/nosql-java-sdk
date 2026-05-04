@@ -28,10 +28,10 @@ public class FieldStepIter extends PlanIter {
 
     private final String theFieldName;
 
-    FieldStepIter(ByteInputStream in, short serialVersion) throws IOException {
+    FieldStepIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        super(in, serialVersion);
-        theInputIter = deserializeIter(in, serialVersion);
+        super(in, queryVersion);
+        theInputIter = deserializeIter(in, queryVersion);
         theFieldName = SerializationUtil.readString(in);
     }
 

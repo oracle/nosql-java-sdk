@@ -190,9 +190,9 @@ public class ReceiveIter extends PlanIter {
 
     public ReceiveIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
 
         short ordinal = in.readShort();
         theDistributionKind = DistributionKind.values()[ordinal];
@@ -475,7 +475,7 @@ public class ReceiveIter extends PlanIter {
         }
 
         /*
-         * For simplicity, if the size limit was not reached during this
+         * For simplicity, if the batch limit was not reached during this
          * batch of sort phase 1, we don't start a new batch. We let the
          * app do it. Furthermore, this means that each remote fetch will
          * be done with the max amount of read limit, which will reduce the
@@ -738,8 +738,9 @@ public class ReceiveIter extends PlanIter {
 
             if (theRCB.getTraceLevel() >= 1) {
                 theRCB.trace("RemoteScanner : executing remote batch " +
-                             origRequest.getBatchCounter() + ". spid = " +
-                             theShardOrPartId);
+                             origRequest.getBatchCounter() +
+                             " with max read KB " + reqCopy.getMaxReadKB() +
+                             ". spid = " + theShardOrPartId);
                 if (theVirtualScan != null) {
                     theRCB.trace("RemoteScanner : request is for virtual scan:\n" +
                                  theVirtualScan);
