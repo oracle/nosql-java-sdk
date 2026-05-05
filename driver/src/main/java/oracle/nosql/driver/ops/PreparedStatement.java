@@ -118,7 +118,7 @@ public class PreparedStatement {
      * @param sqlText the query
      * @param queryPlan the query plan
      * @param querySchema the query schema
-     * @param proxyStatements the serialized PreparedStatements created at the 
+     * @param proxyStatements the serialized PreparedStatements created at the
      *        proxy. There is one of them for each union branch (or a single
      *        one if the query has no UNION). They are opaque for the driver.
      *        They are received from the proxy and one of them (the one
@@ -405,6 +405,9 @@ public class PreparedStatement {
      * @hidden
      */
     public String getNamespace(int branch) {
+        if (namespaces == null || namespaces.isEmpty()) {
+            return null;
+        }
         return namespaces.get(branch);
     }
 
