@@ -20,9 +20,9 @@ public class FuncSizeIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    FuncSizeIter(ByteInputStream in, short serialVersion) throws IOException {
-        super(in, serialVersion);
-        theInput = deserializeIter(in, serialVersion);
+    FuncSizeIter(ByteInputStream in, short queryVersion) throws IOException {
+        super(in, queryVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override

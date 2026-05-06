@@ -105,10 +105,10 @@ public class FuncCollectIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    FuncCollectIter(ByteInputStream in, short serialVersion) throws IOException {
-        super(in, serialVersion);
+    FuncCollectIter(ByteInputStream in, short queryVersion) throws IOException {
+        super(in, queryVersion);
         theIsDistinct = in.readBoolean();
-        theInput = deserializeIter(in, serialVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override
