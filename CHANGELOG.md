@@ -13,8 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Fixed bug in handling of empty namespaces in prepared statements.
 
 ### Changed
-- Updated netty version to 4.1.133.Final
-- Updated jackson-core to 2.18.7
+- Updated Netty version to 4.1.133.Final
+- Updated Jackson-core to 2.18.7
 
 ## [5.4.21] 2026-04-21
 
