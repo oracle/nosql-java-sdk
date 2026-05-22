@@ -106,6 +106,7 @@ import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.util.ByteInputStream;
 import oracle.nosql.driver.util.ByteOutputStream;
 import oracle.nosql.driver.util.NettyByteInputStream;
+import oracle.nosql.driver.values.ArrayValue;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -869,7 +870,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 writeMapField(ns, BATCH_COUNTER, rq.getBatchCounter());
             }
 
-            writeMapField(ns, QUERY_VERSION, (int)queryVersion);
+            writeMapField(ns, QUERY_VERSION, queryVersion);
             boolean isPrepared = rq.isPrepared();
             if (isPrepared) {
                 QueryDriver driver = rq.getDriver();
@@ -1224,7 +1225,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(VIRTUAL_SCAN_JOIN_DESC_RESUME_KEY)) {
                     descResumeKey = Nson.readNsonBinary(in);
                 } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_TABLES)) {
-                    joinPathTables = Nson.readIntArray(in);
+                    joinPathTables = readJoinPathTables(in);
                 } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_KEY)) {
                     joinPathKey = Nson.readNsonBinary(in);
                 } else if (name.equals(VIRTUAL_SCAN_JOIN_PATH_SEC_KEY)) {
@@ -1310,6 +1311,32 @@ public class NsonSerializerFactory implements SerializerFactory {
             return results;
         }
 
+        private static int[] readJoinPathTables(ByteInputStream in)
+            throws IOException {
+
+            FieldValue fieldValue = Nson.readFieldValue(in);
+            if (fieldValue == null || fieldValue.isAnyNull()) {
+                return null;
+            }
+            if (!fieldValue.isArray()) {
+                throw new IllegalArgumentException(
+                    "JoinPathTables must be an array: " + fieldValue);
+            }
+            ArrayValue array = fieldValue.asArray();
+            int[] values = new int[array.size()];
+            int i = 0;
+            for (FieldValue value : array) {
+                try {
+                    values[i++] = value.getInt();
+                } catch (ClassCastException e) {
+                    throw new IllegalArgumentException(
+                        "JoinPathTables contains a non-integer element: " +
+                        value);
+                }
+            }
+            return values;
+        }
+
         /*
          * Bind variables:
          * "variables": [
@@ -1370,7 +1397,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             // payload
             startMap(ns, PAYLOAD);
 
-            writeMapField(ns, QUERY_VERSION, (int)queryVersion);
+            writeMapField(ns, QUERY_VERSION, queryVersion);
             writeMapField(ns, STATEMENT, rq.getStatement());
             if (rq.getQueryPlan()) {
                 writeMapField(ns, GET_QUERY_PLAN, true);
