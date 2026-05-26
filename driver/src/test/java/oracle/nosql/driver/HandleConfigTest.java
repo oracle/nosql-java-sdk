@@ -81,7 +81,7 @@ public class HandleConfigTest {
     @Test
     public void testSslProtocols() {
         NoSQLHandleConfig config = new NoSQLHandleConfig("http://foo.com");
-        config.setSSLProtocols("TLSv1.3", "TLSv1.1");
+        config.setSSLProtocols("TLSv1.3", "TLSv1.2");
         assertEquals(2, config.getSSLProtocols().length);
 
         try {

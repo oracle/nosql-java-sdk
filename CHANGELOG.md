@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Changed
+- Removed old SSL protocols from handle config
+
 ## [5.4.22] 2026-05-15
 
 ### Added
