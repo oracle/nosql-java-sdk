@@ -101,7 +101,7 @@ public class ConsumerBuilder {
      * consumer's start location for the table will be FirstUncommitted (the start location
      * specified in the config is ignored). If a table is not in the existing group (or if this the
      * first consumer in this group), the StartLocation in the table config will be used.
-     * This behavior can be changed by setting ForceReset to true in the config.
+     * This behavior can be changed by setting forceResetStartLocation() to true in the config.
      */
     public String groupId;
 
@@ -265,7 +265,7 @@ public class ConsumerBuilder {
      * consumer's start location for the table will be FirstUncommitted (the start location
      * specified in the config is ignored). If a table is not in the existing group (or if this the
      * first consumer in this group), the StartLocation in the table config will be used.
-     * This behavior can be changed by specifying ResetStartLocation() in the config.
+     * This behavior can be changed by specifying forceResetStartLocation() in the config.
      */
     public ConsumerBuilder groupId(String groupId) {
         this.groupId = groupId;
