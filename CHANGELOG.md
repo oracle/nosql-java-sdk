@@ -2,12 +2,26 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [5.4.21] 2026-04-21
+## Unreleased
+
+### Changed
+- Removed old SSL protocols from handle config
+
+## [5.4.22] 2026-05-15
 
 ### Added
 - Added redaction of sensitive HTTP header values in debug logging by default,
   plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
   property to allow full header values when needed for debugging.
+  
+### Fixed
+- Fixed bug in handling of empty namespaces in prepared statements.
+
+### Changed
+- Updated Netty version to 4.1.133.Final
+- Updated Jackson-core to 2.18.7
+
+## [5.4.21] 2026-04-21
 
 ### Changed
 - Updated netty version to 4.1.132.Final
