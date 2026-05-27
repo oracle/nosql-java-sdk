@@ -887,7 +887,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     writeMapField(ns, COMPARTMENT_OCID, rq.builder.compartmentOcid);
                 }
                 if (rq.builder.maxPollInterval != null) {
-                    writeLongMapField(ns, MAX_POLL_INTERVAL, rq.builder.maxPollInterval.toMillis());
+                    int pollMillis = (int)rq.builder.maxPollInterval.toMillis();
+                    writeMapField(ns, MAX_POLL_INTERVAL, pollMillis);
                 }
                 if (rq.builder.forceReset) {
                     writeMapField(ns, FORCE_RESET, true);
