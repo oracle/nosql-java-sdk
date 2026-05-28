@@ -401,7 +401,11 @@ public class GroupIter extends PlanIter {
         if (queryVersion >= QueryDriver.QUERY_V6) {
             theIsRegrouping = in.readBoolean();
         } else {
-            theIsRegrouping = false;
+            /*
+             * Pre-QUERY_V6 plans did not serialize this flag. Preserve the old
+             * behavior of flattening partial array_collect() results.
+             */
+            theIsRegrouping = true;
         }
     }
 
