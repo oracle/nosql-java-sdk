@@ -301,11 +301,15 @@ public class ConsumerBuilder {
      * consider this consumer as failed, which will trigger a rebalance operation to
      * redirect its change event data to other active consumers.
      *
-     * If not specified, the default value for maxPollInterval is 30 seconds.
-     *
-     * Note: if a consumer process dies, the data that it would be consuming
+     * This setting allows the application to determine what will happen if a
+     * consumer process dies unexpectedly, or as part of a restart operation.
+     * If a consumer process dies, the data that it would be consuming
      * will not be consumed by any other consumers in this consumer's group until
-     * this interval expires.
+     * this interval expires. So this value should be reasonably long enough to
+     * support slow consumers that may have significant delays between polls, but
+     * be short enough so that other consumers can take over its data if it dies.
+     *
+     * If not specified, the default value for maxPollInterval is 30 seconds.
      */
     public ConsumerBuilder maxPollInterval(Duration interval) {
         this.maxPollInterval = interval;
