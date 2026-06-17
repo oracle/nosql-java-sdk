@@ -79,6 +79,16 @@ public class ChangeStreamTest extends ProxyTestBase {
 
 
     @Test
+    public void defaultStartLocationTest() {
+        ConsumerBuilder builder = new ConsumerBuilder()
+            .addTable("ocid1.nosqltable.oc1..defaultStartLocation", null, null);
+
+        assertEquals(StartLocation.LocationType.EARLIEST,
+                     builder.tables.get(0).startLocation.location);
+    }
+
+
+    @Test
     public void smokeTest() throws Exception {
         assumeFalse(onprem);
         myBeforeTest();
@@ -153,7 +163,7 @@ public class ChangeStreamTest extends ProxyTestBase {
            new consumer pick up where the old one left off */
 
         assumeFalse(onprem);
-        // StartLocation.firstUncommitted not yet implemented
+        // close/open resume behavior not yet implemented
         assumeTrue(Boolean.getBoolean("test.all"));
         myBeforeTest();
 
@@ -199,7 +209,7 @@ public class ChangeStreamTest extends ProxyTestBase {
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, null, StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
@@ -208,7 +218,7 @@ public class ChangeStreamTest extends ProxyTestBase {
             /* poll for same records, do not commit */
             pollAndCheckManyEvents(consumer, tableName, 10, 0, 9, false, 10);
 
-            /* reset consumer to first uncommitted */
+            /* reset consumer to the group's existing position */
             // TODO: consumer.SOMETHING?
 
             /* Put another 10 records */
@@ -229,7 +239,7 @@ public class ChangeStreamTest extends ProxyTestBase {
 
             /* create a new consumer with the same group */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, null, StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("closeOpen1")
                 .commitManual()
                 .handle(handle)
@@ -432,7 +442,7 @@ public class ChangeStreamTest extends ProxyTestBase {
 
             /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, null, StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("manCom1")
                 .commitManual()
                 .handle(handle)
@@ -523,7 +533,7 @@ public class ChangeStreamTest extends ProxyTestBase {
 
             /* create Change Streaming consumer */
             consumer = new ConsumerBuilder()
-                .addTable(tableName, null, StartLocation.firstUncommitted())
+                .addTable(tableName, null, StartLocation.earliest())
                 .groupId("autoCom1")
                 .commitAutomatic()
                 .handle(handle)
@@ -1441,4 +1451,3 @@ public class ChangeStreamTest extends ProxyTestBase {
         }
     }
 }
-

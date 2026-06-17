@@ -45,7 +45,7 @@ public class ConsumerBuilder {
         /* for the tenancy is used. */
         public String compartmentOcid;
 
-        /* Optional start location. If null, FIRST_UNCOMMITTED is used as the default. */
+        /* Optional start location. If null, EARLIEST is used as the default. */
         public StartLocation startLocation;
 
         /* Table Ocid. One of tableName or tableOcid are required. */
@@ -67,7 +67,7 @@ public class ConsumerBuilder {
             }
             this.compartmentOcid = compartmentOcid;
             if (startLocation == null) {
-                this.startLocation = StartLocation.firstUncommitted();
+                this.startLocation = StartLocation.earliest();
             } else {
                 this.startLocation = startLocation;
             }
@@ -97,10 +97,11 @@ public class ConsumerBuilder {
      * currently consumed by this group that are not in the specified Tables list will
      * have their consumption stopped.
      *
-     * If a table is already being consumed by other consumers in this group, this
-     * consumer's start location for the table will be FirstUncommitted (the start location
-     * specified in the config is ignored). If a table is not in the existing group (or if this the
-     * first consumer in this group), the StartLocation in the table config will be used.
+     * If a table is already being consumed by other consumers in this group,
+     * this consumer starts from the group's existing position (the start
+     * location specified in the config is ignored). If a table is not in the
+     * existing group (or if this the first consumer in this group), the
+     * StartLocation in the table config will be used.
      * This behavior can be changed by setting forceResetStartLocation() to true in the config.
      */
     public String groupId;
@@ -194,12 +195,12 @@ public class ConsumerBuilder {
      *
      * location: Specify the position of the first element to read in the
      * change stream. If a table is already being consumed by other consumers
-     * in this group, this consumer's start location for the table will be
-     * FIRST_UNCOMMITTED (the start location specified here is ignored). If
-     * a table is not in the existing group (or if this the first consumer
-     * in this group), the startLocation specified here will be used.
+     * in this group, this consumer starts from the group's existing position
+     * (the start location specified here is ignored). If a table is not in
+     * the existing group (or if this the first consumer in this group), the
+     * startLocation specified here will be used.
      *
-     * If location is null, StartLocation.FIRST_UNCOMMITTED is the default.
+     * If location is null, StartLocation.EARLIEST is the default.
      */
     public ConsumerBuilder addTable(String tableName,
                                     String compartmentOcid,
@@ -261,10 +262,11 @@ public class ConsumerBuilder {
      * have their consumption stopped: calls to [Consumer.poll] from existing consumers will
      * no longer contain data for tables not specified in this config.
      *
-     * If a table is already being consumed by other consumers in this group, this
-     * consumer's start location for the table will be FirstUncommitted (the start location
-     * specified in the config is ignored). If a table is not in the existing group (or if this the
-     * first consumer in this group), the StartLocation in the table config will be used.
+     * If a table is already being consumed by other consumers in this group,
+     * this consumer starts from the group's existing position (the start
+     * location specified in the config is ignored). If a table is not in the
+     * existing group (or if this the first consumer in this group), the
+     * StartLocation in the table config will be used.
      * This behavior can be changed by specifying forceResetStartLocation() in the config.
      */
     public ConsumerBuilder groupId(String groupId) {

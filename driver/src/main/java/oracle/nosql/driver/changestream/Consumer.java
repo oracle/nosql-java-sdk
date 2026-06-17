@@ -267,10 +267,10 @@ public class Consumer {
      * for the tenancy is used.
      * @param location Specify the position of the first element to read in the
      * change stream. If a table is already being consumed by other consumers
-     * in this group, this consumer's start location for the table will be
-     * FIRST_UNCOMMITTED (the start location specified here is ignored). If
-     * a table is not in the existing group (or if this the first consumer
-     * in this group), the startLocation specified here will be used.
+     * in this group, this consumer starts from the group's existing position
+     * (the start location specified here is ignored). If a table is not in
+     * the existing group (or if this the first consumer in this group), the
+     * startLocation specified here will be used.
      */
     public void addTable(String tableName,
                          String compartmentOcid,

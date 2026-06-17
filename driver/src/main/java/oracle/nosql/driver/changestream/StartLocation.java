@@ -16,18 +16,10 @@ public class StartLocation {
     public enum LocationType {
         UNINITIALIZED(0),
 
-        /**
-         * Start consuming at the first uncommitted message in the stream.
-         *
-         * This type says "start consumption at the first record that hasn’t
-         * been committed". For a new table that has no commits, this
-         * will be the first record in the stream - same as EARLIEST.
-         *
-         * This is the default.
+        /*
+         * Start consuming from the earliest (oldest) available message in the
+         * stream. This is the default.
          */
-        FIRST_UNCOMMITTED(1),
-
-        /* Start consuming from the earliest (oldest) available message in the stream. */
         EARLIEST(2),
 
         /* Start consuming messages that were published after the start of the consumer. */
@@ -36,7 +28,14 @@ public class StartLocation {
         /* Start consuming from a given time. */
         AT_TIME(4);
 
-        LocationType(int i) {
+        private final int value;
+
+        LocationType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
         }
     }
 
@@ -54,10 +53,6 @@ public class StartLocation {
 
     public static StartLocation earliest() {
         return new StartLocation(LocationType.EARLIEST, 0);
-    }
-
-    public static StartLocation firstUncommitted() {
-        return new StartLocation(LocationType.FIRST_UNCOMMITTED, 0);
     }
 
     public static StartLocation atTime(long startTime) {
