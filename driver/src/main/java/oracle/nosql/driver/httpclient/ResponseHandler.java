@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -8,6 +8,7 @@
 package oracle.nosql.driver.httpclient;
 
 import static oracle.nosql.driver.util.LogUtil.logFine;
+import static oracle.nosql.driver.util.LogUtil.logHeaders;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 
 import java.io.Closeable;
@@ -203,8 +204,8 @@ public class ResponseHandler implements Closeable {
                         ", but got response for request " + resReqId +
                         ": discarding response");
                 if (resReqId == null) {
-                    logFine(logger, "Headers for discarded response: " +
-                            requestState.getHeaders());
+                    logHeaders(logger, "Headers for discarded response",
+                               requestState.getHeaders());
                     if (this.allowRetry) {
                         this.cause = new ProtocolException(
                                 "Received invalid response with no requestId");

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -64,11 +64,11 @@ public class SortIter extends PlanIter {
 
     private final boolean theCountMemory;
 
-    public SortIter(ByteInputStream in, PlanIterKind kind, short serialVersion)
+    public SortIter(ByteInputStream in, PlanIterKind kind, short queryVersion)
         throws IOException {
 
-        super(in, serialVersion);
-        theInput = deserializeIter(in, serialVersion);
+        super(in, queryVersion);
+        theInput = deserializeIter(in, queryVersion);
 
         theSortFields = SerializationUtil.readStringArray(in);
         theSortSpecs = readSortSpecs(in);

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -219,7 +219,7 @@ public class JsonUtils {
                                           JsonOptions options) {
 
         try {
-            JsonToken token = (getNext ? jp.nextToken() : jp.getCurrentToken());
+            JsonToken token = (getNext ? jp.nextToken() : jp.currentToken());
             if (token == null) {
                 throw createParseException("Empty JSON", jp);
             }
@@ -329,7 +329,7 @@ public class JsonUtils {
 
         JsonToken token;
         while ((token = jp.nextToken()) != JsonToken.END_OBJECT) {
-            String fieldName = jp.getCurrentName();
+            String fieldName = jp.currentName();
             if (token == null || fieldName == null) {
                 throw createParseException(
                     "null token or field name parsing JSON object", jp);
@@ -391,7 +391,7 @@ public class JsonUtils {
                                                            JsonParser jp) {
         return new JsonParseException(msg,
                                       jp == null ? null :
-                                      jp.getCurrentLocation());
+                                      jp.currentLocation());
     }
 
     /**
@@ -546,7 +546,7 @@ public class JsonUtils {
                        "generateEventsFromJson: parser must be non-null");
         try {
 
-            JsonToken token = (getNext ? jp.nextToken() : jp.getCurrentToken());
+            JsonToken token = (getNext ? jp.nextToken() : jp.currentToken());
             if (token == null) {
                 throw createParseException("Empty JSON", jp);
             }
@@ -668,7 +668,7 @@ public class JsonUtils {
         handler.startMap(mapSize);
         JsonToken token;
         while ((token = jp.nextToken()) != JsonToken.END_OBJECT) {
-            String fieldName = jp.getCurrentName();
+            String fieldName = jp.currentName();
             if (token == null || fieldName == null) {
                 throw createParseException(
                     "null token or field name parsing JSON object", jp);
@@ -757,5 +757,71 @@ public class JsonUtils {
             hexValue[i*2] = hexSymbols[current >> 4];
         }
         return new String(hexValue);
+    }
+
+    /**
+     * Validates input is a valid JSON construct: object, array, string, number,
+     * true, false or null. Throws IllegalArgumentException if not valid.
+     * Multiple JSON Objects are not allowed. Strings must use only double
+     * quotes ("). Does not allow non-numeric values: NaN, Infinity, -Infinity
+     * or zero leading numbers.
+     */
+    public static void validateJsonConstruct(String jsonInput) {
+        validateJsonConstruct(jsonInput, null);
+    }
+
+    /**
+     * Validates input is a valid JSON construct: object, array, string, number,
+     * true, false or null. Throws IllegalArgumentException if not valid.
+     * Multiple JSON Objects are not allowed. Strings must use only double
+     * quotes (").
+     */
+    public static void validateJsonConstruct(String jsonInput,
+        JsonOptions options) {
+
+        try (JsonParser jp = createParserWithOptions(jsonInput, options)) {
+            int s = 0;
+            int i = 0;
+            JsonToken token = jp.nextToken();
+            if (token == null) {
+                throw new IllegalArgumentException(
+                    "Value is not a valid JSON construct.");
+            } else if (JsonToken.START_OBJECT.equals(token) ||
+                JsonToken.START_ARRAY.equals(token)) {
+                s += 1;
+            } else {
+                i += ( s == 0 ? 1 : 0);
+            }
+
+            while (!jp.isClosed()) {
+                token = jp.nextToken();
+                if (token != null) {
+                    if(JsonToken.FIELD_NAME.equals(token)) {
+                        // skip
+                    } else if (JsonToken.START_OBJECT.equals(token) ||
+                        JsonToken.START_ARRAY.equals(token) ) {
+                        if (s == 0) {
+                            throw new IllegalArgumentException(
+                                "Multiple JSON " +
+                                    "Objects not allowed.");
+                        }
+                        s++;
+                    } else if (JsonToken.END_OBJECT.equals(token) ||
+                        JsonToken.END_ARRAY.equals(token)) {
+                        s--;
+                        i += ( s == 0 ? 1 : 0);
+                    } else {
+                        i += ( s == 0 ? 1 : 0);
+                    }
+                    if (i > 1) {
+                        throw new IllegalArgumentException("Multiple top level JSON constructs not allowed");
+                    }
+                }
+            }
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("JSON parse failed: " + ioe);
+        } catch (JsonParseException jpe) {
+            throw new IllegalArgumentException("JSON parse failed: " + jpe);
+        }
     }
 }

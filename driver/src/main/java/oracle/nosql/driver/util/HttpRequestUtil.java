@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -14,6 +14,8 @@ import static io.netty.handler.codec.http.HttpMethod.GET;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpMethod.PUT;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static oracle.nosql.driver.util.LogUtil.formatHeadersForLog;
+import static oracle.nosql.driver.util.LogUtil.logHeaders;
 import static oracle.nosql.driver.util.LogUtil.logFine;
 import static oracle.nosql.driver.util.LogUtil.logInfo;
 import static oracle.nosql.driver.util.HttpConstants.CONTENT_LENGTH;
@@ -231,7 +233,7 @@ public class HttpRequestUtil {
                         uri, headers, method, payload, channel);
                 }
                 addRequiredHeaders(request);
-                logFine(logger, request.headers().toString());
+                logHeaders(logger, "Request headers", request.headers());
                 httpClient.runRequest(request, responseHandler, channel);
                 if (responseHandler.await(timeoutMs)) {
                     throw new TimeoutException("Request timed out after " +
@@ -243,7 +245,8 @@ public class HttpRequestUtil {
                     throw new IllegalStateException("Invalid null response");
                 }
                 res = processResponse(status.code(),
-                                      responseHandler.getContent());
+                        responseHandler.getContent(),
+                        responseHandler.getHeaders());
 
                 /*
                  * Retry upon status code larger than 500, in general,
@@ -374,12 +377,14 @@ public class HttpRequestUtil {
      * A simple response processing method, just return response content
      * in String with its status code.
      */
-    private static HttpResponse processResponse(int status, ByteBuf content) {
+    private static HttpResponse processResponse(int status,
+                                                ByteBuf content,
+                                                HttpHeaders headers) {
         String output = null;
         if (content != null) {
             output = content.toString(utf8);
         }
-        return new HttpResponse(status, output);
+        return new HttpResponse(status, output, headers);
     }
 
     /**
@@ -388,10 +393,12 @@ public class HttpRequestUtil {
     public static class HttpResponse {
         private final int statusCode;
         private final String output;
+        private final HttpHeaders headers;
 
-        public HttpResponse(int statusCode, String output) {
+        public HttpResponse(int statusCode, String output, HttpHeaders headers) {
             this.statusCode = statusCode;
             this.output = output;
+            this.headers = headers;
         }
 
         public int getStatusCode() {
@@ -402,10 +409,15 @@ public class HttpRequestUtil {
             return output;
         }
 
+        public HttpHeaders getHeaders() {
+            return headers;
+        }
+
         @Override
         public String toString() {
             return "HttpResponse [statusCode=" + statusCode + "," +
-                   "output=" + output + "]";
+                   "output=" + output + "," + "headers=" +
+                    formatHeadersForLog(headers) +  "]";
         }
     }
 }

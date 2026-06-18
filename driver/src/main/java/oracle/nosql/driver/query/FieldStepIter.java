@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -28,10 +28,10 @@ public class FieldStepIter extends PlanIter {
 
     private final String theFieldName;
 
-    FieldStepIter(ByteInputStream in, short serialVersion) throws IOException {
+    FieldStepIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        super(in, serialVersion);
-        theInputIter = deserializeIter(in, serialVersion);
+        super(in, queryVersion);
+        theInputIter = deserializeIter(in, queryVersion);
         theFieldName = SerializationUtil.readString(in);
     }
 

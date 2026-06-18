@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -67,17 +67,17 @@ public class SFWIter extends PlanIter {
 
     private final PlanIter theLimitIter;
 
-    SFWIter(ByteInputStream in, short serialVersion) throws IOException {
+    SFWIter(ByteInputStream in, short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
         theColumnNames = SerializationUtil.readStringArray(in);
         theNumGBColumns = in.readInt();
         theFromVarName = SerializationUtil.readString(in);
         theIsSelectStar = in.readBoolean();
-        theColumnIters = deserializeIters(in, serialVersion);
-        theFromIter = deserializeIter(in, serialVersion);
-        theOffsetIter = deserializeIter(in, serialVersion);
-        theLimitIter = deserializeIter(in, serialVersion);
+        theColumnIters = deserializeIters(in, queryVersion);
+        theFromIter = deserializeIter(in, queryVersion);
+        theOffsetIter = deserializeIter(in, queryVersion);
+        theLimitIter = deserializeIter(in, queryVersion);
     }
 
     @Override

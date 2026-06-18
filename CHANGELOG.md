@@ -2,7 +2,57 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## Unreleased
+
+### Changed
+- Removed old SSL protocols from handle config
+
+## [5.4.22] 2026-05-15
+
+### Added
+- Added redaction of sensitive HTTP header values in debug logging by default,
+  plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
+  property to allow full header values when needed for debugging.
+  
+### Fixed
+- Fixed bug in handling of empty namespaces in prepared statements.
+
+### Changed
+- Updated Netty version to 4.1.133.Final
+- Updated Jackson-core to 2.18.7
+
+## [5.4.21] 2026-04-21
+
+### Changed
+- Updated netty version to 4.1.132.Final
+
+## [5.4.20] 2026-03-10
+
+### Changed
+- Renamed get/set RowMetadata to get/set LastWriteMetadata.
+- Updated java minimum version to 11
+- Updated copyrights to 2026
+- Updated netty version to 4.1.131.Final
+- Updated jackson-core to 2.18.6
+
+### Added
+- Added new OCI Region codes
+
+## [5.4.19] 2025-12-23
+
+### Added
+- Cloud only: Added/updated support for Resource Principal versions
+  1.1, 2.1.1, 2.1.2, 2.2, and 3.0.
+
+### Fixed
+- Fixed bug in Realms when adding a new realm
+- On-premises only: fixed a login bug introduced in 5.4.15 release
+  when StoreAccessTokenProvider has a cached token.
+
+### Changed
+- Updated netty version to 4.1.129.Final
+
+## [5.4.18] 2025-10-01
 
 ### Added
 - Parallel Query feature to enable multiple coordinated threads, processes, or
@@ -12,7 +62,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
   - PreparedStatement.getMaximumParallelism()
   - QueryRequest.get/setNumberOfOperations()
   - QueryRequest.get/setOperationNumber()
-- Added new cloud region codes: hsg, abl, dfw, pbv, nbq, ibg, pcz, mez, den, kal
+- Added new cloud region codes
+- Added rowMetadata support, new API for Get/Put/Delete/MultiDelete request and
+  result get/set RowMetadata.  This is an experimental feature.  We would appreciate feedback
+  posted in the Discussions section.
+
+### Changed
+- Authentication calls for on premises login will now honor the request timeout
+  rather than using a hard-coded 30s timeout
+- Updated netty version to 4.1.125.Final
+
+### Fixed
+- Fixed a problem where if QueryRequest were created with a complex query and
+  closed before results were handled a null pointer exception could occur.
+- Fixed an issue where InvalidAuthorizationException might not be retried correctly in cases of
+  clock skew or request signature refresh failures. The retry logic previously only checked
+  whether the request was retried, rather than whether an IAE itself had been retried, causing
+  other exceptions like SecurityInfoNotReadyException to block a proper IAE retry.
 
 ## [5.4.17] 2025-03-03
 

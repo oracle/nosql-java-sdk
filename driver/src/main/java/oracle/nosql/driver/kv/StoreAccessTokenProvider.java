@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -82,9 +82,12 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
     private static final String LOGOUT_SERVICE = "/logout";
 
     /*
-     * Default timeout when sending http request to server
+     * Default timeout when sending http request to server if not specified
+     * by a request timeout. This is fairly long because it is usually
+     * performed in an async fashion from a timer task and not in the
+     * request path
      */
-    private static final int HTTP_TIMEOUT_MS = 30000;
+    private static final int HTTP_TIMEOUT_MS = 20000;
 
     /*
      * Authentication string which contain the Bearer prefix and login token's
@@ -220,13 +223,29 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      *
      * Bootstrap login using the provided credentials
      */
-    public synchronized void bootstrapLogin() {
+    public synchronized void bootstrapLogin(Request request) {
 
         /* re-check the authString in case of a race */
         if (!isSecure || isClosed || authString.get() != null) {
             return;
         }
+        loginInternal(request);
 
+    }
+
+    /**
+     * @hidden
+     *
+     * Re-login using the provided credentials
+     */
+    public synchronized void login(Request request) {
+        if (!isSecure || isClosed) {
+            return;
+        }
+        loginInternal(request);
+    }
+
+    private void loginInternal(Request request) {
         try {
             /*
              * Convert the user:password pair in base 64 format with
@@ -237,10 +256,15 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                     userName + ":" + String.valueOf(password)).getBytes());
 
             /*
+             * Use the request timeout for this operation if available
+             */
+            int timeoutMs = (request != null ?
+                request.getTimeoutInternal() : 0);
+            /*
              * Send request to server for login token
              */
             HttpResponse response = sendRequest(BASIC_PREFIX + encoded,
-                                                LOGIN_SERVICE);
+                LOGIN_SERVICE, timeoutMs);
 
             /*
              * login fail
@@ -258,7 +282,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              * Generate the authentication string using login token
              */
             authString.set(BEARER_PREFIX +
-                           parseJsonResult(response.getOutput()));
+                parseJsonResult(response.getOutput()));
 
             /*
              * Schedule login token renew thread
@@ -294,7 +318,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
          * the login token and generate the auth string.
          */
         if (authString.get() == null) {
-            bootstrapLogin();
+            bootstrapLogin(request);
         }
         return authString.get();
     }
@@ -330,7 +354,7 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
          */
         try {
             final HttpResponse response =
-                sendRequest(authString.get(), LOGOUT_SERVICE);
+                sendRequest(authString.get(), LOGOUT_SERVICE, 0);
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
@@ -497,7 +521,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
      * authentication information.
      */
     private HttpResponse sendRequest(String authHeader,
-                                     String serviceName) throws Exception {
+                                     String serviceName,
+                                     int timeoutMs) throws Exception {
         HttpClient client = null;
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
@@ -509,11 +534,14 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                  sslHandshakeTimeoutMs,
                  serviceName,
                  logger);
+            if (timeoutMs == 0) {
+                timeoutMs = HTTP_TIMEOUT_MS;
+            }
             return HttpRequestUtil.doGetRequest(
                 client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
                 .toString(),
-                headers, HTTP_TIMEOUT_MS, logger);
+                headers, timeoutMs, logger);
         } finally {
             if (client != null) {
                 client.shutdown();
@@ -560,7 +588,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             try {
                 final String oldAuth = authString.get();
                 HttpResponse response = sendRequest(oldAuth,
-                                                    RENEW_SERVICE);
+                                                    RENEW_SERVICE,
+                                                    0);
                 final String token = parseJsonResult(response.getOutput());
                 if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                     throw new InvalidAuthorizationException(token);

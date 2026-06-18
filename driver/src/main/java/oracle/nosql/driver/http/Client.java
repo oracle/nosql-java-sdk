@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -9,11 +9,13 @@ package oracle.nosql.driver.http;
 
 import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.headersFactory;
 import static io.netty.handler.codec.http.DefaultHttpHeadersFactory.trailersFactory;
+import static io.netty.handler.codec.http.HttpMethod.HEAD;
 import static io.netty.handler.codec.http.HttpMethod.POST;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static oracle.nosql.driver.ops.TableLimits.CapacityMode;
 import static oracle.nosql.driver.util.BinaryProtocol.DEFAULT_SERIAL_VERSION;
+import static oracle.nosql.driver.util.BinaryProtocol.FEATURE_FLAG_LAST_WRITE_METADATA;
 import static oracle.nosql.driver.util.BinaryProtocol.TABLE_NOT_FOUND;
 import static oracle.nosql.driver.util.BinaryProtocol.V2;
 import static oracle.nosql.driver.util.BinaryProtocol.V3;
@@ -28,6 +30,7 @@ import static oracle.nosql.driver.util.HttpConstants.REQUEST_NAMESPACE_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.SERVER_SERIAL_VERSION;
+import static oracle.nosql.driver.util.HttpConstants.SERVER_VERSION;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
@@ -92,6 +95,7 @@ import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.QueryResult;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.Result;
+import oracle.nosql.driver.ops.RetryStats;
 import oracle.nosql.driver.ops.TableLimits;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
@@ -220,10 +224,20 @@ public class Client {
     /* for keeping track of SDKs usage */
     private String userAgent;
 
+    /* Features that the connected server supports (bitflags) */
+    private volatile long features;
+
     private volatile TopologyInfo topology;
 
     /* for internal testing */
     private final String prepareFilename;
+
+    /*
+     * Number of (200 OK) http responses this client has processed.
+     * If this is zero, then certain logic may be indeterminate (example:
+     * features flags that depend on server response headers).
+     */
+    private volatile long numOKResponses;
 
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
@@ -260,18 +274,7 @@ public class Client {
         /*
          * create the HttpClient instance.
          */
-        httpClient = new HttpClient(
-            url.getHost(),
-            url.getPort(),
-            httpConfig.getNumThreads(),
-            httpConfig.getConnectionPoolMinSize(),
-            httpConfig.getConnectionPoolInactivityPeriod(),
-            httpConfig.getMaxContentLength(),
-            httpConfig.getMaxChunkSize(),
-            sslCtx,
-            config.getSSLHandshakeTimeout(),
-            "NoSQL Driver",
-            logger);
+        httpClient = createHttpClient(url, httpConfig, sslCtx, logger);
         if (httpConfig.getProxyHost() != null) {
             httpClient.configureProxy(httpConfig);
         }
@@ -312,6 +315,31 @@ public class Client {
 
         /* for internal testing */
         prepareFilename = System.getProperty("test.preparefilename");
+    }
+
+    /**
+     * @hidden
+     * Creates a new HttpClient instance based on the provided configuration
+     * and SSL context.
+     *
+     * Make it protected for unit test.
+     */
+    protected HttpClient createHttpClient(URL url,
+                                          NoSQLHandleConfig httpConfig,
+                                          SslContext sslCtx,
+                                          Logger logger) {
+        return new HttpClient(
+            url.getHost(),
+            url.getPort(),
+            httpConfig.getNumThreads(),
+            httpConfig.getConnectionPoolMinSize(),
+            httpConfig.getConnectionPoolInactivityPeriod(),
+            httpConfig.getMaxContentLength(),
+            httpConfig.getMaxChunkSize(),
+            sslCtx,
+            httpConfig.getSSLHandshakeTimeout(),
+            "NoSQL Driver",
+            logger);
     }
 
     /**
@@ -392,6 +420,16 @@ public class Client {
          * IllegalArgumentException.
          */
         kvRequest.validate();
+
+        /*
+         * If LastWriteMetadata exists in request, check that the server side
+         * supports this feature
+         */
+        if (kvRequest.getLastWriteMetadata() != null &&
+            !isFeatureEnabled(FEATURE_FLAG_LAST_WRITE_METADATA)) {
+            throw new OperationNotSupportedException(
+                      "Last Write Metadata is not supported on this server");
+        }
 
         /* clear any retry stats that may exist on this request object */
         kvRequest.setRetryStats(null);
@@ -798,10 +836,13 @@ public class Client {
                 if (authProvider instanceof StoreAccessTokenProvider) {
                     final StoreAccessTokenProvider satp =
                         (StoreAccessTokenProvider) authProvider;
-                    satp.bootstrapLogin();
+                    satp.login(kvRequest);
                     kvRequest.addRetryException(rae.getClass());
                     kvRequest.incrementRetries();
                     exception = rae;
+                    logFine(logger,
+                        "Client re-auth on AuthenticationException: " +
+                            rae.getMessage());
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
@@ -813,10 +854,12 @@ public class Client {
             } catch (InvalidAuthorizationException iae) {
                 /*
                  * Allow a single retry for invalid/expired auth
-                 * This includes "clock skew" errors
-                 * This does not include permissions-related errors
+                 *
+                 * This includes "clock skew" errors or signature refresh
+                 * failures. This does not include permissions-related errors,
+                 * which would be a UnauthorizedException.
                  */
-                if (kvRequest.getNumRetries() > 0) {
+                if (retriedInvalidAuthorizationException(kvRequest)) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
@@ -1233,7 +1276,10 @@ public class Client {
                                             status);
         }
 
+        this.numOKResponses++;
+
         setSessionCookie(headers);
+        setEnabledFeatures(headers);
 
         Result res = null;
         try (ByteInputStream bis = new NettyByteInputStream(content)) {
@@ -1337,6 +1383,64 @@ public class Client {
         }
         throw new NoSQLException("Error response = " + status +
                                  ", reason = " + status.reasonPhrase());
+    }
+
+    /* set enabled features, if set in response headers */
+    private void setEnabledFeatures(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        /*
+         * Format of the server version header string:
+         *
+         *   proxy=X.Y.Z kv=X.Y.Z[ features=XX]
+         *
+         * If "features" exists, its value is in hex (base 16).
+         */
+        String v = headers.get(SERVER_VERSION); /* x-nosql-version */
+        if (v == null || v.contains(" features=") == false) {
+            return;
+        }
+        int feat = v.indexOf(" features=");
+        int eq = v.indexOf("=", feat);
+        if (eq <= 0 || eq == (v.length()-1)) {
+            return;
+        }
+        int space = v.indexOf(" ", eq);
+        if (space <= 0) {
+            space = v.length();
+        }
+        long val = 0;
+        try {
+            this.features = Long.parseLong(v, eq+1, space, 16);
+        } catch (Exception e) {
+            logger.fine("Received invalid features flags from server at '" +
+                v.substring(feat+1) + "'");
+            return;
+        }
+    }
+
+    /*
+     * @hidden
+     * internal use only
+     */
+    public boolean isFeatureEnabled(long featureFlag) {
+        /*
+         * If we haven't gotten any responses from the server, we don't
+         * know what features it supports. In this case, send a simple
+         * empty request to the server to get the features.
+         */
+        if (this.numOKResponses == 0) {
+            logger.fine("isFeatureEnabled: executing empty request " +
+                        "to get feature flags");
+            try {
+                executeEmptyRequest();
+            } catch (Exception e) {
+                logger.fine("Got exception trying empty request: " + e);
+                return false;
+            }
+        }
+        return ((this.features & featureFlag) != 0);
     }
 
     /* set session cookie, if set in response headers */
@@ -1474,6 +1578,22 @@ public class Client {
         }
     }
 
+    /**
+     * Returns whether an {@link InvalidAuthorizationException} has been
+     * retried for the given request.
+     *
+     * @param request the request to check
+     * @return true if an {@link InvalidAuthorizationException} has been
+     *         retried for the request, false otherwise
+     */
+    private boolean retriedInvalidAuthorizationException(Request request) {
+        final RetryStats rs = request.getRetryStats();
+        if (rs == null || rs.getRetries() <= 0) {
+            return false;
+        }
+
+        return rs.getNumExceptions(InvalidAuthorizationException.class) > 0;
+    }
 
     private void handleRetry(RetryableException re,
                             Request kvRequest) {
@@ -1977,5 +2097,36 @@ public class Client {
                     "prepared result: " + e);
         }
         in.setOffset(offset);
+    }
+
+    /*
+     * Execute an empty HEAD request to get server response headers
+     */
+    private boolean executeEmptyRequest() {
+        ResponseHandler responseHandler = null;
+        try {
+            Channel ch = httpClient.getChannel(2000);
+            responseHandler = new ResponseHandler(httpClient, logger, ch);
+            final FullHttpRequest request =
+                new DefaultFullHttpRequest(HTTP_1_1, HEAD, kvRequestURI);
+            request.headers().add(HttpHeaderNames.HOST, host);
+            httpClient.runRequest(request, responseHandler, ch);
+            boolean isTimeout = responseHandler.await(2000);
+            if (isTimeout) {
+                logFine(logger,
+                        "Timeout on empty HEAD request on channel " + ch);
+                return false;
+            }
+            setEnabledFeatures(responseHandler.getHeaders());
+            numOKResponses++;
+            return true;
+        } catch (Throwable t) {
+            logFine(logger, "Exception sending HTTP HEAD: " + t);
+        } finally {
+            if (responseHandler != null) {
+                responseHandler.close();
+            }
+        }
+        return false;
     }
 }

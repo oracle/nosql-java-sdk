@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -68,7 +68,6 @@ import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.values.NullValue;
 import oracle.nosql.driver.values.StringValue;
 import oracle.nosql.driver.values.TimestampValue;
-
 import org.junit.Test;
 
 public class BasicTest extends ProxyTestBase {
@@ -172,11 +171,17 @@ public class BasicTest extends ProxyTestBase {
             if (proxySerialVersion <= V4) {
                 assertNull(pr.getExistingVersion());
                 assertNull(pr.getExistingValue());
+                if (checkKVVersion(26, 1, 1)) {
+                    assertEquals(0, pr.getExistingCreationTime());
+                }
                 assertEquals(0, pr.getExistingModificationTime());
                 assertWriteKB(pr);
             } else {
                 assertNotNull(pr.getExistingVersion());
                 assertNotNull(pr.getExistingValue());
+                if (checkKVVersion(26, 1, 1)) {
+                    assertTrue(pr.getExistingCreationTime() != 0);
+                }
                 assertTrue(pr.getExistingModificationTime() != 0);
                 assertReadKB(pr);
                 assertWriteKB(pr);
@@ -187,6 +192,9 @@ public class BasicTest extends ProxyTestBase {
             assertNull(pr.getVersion()); /* failure */
             assertNotNull(pr.getExistingVersion());
             assertNotNull(pr.getExistingValue());
+            if (checkKVVersion(26, 1, 1)) {
+                assertTrue(pr.getExistingCreationTime() != 0);
+            }
             assertTrue(pr.getExistingModificationTime() != 0);
             assertReadKB(pr);
 
@@ -269,6 +277,9 @@ public class BasicTest extends ProxyTestBase {
         assertEquals(0, origRead);
         assertNull("Not expecting previous version", res.getExistingVersion());
         assertNull("Not expecting previous value", res.getExistingValue());
+        if (checkKVVersion(26, 1, 1)) {
+            assertEquals(0, res.getExistingCreationTime());
+        }
         assertEquals(0, res.getExistingModificationTime());
 
 
@@ -283,6 +294,9 @@ public class BasicTest extends ProxyTestBase {
         assertEquals(0, newRead);
         assertNull("Not expecting previous version", res.getExistingVersion());
         assertNull("Not expecting previous value", res.getExistingValue());
+        if (checkKVVersion(26, 1, 1)) {
+            assertEquals(0, res.getExistingCreationTime());
+        }
         assertEquals(0, res.getExistingModificationTime());
 
         /* set return row and check */
@@ -296,12 +310,18 @@ public class BasicTest extends ProxyTestBase {
             assertEquals(0, newRead);
             assertNull("Not expecting previous version", res.getExistingVersion());
             assertNull("Not expecting previous value", res.getExistingValue());
+            if (checkKVVersion(26, 1, 1)) {
+                assertEquals(0, res.getExistingCreationTime());
+            }
             assertEquals(0, res.getExistingModificationTime());
         } else {
             assertEquals(1, newRead);
             assertNotNull("Expecting previous version",
                 res.getExistingVersion());
             assertNotNull("Expecting previous value", res.getExistingValue());
+            if (checkKVVersion(26, 1, 1)) {
+                assertTrue(res.getExistingCreationTime() != 0);
+            }
             assertTrue(res.getExistingModificationTime() != 0);
         }
 
@@ -321,6 +341,9 @@ public class BasicTest extends ProxyTestBase {
         assertNotNull("Expecting previous version",
                 res.getExistingVersion());
         assertNotNull("Expecting previous value", res.getExistingValue());
+        if (checkKVVersion(26, 1, 1)) {
+            assertTrue(res.getExistingCreationTime() != 0);
+        }
         assertTrue(res.getExistingModificationTime() != 0);
     }
 
@@ -1648,7 +1671,80 @@ public class BasicTest extends ProxyTestBase {
         }
     }
 
-    private void checkModTime(long modTime, boolean modTimeRecent) {
+    @Test
+    public void testLastWriteMetadata() {
+
+        NoSQLHandle extraHandle = null;
+        try {
+            MapValue key = new MapValue().put("id", 10);
+            MapValue value = new MapValue().put("id", 10).put("name", "jane");
+
+            /* Create a table */
+            TableResult tres = tableOperation(
+                handle,
+                "create table if not exists testusers(id integer, " +
+                "name string, primary key(id))",
+                new TableLimits(500, 500, 50));
+            assertEquals(TableResult.State.ACTIVE, tres.getTableState());
+
+            final String jsonMetadata = "{\"abc\":\"def\"}";
+
+            /* PUT */
+            PutRequest putRequest = new PutRequest()
+                .setValue(value)
+                .setTableName("testusers")
+                .setLastWriteMetadata(jsonMetadata);
+
+            /*
+             * Note: this version check is just for pre-26.1.3 servers,
+             * Which do not support LWM. But after that, the support is
+             * based on the "features" flag in the proxy response header...
+             */
+            if (!checkKVVersion(26, 1, 3)) {
+                /* this should throw an error */
+                try {
+                    PutResult res = handle.put(putRequest);
+                    assertNotNull(res.getVersion());
+                } catch (Exception e) {
+                    /* success */
+                    return; /* no point in going forward */
+                }
+                fail("Last Write Metadata should have thrown error");
+            } else {
+                PutResult res = handle.put(putRequest);
+                assertNotNull(res.getVersion());
+            }
+
+            /* GET */
+            GetRequest getRequest = new GetRequest()
+                .setKey(key)
+                .setTableName("testusers");
+
+            GetResult res1 = handle.get(getRequest);
+            String lwm = res1.getLastWriteMetadata();
+            assertTrue(lwm != null && lwm.equals(jsonMetadata));
+
+            /* TODO: delete: how to verify LWM?? */
+
+            /*
+             * Create a new handle to verify that the "features" logic
+             * works correctly when the PutRequest is the very first
+             * request sent to the server
+             */
+            extraHandle = getHandle(endpoint);
+            PutResult res = extraHandle.put(putRequest);
+            assertNotNull(res.getVersion());
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Exception in test");
+        } finally {
+            if (extraHandle != null) {
+                extraHandle.close();
+            }
+        }
+    }
+
+    private void checkRecentTime(long modTime, boolean modTimeRecent) {
         if (modTimeRecent) {
             if (modTime < (System.currentTimeMillis() - 2000)) {
                 fail("Expected modtime to be recent, got " + modTime);
@@ -1676,7 +1772,10 @@ public class BasicTest extends ProxyTestBase {
         checkExistingValueVersion(request, result, shouldSucceed, rowPresent,
                                   expPrevValue, expPrevVersion);
 
-        checkModTime(result.getExistingModificationTime(), modTimeRecent);
+        if (checkKVVersion(26, 1, 1)) {
+            checkRecentTime(result.getExistingCreationTime(), modTimeRecent);
+        }
+        checkRecentTime(result.getExistingModificationTime(), modTimeRecent);
     }
 
     private void checkDeleteResult(DeleteRequest request,
@@ -1692,7 +1791,10 @@ public class BasicTest extends ProxyTestBase {
                      shouldSucceed, result.getSuccess());
         checkExistingValueVersion(request, result, shouldSucceed, rowPresent,
                                   expPrevValue, expPrevVersion);
-        checkModTime(result.getExistingModificationTime(), modTimeRecent);
+        if (checkKVVersion(26, 1, 1)) {
+            checkRecentTime(result.getExistingCreationTime(), modTimeRecent);
+        }
+        checkRecentTime(result.getExistingModificationTime(), modTimeRecent);
     }
 
     private void checkGetResult(GetRequest request,
@@ -1721,7 +1823,10 @@ public class BasicTest extends ProxyTestBase {
             assertNull("Unexpected value", expValue);
             assertNull("Unexpected version", result.getVersion());
         }
-        checkModTime(result.getModificationTime(), modTimeRecent);
+        if (checkKVVersion(26, 1, 1)) {
+            checkRecentTime(result.getCreationTime(), modTimeRecent);
+        }
+        checkRecentTime(result.getModificationTime(), modTimeRecent);
     }
 
     private void checkExistingValueVersion(WriteRequest request,

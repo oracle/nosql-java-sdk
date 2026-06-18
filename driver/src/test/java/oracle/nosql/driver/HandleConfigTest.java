@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -81,7 +81,7 @@ public class HandleConfigTest {
     @Test
     public void testSslProtocols() {
         NoSQLHandleConfig config = new NoSQLHandleConfig("http://foo.com");
-        config.setSSLProtocols("TLSv1.3", "TLSv1.1");
+        config.setSSLProtocols("TLSv1.3", "TLSv1.2");
         assertEquals(2, config.getSSLProtocols().length);
 
         try {

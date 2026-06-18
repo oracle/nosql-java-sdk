@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -38,7 +38,10 @@ public class QueryDriver {
     /* Changed VirtualScan info exchanged between sdk and proxy */
     public static final short QUERY_V5 = 5;
 
-    public static final short QUERY_VERSION = QUERY_V5;
+    /* Added UNION */
+    public static final short QUERY_V6 = 6;
+
+    public static final short QUERY_VERSION = QUERY_V6;
 
     private static final int BATCH_SIZE = 100;
 
@@ -88,6 +91,10 @@ public class QueryDriver {
 
     public void setPrepCost(int cost) {
         thePrepCost = cost;
+    }
+
+    public int getUnionBranch() {
+        return theRCB.getUnionBranch();
     }
 
     /**
@@ -234,7 +241,10 @@ public class QueryDriver {
     }
 
     public void close() {
-        theRequest.getPreparedStatement().driverPlan().close(theRCB);
+        /* if there is no RCB there is no state to clean up */
+        if (theRCB != null) {
+            theRequest.getPreparedStatement().driverPlan().close(theRCB);
+        }
         if (theResults != null) {
             theResults.clear();
             theResults = null;
@@ -242,6 +252,6 @@ public class QueryDriver {
     }
 
     public String getQueryTrace() {
-        return theRCB.getQueryTrace();
+        return theRCB != null ? theRCB.getQueryTrace() : null;
     }
 }

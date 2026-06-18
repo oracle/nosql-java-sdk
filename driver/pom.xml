@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.18-SNAPSHOT</version>
+  <version>5.4.22</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -39,15 +39,14 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>11</maven.compiler.release>
     <timestamp>${maven.build.timestamp}</timestamp>
     <maven.build.timestamp.format>d-MMMM-yyyy</maven.build.timestamp.format>
-    <copyright>Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.</copyright>
-    <java.apidoc>http://docs.oracle.com/javase/8/docs/api</java.apidoc>
+    <copyright>Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.</copyright>
+    <java.apidoc>https://docs.oracle.com/en/java/javase/11/docs/api/</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.118.Final</netty.version>
-    <jackson.version>2.15.2</jackson.version>
+    <netty.version>4.1.135.Final</netty.version>
+    <jackson.version>2.18.7</jackson.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
    <javac>javac</javac>
@@ -87,7 +86,7 @@
         <!-- exclude non-server tests and on-premises tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           OnPremiseTest.java, ConnectionPoolTest.java
@@ -105,7 +104,7 @@
         <!-- exclude non-server tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
@@ -122,7 +121,7 @@
         <!-- exclude non-server tests -->
         <excluded.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
         </excluded.tests>
@@ -139,7 +138,7 @@
         <serverType>none</serverType>
         <included.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java,
+          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           SessionTokenProviderTest.java
@@ -274,8 +273,7 @@
         <version>3.11.0</version>
         <configuration>
           <fork>true</fork>
-          <source>1.8</source>
-          <target>1.8</target>
+          <release>11</release>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
           <compilerArgument>-Xlint:all</compilerArgument>
@@ -380,7 +378,7 @@
         <configuration>
           <quiet>true</quiet>
           <doclint>-missing</doclint>
-          <source>8</source>
+          <source>11</source>
           <doctitle>${project.name} ${project.version}</doctitle>
           <windowtitle>${project.name} ${project.version}</windowtitle>
           <!-- exclude these packages.
