@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -79,6 +79,9 @@ public class RuntimeControlBlock {
      * to the server RCBs.
      */
     long theMemoryConsumption;
+
+    /* The current UNION branch */
+    private int theUnionBranch;
 
     private final StringBuilder theTraceBuilder = new StringBuilder();
 
@@ -190,6 +193,18 @@ public class RuntimeControlBlock {
 
     PlanIter getRootIter() {
         return theRootIter;
+    }
+
+    int getUnionBranch() {
+        return theUnionBranch;
+    }
+
+    void setUnionBranch(int b) {
+        theUnionBranch = b;
+    }
+
+    void incUnionBranch() {
+        ++theUnionBranch;
     }
 
     public void setState(int pos, PlanIterState state) {

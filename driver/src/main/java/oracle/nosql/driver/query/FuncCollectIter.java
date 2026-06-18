@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -105,10 +105,10 @@ public class FuncCollectIter extends PlanIter {
 
     private final PlanIter theInput;
 
-    FuncCollectIter(ByteInputStream in, short serialVersion) throws IOException {
-        super(in, serialVersion);
+    FuncCollectIter(ByteInputStream in, short queryVersion) throws IOException {
+        super(in, queryVersion);
         theIsDistinct = in.readBoolean();
-        theInput = deserializeIter(in, serialVersion);
+        theInput = deserializeIter(in, queryVersion);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -22,6 +22,7 @@ import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
 import oracle.nosql.driver.query.QueryDriver;
 import oracle.nosql.driver.query.VirtualScan;
+import oracle.nosql.driver.values.JsonUtils;
 
 /**
  * A request that represents a query. A query may be specified as either a
@@ -155,6 +156,8 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
 
     private Consistency consistency;
 
+    private String lastWriteMetadata;
+
     private String statement;
 
     private PreparedStatement preparedStatement;
@@ -225,6 +228,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.maxServerMemoryConsumption = maxServerMemoryConsumption;
         internalReq.mathContext = mathContext;
         internalReq.consistency = consistency;
+        internalReq.lastWriteMetadata = lastWriteMetadata;
         internalReq.preparedStatement = preparedStatement;
         internalReq.isInternal = true;
         internalReq.driver = driver;
@@ -243,6 +247,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     public QueryRequest copy() {
         QueryRequest internalReq = copyInternal();
         internalReq.statement = statement;
+        internalReq.lastWriteMetadata = lastWriteMetadata;
         internalReq.isInternal = false;
         internalReq.shardId = -1;
         internalReq.driver = null;
@@ -920,6 +925,51 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * Sets the write metadata to use for the operation. This setting is optional
+     * and only applies if the query modifies or deletes any rows using an
+     * INSERT, UPDATE, UPSERT or DELETE statement. If the query is read-only
+     * this setting is ignored. This is an optional parameter.<p>
+     *
+     * Write metadata is associated to a certain version of a row. Any subsequent
+     * write operation will use its own write metadata value. If not specified
+     * null will be used by default.
+     * NOTE that if you have previously written a record with metadata and a
+     * subsequent write does not supply metadata, the metadata associated with
+     * the row will be null. Therefore, if you wish to have metadata
+     * associated with every write operation, you must supply a valid JSON
+     * construct to this method.<p>
+     *
+     * @param lastWriteMetadata the write metadata, must be null or a valid JSON
+     *    construct: object, array, string, number, true, false or null,
+     *    otherwise an IllegalArgumentException is thrown.
+     * @throws IllegalArgumentException if lastWriteMetadata not null and invalid
+     *    JSON construct
+     * @return this
+     * @since 5.4.20
+     */
+    public QueryRequest setLastWriteMetadata(String lastWriteMetadata) {
+        if (lastWriteMetadata == null) {
+            this.lastWriteMetadata = null;
+            return this;
+        }
+
+        JsonUtils.validateJsonConstruct(lastWriteMetadata);
+        this.lastWriteMetadata = lastWriteMetadata;
+        return this;
+    }
+
+    /**
+     * Returns the write metadata set for this request, or null if not set.
+     *
+     * @return the write metadata
+     * @since 5.4.20
+     */
+    @Override
+    public String getLastWriteMetadata() {
+        return lastWriteMetadata;
+    }
+
+    /**
      * Sets the request timeout value, in milliseconds. This overrides any
      * default value set with {@link NoSQLHandleConfig#setRequestTimeout}.
      * The value must be positive.
@@ -955,6 +1005,34 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     public QueryRequest setNamespace(String namespace) {
         super.setNamespaceInternal(namespace);
         return this;
+    }
+
+    @Override
+    public String getNamespace() {
+        if (namespace != null) {
+            return namespace;
+        }
+        if (preparedStatement == null) {
+            return null;
+        }
+        if (driver == null) {
+            return preparedStatement.getNamespace(0);
+        }
+        return preparedStatement.getNamespace(driver.getUnionBranch());
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public String getTableName() {
+        if (preparedStatement == null) {
+            return null;
+        }
+        if (driver == null) {
+            return preparedStatement.getTopTableName(0);
+        }
+        return preparedStatement.getTopTableName(driver.getUnionBranch());
     }
 
     /**
@@ -1104,17 +1182,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
                 getOperationNumber() + ", both operation number and " +
                 "number of operations must be non-negative");
         }
-    }
-
-    /**
-     * @hidden
-     */
-    @Override
-    public String getTableName() {
-        if (preparedStatement == null) {
-            return null;
-        }
-        return preparedStatement.getTableName();
     }
 
     /**

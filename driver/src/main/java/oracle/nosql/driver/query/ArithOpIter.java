@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -66,13 +66,13 @@ public class ArithOpIter extends PlanIter {
 
     public ArithOpIter(
         ByteInputStream in,
-        short serialVersion) throws IOException {
+        short queryVersion) throws IOException {
 
-        super(in, serialVersion);
+        super(in, queryVersion);
 
         short ordinal = in.readShort();
         theCode = FuncCode.valueOf(ordinal);
-        theArgs = deserializeIters(in, serialVersion);
+        theArgs = deserializeIters(in, queryVersion);
         theOps = SerializationUtil.readString(in);
 
         theInitResult = (theCode == FuncCode.OP_ADD_SUB ? 0 : 1);

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -75,6 +75,7 @@ public class NsonProtocol {
     public static String PREPARED_QUERY = "pq";
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
+    public static String QUERY_BRANCHES = "qb";
     public static String QUERY_NAME = "qn";
     public static String QUERY_OPERATION_NUM = "on";
     public static String QUERY_VERSION = "qv";
@@ -161,16 +162,19 @@ public class NsonProtocol {
     public static String STORAGE_GB = "sg";
     public static String WRITE_KB = "wk";
 
-    /* row metadata */
+    /* last write metadata */
     public static String EXPIRATION = "xp";
+    public static String CREATION_TIME = "ct";
     public static String MODIFIED = "md";
     public static String ROW = "r";
+    public static String LAST_WRITE_METADATA = "mt";
     public static String ROW_VERSION = "rv";
 
     /* operation metadata */
     public static String EXISTING_MOD_TIME = "em";
     public static String EXISTING_VALUE = "el";
     public static String EXISTING_VERSION = "ev";
+    public static String EXISTING_LAST_WRITE_METADATA = "ed";
     public static String GENERATED = "gn";
     public static String RETURN_INFO = "ri";
 
@@ -248,6 +252,7 @@ public class NsonProtocol {
         {PREPARED_QUERY,"PREPARED_QUERY"},
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
+        {QUERY_BRANCHES,"QUERY_BRANCHES"},
         {QUERY_NAME,"QUERY_NAME"},
         {QUERY_OPERATION_NUM,"QUERY_OPERATION_NUM"},
         {QUERY_VERSION,"QUERY_VERSION"},
@@ -324,12 +329,15 @@ public class NsonProtocol {
         {STORAGE_GB,"STORAGE_GB"},
         {WRITE_KB,"WRITE_KB"},
         {EXPIRATION,"EXPIRATION"},
+        {CREATION_TIME,"CREATION_TIME"},
         {MODIFIED,"MODIFIED"},
         {ROW,"ROW"},
+        {LAST_WRITE_METADATA,"LAST_WRITE_METADATA"},
         {ROW_VERSION,"ROW_VERSION"},
         {EXISTING_MOD_TIME,"EXISTING_MOD_TIME"},
         {EXISTING_VALUE,"EXISTING_VALUE"},
         {EXISTING_VERSION,"EXISTING_VERSION"},
+        {EXISTING_LAST_WRITE_METADATA,"EXISTING_LAST_WRITE_METADATA"},
         {GENERATED,"GENERATED"},
         {RETURN_INFO,"RETURN_INFO"},
         {DRIVER_QUERY_PLAN,"DRIVER_QUERY_PLAN"},

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2011, 2025 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.
  *
  * Licensed under the Universal Permissive License v 1.0 as shown at
  *  https://oss.oracle.com/licenses/upl/
@@ -10,6 +10,7 @@ package oracle.nosql.driver.ops.serde;
 import static oracle.nosql.driver.http.Client.trace;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -118,12 +119,15 @@ public class PrepareRequestSerializer extends BinaryProtocol
          */
         int savedOffset = in.getOffset();
         in.skip(37); // 4 + 32 + 1
-        String namespace = readString(in);
-        String tableName = readString(in);
+        ArrayList<String> namespaces = new ArrayList<>();
+        namespaces.add(readString(in));
+        ArrayList<String> tableNames = new ArrayList<>();
+        tableNames.add(readString(in));
         byte operation = in.readByte();
         in.setOffset(savedOffset);
 
-        byte[] proxyStatement = readByteArrayWithInt(in);
+        ArrayList<byte[]> proxyStatements = new ArrayList<>();
+        proxyStatements.add(readByteArrayWithInt(in));
 
         int numIterators = 0;
         int numRegisters = 0;
@@ -160,13 +164,13 @@ public class PrepareRequestSerializer extends BinaryProtocol
             new PreparedStatement(sqlText,
                                   queryPlan,
                                   null, // query schema
-                                  proxyStatement,
+                                  proxyStatements,
                                   driverPlan,
                                   numIterators,
                                   numRegisters,
                                   externalVars,
-                                  namespace,
-                                  tableName,
+                                  namespaces,
+                                  tableNames,
                                   operation,
                                   0); /* no parallelism available */
 
