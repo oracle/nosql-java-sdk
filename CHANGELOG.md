@@ -2,6 +2,30 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Fixed
+- Fixed deserialization of VirtualScan `joinPathTables` in NSON query plans.
+- Fixed pre-QUERY_V6 grouped query plan compatibility so non-distinct
+  `array_collect()` results are flattened correctly.
+
+### Changed
+- Removed old SSL protocols from handle config
+
+## [5.4.22] 2026-05-15
+
+### Added
+- Added redaction of sensitive HTTP header values in debug logging by default,
+  plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
+  property to allow full header values when needed for debugging.
+  
+### Fixed
+- Fixed bug in handling of empty namespaces in prepared statements.
+
+### Changed
+- Updated Netty version to 4.1.133.Final
+- Updated Jackson-core to 2.18.7
+
 ## [5.4.21] 2026-04-21
 
 ### Changed

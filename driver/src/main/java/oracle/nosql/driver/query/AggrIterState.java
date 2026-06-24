@@ -25,9 +25,9 @@ class AggrIterState extends PlanIterState {
 
     Type theSumType = Type.LONG;
 
-    boolean theNullInputOnly = true;
-
     FieldValue theMinMax = NullValue.getInstance();
+
+    boolean theGotNumericInput;
 
     @Override
     public void reset(PlanIter iter) {
@@ -37,7 +37,7 @@ class AggrIterState extends PlanIterState {
         theDoubleSum = 0;
         theNumberSum = null;
         theSumType = Type.LONG;
-        theNullInputOnly = true;
+        theGotNumericInput = false;
         theMinMax = NullValue.getInstance();
     }
 }

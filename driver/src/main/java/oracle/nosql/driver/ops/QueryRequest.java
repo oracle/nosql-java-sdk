@@ -1007,6 +1007,34 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         return this;
     }
 
+    @Override
+    public String getNamespace() {
+        if (namespace != null) {
+            return namespace;
+        }
+        if (preparedStatement == null) {
+            return null;
+        }
+        if (driver == null) {
+            return preparedStatement.getNamespace(0);
+        }
+        return preparedStatement.getNamespace(driver.getUnionBranch());
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public String getTableName() {
+        if (preparedStatement == null) {
+            return null;
+        }
+        if (driver == null) {
+            return preparedStatement.getTopTableName(0);
+        }
+        return preparedStatement.getTopTableName(driver.getUnionBranch());
+    }
+
     /**
      * Returns the timeout to use for the operation, in milliseconds. A value
      * of 0 indicates that the timeout has not been set.
@@ -1154,17 +1182,6 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
                 getOperationNumber() + ", both operation number and " +
                 "number of operations must be non-negative");
         }
-    }
-
-    /**
-     * @hidden
-     */
-    @Override
-    public String getTableName() {
-        if (preparedStatement == null) {
-            return null;
-        }
-        return preparedStatement.getTableName();
     }
 
     /**

@@ -467,7 +467,7 @@ class Utils {
                 continue;
             }
 
-            String fieldName = parser.getCurrentName();
+            String fieldName = parser.currentName();
             if (fieldName == null) {
                 throw new IllegalStateException(
                     "Null token or field name found in JSON " + json);
@@ -521,10 +521,10 @@ class Utils {
     static String parseTokenResponse(String response) {
         try {
             JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
+            if (parser.currentToken() == null) {
                 parser.nextToken();
             }
-            while (parser.getCurrentToken() != null) {
+            while (parser.currentToken() != null) {
                 String field = findField(response, parser, "token");
                 if (field != null) {
                     parser.nextToken();
@@ -551,10 +551,10 @@ class Utils {
         try {
             Map<String, String> results = new HashMap<>();
             JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
+            if (parser.currentToken() == null) {
                 parser.nextToken();
             }
-            while (parser.getCurrentToken() != null) {
+            while (parser.currentToken() != null) {
                 String field = findField(response, parser, RESOURCE_PRINCIPAL_TOKEN_FIELDS);
                 if (field != null) {
                     parser.nextToken();
@@ -621,10 +621,10 @@ class Utils {
                               Map<String, String> reults)
         throws IOException {
 
-        if (parser.getCurrentToken() == null) {
+        if (parser.currentToken() == null) {
             parser.nextToken();
         }
-        while (parser.getCurrentToken() != null) {
+        while (parser.currentToken() != null) {
             String field = findField(json, parser, FIELDS);
             if (field != null) {
                 parser.nextToken();
