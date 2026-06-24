@@ -4,6 +4,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unreleased
 
+### Fixed
+- Fixed deserialization of VirtualScan `joinPathTables` in NSON query plans.
+- Fixed pre-QUERY_V6 grouped query plan compatibility so non-distinct
+  `array_collect()` results are flattened correctly.
+
 ### Changed
 - Removed old SSL protocols from handle config
 
