@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## Unreleased
+
+### Changed
+- Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
+  more secure cyphers/protocols including ML-KEM
+
+
 ## [5.4.23] 2026-06-26
 
 ### Fixed
