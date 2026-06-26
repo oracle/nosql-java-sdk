@@ -11,8 +11,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DropReplicaRequest;
+import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
@@ -85,5 +88,44 @@ public class RequestTest {
             .setState(SystemResult.State.COMPLETE);
         assertTrue(result.toString().contains(statement));
         assertTrue(result.toString().contains("created namespace"));
+    }
+
+    @Test
+    public void testPreparedStatementDoesNotExposeMutableProxyBytes() {
+        ArrayList<byte[]> proxyStatements = new ArrayList<byte[]>();
+        byte[] proxyStatement = new byte[] {1, 2, 3};
+        proxyStatements.add(proxyStatement);
+        ArrayList<String> namespaces = new ArrayList<String>();
+        namespaces.add("ns");
+        ArrayList<String> tableNames = new ArrayList<String>();
+        tableNames.add("table");
+
+        PreparedStatement prepared = new PreparedStatement(
+            "select * from table",
+            null,
+            null,
+            proxyStatements,
+            null,
+            0,
+            0,
+            null,
+            namespaces,
+            tableNames,
+            (byte)5,
+            0);
+
+        proxyStatement[0] = 9;
+        proxyStatements.set(0, new byte[] {9, 9, 9});
+        assertEquals(1, prepared.getProxyStatement(0)[0]);
+
+        byte[] returned = prepared.getProxyStatement(0);
+        returned[0] = 8;
+        assertEquals(1, prepared.getProxyStatement(0)[0]);
+
+        PreparedStatement copy = prepared.copyStatement();
+        returned = copy.getProxyStatement(0);
+        returned[0] = 7;
+        assertEquals(1, copy.getProxyStatement(0)[0]);
+        assertEquals(1, prepared.getProxyStatement(0)[0]);
     }
 }
