@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
+import static oracle.nosql.driver.util.HttpHeaderValidation.validateHttpHeaderValue;
+
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ops.serde.Serializer;
@@ -180,6 +182,7 @@ public abstract class Request {
      * @hidden
      */
     public void setCompartmentInternal(String compartment) {
+        validateHttpHeaderValue("compartment", compartment);
         this.compartment = compartment;
     }
 
@@ -224,6 +227,7 @@ public abstract class Request {
      * @hidden
      */
     protected void setNamespaceInternal(String namespace) {
+        validateHttpHeaderValue("namespace", namespace);
         this.namespace = namespace;
     }
 

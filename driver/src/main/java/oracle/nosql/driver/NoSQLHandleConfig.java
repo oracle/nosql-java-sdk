@@ -8,6 +8,7 @@
 package oracle.nosql.driver;
 
 import static oracle.nosql.driver.util.CheckNull.requireNonNull;
+import static oracle.nosql.driver.util.HttpHeaderValidation.validateHttpHeaderValue;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -1087,6 +1088,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @return this
      */
     public NoSQLHandleConfig setDefaultCompartment(String compartment) {
+        validateHttpHeaderValue("default compartment", compartment);
         this.compartment = compartment;
         return this;
     }
@@ -1126,6 +1128,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @since 5.4.10
      */
     public NoSQLHandleConfig setDefaultNamespace(String defaultNamespace) {
+        validateHttpHeaderValue("default namespace", defaultNamespace);
         this.defaultNamespace = defaultNamespace;
         return this;
     }
@@ -1676,6 +1679,7 @@ public class NoSQLHandleConfig implements Cloneable {
      * @since 5.3.3
      */
     public void setExtensionUserAgent(String extensionUserAgent) {
+        validateHttpHeaderValue("extension user agent", extensionUserAgent);
         if (extensionUserAgent != null && extensionUserAgent.length() > 64) {
             throw new IllegalArgumentException("Extension to the user agent " +
                 "http header too long, it can be up to 64 bytes. Length: " +
