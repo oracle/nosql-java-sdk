@@ -37,6 +37,17 @@ public abstract class DurableRequest extends Request {
      * @hidden
      */
     @Override
+    public void copyTo(Request other) {
+        super.copyTo(other);
+        if (other instanceof DurableRequest) {
+            ((DurableRequest)other).durability = durability;
+        }
+    }
+
+    /**
+     * @hidden
+     */
+    @Override
     public boolean doesWrites() {
         return true;
     }
