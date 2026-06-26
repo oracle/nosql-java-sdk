@@ -26,9 +26,9 @@ import javax.security.auth.Refreshable;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
+import oracle.nosql.driver.util.NettySslContextUtil;
 
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 /**
  * @hidden
@@ -130,7 +130,7 @@ class SecurityTokenSupplier implements TokenSupplier {
 
         if (sslCtx == null) {
             try {
-                sslCtx = SslContextBuilder.forClient().build();
+                sslCtx = NettySslContextUtil.newClientContextBuilder().build();
             } catch (SSLException se) {
                 throw new IllegalStateException(
                     "Unable to build SSL context for http client", se);

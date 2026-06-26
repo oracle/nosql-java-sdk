@@ -21,9 +21,9 @@ import org.junit.Test;
 
 import io.netty.channel.Channel;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.util.NettySslContextUtil;
 
 /**
  * This test is excluded from the test profiles and must be run standalone.
@@ -245,10 +245,7 @@ public class ConnectionPoolTest {
 
     private SslContext buildSslContext() {
         try {
-            SslContextBuilder builder = SslContextBuilder.forClient();
-            //builder.sessionTimeout(...);
-            //builder.sessionCacheSize(...);
-            return builder.build();
+            return NettySslContextUtil.newClientContextBuilder().build();
         } catch (SSLException e) {
             throw new IllegalStateException(
                 "Unable o create SSL context: " + e);

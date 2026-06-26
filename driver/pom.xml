@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.23</version>
+  <version>5.4.24-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -46,6 +46,7 @@
     <java.apidoc>https://docs.oracle.com/en/java/javase/11/docs/api/</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
     <netty.version>4.1.135.Final</netty.version>
+    <netty.tcnative.version>2.0.79.Final</netty.tcnative.version>
     <jackson.version>2.18.7</jackson.version>
    <!-- by default, skip tests; tests require a profile -->
    <maven.test.skip>true</maven.test.skip>
@@ -245,6 +246,11 @@
       <groupId>io.netty</groupId>
       <artifactId>netty-handler-proxy</artifactId>
       <version>${netty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-tcnative-boringssl-static</artifactId>
+      <version>${netty.tcnative.version}</version>
     </dependency>
 
     <!-- test -->

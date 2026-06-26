@@ -22,10 +22,10 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import oracle.nosql.driver.util.NettySslContextUtil;
 
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 abstract class AbstractTokenSupplier
         implements TokenSupplier{
@@ -143,7 +143,7 @@ abstract class AbstractTokenSupplier
 
         SslContext sslCtx;
         try {
-            sslCtx = SslContextBuilder.forClient().build();
+            sslCtx = NettySslContextUtil.newClientContextBuilder().build();
         } catch (SSLException se) {
             throw new IllegalStateException(
                     "Unable to build SSL context for http client", se);

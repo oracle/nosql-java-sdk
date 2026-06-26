@@ -36,6 +36,7 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import oracle.nosql.driver.util.NettySslContextUtil;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -43,7 +44,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 /**
  * @hidden
@@ -171,7 +171,7 @@ class OkeWorkloadIdentityProvider
          */
         final SslContext sslCtx;
         try {
-            sslCtx = SslContextBuilder.forClient()
+            sslCtx = NettySslContextUtil.newClientContextBuilder()
                 .trustManager(kubernetesCaCertFile)
                 .build();
         } catch (SSLException se) {
