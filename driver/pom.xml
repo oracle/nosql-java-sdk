@@ -90,7 +90,7 @@
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
-          OnPremiseTest.java, ConnectionPoolTest.java
+          OnPremiseTest.java, ConnectionPoolTest.java, RequestTest.java
         </excluded.tests>
       </properties>
     </profile>
@@ -107,7 +107,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          ConnectionPoolTest.java, RequestTest.java
         </excluded.tests>
       </properties>
     </profile>
@@ -124,7 +125,8 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
-          HandleConfigTest.java, JsonTest.java, ValueTest.java, ConnectionPoolTest.java
+          HandleConfigTest.java, JsonTest.java, ValueTest.java,
+          ConnectionPoolTest.java, RequestTest.java
         </excluded.tests>
         <maven.buildNumber.doCheck>false</maven.buildNumber.doCheck>
       </properties>
@@ -142,7 +144,7 @@
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
-          SessionTokenProviderTest.java
+          SessionTokenProviderTest.java, RequestTest.java
         </included.tests>
       </properties>
     </profile>

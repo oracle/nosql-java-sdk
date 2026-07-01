@@ -158,10 +158,12 @@ public class SystemResult extends Result {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("SystemResult [statement=").append(statement)
+        sb.append("SystemResult [statement=")
+            .append(SystemStatementRedactor.redact(statement))
             .append(", state=").append(state)
             .append(", operationId=").append(operationId)
-            .append(", resultString=").append(resultString).append("]");
+            .append(", resultString=")
+            .append(SystemStatementRedactor.redact(resultString)).append("]");
         return sb.toString();
     }
 
@@ -211,7 +213,7 @@ public class SystemResult extends Result {
                 throw new RequestTimeoutException(
                     waitMillis,
                     "Operation not completed within timeout: " +
-                    statement);
+                    SystemStatementRedactor.redact(statement));
             }
 
             /* delay */

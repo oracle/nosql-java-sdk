@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
   more secure cyphers/protocols including ML-KEM
 
+### Fixed
+- Make prepared-query byte arrays immutable
+- Redact sensitive information from SystemResult.toString() and SystemRequest.toString()
+- Add/drop replica retries lack SDK idempotency token support
+- Resource-scope header values can inject outbound HTTP headers
+- Extension user-agent can inject outbound HTTP headers
+- Internal query copies drop caller-specified durability for query DML
 
 ## [5.4.23] 2026-06-26
 

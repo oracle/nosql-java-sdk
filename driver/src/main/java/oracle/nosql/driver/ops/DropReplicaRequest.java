@@ -158,4 +158,12 @@ public class DropReplicaRequest extends Request {
     public String getTypeName() {
         return "DropReplica";
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
+    }
 }
