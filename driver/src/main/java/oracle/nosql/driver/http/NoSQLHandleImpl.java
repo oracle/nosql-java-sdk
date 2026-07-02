@@ -18,6 +18,7 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.StatsControl;
 import oracle.nosql.driver.UserInfo;
 import oracle.nosql.driver.iam.SignatureProvider;
+import oracle.nosql.driver.kv.OAuthAccessTokenProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
@@ -152,14 +153,22 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             }
             if (stProvider.isSecure() &&
                 stProvider.getEndpoint() == null) {
-                String endpoint = config.getServiceURL().toString();
-                if (endpoint.endsWith("/")) {
-                    endpoint = endpoint.substring(0, endpoint.length() - 1);
-                }
-                stProvider.setEndpoint(endpoint)
+                stProvider.setEndpoint(getAuthEndpoint(config))
                           .setSslContext(config.getSslContext())
                           .setSslHandshakeTimeout(
                               config.getSSLHandshakeTimeout());
+            }
+        } else if (ap instanceof OAuthAccessTokenProvider) {
+            final OAuthAccessTokenProvider oatProvider =
+                (OAuthAccessTokenProvider) ap;
+            if (oatProvider.getLogger() == null) {
+                oatProvider.setLogger(logger);
+            }
+            if (oatProvider.getEndpoint() == null) {
+                oatProvider.setEndpoint(getAuthEndpoint(config))
+                           .setSslContext(config.getSslContext())
+                           .setSslHandshakeTimeout(
+                               config.getSSLHandshakeTimeout());
             }
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
@@ -172,6 +181,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 client.createAuthRefreshList();
             }
         }
+    }
+
+    private String getAuthEndpoint(NoSQLHandleConfig config) {
+        String endpoint = config.getServiceURL().toString();
+        if (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        return endpoint;
     }
 
     @Override

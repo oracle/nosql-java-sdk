@@ -138,7 +138,8 @@
         <serverType>none</serverType>
         <included.tests>
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
-          ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
+          OAuthAccessTokenProviderTest.java, ConfigFileTest.java,
+          SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           SessionTokenProviderTest.java
