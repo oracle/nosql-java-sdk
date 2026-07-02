@@ -19,6 +19,8 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.http.Client;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
+import oracle.nosql.driver.kv.AuthenticationException;
+import oracle.nosql.driver.kv.OAuthAccessTokenProvider;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.values.MapValue;
@@ -60,6 +62,32 @@ public class AuthRetryTest extends DriverTestBase {
                              InvalidAuthorizationException.class));
     }
 
+    @Test
+    public void testOAuthAuthenticationExceptionRetry()
+        throws Exception {
+
+        testHttpClient.authenticationExceptionMode = true;
+        TestOAuthProvider provider = new TestOAuthProvider();
+        TestClient client = getTestClient(provider);
+
+        Request request = new GetRequest().setTableName("foo")
+            .setKey(new MapValue().put("foo", "bar"));
+
+        /*
+         * Expect the AuthenticationException for OAuth to be retried once only.
+         * The second AuthenticationException should be returned immediately,
+         * not retried until request timeout.
+         */
+        assertThrows(AuthenticationException.class,
+                     () -> client.execute(request));
+        assertEquals(2, testHttpClient.execCount.get());
+        assertEquals(2, testHttpClient.authenticationExceptionCount.get());
+        assertEquals(1, provider.flushCount.get());
+        assertEquals(1,
+                     request.getRetryStats()
+                         .getNumExceptions(AuthenticationException.class));
+    }
+
     private TestClient getTestClient() {
         AuthorizationProvider provider =
             new AuthorizationProvider() {
@@ -72,6 +100,10 @@ public class AuthRetryTest extends DriverTestBase {
                 public void close() {
                 }
             };
+        return getTestClient(provider);
+    }
+
+    private TestClient getTestClient(AuthorizationProvider provider) {
         NoSQLHandleConfig cf = new NoSQLHandleConfig("http://localhost:8080");
         cf.setAuthorizationProvider(provider);
         return new TestClient(null, cf);
@@ -95,6 +127,9 @@ public class AuthRetryTest extends DriverTestBase {
     private static class TestHttpClient extends HttpClient {
         private final AtomicInteger execCount = new AtomicInteger(0);
         private final AtomicInteger iaeCount = new AtomicInteger(0);
+        private final AtomicInteger authenticationExceptionCount =
+            new AtomicInteger(0);
+        private boolean authenticationExceptionMode;
 
         public TestHttpClient() {
             super("localhost", 8080, 1, 0, 0, 0, 0, null, 0, "test", null);
@@ -104,6 +139,12 @@ public class AuthRetryTest extends DriverTestBase {
         public void runRequest(HttpRequest request,
                                ResponseHandler handler,
                                Channel channel) {
+            if (authenticationExceptionMode) {
+                execCount.incrementAndGet();
+                authenticationExceptionCount.incrementAndGet();
+                throw new AuthenticationException("test");
+            }
+
             /*
              * Simulate an authentication failure scenario where the initial
              * attempt throws SecurityInfoNotReadyException, and subsequent
@@ -131,6 +172,26 @@ public class AuthRetryTest extends DriverTestBase {
                     return true;
                 }
             };
+        }
+    }
+
+    private static class TestOAuthProvider extends OAuthAccessTokenProvider {
+
+        private final AtomicInteger flushCount = new AtomicInteger(0);
+
+        @Override
+        public String getAuthorizationString(Request request) {
+            return "Bearer Test";
+        }
+
+        @Override
+        public void flushCache() {
+            flushCount.incrementAndGet();
+        }
+
+        @Override
+        protected AccessTokenInfo getAccessTokenInfo() {
+            return new AccessTokenInfo("Test", 60);
         }
     }
 }
