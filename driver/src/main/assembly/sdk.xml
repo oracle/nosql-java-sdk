@@ -45,8 +45,12 @@
 
   <dependencySets>
     <dependencySet>
-      <outputFileNameMapping>${artifact.artifactId}.${artifact.extension}</outputFileNameMapping>
       <outputDirectory>lib</outputDirectory>
+      <!-- <outputFileNameMapping>${artifact.artifactId}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>-->
+      <outputFileNameMapping>${artifact.artifactId}-${artifact.version}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
+      <excludes>
+        <exclude>io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64</exclude>
+      </excludes>
     </dependencySet>
   </dependencySets>
 
