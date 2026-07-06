@@ -26,6 +26,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import oracle.nosql.driver.InvalidAuthorizationException;
+import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.values.JsonUtils;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -60,6 +62,8 @@ public class OAuthAccessTokenProviderTest {
     private static volatile String lastLogoutToken;
     private static volatile String reloginPrincipal = loginPrincipal;
     private static volatile boolean omitLoginPrincipal;
+    private static volatile long loginTokenLifetimeMs = 15_000;
+    private static volatile long loginDelayMs;
 
     @BeforeClass
     public static void staticSetUp() throws Exception {
@@ -78,13 +82,25 @@ public class OAuthAccessTokenProviderTest {
                 if (count == 1) {
                     assertEquals(authTokenPrefix + oauthAccessToken,
                                  authString);
+                } else {
+                    assertEquals(authTokenPrefix + secondOAuthAccessToken,
+                                 authString);
+                }
+                final long delayMs = loginDelayMs;
+                if (delayMs > 0) {
+                    try {
+                        Thread.sleep(delayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Login handler interrupted", ie);
+                    }
+                }
+                if (count == 1) {
                     generateLoginToken(
                         loginToken,
                         omitLoginPrincipal ? null : loginPrincipal,
                         exchange);
                 } else {
-                    assertEquals(authTokenPrefix + secondOAuthAccessToken,
-                                 authString);
                     generateLoginToken(reloginToken, reloginPrincipal,
                                        exchange);
                 }
@@ -169,6 +185,76 @@ public class OAuthAccessTokenProviderTest {
             assertEquals(loginToken, readTokenFromAuth(sameAuthString));
             assertEquals(1, loginCounter.get());
         } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testLoginTokenExpiryControlsRefresh() throws Exception {
+        loginCounter.set(0);
+        logoutCounter.set(0);
+        omitLoginPrincipal = false;
+        reloginPrincipal = loginPrincipal;
+        loginTokenLifetimeMs = 12_000;
+        TestProvider provider = new TestProvider(60);
+        provider.setEndpoint(endpoint);
+
+        try {
+            assertEquals(loginToken, readTokenFromAuth(
+                provider.getAuthorizationString(null)));
+
+            waitForAuthorizationToken(provider, reloginToken, 5_000);
+            assertTrue(loginCounter.get() >= 2);
+        } finally {
+            loginTokenLifetimeMs = 15_000;
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testRefreshFailureRetainsLoginToken() throws Exception {
+        loginCounter.set(0);
+        logoutCounter.set(0);
+        omitLoginPrincipal = false;
+        reloginPrincipal = loginPrincipal;
+        FailingRefreshProvider provider = new FailingRefreshProvider();
+        provider.setEndpoint(endpoint);
+
+        try {
+            final String authString = provider.getAuthorizationString(null);
+            assertEquals(loginToken, readTokenFromAuth(authString));
+
+            provider.waitForRefreshAttempt(5_000);
+
+            assertEquals(authString, provider.getAuthorizationString(null));
+            assertEquals(1, loginCounter.get());
+        } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testLoginUsesRequestTimeout() throws Exception {
+        loginCounter.set(0);
+        logoutCounter.set(0);
+        omitLoginPrincipal = false;
+        reloginPrincipal = loginPrincipal;
+        loginDelayMs = 500;
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
+        final long startNanos = System.nanoTime();
+
+        try {
+            provider.getAuthorizationString(new GetRequest().setTimeout(50));
+            fail("OAuth login should have observed the request timeout");
+        } catch (NoSQLException expected) {
+            final long elapsedMs =
+                (System.nanoTime() - startNanos) / 1_000_000;
+            assertTrue("OAuth login exceeded request timeout: " + elapsedMs,
+                       elapsedMs < loginDelayMs);
+        } finally {
+            Thread.sleep(loginDelayMs + 100);
+            loginDelayMs = 0;
             provider.close();
         }
     }
@@ -287,7 +373,8 @@ public class OAuthAccessTokenProviderTest {
              ObjectOutputStream oos = new ObjectOutputStream(baos);
              OutputStream os = exchange.getResponseBody()) {
 
-            long expireTime = System.currentTimeMillis() + 15000;
+            long expireTime =
+                System.currentTimeMillis() + loginTokenLifetimeMs;
             oos.writeShort(1);
             oos.writeLong(expireTime);
             oos.writeBytes(tokenText);
@@ -327,16 +414,69 @@ public class OAuthAccessTokenProviderTest {
         }
     }
 
+    private static void waitForAuthorizationToken(
+        OAuthAccessTokenProvider provider,
+        String expectedToken,
+        long timeoutMs)
+        throws InterruptedException {
+
+        final long limit = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < limit) {
+            final String authString = provider.getAuthorizationString(null);
+            if (expectedToken.equals(readTokenFromAuth(authString))) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        fail("Timed out waiting for refreshed OAuth login token");
+    }
+
     private static class TestProvider extends OAuthAccessTokenProvider {
+
+        private final AtomicInteger tokenCounter = new AtomicInteger();
+        private final long expiresInSeconds;
+
+        TestProvider() {
+            this(15);
+        }
+
+        TestProvider(long expiresInSeconds) {
+            this.expiresInSeconds = expiresInSeconds;
+        }
+
+        @Override
+        protected AccessTokenInfo getAccessTokenInfo() {
+            if (tokenCounter.incrementAndGet() == 1) {
+                return new AccessTokenInfo(oauthAccessToken, expiresInSeconds);
+            }
+            return new AccessTokenInfo(secondOAuthAccessToken,
+                                       expiresInSeconds);
+        }
+    }
+
+    private static class FailingRefreshProvider
+        extends OAuthAccessTokenProvider {
 
         private final AtomicInteger tokenCounter = new AtomicInteger();
 
         @Override
         protected AccessTokenInfo getAccessTokenInfo() {
             if (tokenCounter.incrementAndGet() == 1) {
-                return new AccessTokenInfo(oauthAccessToken, 15);
+                return new AccessTokenInfo(oauthAccessToken, 12);
             }
-            return new AccessTokenInfo(secondOAuthAccessToken, 15);
+            throw new IllegalStateException("test refresh failure");
+        }
+
+        private void waitForRefreshAttempt(long timeoutMs)
+            throws InterruptedException {
+
+            final long limit = System.currentTimeMillis() + timeoutMs;
+            while (tokenCounter.get() < 2 &&
+                   System.currentTimeMillis() < limit) {
+                Thread.sleep(50);
+            }
+            assertTrue("Timed out waiting for refresh callback",
+                       tokenCounter.get() >= 2);
         }
     }
 }

@@ -69,11 +69,21 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     private AccessTokenInfo tokenInfo;
 
     /*
+     * Expiration time of the access token, in milliseconds since epoch.
+     */
+    private long accessTokenExpireAt;
+
+    /*
+     * Expiration time of the NoSQL login token, in milliseconds since epoch.
+     */
+    private long loginTokenExpireAt;
+
+    /*
      * KV-authenticated principal associated with this provider's login token.
      */
     private String loginPrincipal;
 
-    /* Default refresh time before AT expiry, 10 seconds */
+    /* Default refresh time before effective token expiry, 10 seconds */
     private static final int REFRESH_AHEAD_SECONDS = 10;
 
     /*
@@ -158,21 +168,25 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     protected abstract AccessTokenInfo getAccessTokenInfo();
 
-    private synchronized void performLogin(boolean force) {
+    private synchronized void performLogin(boolean force, Request request) {
         /* re-check the authString in case of a race */
         if (isClosed || (!force && authString.get() != null)) {
             return;
         }
 
-        tokenInfo = validateAccessTokenInfo(getAccessTokenInfo());
+        final AccessTokenInfo newTokenInfo =
+            validateAccessTokenInfo(getAccessTokenInfo());
+        final long accessTokenAcquireTime = System.currentTimeMillis();
+        final int timeoutMs =
+            (request != null) ? request.getTimeoutInternal() : 0;
 
         try {
             /*
              * Send request to server for login token
              */
             HttpResponse response =
-                sendRequest(BEARER_PREFIX + tokenInfo.getAccessToken(),
-                            LOGIN_SERVICE);
+                sendRequest(BEARER_PREFIX + newTokenInfo.getAccessToken(),
+                            LOGIN_SERVICE, timeoutMs);
 
             /*
              * login fail
@@ -196,11 +210,16 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             } catch (InvalidAuthorizationException iae) {
                 final String rejectedToken = loginResult.getToken();
                 if (rejectedToken != null && !rejectedToken.isEmpty()) {
-                    logoutSession(BEARER_PREFIX + rejectedToken);
+                    logoutSession(BEARER_PREFIX + rejectedToken, timeoutMs);
                 }
                 throw iae;
             }
             authString.set(BEARER_PREFIX + loginResult.getToken());
+            tokenInfo = newTokenInfo;
+            accessTokenExpireAt = accessTokenAcquireTime +
+                TimeUnit.SECONDS.toMillis(
+                    newTokenInfo.getExpiresInSeconds());
+            loginTokenExpireAt = loginResult.getExpireAt();
             /*
              * Schedule access token refresh thread
              */
@@ -231,7 +250,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          * the login token and generate the auth string.
          */
         if (authString.get() == null) {
-            performLogin(false);
+            performLogin(false, request);
         }
         return authString.get();
     }
@@ -263,7 +282,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          * Send request for logout
          */
         if (logoutAuth != null) {
-            logoutSession(logoutAuth);
+            logoutSession(logoutAuth, 0);
         }
 
         /*
@@ -271,13 +290,15 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          */
         authString.set(null);
         tokenInfo = null;
+        accessTokenExpireAt = 0;
+        loginTokenExpireAt = 0;
         loginPrincipal = null;
     }
 
-    private void logoutSession(String logoutAuth) {
+    private void logoutSession(String logoutAuth, int timeoutMs) {
         try {
             final HttpResponse response =
-                sendRequest(logoutAuth, LOGOUT_SERVICE);
+                sendRequest(logoutAuth, LOGOUT_SERVICE, timeoutMs);
             if (response.getStatusCode() != HttpResponseStatus.OK.code() &&
                 logger != null) {
                 logger.info("Failed to logout OAuth session, response: " +
@@ -321,10 +342,12 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             JsonUtils.createValueFromJson(jsonResult, null).asMap();
 
         /*
-         * Extract login token and authenticated principal from JSON result.
+         * Extract login token, expiration, and authenticated principal from
+         * JSON result.
          */
         return new LoginResult(
             mapValue.getString("token"),
+            mapValue.getLong("expireAt"),
             mapValue.contains("principal") ?
                 mapValue.getString("principal") : null);
     }
@@ -354,8 +377,14 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             tokenInfo.getExpiresInSeconds() <= 0 || scheduler.isShutdown()) {
             return;
         }
-        long delay = Math.max(1000,
-            (tokenInfo.getExpiresInSeconds() - REFRESH_AHEAD_SECONDS) * 1000);
+        final long now = System.currentTimeMillis();
+        final long effectiveExpireAt = loginTokenExpireAt > 0 ?
+            Math.min(accessTokenExpireAt, loginTokenExpireAt) :
+            accessTokenExpireAt;
+        final long delay = Math.max(
+            1000,
+            effectiveExpireAt - now -
+            TimeUnit.SECONDS.toMillis(REFRESH_AHEAD_SECONDS));
         refreshTask = scheduler.schedule(new Runnable() {
             @Override
             public void run() {
@@ -370,12 +399,11 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         }
 
         try {
-            performLogin(true);
+            performLogin(true, null);
         } catch (Exception e) {
             if (logger != null) {
                 logger.info("Failed to obtain refreshed token: " + e);
             }
-            flushCache();
         }
     }
 
@@ -475,7 +503,8 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * authentication information.
      */
     private HttpResponse sendRequest(String authHeader,
-                                     String serviceName) throws Exception {
+                                     String serviceName,
+                                     int timeoutMs) throws Exception {
         HttpClient client = null;
         try {
             final HttpHeaders headers = new DefaultHttpHeaders();
@@ -487,11 +516,14 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                  sslHandshakeTimeoutMs,
                  serviceName,
                  logger);
+            if (timeoutMs == 0) {
+                timeoutMs = HTTP_TIMEOUT_MS;
+            }
             return HttpRequestUtil.doGetRequest(
                 client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
                 .toString(),
-                headers, HTTP_TIMEOUT_MS, logger);
+                headers, timeoutMs, logger);
         } finally {
             if (client != null) {
                 client.shutdown();
@@ -538,10 +570,12 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     private static final class LoginResult {
 
         private final String token;
+        private final long expireAt;
         private final String principal;
 
-        private LoginResult(String token, String principal) {
+        private LoginResult(String token, long expireAt, String principal) {
             this.token = token;
+            this.expireAt = expireAt;
             this.principal = principal;
         }
 
@@ -551,6 +585,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
 
         private String getPrincipal() {
             return principal;
+        }
+
+        private long getExpireAt() {
+            return expireAt;
         }
     }
 }
