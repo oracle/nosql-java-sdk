@@ -152,7 +152,7 @@ public class PreparedStatement {
         byte operation,
         int maxParallelism) {
 
-        if (proxyStatements.isEmpty()) {
+        if (proxyStatements == null || proxyStatements.isEmpty()) {
             throw new IllegalArgumentException(
                 "Invalid prepared query: no proxy-side query");
         }
@@ -160,7 +160,7 @@ public class PreparedStatement {
         this.sqlText = sqlText;
         this.queryPlan = queryPlan;
         this.querySchema = querySchema;
-        this.proxyStatements = proxyStatements;
+        this.proxyStatements = copyProxyStatements(proxyStatements);
         this.driverQueryPlan = driverPlan;
         this.numIterators = numIterators;
         this.numRegisters = numRegisters;
@@ -327,7 +327,21 @@ public class PreparedStatement {
      * @hidden
      */
     public final byte[] getProxyStatement(int branch) {
-        return proxyStatements.get(branch);
+        return proxyStatements.get(branch).clone();
+    }
+
+    private static ArrayList<byte[]> copyProxyStatements(
+        ArrayList<byte[]> source) {
+
+        ArrayList<byte[]> copy = new ArrayList<byte[]>(source.size());
+        for (byte[] statement : source) {
+            if (statement == null) {
+                throw new IllegalArgumentException(
+                    "Invalid prepared query: null proxy-side query");
+            }
+            copy.add(statement.clone());
+        }
+        return copy;
     }
 
     /**

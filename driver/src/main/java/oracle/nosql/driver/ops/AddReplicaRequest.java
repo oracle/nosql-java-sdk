@@ -204,4 +204,12 @@ public class AddReplicaRequest extends Request {
     public String getTypeName() {
         return "AddReplica";
     }
+
+    /**
+     * @hidden
+     */
+    @Override
+    public boolean shouldRetry() {
+        return false;
+    }
 }

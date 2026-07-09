@@ -9,10 +9,13 @@ package oracle.nosql.driver;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.net.URL;
+
+import oracle.nosql.driver.ops.GetRequest;
 
 import org.junit.Test;
 
@@ -107,6 +110,47 @@ public class HandleConfigTest {
                    arr.length > 2);
     }
 
+    @Test
+    public void testHttpHeaderValueValidation() {
+        NoSQLHandleConfig config = new NoSQLHandleConfig("http://foo.com");
+        GetRequest request = new GetRequest();
+
+        config.setDefaultCompartment("compartment.a");
+        assertEquals("compartment.a", config.getDefaultCompartment());
+        config.setDefaultNamespace("namespace_a");
+        assertEquals("namespace_a", config.getDefaultNamespace());
+        config.setExtensionUserAgent("app plugin/1.0");
+        assertEquals("app plugin/1.0", config.getExtensionUserAgent());
+        request.setCompartment("compartment.b");
+        assertEquals("compartment.b", request.getCompartment());
+        request.setNamespace("namespace_b");
+        assertEquals("namespace_b", request.getNamespace());
+
+        expectIllegalValue(() ->
+            config.setExtensionUserAgent("safe\r\nX-Injected: yes"));
+        expectIllegalValue(() ->
+            config.setExtensionUserAgent("safe\tunsafe"));
+        expectIllegalValue(() ->
+            config.setDefaultCompartment("compartment\nX-Injected: yes"));
+        expectIllegalValue(() ->
+            config.setDefaultNamespace("namespace\u0000unsafe"));
+        expectIllegalValue(() ->
+            request.setCompartment("compartment\rX-Injected: yes"));
+        expectIllegalValue(() ->
+            request.setNamespace("namespace\u007funsafe"));
+
+        config.setDefaultCompartment(null);
+        assertNull(config.getDefaultCompartment());
+        config.setDefaultNamespace(null);
+        assertNull(config.getDefaultNamespace());
+        config.setExtensionUserAgent(null);
+        assertNull(config.getExtensionUserAgent());
+        request.setCompartment(null);
+        assertNull(request.getCompartment());
+        request.setNamespace(null);
+        assertNull(request.getNamespace());
+    }
+
     private void expectIllegalArg(String endpoint) {
         try {
             new NoSQLHandleConfig(endpoint);
@@ -115,6 +159,15 @@ public class HandleConfigTest {
             // expect a failure
         }
 
+    }
+
+    private void expectIllegalValue(Runnable setter) {
+        try {
+            setter.run();
+            fail("Value should have failed validation");
+        } catch(IllegalArgumentException expected) {
+            // expect a failure
+        }
     }
 
     private void validate(String endpoint, String protocol,
