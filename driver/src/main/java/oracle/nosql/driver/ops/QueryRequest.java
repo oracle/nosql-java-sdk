@@ -208,6 +208,23 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
     }
 
     /**
+     * Updates this request's topology with the snapshot selected for an
+     * advanced query execution. This is called only after the
+     * {@link QueryDriver} has selected the base topologies.
+     *
+     * @param topoSeqNum the legacy topology sequence number, or {@code -1}
+     * if no legacy topology is available
+     * @param storeTopoSeqNums the per-store topology sequences
+     * @hidden
+     */
+    public void setExecutionTopology(int topoSeqNum,
+                                     Map<String, Integer> storeTopoSeqNums) {
+
+        this.topoSeqNum = topoSeqNum;
+        this.storeTopoSeqNums = storeTopoSeqNums;
+    }
+
+    /**
      * Creates an internal QueryRequest out of the application-provided request.
      * @return a copy of the instance in a new object
      * @hidden
@@ -233,6 +250,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         internalReq.isInternal = true;
         internalReq.driver = driver;
         internalReq.topoSeqNum = topoSeqNum;
+        internalReq.storeTopoSeqNums = storeTopoSeqNums;
         internalReq.inTestMode = inTestMode;
         internalReq.operationNumber = operationNumber;
         internalReq.numberOfOperations = numberOfOperations;
@@ -1147,7 +1165,7 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
         }
         /*
          * Parallel queries have multiple requirements:
-         * o only for prepared queries
+         * o only for simple prepared queries
          * o if set, both number of operations and op number need to be set
          * o operation number must be <= number of operations
          * o number of operations must be <= the max
@@ -1158,6 +1176,11 @@ public class QueryRequest extends DurableRequest implements AutoCloseable {
             if (!isPrepared()) {
                 throw new IllegalArgumentException(
                     "Parallel queries are only allowed on prepared queries");
+            }
+            if (!isSimpleQuery()) {
+                throw new IllegalArgumentException(
+                    "Parallel queries are only allowed on simple " +
+                    "prepared queries");
             }
             /* check both non-zero and value of operation number */
             if (getOperationNumber() > getNumberOfOperations() ||

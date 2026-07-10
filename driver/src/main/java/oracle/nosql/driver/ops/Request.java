@@ -9,6 +9,8 @@ package oracle.nosql.driver.ops;
 
 import static oracle.nosql.driver.util.HttpHeaderValidation.validateHttpHeaderValue;
 
+import java.util.Map;
+
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.RateLimiter;
 import oracle.nosql.driver.ops.serde.Serializer;
@@ -84,6 +86,14 @@ public abstract class Request {
     private boolean isRefresh;
 
     protected int topoSeqNum = -1;
+
+    /**
+     * @hidden
+     * Per-store topology sequences serialized as request header h.sts. The
+     * client initializes this map before sending a request. An empty map
+     * advertises per-store topology support with no cached store topology.
+     */
+    protected Map<String, Integer> storeTopoSeqNums;
 
     /**
      * @hidden
@@ -533,6 +543,27 @@ public abstract class Request {
         if (topoSeqNum < 0) {
             topoSeqNum = n;
         }
+    }
+
+    /**
+     * internal use only
+     * @return the per-store topology sequences for request
+     * @hidden
+     */
+    public Map<String, Integer> getStoreTopoSeqNums() {
+        return storeTopoSeqNums;
+    }
+
+    /**
+     * internal use only
+     * @param topoSeqNums the per-store topology sequences
+     * @hidden
+     */
+    public void setStoreTopoSeqNums(Map<String, Integer> topoSeqNums) {
+        if (storeTopoSeqNums != null) {
+            return;
+        }
+        storeTopoSeqNums = topoSeqNums;
     }
 
     /**

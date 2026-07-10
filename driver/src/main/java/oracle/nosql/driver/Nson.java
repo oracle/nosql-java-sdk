@@ -436,7 +436,10 @@ public class Nson {
         if (nson == null) {
             return null;
         }
-        JsonSerializer jsonSerializer = new JsonSerializer(options);
+        JsonSerializer jsonSerializer =
+            (options != null && options.getPrettyPrint()) ?
+                new JsonPrettySerializer(options) :
+                new JsonSerializer(options);
         try (NettyByteInputStream bis =
              NettyByteInputStream.createFromBytes(nson)) {
             Nson.generateEventsFromNson(jsonSerializer, bis, false);

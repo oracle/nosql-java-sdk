@@ -172,7 +172,8 @@ public class PrepareRequestSerializer extends BinaryProtocol
                                   namespaces,
                                   tableNames,
                                   operation,
-                                  0); /* no parallelism available */
+                                  0,     /* no parallelism available */
+                                  null); /* branchStoreNames */
 
         result.setPreparedStatement(prep);
         result.setTopology(ti);

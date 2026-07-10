@@ -146,14 +146,17 @@ public class UnionIter extends PlanIter {
 
         if (theSortFields == null) {
             PlanIter branch = theBranches[state.theCurrentBranch];
+            rcb.setUnionBranch(state.theCurrentBranch);
             branch.open(rcb);
         } else {
             for (int i = 0; i < theBranches.length; ++i) {
                 PlanIter branch = theBranches[i];
+                rcb.setUnionBranch(i);
                 branch.open(rcb);
                 SortedBranch sb = new SortedBranch(rcb, branch, i);
                 state.theSortedBranches.add(sb);
             }
+            rcb.setUnionBranch(0);
         }
     }
 
@@ -197,6 +200,7 @@ public class UnionIter extends PlanIter {
         while (state.theCurrentBranch < theBranches.length) {
 
             PlanIter branch = theBranches[state.theCurrentBranch];
+            rcb.setUnionBranch(state.theCurrentBranch);
 
             boolean more = branch.next(rcb);
 
@@ -215,7 +219,6 @@ public class UnionIter extends PlanIter {
             }
 
             ++state.theCurrentBranch;
-            rcb.incUnionBranch();
 
             if (rcb.getTraceLevel() >= 3) {
                 rcb.trace("UNION: moved to branch " + state.theCurrentBranch);
@@ -223,6 +226,7 @@ public class UnionIter extends PlanIter {
 
             if (state.theCurrentBranch < theBranches.length) {
                 branch = theBranches[state.theCurrentBranch];
+                rcb.setUnionBranch(state.theCurrentBranch);
                 branch.open(rcb);
 
                 /* For simplicity, we don't want to allow the possibility of
