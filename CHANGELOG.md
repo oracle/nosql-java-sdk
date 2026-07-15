@@ -5,7 +5,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ## Unreleased
 
 ### Changed
+- Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
+  more secure cyphers/protocols including ML-KEM
+
+### Fixed
+- Make prepared-query byte arrays immutable
+- Redact sensitive information from SystemResult.toString() and SystemRequest.toString()
+- Add/drop replica retries lack SDK idempotency token support
+- Resource-scope header values can inject outbound HTTP headers
+- Extension user-agent can inject outbound HTTP headers
+- Internal query copies drop caller-specified durability for query DML
+
+## [5.4.23] 2026-06-26
+
+### Fixed
+- Fixed deserialization of VirtualScan `joinPathTables` in NSON query plans.
+- Fixed pre-QUERY_V6 grouped query plan compatibility so non-distinct
+  `array_collect()` results are flattened correctly.
+
+### Changed
 - Removed old SSL protocols from handle config
+- Updated Netty version to 4.1.135.Final
 
 ## [5.4.22] 2026-05-15
 
