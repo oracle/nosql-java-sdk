@@ -52,6 +52,7 @@ import javax.security.auth.x500.X500Principal;
 import oracle.nosql.driver.iam.pki.Pem;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
+import oracle.nosql.driver.util.LogUtil;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -532,11 +533,12 @@ class Utils {
                 }
             }
             throw new IllegalStateException(
-                "Unable to find security token in " + response);
+                "Unable to find security token in response " +
+                LogUtil.redactSensitiveValue(response));
         } catch (IOException ioe) {
             throw new IllegalStateException(
-                "Error parsing security token " + response +
-                    " " + ioe.getMessage());
+                "Error parsing security token response " +
+                LogUtil.redactSensitiveValue(response));
         }
     }
 
@@ -563,13 +565,14 @@ class Utils {
             }
             if(results.isEmpty()) {
                 throw new IllegalStateException(
-                        "Unable to find resource principal tokens in " + response);
+                        "Unable to find resource principal tokens in response " +
+                        LogUtil.redactSensitiveValue(response));
             }
             return results;
         } catch (IOException ioe) {
             throw new IllegalStateException(
-                    "Error parsing resource principal tokens " + response +
-                            " " + ioe.getMessage());
+                    "Error parsing resource principal token response " +
+                    LogUtil.redactSensitiveValue(response));
         }
     }
 

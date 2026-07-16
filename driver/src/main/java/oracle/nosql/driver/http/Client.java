@@ -841,16 +841,15 @@ public class Client {
                     kvRequest.incrementRetries();
                     exception = rae;
                     logFine(logger,
-                        "Client re-auth on AuthenticationException: " +
-                            rae.getMessage());
+                        "Client re-auth on AuthenticationException");
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
                 logInfo(logger, "Unexpected authentication exception: " +
-                        rae);
-                throw new NoSQLException("Unexpected exception: " +
-                        rae.getMessage(), rae);
+                        rae.getClass().getSimpleName());
+                throw new NoSQLException("Unexpected authentication exception",
+                                         rae);
             } catch (InvalidAuthorizationException iae) {
                 /*
                  * Allow a single retry for invalid/expired auth
@@ -863,8 +862,7 @@ public class Client {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
-                    logFine(logger, "Client execute NoSQLException: " +
-                            iae.getMessage());
+                    logFine(logger, "Client execute InvalidAuthorizationException");
                     throw iae;
                 }
                 /* flush auth cache and do one retry */
@@ -873,8 +871,7 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = iae;
                 logFine(logger,
-                        "Client retrying on InvalidAuthorizationException: " +
-                        iae.getMessage());
+                        "Client retrying on InvalidAuthorizationException");
                 continue;
             } catch (SecurityInfoNotReadyException sinre) {
                 kvRequest.addRetryException(sinre.getClass());
