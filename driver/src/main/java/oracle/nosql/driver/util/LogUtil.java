@@ -174,6 +174,14 @@ public class LogUtil {
         return REDACTED;
     }
 
+    /**
+     * Returns a safe representation of a value known to contain credentials,
+     * such as an authentication response body or a security token.
+     */
+    public static String redactSensitiveValue(String value) {
+        return REDACTED;
+    }
+
     private static boolean isSensitiveHeader(String headerName) {
         return headerName != null &&
                SENSITIVE_HEADERS.contains(

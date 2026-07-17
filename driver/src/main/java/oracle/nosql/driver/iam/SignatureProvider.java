@@ -1028,8 +1028,7 @@ public class SignatureProvider
 
         if (dot1 == -1 || dot2 == -1 || dot3 != -1) {
             throw new IllegalArgumentException(
-                "Given string is not in the valid JWT token format\n" +
-                token);
+                "Given string is not in the valid JWT token format");
         }
         this.delegationToken = token;
     }
