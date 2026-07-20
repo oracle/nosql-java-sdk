@@ -94,7 +94,7 @@ public class QueryDriver {
     }
 
     public int getUnionBranch() {
-        return theRCB.getUnionBranch();
+        return theRCB == null ? 0 : theRCB.getUnionBranch();
     }
 
     /**
