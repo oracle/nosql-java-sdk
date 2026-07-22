@@ -271,7 +271,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
              */
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 throw new InvalidAuthorizationException(
-                    "Fail to login to service: " + response.getOutput());
+                    "Fail to login to service (status " +
+                    response.getStatusCode() + ")");
             }
 
             if (isClosed) {
@@ -358,13 +359,13 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 if (logger != null) {
                     logger.info("Failed to logout user " + userName +
-                                ": " + response.getOutput());
+                                " (status " + response.getStatusCode() + ")");
                 }
             }
         } catch (Exception e) {
             if (logger != null) {
-                logger.info("Failed to logout user " + userName +
-                            ": " + e);
+                logger.info("Failed to logout user " + userName + ": " +
+                            e.getClass().getSimpleName());
             }
         }
 
@@ -603,7 +604,8 @@ public class StoreAccessTokenProvider implements AuthorizationProvider {
                 scheduleRefresh();
             } catch (Exception e) {
                 if (logger != null) {
-                    logger.info("Failed to renew login token: " + e);
+                    logger.info("Failed to renew login token: " +
+                                e.getClass().getSimpleName());
                 }
 
                 if (timer != null) {

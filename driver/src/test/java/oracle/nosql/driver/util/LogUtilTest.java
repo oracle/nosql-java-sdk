@@ -34,6 +34,13 @@ public class LogUtilTest {
     }
 
     @Test
+    public void testRedactSensitiveValue() {
+        assertEquals("<redacted>",
+                     LogUtil.redactSensitiveValue("secret-token"));
+        assertEquals("<redacted>", LogUtil.redactSensitiveValue(null));
+    }
+
+    @Test
     public void testFormatHeadersForLogRedactsSensitiveHeaders() {
         final HttpHeaders headers = new DefaultHttpHeaders();
         headers.add(HttpConstants.AUTHORIZATION, "Bearer secret-token");

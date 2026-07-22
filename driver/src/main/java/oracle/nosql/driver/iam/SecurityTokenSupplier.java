@@ -291,7 +291,7 @@ class SecurityTokenSupplier implements TokenSupplier {
                 }
                 if (exp == null || expiryMS == -1) {
                     throw new IllegalArgumentException(
-                        "No expiration info in token:\n" + securityToken);
+                        "No expiration info in security token");
                 }
             }
 
@@ -304,9 +304,8 @@ class SecurityTokenSupplier implements TokenSupplier {
                      ", expiry=" + getExpiryMS() + ", creation=" +
                      getCreationTime());
             if (tokenLifetime < minTokenLifetime) {
-                logTrace(logger, "Security token has shorter lifetime" +
-                         "than expected minimal token lifetime, token:\n" +
-                         getSecurityToken());
+                logTrace(logger, "Security token has shorter lifetime " +
+                         "than expected minimal token lifetime");
             }
 
             /*
@@ -319,13 +318,11 @@ class SecurityTokenSupplier implements TokenSupplier {
 
             if (modulus == null) {
                 throw new IllegalArgumentException(
-                    "Invalid JWK, no modulus in token:\n" +
-                    securityToken);
+                    "Invalid JWK, no modulus in security token");
             }
             if (exponent == null) {
                 throw new IllegalArgumentException(
-                    "Invalid JWK, no exponent in token:\n" +
-                    securityToken);
+                    "Invalid JWK, no exponent in security token");
             }
             RSAPublicKey jwkRsa = Utils.toPublicKey(modulus, exponent);
             RSAPublicKey expected = (RSAPublicKey)
@@ -333,13 +330,11 @@ class SecurityTokenSupplier implements TokenSupplier {
 
             if (jwkRsa == null) {
                 throw new IllegalArgumentException(
-                    "Invalid JWK, unable to find public key in token:\n" +
-                    securityToken);
+                    "Invalid JWK, unable to find public key in security token");
             }
             if (!isEqualPublicKey(jwkRsa, expected)) {
                 throw new IllegalArgumentException(
-                    "Invalid JWK, public key not match in token:\n" +
-                    securityToken);
+                    "Invalid JWK, public key does not match security token");
             }
         }
 
