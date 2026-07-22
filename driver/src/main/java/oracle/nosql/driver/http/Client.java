@@ -31,6 +31,7 @@ import static oracle.nosql.driver.util.HttpConstants.NOSQL_DATA_PATH;
 import static oracle.nosql.driver.util.HttpConstants.REQUEST_ID_HEADER;
 import static oracle.nosql.driver.util.HttpConstants.SERVER_SERIAL_VERSION;
 import static oracle.nosql.driver.util.HttpConstants.SERVER_VERSION;
+import static oracle.nosql.driver.util.HttpConstants.SERVER_WARNING;
 import static oracle.nosql.driver.util.HttpConstants.USER_AGENT;
 import static oracle.nosql.driver.util.HttpConstants.X_RATELIMIT_DELAY;
 import static oracle.nosql.driver.util.LogUtil.isLoggable;
@@ -1270,6 +1271,8 @@ public class Client {
                                  short serialVersionUsed,
                                  short queryVersionUsed) {
 
+        processProxyWarning(headers);
+
         if (!HttpResponseStatus.OK.equals(status)) {
             processNotOKResponse(status, content);
 
@@ -1297,6 +1300,17 @@ public class Client {
             }
         }
         return res;
+    }
+
+    /* Log a proxy-supplied warning once for each distinct message. */
+    void processProxyWarning(HttpHeaders headers) {
+        if (headers == null) {
+            return;
+        }
+        String warning = headers.get(SERVER_WARNING);
+        if (warning != null && !warning.isEmpty()) {
+            oneTimeMessage(warning);
+        }
     }
 
     /**
