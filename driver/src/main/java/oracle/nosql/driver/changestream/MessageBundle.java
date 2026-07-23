@@ -10,6 +10,8 @@ package oracle.nosql.driver.changestream;
 import java.util.List;
 import java.time.Duration;
 
+import oracle.nosql.driver.values.MapValue;
+
 /**
  * One or more Messages returned from a call to Consumer.poll().
  */
@@ -23,6 +25,9 @@ public class MessageBundle {
 
     private long eventsRemaining;
     private List<Message> messages;
+
+    /* internal use */
+    private MapValue metadata;
 
     /*
      * @hidden
@@ -43,6 +48,20 @@ public class MessageBundle {
      */
     public void setConsumer(Consumer consumer) {
         this.consumer = consumer;
+    }
+
+    /*
+     * @hidden
+     */
+    public MapValue getMetadata() {
+        return metadata;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setMetadata(MapValue metadata) {
+        this.metadata = metadata;
     }
 
     /*

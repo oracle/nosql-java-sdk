@@ -180,34 +180,122 @@ public class Consumer {
      * This method is not thread-safe. Calling poll() on the same consumer instance
      * from multiple threads will result in undefined behavior.
      *
-     * @param limit max number of change messages to return in the bundle. This value can be set to
-     * zero to specify that this consumer is alive and active in the group without actually
-     * returning any change events.
-     * @param waitTime max amount of time to wait for messages
+     * @param limit non-negative maximum number of change messages to return in
+     * the bundle. This value can be set to zero to specify that this consumer
+     * is alive and active in the group without actually returning any change events.
+     * @param waitTime max amount of time to wait for messages. Must be
+     * non-negative. It can be null or zero only when {@code limit} is zero.
+     * @throws IllegalArgumentException if either parameter is invalid
      */
     public MessageBundle poll(int limit, Duration waitTime) {
-        /* TODO: config interval ? */
-        long pollIntervalMs = 100;
-        long waitMs = waitTime.toMillis();
+        /* The default poll interval is 100ms, or the wait time if shorter. */
+        Duration defaultPollInterval = Duration.ofMillis(100);
+        if (waitTime == null || waitTime.compareTo(defaultPollInterval) < 0) {
+            defaultPollInterval = waitTime;
+        }
+        return poll(limit, waitTime, defaultPollInterval);
+    }
+
+    /**
+     * Get Change Streaming messages for a consumer.
+     *
+     * If this is the first call to poll() for a consumer, this call may trigger
+     * a rebalance operation to redistribute change data across this and all other active consumers.
+     * Note that the rebalance may not happen immediately; in the NoSQL system,
+     * rebalanace operations are rate limitied to avoid excessive resource
+     * usage when many consumers are being added to or removed from a group.
+     *
+     * If this consumer has data available to read immediately, this method will
+     * return immediately with a nonempty MessageBundle. It will not spend more
+     * time trying to return a "full" MessageBundle with the maximum number of
+     * messages.
+     *
+     * This method is not thread-safe. Calling poll() on the same consumer instance
+     * from multiple threads will result in undefined behavior.
+     *
+     * @param limit non-negative maximum number of change messages to return in
+     * the bundle. This value can be set to zero to specify that this consumer
+     * is alive and active in the group without actually returning any change events.
+     * @param waitTime max amount of overall time to wait for messages. Must be
+     * non-negative. It can be null or zero only when {@code limit} is zero.
+     * @param pollInterval amount of time to wait between internal poll requests.
+     * Must be non-negative and no greater than {@code waitTime}. It can be null
+     * only when {@code waitTime} is null or zero.
+     * @throws IllegalArgumentException if any parameter is invalid
+     */
+    public MessageBundle poll(int limit, Duration waitTime, Duration pollInterval) {
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must be >= 0");
+        }
+        if (waitTime != null && waitTime.isNegative()) {
+            throw new IllegalArgumentException("waitTime must not be negative");
+        }
+        if (pollInterval != null && pollInterval.isNegative()) {
+            throw new IllegalArgumentException(
+                "pollInterval must not be negative");
+        }
+        if (limit != 0 && (waitTime == null || waitTime.isZero())) {
+            throw new IllegalArgumentException(
+                "waitTime can be null or zero only when limit is zero");
+        }
+        Duration effectiveWaitTime =
+            waitTime == null ? Duration.ZERO : waitTime;
+        Duration effectivePollInterval =
+            pollInterval == null ? Duration.ZERO : pollInterval;
+        if (effectivePollInterval.compareTo(effectiveWaitTime) > 0) {
+            throw new IllegalArgumentException(
+                "pollInterval must be less than or equal to waitTime");
+        }
+        if (pollInterval == null && waitTime != null && !waitTime.isZero()) {
+            throw new IllegalArgumentException(
+                "pollInterval can be null only when waitTime is null or zero");
+        }
+
+        long waitMs = waitTime == null ? 0 : waitTime.toMillis();
+        long pollIntervalMs =
+            pollInterval == null ? 0 : pollInterval.toMillis();
+        if (waitMs > 0 && pollIntervalMs == 0) {
+            /* do not retry immediately */
+            pollIntervalMs = 1;
+        }
+
         long startTime = System.currentTimeMillis();
 
+        int pollRequests = 0;
+        long requestTime = 0;
+        long retryDelayMs = 0;
+        MessageBundle bundle = null;
+
         do {
-            MessageBundle bundle = pollOnce(limit);
-            if (!bundle.isEmpty()) {
-                return bundle;
+            pollRequests += 1;
+            long start = System.currentTimeMillis();
+            bundle = pollOnce(limit);
+            long now = System.currentTimeMillis();
+            requestTime += (now - start);
+            if (!bundle.isEmpty() || waitMs == 0) {
+                break;
             }
             // if no messages, sleep for a short period and retry
             // if nearing end of waitTime, bail out
-            long now = System.currentTimeMillis();
             if (((now - startTime) + pollIntervalMs) > waitMs) {
-                return bundle;
+                break;
             }
             try {
                 Thread.sleep(pollIntervalMs);
+                retryDelayMs += pollIntervalMs;
             } catch (Exception e) {
-                return bundle;
+                break;
             }
         } while(true);
+        MapValue metadata = bundle.getMetadata();
+        if (metadata == null) {
+            metadata = new MapValue();
+            bundle.setMetadata(metadata);
+        }
+        metadata.put("pollRequests", pollRequests);
+        metadata.put("requestTime", requestTime);
+        metadata.put("retryDelayMs", retryDelayMs);
+        return bundle;
     }
 
     /*
@@ -229,6 +317,9 @@ public class Consumer {
                 }
             } else {
                 this.cursor = res.cursor;
+                if (mb == null) {
+                    mb = new MessageBundle(null);
+                }
             }
             mb.setCursor(this.cursor);
             mb.setConsumer(this);
