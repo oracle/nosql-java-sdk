@@ -12,6 +12,7 @@ package oracle.nosql.driver.iam.pki;
  * @hidden
  */
 public class PemException extends IllegalStateException {
+    private static final long serialVersionUID = 1L;
 
     PemException(final String message) {
         this(message, null);

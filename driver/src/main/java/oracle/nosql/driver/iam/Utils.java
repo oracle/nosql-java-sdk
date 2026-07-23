@@ -52,6 +52,7 @@ import javax.security.auth.x500.X500Principal;
 import oracle.nosql.driver.iam.pki.Pem;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.CertificateSupplier.X509CertificateKeyPair;
+import oracle.nosql.driver.util.LogUtil;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -467,7 +468,7 @@ class Utils {
                 continue;
             }
 
-            String fieldName = parser.getCurrentName();
+            String fieldName = parser.currentName();
             if (fieldName == null) {
                 throw new IllegalStateException(
                     "Null token or field name found in JSON " + json);
@@ -521,10 +522,10 @@ class Utils {
     static String parseTokenResponse(String response) {
         try {
             JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
+            if (parser.currentToken() == null) {
                 parser.nextToken();
             }
-            while (parser.getCurrentToken() != null) {
+            while (parser.currentToken() != null) {
                 String field = findField(response, parser, "token");
                 if (field != null) {
                     parser.nextToken();
@@ -532,11 +533,12 @@ class Utils {
                 }
             }
             throw new IllegalStateException(
-                "Unable to find security token in " + response);
+                "Unable to find security token in response " +
+                LogUtil.redactSensitiveValue(response));
         } catch (IOException ioe) {
             throw new IllegalStateException(
-                "Error parsing security token " + response +
-                    " " + ioe.getMessage());
+                "Error parsing security token response " +
+                LogUtil.redactSensitiveValue(response));
         }
     }
 
@@ -551,10 +553,10 @@ class Utils {
         try {
             Map<String, String> results = new HashMap<>();
             JsonParser parser = createParser(response);
-            if (parser.getCurrentToken() == null) {
+            if (parser.currentToken() == null) {
                 parser.nextToken();
             }
-            while (parser.getCurrentToken() != null) {
+            while (parser.currentToken() != null) {
                 String field = findField(response, parser, RESOURCE_PRINCIPAL_TOKEN_FIELDS);
                 if (field != null) {
                     parser.nextToken();
@@ -563,13 +565,14 @@ class Utils {
             }
             if(results.isEmpty()) {
                 throw new IllegalStateException(
-                        "Unable to find resource principal tokens in " + response);
+                        "Unable to find resource principal tokens in response " +
+                        LogUtil.redactSensitiveValue(response));
             }
             return results;
         } catch (IOException ioe) {
             throw new IllegalStateException(
-                    "Error parsing resource principal tokens " + response +
-                            " " + ioe.getMessage());
+                    "Error parsing resource principal token response " +
+                    LogUtil.redactSensitiveValue(response));
         }
     }
 
@@ -621,10 +624,10 @@ class Utils {
                               Map<String, String> reults)
         throws IOException {
 
-        if (parser.getCurrentToken() == null) {
+        if (parser.currentToken() == null) {
             parser.nextToken();
         }
-        while (parser.getCurrentToken() != null) {
+        while (parser.currentToken() != null) {
             String field = findField(json, parser, FIELDS);
             if (field != null) {
                 parser.nextToken();

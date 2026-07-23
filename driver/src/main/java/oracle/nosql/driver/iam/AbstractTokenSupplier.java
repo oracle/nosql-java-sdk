@@ -12,6 +12,7 @@ import static oracle.nosql.driver.iam.Utils.logTrace;
 import static oracle.nosql.driver.iam.Utils.parseTokenResponse;
 import static oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 import static oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
+import static oracle.nosql.driver.util.LogUtil.redactSensitiveValue;
 
 import javax.net.ssl.SSLException;
 import java.net.URI;
@@ -22,10 +23,10 @@ import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import oracle.nosql.driver.util.NettySslContextUtil;
 
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 abstract class AbstractTokenSupplier
         implements TokenSupplier{
@@ -143,7 +144,7 @@ abstract class AbstractTokenSupplier
 
         SslContext sslCtx;
         try {
-            sslCtx = SslContextBuilder.forClient().build();
+            sslCtx = NettySslContextUtil.newClientContextBuilder().build();
         } catch (SSLException se) {
             throw new IllegalStateException(
                     "Unable to build SSL context for http client", se);
@@ -207,7 +208,8 @@ abstract class AbstractTokenSupplier
                                     ", status code: %d, output: %s",
                             resourcePrincipalTokenURI.getHost(),
                             resourcePrincipalTokenResponse.getStatusCode(),
-                            resourcePrincipalTokenResponse.getOutput()));
+                            redactSensitiveValue(
+                                resourcePrincipalTokenResponse.getOutput())));
         }
 
         return resourcePrincipalTokenResponse;
@@ -249,7 +251,8 @@ abstract class AbstractTokenSupplier
                                     ", status code: %d, output: %s",
                             federationURI.getHost(),
                             resourcePrincipalSessionTokenResponse.getStatusCode(),
-                            resourcePrincipalSessionTokenResponse.getOutput()));
+                            redactSensitiveValue(
+                                resourcePrincipalSessionTokenResponse.getOutput())));
         }
 
         String resourcePrincipalSessionToken = parseTokenResponse(

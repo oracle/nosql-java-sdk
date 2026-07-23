@@ -79,7 +79,7 @@ class QueryRequestSerializer extends BinaryProtocol implements Serializer {
         if (queryRq.isPrepared()) {
 
             PreparedStatement ps = queryRq.getPreparedStatement();
-            writeByteArrayWithInt(out, ps.getStatement());
+            writeByteArrayWithInt(out, ps.getProxyStatement(0));
 
             if (ps.getVariables() != null) {
 

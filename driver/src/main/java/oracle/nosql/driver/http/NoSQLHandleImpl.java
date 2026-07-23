@@ -50,6 +50,7 @@ import oracle.nosql.driver.ops.TableUsageRequest;
 import oracle.nosql.driver.ops.TableUsageResult;
 import oracle.nosql.driver.ops.WriteMultipleRequest;
 import oracle.nosql.driver.ops.WriteMultipleResult;
+import oracle.nosql.driver.util.NettySslContextUtil;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
@@ -125,7 +126,8 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         }
         if (config.getServiceURL().getProtocol().equalsIgnoreCase("HTTPS")) {
             try {
-                SslContextBuilder builder = SslContextBuilder.forClient();
+                SslContextBuilder builder =
+                    NettySslContextUtil.newClientContextBuilder();
                 if (config.getSSLCipherSuites() != null) {
                     builder.ciphers(config.getSSLCipherSuites());
                 }

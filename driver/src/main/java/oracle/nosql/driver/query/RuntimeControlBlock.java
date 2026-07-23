@@ -80,6 +80,9 @@ public class RuntimeControlBlock {
      */
     long theMemoryConsumption;
 
+    /* The current UNION branch */
+    private int theUnionBranch;
+
     private final StringBuilder theTraceBuilder = new StringBuilder();
 
     public RuntimeControlBlock(
@@ -190,6 +193,18 @@ public class RuntimeControlBlock {
 
     PlanIter getRootIter() {
         return theRootIter;
+    }
+
+    int getUnionBranch() {
+        return theUnionBranch;
+    }
+
+    void setUnionBranch(int b) {
+        theUnionBranch = b;
+    }
+
+    void incUnionBranch() {
+        ++theUnionBranch;
     }
 
     public void setState(int pos, PlanIterState state) {

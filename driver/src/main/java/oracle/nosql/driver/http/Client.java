@@ -841,16 +841,15 @@ public class Client {
                     kvRequest.incrementRetries();
                     exception = rae;
                     logFine(logger,
-                        "Client re-auth on AuthenticationException: " +
-                            rae.getMessage());
+                        "Client re-auth on AuthenticationException");
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
                 logInfo(logger, "Unexpected authentication exception: " +
-                        rae);
-                throw new NoSQLException("Unexpected exception: " +
-                        rae.getMessage(), rae);
+                        rae.getClass().getSimpleName());
+                throw new NoSQLException("Unexpected authentication exception",
+                                         rae);
             } catch (InvalidAuthorizationException iae) {
                 /*
                  * Allow a single retry for invalid/expired auth
@@ -863,8 +862,7 @@ public class Client {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
-                    logFine(logger, "Client execute NoSQLException: " +
-                            iae.getMessage());
+                    logFine(logger, "Client execute InvalidAuthorizationException");
                     throw iae;
                 }
                 /* flush auth cache and do one retry */
@@ -873,8 +871,7 @@ public class Client {
                 kvRequest.incrementRetries();
                 exception = iae;
                 logFine(logger,
-                        "Client retrying on InvalidAuthorizationException: " +
-                        iae.getMessage());
+                        "Client retrying on InvalidAuthorizationException");
                 continue;
             } catch (SecurityInfoNotReadyException sinre) {
                 kvRequest.addRetryException(sinre.getClass());
@@ -973,9 +970,11 @@ public class Client {
                         name + ", message: " + ioe.getMessage());
                 /*
                  * An exception in the channel, e.g. the server may have
-                 * disconnected. Retry.
+                 * disconnected. Retry if the request allows it.
                  */
                 kvRequest.addRetryException(ioe.getClass());
+                throwIfTransportRetryNotAllowed(kvRequest, ioe,
+                                                rateDelayedMs);
                 kvRequest.incrementRetries();
                 exception = ioe;
 
@@ -1001,9 +1000,11 @@ public class Client {
                  */
                 String name = ee.getCause().getClass().getName();
                 logFine(logger, "Client ExecutionException, name: " +
-                        name + ", message: " + ee.getMessage() + ", retrying");
+                        name + ", message: " + ee.getMessage());
 
                 kvRequest.addRetryException(ee.getCause().getClass());
+                throwIfTransportRetryNotAllowed(kvRequest, ee.getCause(),
+                                                rateDelayedMs);
                 kvRequest.incrementRetries();
                 exception = ee.getCause();
                 continue;
@@ -1014,7 +1015,7 @@ public class Client {
             } catch (Throwable t) {
                 /*
                  * this is likely an exception from Netty, perhaps a bad
-                 * connection. Retry.
+                 * connection. Retry if the request allows it.
                  */
                 /* Maybe make this logFine */
                 String name = t.getClass().getName();
@@ -1022,6 +1023,7 @@ public class Client {
                         name + "message: " + t.getMessage());
 
                 kvRequest.addRetryException(t.getClass());
+                throwIfTransportRetryNotAllowed(kvRequest, t, rateDelayedMs);
                 kvRequest.incrementRetries();
                 exception = t;
                 continue;
@@ -1593,6 +1595,19 @@ public class Client {
         }
 
         return rs.getNumExceptions(InvalidAuthorizationException.class) > 0;
+    }
+
+    private void throwIfTransportRetryNotAllowed(Request request,
+                                                 Throwable cause,
+                                                 int rateDelayedMs) {
+        if (request.shouldRetry()) {
+            return;
+        }
+        request.setRateLimitDelayedMs(rateDelayedMs);
+        statsControl.observeError(request);
+        throw new NoSQLException(
+            "Request failed and is not retryable: " + cause.getMessage(),
+            cause);
     }
 
     private void handleRetry(RetryableException re,

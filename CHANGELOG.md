@@ -2,12 +2,63 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [In progress]
+## Unreleased
+
+### Changed
+- Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
+  more secure cyphers/protocols including ML-KEM
+
+### Fixed
+- Make prepared-query byte arrays immutable
+- Redact sensitive information from SystemResult.toString() and SystemRequest.toString()
+- Add/drop replica retries lack SDK idempotency token support
+- Resource-scope header values can inject outbound HTTP headers
+- Extension user-agent can inject outbound HTTP headers
+- Internal query copies drop caller-specified durability for query DML
+- Fixed an NPE during automatic auth refresh when processing the initial prepare
+  response for an advanced query.
+
+## [5.4.23] 2026-06-26
+
+### Fixed
+- Fixed deserialization of VirtualScan `joinPathTables` in NSON query plans.
+- Fixed pre-QUERY_V6 grouped query plan compatibility so non-distinct
+  `array_collect()` results are flattened correctly.
+
+### Changed
+- Removed old SSL protocols from handle config
+- Updated Netty version to 4.1.135.Final
+
+## [5.4.22] 2026-05-15
+
+### Added
+- Added redaction of sensitive HTTP header values in debug logging by default,
+  plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
+  property to allow full header values when needed for debugging.
+
+### Fixed
+- Fixed bug in handling of empty namespaces in prepared statements.
+
+### Changed
+- Updated Netty version to 4.1.133.Final
+- Updated Jackson-core to 2.18.7
+
+## [5.4.21] 2026-04-21
+
+### Changed
+- Updated netty version to 4.1.132.Final
+
+## [5.4.20] 2026-03-10
 
 ### Changed
 - Renamed get/set RowMetadata to get/set LastWriteMetadata.
 - Updated java minimum version to 11
 - Updated copyrights to 2026
+- Updated netty version to 4.1.131.Final
+- Updated jackson-core to 2.18.6
+
+### Added
+- Added new OCI Region codes
 
 ## [5.4.19] 2025-12-23
 

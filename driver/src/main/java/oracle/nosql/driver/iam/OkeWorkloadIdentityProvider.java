@@ -36,6 +36,8 @@ import oracle.nosql.driver.SecurityInfoNotReadyException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.iam.SessionKeyPairSupplier.DefaultSessionKeySupplier;
 import oracle.nosql.driver.util.HttpRequestUtil;
+import oracle.nosql.driver.util.NettySslContextUtil;
+import oracle.nosql.driver.util.LogUtil;
 import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
@@ -43,7 +45,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 
 /**
  * @hidden
@@ -171,7 +172,7 @@ class OkeWorkloadIdentityProvider
          */
         final SslContext sslCtx;
         try {
-            sslCtx = SslContextBuilder.forClient()
+            sslCtx = NettySslContextUtil.newClientContextBuilder()
                 .trustManager(kubernetesCaCertFile)
                 .build();
         } catch (SSLException se) {
@@ -244,16 +245,19 @@ class OkeWorkloadIdentityProvider
                 String.format(
                     "Error getting security token from Kubernetes proxymux, " +
                     "status code %d, opc-request-id %s, response\n%s",
-                    responseCode, requestId, responseOutput));
+                    responseCode, requestId,
+                    LogUtil.redactSensitiveValue(responseOutput)));
         }
 
         /* The encoded response is returned with quotation marks */
         responseOutput = responseOutput.replace("\"", "");
-        Utils.logTrace(logger, "Token response " + responseOutput);
+        Utils.logTrace(logger, "Token response " +
+                       LogUtil.redactSensitiveValue(responseOutput));
         final String decoded = new String(
             Base64.getDecoder().decode(responseOutput),
             StandardCharsets.UTF_8);
-        Utils.logTrace(logger, "Decoded Token " + decoded);
+        Utils.logTrace(logger, "Decoded Token " +
+                       LogUtil.redactSensitiveValue(decoded));
 
         /*
          * Kubernetes token has duplicated key id prefix "ST$" in the token
