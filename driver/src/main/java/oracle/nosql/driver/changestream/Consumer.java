@@ -262,7 +262,7 @@ public class Consumer {
         long startTime = System.currentTimeMillis();
 
         int pollRequests = 0;
-        long requestTime = 0;
+        long requestTimeMs = 0;
         long retryDelayMs = 0;
         MessageBundle bundle = null;
 
@@ -271,7 +271,7 @@ public class Consumer {
             long start = System.currentTimeMillis();
             bundle = pollOnce(limit);
             long now = System.currentTimeMillis();
-            requestTime += (now - start);
+            requestTimeMs += (now - start);
             if (!bundle.isEmpty() || waitMs == 0) {
                 break;
             }
@@ -293,7 +293,7 @@ public class Consumer {
             bundle.setMetadata(metadata);
         }
         metadata.put("pollRequests", pollRequests);
-        metadata.put("requestTime", requestTime);
+        metadata.put("requestTimeMs", requestTimeMs);
         metadata.put("retryDelayMs", retryDelayMs);
         return bundle;
     }
