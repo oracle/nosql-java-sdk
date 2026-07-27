@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.ops;
 
+import java.util.List;
+
 import oracle.nosql.driver.query.TopologyInfo;
 
 /**
@@ -45,7 +47,11 @@ public class Result {
      */
     private RetryStats retryStats;
 
+    /* Topology returned by the legacy single-topology protocol. */
     private TopologyInfo topology;
+
+    /* Per-store topology entries returned by the per-store protocol. */
+    private List<TopologyInfo> storeTopologies;
 
     protected Result() {}
 
@@ -179,6 +185,24 @@ public class Result {
      */
     public void setTopology(TopologyInfo ti) {
         topology = ti;
+    }
+
+    /**
+     * internal use only
+     * @return per-store topology information
+     * @hidden
+     */
+    public List<TopologyInfo> getStoreTopologies() {
+        return storeTopologies;
+    }
+
+    /**
+     * internal use only
+     * @param topologies per-store topology information
+     * @hidden
+     */
+    public void setStoreTopologies(List<TopologyInfo> topologies) {
+        storeTopologies = topologies;
     }
 
     /**
