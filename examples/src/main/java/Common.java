@@ -14,6 +14,7 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.ReadThrottlingException;
 import oracle.nosql.driver.Region;
 import oracle.nosql.driver.iam.SignatureProvider;
+import oracle.nosql.driver.kv.OAuthAccessTokenProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.PrepareRequest;
 import oracle.nosql.driver.ops.PrepareResult;
@@ -77,6 +78,13 @@ import oracle.nosql.driver.values.MapValue;
  *     BasicTableExample https://localhost:443 -useKVProxy -user driver \
  *     -password Driver.User@01
  *
+ * Run against an OAuth-enabled secure proxy and store. The access token and
+ * its remaining lifetime are supplied in the NOSQL_OAUTH_ACCESS_TOKEN and
+ * NOSQL_OAUTH_EXPIRES_IN_SECONDS environment variables:
+ *   java -Djavax.net.ssl.trustStorePassword=123456                    \
+ *     -Djavax.net.ssl.trustStore=driver.trust -cp .:../lib/nosqldriver.jar \
+ *     BasicTableExample https://localhost:443 -useKVProxy -useOAuth
+ *
  * Credential Setup
  * ----------------
  * If you are running against the cloud service, you will need to
@@ -101,12 +109,18 @@ class Common {
     private static final String USER_FLAG = "-user";
     private static final String PASSWORD_FLAG = "-password";
     private static final String CONFIG_FLAG = "-configFile";
+    private static final String OAUTH_FLAG = "-useOAuth";
+    private static final String OAUTH_ACCESS_TOKEN_ENV =
+        "NOSQL_OAUTH_ACCESS_TOKEN";
+    private static final String OAUTH_EXPIRES_IN_ENV =
+        "NOSQL_OAUTH_EXPIRES_IN_SECONDS";
 
     private String endpoint;
     private final String exampleName;
     private boolean useCloudService;
     private boolean useCloudSim;
     private boolean useKVProxy;
+    private boolean useOAuth;
     private String user;
     private char[] password;
     private String configFile;
@@ -183,6 +197,12 @@ class Common {
                           "cloud simulator");
                 }
                 configFile = args[currentArg++];
+            } else if (OAUTH_FLAG.equals(nextArg)) {
+                if (useCloudService) {
+                    usage(OAUTH_FLAG + " cannot be used with the " +
+                          "cloud service endpoint");
+                }
+                useOAuth = true;
             } else {
                 usage("Unknown flag: " + nextArg);
             }
@@ -194,10 +214,13 @@ class Common {
             }
             if (!useKVProxy) {
                 useCloudSim = true;
-                if (user != null || password != null) {
-                    usage("User and password are not valid " +
+                if (user != null || password != null || useOAuth) {
+                    usage("Authentication options are not valid " +
                           "with the cloud simulator");
                 }
+            } else if (useOAuth && (user != null || password != null)) {
+                usage(OAUTH_FLAG + " cannot be combined with " +
+                      USER_FLAG + " or " + PASSWORD_FLAG);
             }
         }
     }
@@ -208,6 +231,7 @@ class Common {
         }
         System.err.println("Usage: java " + exampleName + " <endpoint>" +
                            "\n\t [ " + PROXY_FLAG + "]" +
+                           "\n\t [ " + OAUTH_FLAG + "]" +
                            "\n\t [ " + CONFIG_FLAG + "]" +
                            "\n\t [ " + USER_FLAG + " <userName>]" +
                            "\n\t [ " + PASSWORD_FLAG + " <password>]");
@@ -241,7 +265,7 @@ class Common {
     /**
      * Return an appropriate AuthorizationProvider:
      *  Cloud Service - SignatureProvider
-     *  KV Proxy - StoreAccessTokenProvider
+     *  KV Proxy - StoreAccessTokenProvider or OAuthAccessTokenProvider
      *  Cloud Simulator - CloudSimProvider
      */
     AuthorizationProvider getAuthProvider() {
@@ -267,6 +291,9 @@ class Common {
                 return CloudSimProvider.getProvider();
             }
             assert(useKVProxy);
+            if (useOAuth) {
+                return getOAuthProvider();
+            }
             /* if user is not set, assume not secure */
             if (user == null) {
                 return new StoreAccessTokenProvider();
@@ -274,6 +301,53 @@ class Common {
             return new StoreAccessTokenProvider(user, password);
         } catch (IOException ioe) {
             throw new IllegalArgumentException(ioe);
+        }
+    }
+
+    private OAuthAccessTokenProvider getOAuthProvider() {
+        final String accessToken =
+            getRequiredEnvironment(OAUTH_ACCESS_TOKEN_ENV);
+        final long expiresInSeconds = getOAuthExpiresInSeconds();
+
+        OAuthAccessTokenProvider provider =
+            new OAuthAccessTokenProvider() {
+                @Override
+                protected AccessTokenInfo getAccessTokenInfo() {
+                    return new AccessTokenInfo(accessToken,
+                                               expiresInSeconds);
+                }
+            };
+
+        /*
+         * This example has only one access token. Long-running applications
+         * should leave automatic renewal enabled and obtain a fresh token in
+         * getAccessTokenInfo().
+         */
+        provider.setAutoRenew(false);
+        return provider;
+    }
+
+    private static String getRequiredEnvironment(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Environment variable " + name + " must be set");
+        }
+        return value;
+    }
+
+    private static long getOAuthExpiresInSeconds() {
+        String value = getRequiredEnvironment(OAUTH_EXPIRES_IN_ENV);
+        try {
+            long expiresInSeconds = Long.parseLong(value);
+            if (expiresInSeconds <= 0) {
+                throw new IllegalArgumentException(
+                    OAUTH_EXPIRES_IN_ENV + " must be greater than zero");
+            }
+            return expiresInSeconds;
+        } catch (NumberFormatException nfe) {
+            throw new IllegalArgumentException(
+                OAUTH_EXPIRES_IN_ENV + " must be an integer", nfe);
         }
     }
 
