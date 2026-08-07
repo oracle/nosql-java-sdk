@@ -51,8 +51,11 @@ public class OAuthAccessTokenProviderTest {
     private static final String secondOAuthAccessToken = "OCI_ACCESS_TOKEN_2";
     private static final String loginToken = "OAUTH_LOGIN_TOKEN";
     private static final String reloginToken = "OAUTH_RELOGIN_TOKEN";
-    private static final String loginPrincipal = "oauth-data/it@test.com";
-    private static final String differentLoginPrincipal =
+    private static final String loginIssuer =
+        "https://issuer.example.com/tenant";
+    private static final String loginSubjectType = "user";
+    private static final String loginSubjectId = "oauth-data/it@test.com";
+    private static final String differentSubjectId =
         "oauth-data/other@test.com";
     private static final String authTokenPrefix = "Bearer ";
 
@@ -60,8 +63,10 @@ public class OAuthAccessTokenProviderTest {
     private static final AtomicInteger loginCounter = new AtomicInteger();
     private static final AtomicInteger logoutCounter = new AtomicInteger();
     private static volatile String lastLogoutToken;
-    private static volatile String reloginPrincipal = loginPrincipal;
-    private static volatile boolean omitLoginPrincipal;
+    private static volatile String reloginIssuer = loginIssuer;
+    private static volatile String reloginSubjectType = loginSubjectType;
+    private static volatile String reloginSubjectId = loginSubjectId;
+    private static volatile boolean omitAuthenticatedIdentity;
     private static volatile long loginTokenLifetimeMs = 15_000;
     private static volatile long loginDelayMs;
 
@@ -98,11 +103,14 @@ public class OAuthAccessTokenProviderTest {
                 if (count == 1) {
                     generateLoginToken(
                         loginToken,
-                        omitLoginPrincipal ? null : loginPrincipal,
+                        omitAuthenticatedIdentity ? null : loginIssuer,
+                        loginSubjectType,
+                        loginSubjectId,
                         exchange);
                 } else {
-                    generateLoginToken(reloginToken, reloginPrincipal,
-                                       exchange);
+                    generateLoginToken(reloginToken, reloginIssuer,
+                                       reloginSubjectType,
+                                       reloginSubjectId, exchange);
                 }
             }
         });
@@ -135,8 +143,7 @@ public class OAuthAccessTokenProviderTest {
         loginCounter.set(0);
         logoutCounter.set(0);
         lastLogoutToken = null;
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint);
 
@@ -168,8 +175,7 @@ public class OAuthAccessTokenProviderTest {
     public void testDisableAutoRenew() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
 
@@ -193,8 +199,7 @@ public class OAuthAccessTokenProviderTest {
     public void testLoginTokenExpiryControlsRefresh() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         loginTokenLifetimeMs = 12_000;
         TestProvider provider = new TestProvider(60);
         provider.setEndpoint(endpoint);
@@ -215,8 +220,7 @@ public class OAuthAccessTokenProviderTest {
     public void testRefreshFailureRetainsLoginToken() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         FailingRefreshProvider provider = new FailingRefreshProvider();
         provider.setEndpoint(endpoint);
 
@@ -237,8 +241,7 @@ public class OAuthAccessTokenProviderTest {
     public void testLoginUsesRequestTimeout() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         loginDelayMs = 500;
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
@@ -263,8 +266,7 @@ public class OAuthAccessTokenProviderTest {
     public void testFlushCacheRelogin() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
 
@@ -285,12 +287,34 @@ public class OAuthAccessTokenProviderTest {
     }
 
     @Test
-    public void testReloginWithDifferentPrincipalFails() throws Exception {
+    public void testReloginWithDifferentSubjectIdFails() throws Exception {
+        assertReloginIdentityRejected(loginIssuer, loginSubjectType,
+                                      differentSubjectId);
+    }
+
+    @Test
+    public void testReloginWithDifferentIssuerFails() throws Exception {
+        assertReloginIdentityRejected("https://other.example.com/tenant",
+                                      loginSubjectType, loginSubjectId);
+    }
+
+    @Test
+    public void testReloginWithDifferentSubjectTypeFails() throws Exception {
+        assertReloginIdentityRejected(loginIssuer, "client", loginSubjectId);
+    }
+
+    private void assertReloginIdentityRejected(String issuer,
+                                               String subjectType,
+                                               String subjectId)
+        throws Exception {
+
         loginCounter.set(0);
         logoutCounter.set(0);
         lastLogoutToken = null;
-        omitLoginPrincipal = false;
-        reloginPrincipal = differentLoginPrincipal;
+        resetAuthenticatedIdentity();
+        reloginIssuer = issuer;
+        reloginSubjectType = subjectType;
+        reloginSubjectId = subjectId;
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
 
@@ -301,13 +325,13 @@ public class OAuthAccessTokenProviderTest {
             provider.flushCache();
 
             provider.getAuthorizationString(null);
-            fail("Relogin with a different principal should have failed");
+            fail("Relogin with a different identity should have failed");
         } catch (InvalidAuthorizationException iae) {
             assertTrue(iae.getMessage().startsWith(
                 "Logout required prior to logging in with new " +
                 "user identity."));
         } finally {
-            reloginPrincipal = loginPrincipal;
+            resetAuthenticatedIdentity();
             provider.close();
         }
         assertEquals(1, logoutCounter.get());
@@ -315,23 +339,24 @@ public class OAuthAccessTokenProviderTest {
     }
 
     @Test
-    public void testLoginWithoutPrincipalFails() throws Exception {
+    public void testLoginWithoutAuthenticatedIdentityFails() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
         lastLogoutToken = null;
-        omitLoginPrincipal = true;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
+        omitAuthenticatedIdentity = true;
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
 
         try {
             provider.getAuthorizationString(null);
-            fail("Login without a principal should have failed");
+            fail("Login without an authenticated identity should have failed");
         } catch (InvalidAuthorizationException iae) {
             assertTrue(iae.getMessage().startsWith(
-                "Invalid OAuth login response: principal is missing"));
+                "Invalid OAuth login response: authenticated identity is " +
+                "missing"));
         } finally {
-            omitLoginPrincipal = false;
+            resetAuthenticatedIdentity();
             provider.close();
         }
         assertEquals(1, logoutCounter.get());
@@ -342,8 +367,7 @@ public class OAuthAccessTokenProviderTest {
     public void testCloseLogsOutLoginToken() throws Exception {
         loginCounter.set(0);
         logoutCounter.set(0);
-        omitLoginPrincipal = false;
-        reloginPrincipal = loginPrincipal;
+        resetAuthenticatedIdentity();
         TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint).setAutoRenew(false);
 
@@ -366,8 +390,17 @@ public class OAuthAccessTokenProviderTest {
         }
     }
 
+    private static void resetAuthenticatedIdentity() {
+        omitAuthenticatedIdentity = false;
+        reloginIssuer = loginIssuer;
+        reloginSubjectType = loginSubjectType;
+        reloginSubjectId = loginSubjectId;
+    }
+
     private static void generateLoginToken(String tokenText,
-                                           String principal,
+                                           String issuer,
+                                           String subjectType,
+                                           String subjectId,
                                            HttpExchange exchange) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -385,8 +418,12 @@ public class OAuthAccessTokenProviderTest {
             final String jsonString =
                 "{\"token\":\"" + tokenString + "\"," +
                 "\"expireAt\":" + expireTime +
-                (principal != null ?
-                    ",\"principal\":\"" + principal + "\"" : "") +
+                (issuer != null ?
+                    ",\"authenticatedIdentity\":{" +
+                    "\"type\":\"oauth\"," +
+                    "\"issuer\":\"" + issuer + "\"," +
+                    "\"subjectType\":\"" + subjectType + "\"," +
+                    "\"subjectId\":\"" + subjectId + "\"}" : "") +
                 "}";
 
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK,

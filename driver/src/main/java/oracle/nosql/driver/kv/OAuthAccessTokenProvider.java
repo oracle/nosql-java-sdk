@@ -11,6 +11,7 @@ import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
 import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 
 import java.net.URL;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -79,9 +80,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     private long loginTokenExpireAt;
 
     /*
-     * KV-authenticated principal associated with this provider's login token.
+     * KV-authenticated identity associated with this provider's login token.
      */
-    private String loginPrincipal;
+    private OAuthIdentity authenticatedIdentity;
 
     /* Default refresh time before effective token expiry, 10 seconds */
     private static final int REFRESH_AHEAD_SECONDS = 10;
@@ -206,7 +207,8 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             final LoginResult loginResult =
                 parseJsonResult(response.getOutput());
             try {
-                validateLoginPrincipal(loginResult.getPrincipal());
+                validateAuthenticatedIdentity(
+                    loginResult.getAuthenticatedIdentity());
             } catch (InvalidAuthorizationException iae) {
                 final String rejectedToken = loginResult.getToken();
                 if (rejectedToken != null && !rejectedToken.isEmpty()) {
@@ -292,7 +294,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         tokenInfo = null;
         accessTokenExpireAt = 0;
         loginTokenExpireAt = 0;
-        loginPrincipal = null;
+        authenticatedIdentity = null;
     }
 
     private void logoutSession(String logoutAuth, int timeoutMs) {
@@ -342,26 +344,45 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             JsonUtils.createValueFromJson(jsonResult, null).asMap();
 
         /*
-         * Extract login token, expiration, and authenticated principal from
+         * Extract login token, expiration, and authenticated identity from
          * JSON result.
          */
         return new LoginResult(
             mapValue.getString("token"),
             mapValue.getLong("expireAt"),
-            mapValue.contains("principal") ?
-                mapValue.getString("principal") : null);
+            parseAuthenticatedIdentity(mapValue));
     }
 
-    private void validateLoginPrincipal(String principal) {
-        if (principal == null || principal.isEmpty()) {
-            throw new InvalidAuthorizationException(
-                "Invalid OAuth login response: principal is missing");
+    private OAuthIdentity parseAuthenticatedIdentity(MapValue loginResult) {
+        if (!loginResult.contains("authenticatedIdentity")) {
+            return null;
         }
-        if (loginPrincipal == null) {
-            loginPrincipal = principal;
+        try {
+            final MapValue identity =
+                loginResult.get("authenticatedIdentity").asMap();
+            return new OAuthIdentity(
+                identity.getString("type"),
+                identity.getString("issuer"),
+                identity.getString("subjectType"),
+                identity.getString("subjectId"));
+        } catch (RuntimeException re) {
+            throw new InvalidAuthorizationException(
+                "Invalid OAuth login response: authenticated identity is " +
+                "invalid");
+        }
+    }
+
+    private void validateAuthenticatedIdentity(OAuthIdentity identity) {
+        if (identity == null) {
+            throw new InvalidAuthorizationException(
+                "Invalid OAuth login response: authenticated identity is " +
+                "missing");
+        }
+        if (authenticatedIdentity == null) {
+            authenticatedIdentity = identity;
             return;
         }
-        if (!loginPrincipal.equals(principal)) {
+        if (!authenticatedIdentity.equals(identity)) {
             throw new InvalidAuthorizationException(
                 "Logout required prior to logging in with new user identity.");
         }
@@ -571,24 +592,73 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
 
         private final String token;
         private final long expireAt;
-        private final String principal;
+        private final OAuthIdentity authenticatedIdentity;
 
-        private LoginResult(String token, long expireAt, String principal) {
+        private LoginResult(String token,
+                            long expireAt,
+                            OAuthIdentity authenticatedIdentity) {
             this.token = token;
             this.expireAt = expireAt;
-            this.principal = principal;
+            this.authenticatedIdentity = authenticatedIdentity;
         }
 
         private String getToken() {
             return token;
         }
 
-        private String getPrincipal() {
-            return principal;
+        private OAuthIdentity getAuthenticatedIdentity() {
+            return authenticatedIdentity;
         }
 
         private long getExpireAt() {
             return expireAt;
+        }
+    }
+
+    /** Immutable identity returned by the OAuth login endpoint. */
+    private static final class OAuthIdentity {
+
+        private final String issuer;
+        private final String subjectType;
+        private final String subjectId;
+
+        private OAuthIdentity(String type,
+                              String issuer,
+                              String subjectType,
+                              String subjectId) {
+            if (!"oauth".equals(type) || isBlank(issuer) ||
+                !("user".equals(subjectType) ||
+                  "client".equals(subjectType)) ||
+                isBlank(subjectId)) {
+                throw new IllegalArgumentException(
+                    "Invalid OAuth authenticated identity");
+            }
+            this.issuer = issuer;
+            this.subjectType = subjectType;
+            this.subjectId = subjectId;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof OAuthIdentity)) {
+                return false;
+            }
+            final OAuthIdentity that = (OAuthIdentity) other;
+            return issuer.equals(that.issuer) &&
+                   subjectType.equals(that.subjectType) &&
+                   subjectId.equals(that.subjectId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(issuer, subjectType, subjectId);
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.trim().isEmpty();
         }
     }
 }
