@@ -42,7 +42,7 @@ import org.junit.Test;
 public class OAuthAccessTokenProviderTest {
 
     private static final String loginPath = KV_SECURITY_PATH + "/oauthlogin";
-    private static final String logoutPath = KV_SECURITY_PATH + "/oauthlogout";
+    private static final String logoutPath = KV_SECURITY_PATH + "/logout";
 
     private static final int port = 1444;
     private static final String endpoint = "https://localhost:" + port;

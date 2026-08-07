@@ -48,9 +48,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     private static final String LOGIN_SERVICE = "/oauthlogin";
 
     /*
-     * logout service end point name.
+     * Existing NoSQL login-token logout service. This does not revoke the
+     * original OAuth access token at the identity provider.
      */
-    private static final String LOGOUT_SERVICE = "/oauthlogout";
+    private static final String LOGOUT_SERVICE = "/logout";
 
     /*
      * Default timeout when sending http request to server
