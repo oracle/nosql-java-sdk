@@ -75,7 +75,14 @@ public class DefaultRetryHandler implements RetryHandler {
                       int numRetries,
                       RetryableException re) {
 
-        int delayMs = computeBackoffDelay(request, fixedDelayMs);
+        int delayMs = 0;
+        if (re instanceof ThrottlingException) {
+            ThrottlingException te = (ThrottlingException)re;
+            delayMs = te.getDelayMs();
+        }
+        if (delayMs <= 0) {
+            delayMs = computeBackoffDelay(request, fixedDelayMs);
+        }
         if (delayMs <= 0) {
             return;
         }

@@ -25,10 +25,39 @@ public class ThrottlingException extends RetryableException {
 
     private static final long serialVersionUID = 1L;
 
-    /**
+    /*
+     * In some instances, the server may return a delay hint that
+     * specifies the recommended time to delay before retrying
+     */
+    private int delayMs;
+
+    /*
      * @hidden
      */
     protected ThrottlingException(String msg) {
         super(msg);
+        delayMs = 0;
+    }
+
+    /*
+     * @hidden
+     */
+    protected ThrottlingException(String msg, int delayMs) {
+        super(msg);
+        this.delayMs = delayMs;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setDelayMs(int delayMs) {
+        this.delayMs = delayMs;
+    }
+
+    /*
+     * @hidden
+     */
+    public int getDelayMs() {
+        return delayMs;
     }
 }

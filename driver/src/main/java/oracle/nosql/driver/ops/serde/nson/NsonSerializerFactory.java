@@ -47,6 +47,7 @@ import oracle.nosql.driver.FreeFormTags;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.ThrottlingException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.changestream.ConsumerBuilder;
@@ -3053,22 +3054,23 @@ public class NsonSerializerFactory implements SerializerFactory {
          * Failure is a non-zero code and may also include:
          *  Exception message
          *  Consumed capacity
-         *  Retry hints if throttling (future)
+         *  Retry hints if throttling
          * This method throws an appropriately mapped exception on error and
          * nothing on success.
          *
          *   "error_code": int (code)
          *   "exception": "..."
+         *   "retry_hint": int (recommended delay in ms)
          *   "consumed": {
          *      "read_units": int,
          *      "read_kb": int,
          *      "write_kb": int
          *    }
          *
-         * The walker must be positions at the very first field in the response
+         * The walker must be positioned at the very first field in the response
          * which *must* be the error code.
          *
-         * This method either returns a non-zero error code or throws an
+         * This method either returns a zero error code or throws an
          * exception based on the error code and additional information.
          */
         protected static int handleErrorCode(MapWalker walker)
@@ -3080,12 +3082,15 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             String message = null;
             RuntimeException re = null;
+            int delayMs = 0;
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (EXCEPTION.equals(name)) {
                     message = Nson.readNsonString(in);
                     re = mapException(code, message);
+                } else if (RETRY_HINT.equals(name)) {
+                    delayMs = Nson.readNsonInt(in);
                 } else if (CONSUMED.equals(name)) {
                     /* Exception message must come first */
                     if (re != null && re instanceof NoSQLException) {
@@ -3100,6 +3105,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (re == null) {
                 /* this should not happen, but do our best if so */
                 re = mapException(code, null);
+            }
+            if (delayMs > 0 && re instanceof ThrottlingException) {
+                ThrottlingException te = (ThrottlingException)re;
+                te.setDelayMs(delayMs);
             }
             throw re;
         }

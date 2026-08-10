@@ -52,6 +52,6 @@ public class PollRequest extends Request {
 
     @Override
     public boolean shouldRetry() {
-        return false;
+        return true;
     }
 }
