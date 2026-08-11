@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Added
 - Added per-store topology tracking so advanced queries routed through a proxy
   serving multiple stores use the correct store's shard topology.
+- Added latest OCI region codes
 
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
