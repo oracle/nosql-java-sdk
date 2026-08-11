@@ -113,7 +113,8 @@ public class RequestTest {
             namespaces,
             tableNames,
             (byte)5,
-            0);
+            0,
+            null);
 
         proxyStatement[0] = 9;
         proxyStatements.set(0, new byte[] {9, 9, 9});
@@ -151,7 +152,8 @@ public class RequestTest {
             namespaces,
             tableNames,
             (byte)5,
-            0);
+            0,
+            null);
         QueryRequest request =
             new QueryRequest().setPreparedStatement(prepared);
 

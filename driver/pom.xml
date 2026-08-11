@@ -146,7 +146,8 @@
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
-          SessionTokenProviderTest.java, RequestTest.java
+          SessionTokenProviderTest.java, RequestTest.java,
+          RuntimeControlBlockTest.java
         </included.tests>
       </properties>
     </profile>

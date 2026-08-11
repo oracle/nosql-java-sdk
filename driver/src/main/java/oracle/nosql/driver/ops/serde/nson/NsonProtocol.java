@@ -102,6 +102,7 @@ public class NsonProtocol {
     public static String PREPARED_STATEMENT = "ps";
     public static String QUERY = "q";
     public static String QUERY_BRANCHES = "qb";
+    public static String QUERY_BRANCH_STORES = "qbs";
     public static String QUERY_NAME = "qn";
     public static String QUERY_OPERATION_NUM = "on";
     public static String QUERY_VERSION = "qv";
@@ -115,11 +116,13 @@ public class NsonProtocol {
     public static String RETURN_ROW = "rr";
     public static String SERVER_MEMORY_CONSUMPTION = "sm";
     public static String SHARD_ID = "si";
+    public static String STORE_TOPO_SEQ_NUMS = "sts";
     public static String START = "sr";
     public static String START_LOCATION = "so";
     public static String START_TIME = "se";
     public static String STATEMENT = "st";
     public static String STORAGE_THROTTLE_COUNT = "sl";
+    public static String STORE_ID = "sid";
     public static String SYSTEM = "sy";
     public static String TABLES = "tb";
     public static String TABLE_DDL = "td";
@@ -166,6 +169,7 @@ public class NsonProtocol {
     public static String SHARD_IDS = "sa";
     public static String SUCCESS = "ss";
     public static String TOPOLOGY_INFO = "tp";
+    public static String STORE_TOPOLOGY_INFO = "stp";
     public static String WM_FAILURE = "wf";
     public static String WM_FAIL_INDEX = "wi";
     public static String WM_FAIL_RESULT = "wr";
@@ -307,6 +311,7 @@ public class NsonProtocol {
         {PREPARED_STATEMENT,"PREPARED_STATEMENT"},
         {QUERY,"QUERY"},
         {QUERY_BRANCHES,"QUERY_BRANCHES"},
+        {QUERY_BRANCH_STORES,"QUERY_BRANCH_STORES"},
         {QUERY_NAME,"QUERY_NAME"},
         {QUERY_OPERATION_NUM,"QUERY_OPERATION_NUM"},
         {QUERY_VERSION,"QUERY_VERSION"},
@@ -320,11 +325,13 @@ public class NsonProtocol {
         {RETURN_ROW,"RETURN_ROW"},
         {SERVER_MEMORY_CONSUMPTION,"SERVER_MEMORY_CONSUMPTION"},
         {SHARD_ID,"SHARD_ID"},
+        {STORE_TOPO_SEQ_NUMS,"STORE_TOPO_SEQ_NUMS"},
         {START,"START"},
         {START_LOCATION,"START_LOCATION"},
         {START_TIME,"START_TIME"},
         {STATEMENT,"STATEMENT"},
         {STORAGE_THROTTLE_COUNT,"STORAGE_THROTTLE_COUNT"},
+        {STORE_ID,"STORE_ID"},
         {SYSTEM,"SYSTEM"},
         {TABLES,"TABLES"},
         {TABLE_DDL,"TABLE_DDL"},
@@ -367,6 +374,7 @@ public class NsonProtocol {
         {SHARD_IDS,"SHARD_IDS"},
         {SUCCESS,"SUCCESS"},
         {TOPOLOGY_INFO,"TOPOLOGY_INFO"},
+        {STORE_TOPOLOGY_INFO,"STORE_TOPOLOGY_INFO"},
         {WM_FAILURE,"WM_FAILURE"},
         {WM_FAIL_INDEX,"WM_FAIL_INDEX"},
         {WM_FAIL_RESULT,"WM_FAIL_RESULT"},

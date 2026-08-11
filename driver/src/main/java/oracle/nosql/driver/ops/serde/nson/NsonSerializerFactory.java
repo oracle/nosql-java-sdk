@@ -122,6 +122,13 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.MapValue;
 
 public class NsonSerializerFactory implements SerializerFactory {
+
+    /* Maximum number of stores. */
+    private static final int MAX_STORES = 10_000;
+
+    /* Maximum number of query branches. */
+    private static final int MAX_QUERY_BRANCHES = 10_000;
+
     static private NsonSerializerFactory factory = new NsonSerializerFactory();
 
     /* return the singleton */
@@ -542,6 +549,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readRow(in, result);
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -619,6 +628,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     readReturnInfo(in, result);
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -713,6 +724,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setContinuationKey(Nson.readNsonBinary(in));
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -798,6 +811,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setGeneratedValue(Nson.readFieldValue(in));
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -1233,8 +1248,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (isPrepared) {
                 QueryDriver driver = rq.getDriver();
                 int unionBranch = (driver != null ? driver.getUnionBranch() : 0);
-                byte[] proxyPlan = rq.getPreparedStatement().
-                                      getProxyStatement(unionBranch);
+                PreparedStatement pstmt = rq.getPreparedStatement();
+                byte[] proxyPlan = pstmt.getProxyStatement(unionBranch);
                 writeMapField(ns, IS_PREPARED, isPrepared);
                 writeMapField(ns, IS_SIMPLE_QUERY, rq.isSimpleQuery());
                 writeMapField(ns, PREPARED_QUERY, proxyPlan);
@@ -1250,6 +1265,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
                 writeBindVariables(ns, out,
                               rq.getPreparedStatement().getVariables());
+                writeMapField(ns, STORE_ID,
+                              pstmt.getBranchStoreName(unionBranch));
             } else {
                 writeMapField(ns, STATEMENT, rq.getStatement());
             }
@@ -1373,6 +1390,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             ArrayList<String> namespaces = new ArrayList<>();
             ArrayList<String> tableNames = new ArrayList<>();
             ArrayList<byte[]> proxyPreparedQueries = new ArrayList<>();
+            ArrayList<String> branchStores = null;
+            int numBranches = -1;
 
             DriverPlanInfo dpi = null;
             String queryPlan = null;
@@ -1412,8 +1431,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(QUERY_BRANCHES)) {
                     readType(in, Nson.TYPE_ARRAY);
                     in.readInt(); /* length of array in bytes */
-                    int numBranches = in.readInt(); /* number of array elements */
-
+                    numBranches = readBranchCount(in, QUERY_BRANCHES);
                     for (int i = 0; i < numBranches; ++i) {
                         MapWalker walker2 = getMapWalker(in);
                         while (walker2.hasNext()) {
@@ -1432,6 +1450,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                             }
                         }
                     }
+
+                } else if (name.equals(QUERY_BRANCH_STORES)) {
+                    branchStores = readQueryStoreNames(in);
 
                 } else if (name.equals(DRIVER_QUERY_PLAN)) {
                     dpi = getDriverPlanInfo(Nson.readNsonBinary(in),
@@ -1454,6 +1475,9 @@ public class NsonSerializerFactory implements SerializerFactory {
 
                 } else if (name.equals(QUERY_OPERATION)) {
                     operation = (byte)Nson.readNsonInt(in);
+
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, (qres != null ? qres : pres));
 
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, (qres != null ? qres : pres));
@@ -1500,6 +1524,12 @@ public class NsonSerializerFactory implements SerializerFactory {
                 res.setTopology(new TopologyInfo(proxyTopoSeqNum, shardIds));
             }
 
+            if (branchStores != null && branchStores.size() != numBranches) {
+                throw new IllegalArgumentException(
+                    "Invalid prepared query: QUERY_BRANCH_STORES count does " +
+                    "not match QUERY_BRANCHES count");
+            }
+
             if (qres != null) {
                 qres.setContinuationKey(contKey);
                 qreq.setContKey(qres.getContinuationKey());
@@ -1529,7 +1559,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                                          namespaces,
                                          tableNames,
                                          operation,
-                                         maxParallelism);
+                                         maxParallelism,
+                                         branchStores);
             if (pres != null) {
                 pres.setPreparedStatement(prep);
             } else if (qreq != null) {
@@ -1540,6 +1571,44 @@ public class NsonSerializerFactory implements SerializerFactory {
                     qres.setComputed(false);
                 }
             }
+        }
+
+        /*
+         * Reads the store name for each query branch. Entry i identifies the
+         * store for branch i, so duplicate store names are valid.
+         *
+         * QUERY_BRANCH_STORES: [string, ...]
+         */
+        private static ArrayList<String> readQueryStoreNames(ByteInputStream in)
+            throws IOException {
+
+            readType(in, Nson.TYPE_ARRAY);
+            in.readInt(); /* length of array in bytes */
+
+            int numBranches = readBranchCount(in, QUERY_BRANCH_STORES);
+
+            ArrayList<String> storeNames = new ArrayList<>(numBranches);
+            for (int i = 0; i < numBranches; ++i) {
+                String storeName = Nson.readNsonString(in);
+                if (storeName == null || storeName.isBlank()) {
+                    throw new IllegalArgumentException(
+                        "Invalid prepared query: empty branch STORE_ID");
+                }
+                storeNames.add(storeName);
+            }
+            return storeNames;
+        }
+
+        private static int readBranchCount(ByteInputStream in, String field)
+            throws IOException {
+
+            int numBranches = in.readInt();
+            if (numBranches < 0 || numBranches > MAX_QUERY_BRANCHES) {
+                throw new IllegalArgumentException(
+                    "Invalid prepared query: invalid " +
+                    NsonProtocol.readable(field) + " count");
+            }
+            return numBranches;
         }
 
         private static VirtualScan readVirtualScan(ByteInputStream in)
@@ -1846,6 +1915,8 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             writeMapField(ns, OP_CODE, OpCode.WRITE_MULTIPLE.ordinal());
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
+            writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
+            writeStoreTopoSeqs(ns, rq.getStoreTopoSeqNums());
             endMap(ns, HEADER);
 
             /*
@@ -1956,6 +2027,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     }
                 } else if (name.equals(TOPOLOGY_INFO)) {
                     readTopologyInfo(in, result);
+                } else if (name.equals(STORE_TOPOLOGY_INFO)) {
+                    readStoreTopoInfo(in, result);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -2756,6 +2829,7 @@ public class NsonSerializerFactory implements SerializerFactory {
          *  version (int)
          *  operation (int)
          *  sequence number of cached topology, if available
+         *  per-store topology sequence number, if available
          *  timeout (int)
          *  tableName if available
          *   it is helpful to have the tableName available as early as possible
@@ -2773,6 +2847,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             }
             writeMapField(ns, OP_CODE, op);
             writeMapField(ns, TOPO_SEQ_NUM, rq.topoSeqNum());
+            writeStoreTopoSeqs(ns, rq.getStoreTopoSeqNums());
             writeMapField(ns, TIMEOUT, rq.getTimeoutInternal());
             if (rq.getPreferThrottling()) {
                 writeMapField(ns, PREFER_THROTTLING, true);
@@ -2780,6 +2855,38 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getDRLOptIn()) {
                 writeMapField(ns, DRL_OPTIN, true);
             }
+        }
+
+        /**
+         * Writes per-store topology sequence numbers in the request header.
+         * Each entry identifies a store and its cached topology sequence, it
+         * does not include shard IDs.
+         *
+         * STORE_TOPO_SEQ_NUMS: [
+         *   {
+         *     STORE_ID: string,
+         *     TOPO_SEQ_NUM: integer
+         *   },
+         *   ..
+         * ]
+         */
+        protected static void writeStoreTopoSeqs(NsonSerializer ns,
+                                                 Map<String, Integer> topoSeqs)
+            throws IOException {
+
+            if (topoSeqs == null) {
+                return;
+            }
+
+            startArray(ns, STORE_TOPO_SEQ_NUMS);
+            for (Map.Entry<String, Integer> e : topoSeqs.entrySet()) {
+                ns.startMap(0);
+                writeMapField(ns, STORE_ID, e.getKey());
+                writeMapField(ns, TOPO_SEQ_NUM, e.getValue());
+                ns.endMap(0);
+                ns.incrSize(1);
+            }
+            endArray(ns, STORE_TOPO_SEQ_NUMS);
         }
 
         /**
@@ -3142,13 +3249,14 @@ public class NsonSerializerFactory implements SerializerFactory {
         }
 
         /*
+         * Read the legacy global topology information:
+         *
          * "topology_info" : {
          *    "PROXY_TOPO_SEQNUM" : int
          *    "SHARD_IDS" : [ int, ... ]
          * }
          */
-        static void readTopologyInfo(ByteInputStream in,
-                                             Result result)
+        static void readTopologyInfo(ByteInputStream in, Result result)
             throws IOException {
 
             int proxyTopoSeqNum = -1;
@@ -3172,6 +3280,88 @@ public class NsonSerializerFactory implements SerializerFactory {
                 ti = new TopologyInfo(proxyTopoSeqNum, shardIds);
                 result.setTopology(ti);
             }
+        }
+
+        /*
+         * Reads the per-store topology array.
+         *
+         * "STORE_TOPOLOGY_INFO" : [
+         *   {
+         *     "STORE_ID": string,
+         *     "PROXY_TOPO_SEQNUM" : int,
+         *     "SHARD_IDS" : [ int, ... ]
+         *   },
+         *   ...
+         * ]
+         */
+        protected static void readStoreTopoInfo(ByteInputStream in,
+                                                Result result)
+            throws IOException {
+
+            readType(in, Nson.TYPE_ARRAY);
+            in.readInt(); /* length of array in bytes */
+            int numTopos = in.readInt();
+            if (numTopos < 0 || numTopos > MAX_STORES) {
+                throw new IllegalArgumentException(
+                    "Invalid number of topology entries: " + numTopos);
+            }
+
+            ArrayList<TopologyInfo> storeTopos = new ArrayList<>(numTopos);
+            for (int i = 0; i < numTopos; ++i) {
+                TopologyInfo ti = readStoreTopoEntry(in);
+                if (ti != null) {
+                    storeTopos.add(ti);
+                }
+            }
+
+            result.setStoreTopologies(storeTopos);
+        }
+
+        /*
+         * Reads a store topology entry:
+         *  {
+         *    "STORE_ID" : string,
+         *    "PROXY_TOPO_SEQNUM" : int,
+         *    "SHARD_IDS" : [ int, ... ]
+         *  }
+         */
+        private static TopologyInfo readStoreTopoEntry(ByteInputStream in)
+            throws IOException {
+
+            String storeName = null;
+            int proxyTopoSeqNum = -1;
+            int[] shardIds = null;
+            MapWalker walker = new MapWalker(in);
+
+            while (walker.hasNext()) {
+                walker.next();
+                String name = walker.getCurrentName();
+                if (name.equals(STORE_ID)) {
+                    storeName = Nson.readNsonString(in);
+                } else if (name.equals(PROXY_TOPO_SEQNUM)) {
+                    proxyTopoSeqNum = Nson.readNsonInt(in);
+                } else if (name.equals(SHARD_IDS)) {
+                    shardIds = readNsonIntArray(in);
+                } else {
+                    skipUnknownField(walker, name);
+                }
+            }
+
+            if (storeName == null) {
+                throw new IllegalArgumentException(
+                    "Per-store topology entry is missing store id");
+            }
+            if (proxyTopoSeqNum < 0) {
+                throw new IllegalArgumentException(
+                    "Per-store topology entry has invalid topoSeqNum: " +
+                    proxyTopoSeqNum);
+            }
+            if (shardIds == null) {
+                throw new IllegalArgumentException(
+                    "Per-store topology entry is missing shard IDs");
+            }
+
+            return new TopologyInfo(storeName, proxyTopoSeqNum, shardIds);
         }
 
         // TODO: move this to Nson
