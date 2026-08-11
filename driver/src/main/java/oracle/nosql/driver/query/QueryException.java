@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.query;
 
+import java.io.Serializable;
+
 /**
  * A class to hold query exceptions indicating syntactic or semantic problems
  * at the driver side during query execution. It is internal use only and it
@@ -22,7 +24,9 @@ public class QueryException extends RuntimeException {
      * Location of an expression in the query. It contains both start and
      * end, line and column info.
      */
-    public static class Location {
+    public static class Location implements Serializable {
+
+        private static final long serialVersionUID = 1L;
 
         private final int startLine;
         /* defined as char position in line */

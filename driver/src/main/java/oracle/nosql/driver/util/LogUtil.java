@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.DefaultHttpHeadersFactory;
 import io.netty.handler.codec.http.HttpHeaders;
 
 /**
@@ -134,7 +134,10 @@ public class LogUtil {
             return "null";
         }
 
-        final HttpHeaders formatted = new DefaultHttpHeaders(false);
+        final HttpHeaders formatted =
+            DefaultHttpHeadersFactory.headersFactory()
+                .withValidation(false)
+                .newHeaders();
         for (Map.Entry<String, String> entry : headers) {
             formatted.add(entry.getKey(),
                           formatHeaderValueForLog(entry.getKey(),
