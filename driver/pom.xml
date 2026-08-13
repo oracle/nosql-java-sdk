@@ -88,7 +88,8 @@
         <serverType>cloudsim</serverType>
         <!-- exclude non-server tests and on-premises tests -->
         <excluded.tests>
-          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          StoreAccessTokenProviderTest.java, OAuthAccessTokenProviderTest.java,
+          ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
@@ -106,7 +107,8 @@
         <serverType>onprem</serverType>
         <!-- exclude non-server tests -->
         <excluded.tests>
-          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          StoreAccessTokenProviderTest.java, OAuthAccessTokenProviderTest.java,
+          ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
@@ -124,7 +126,8 @@
         <serverType>onprem</serverType>
         <!-- exclude non-server tests -->
         <excluded.tests>
-          StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
+          StoreAccessTokenProviderTest.java, OAuthAccessTokenProviderTest.java,
+          ResourcePrincipalProviderTest.java,
           ConfigFileTest.java, SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,

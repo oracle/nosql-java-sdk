@@ -29,6 +29,7 @@ import org.junit.Test;
 
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.Assert.assertEquals;
@@ -66,7 +67,11 @@ public class AuthRetryTest extends DriverTestBase {
     public void testOAuthAuthenticationExceptionRetry()
         throws Exception {
 
-        testHttpClient.authenticationExceptionMode = true;
+        testHttpClient.oauthFailures =
+            new OAuthFailure[] {
+                OAuthFailure.AUTHENTICATION,
+                OAuthFailure.AUTHENTICATION
+            };
         TestOAuthProvider provider = new TestOAuthProvider();
         TestClient client = getTestClient(provider);
 
@@ -82,10 +87,48 @@ public class AuthRetryTest extends DriverTestBase {
                      () -> client.execute(request));
         assertEquals(2, testHttpClient.execCount.get());
         assertEquals(2, testHttpClient.authenticationExceptionCount.get());
-        assertEquals(1, provider.flushCount.get());
+        assertEquals(1, provider.invalidationCount.get());
+        assertEquals("Bearer Test-1", provider.lastInvalidated.get());
+        assertEquals(0, provider.flushCount.get());
         assertEquals(1,
                      request.getRetryStats()
                          .getNumExceptions(AuthenticationException.class));
+    }
+
+    @Test
+    public void testOAuthAlternatingAuthenticationThenAuthorization() {
+        assertOAuthFailureSequence(
+            OAuthFailure.AUTHENTICATION,
+            OAuthFailure.INVALID_AUTHORIZATION,
+            InvalidAuthorizationException.class);
+    }
+
+    @Test
+    public void testOAuthAlternatingAuthorizationThenAuthentication() {
+        assertOAuthFailureSequence(
+            OAuthFailure.INVALID_AUTHORIZATION,
+            OAuthFailure.AUTHENTICATION,
+            AuthenticationException.class);
+    }
+
+    private void assertOAuthFailureSequence(
+        OAuthFailure first,
+        OAuthFailure second,
+        Class<? extends RuntimeException> expectedClass) {
+
+        testHttpClient.oauthFailures = new OAuthFailure[] { first, second };
+        TestOAuthProvider provider = new TestOAuthProvider();
+        TestClient client = getTestClient(provider);
+        Request request = new GetRequest().setTableName("foo")
+            .setKey(new MapValue().put("foo", "bar"));
+
+        assertThrows(expectedClass, () -> client.execute(request));
+        assertEquals(2, testHttpClient.execCount.get());
+        assertEquals(1, provider.invalidationCount.get());
+        assertEquals("Bearer Test-1", provider.lastInvalidated.get());
+        assertEquals("Bearer Test-2", provider.authorization.get());
+        assertEquals(0, provider.flushCount.get());
+        assertEquals(1, request.getRetryStats().getRetries());
     }
 
     private TestClient getTestClient() {
@@ -129,7 +172,7 @@ public class AuthRetryTest extends DriverTestBase {
         private final AtomicInteger iaeCount = new AtomicInteger(0);
         private final AtomicInteger authenticationExceptionCount =
             new AtomicInteger(0);
-        private boolean authenticationExceptionMode;
+        private OAuthFailure[] oauthFailures;
 
         public TestHttpClient() {
             super("localhost", 8080, 1, 0, 0, 0, 0, null, 0, "test", null);
@@ -139,10 +182,16 @@ public class AuthRetryTest extends DriverTestBase {
         public void runRequest(HttpRequest request,
                                ResponseHandler handler,
                                Channel channel) {
-            if (authenticationExceptionMode) {
-                execCount.incrementAndGet();
-                authenticationExceptionCount.incrementAndGet();
-                throw new AuthenticationException("test");
+            if (oauthFailures != null) {
+                final int index = execCount.getAndIncrement();
+                final OAuthFailure failure =
+                    oauthFailures[Math.min(index, oauthFailures.length - 1)];
+                if (failure == OAuthFailure.AUTHENTICATION) {
+                    authenticationExceptionCount.incrementAndGet();
+                    throw new AuthenticationException("test");
+                }
+                iaeCount.incrementAndGet();
+                throw new InvalidAuthorizationException("test");
             }
 
             /*
@@ -177,11 +226,26 @@ public class AuthRetryTest extends DriverTestBase {
 
     private static class TestOAuthProvider extends OAuthAccessTokenProvider {
 
+        private final AtomicReference<String> authorization =
+            new AtomicReference<String>("Bearer Test-1");
+        private final AtomicReference<String> lastInvalidated =
+            new AtomicReference<String>();
+        private final AtomicInteger invalidationCount = new AtomicInteger(0);
         private final AtomicInteger flushCount = new AtomicInteger(0);
 
         @Override
         public String getAuthorizationString(Request request) {
-            return "Bearer Test";
+            return authorization.get();
+        }
+
+        @Override
+        public boolean invalidateAuthorizationString(
+            String failedAuthorization) {
+
+            invalidationCount.incrementAndGet();
+            lastInvalidated.set(failedAuthorization);
+            return authorization.compareAndSet(
+                failedAuthorization, "Bearer Test-2");
         }
 
         @Override
@@ -193,5 +257,10 @@ public class AuthRetryTest extends DriverTestBase {
         protected AccessTokenInfo getAccessTokenInfo() {
             return new AccessTokenInfo("Test", 60);
         }
+    }
+
+    private enum OAuthFailure {
+        AUTHENTICATION,
+        INVALID_AUTHORIZATION
     }
 }

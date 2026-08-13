@@ -856,23 +856,22 @@ public class Client {
                      * responses are surfaced as authentication failures
                      * instead of eventually timing out the request.
                      */
-                    if (retriedException(kvRequest,
-                                         AuthenticationException.class)) {
+                    if (retriedOAuthAuthentication(kvRequest)) {
                         kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                         statsControl.observeError(kvRequest);
                         logFine(logger,
-                                "Client OAuth re-auth failed: " +
-                                rae.getMessage());
+                                "Client OAuth re-auth failed with " +
+                                rae.getClass().getName());
                         throw rae;
                     }
-                    authProvider.flushCache();
+                    ((OAuthAccessTokenProvider) authProvider)
+                        .invalidateAuthorizationString(authString);
                     kvRequest.addRetryException(rae.getClass());
                     kvRequest.incrementRetries();
                     exception = rae;
                     logFine(logger,
                             "Client retrying OAuth re-auth on " +
-                            "AuthenticationException: " +
-                            rae.getMessage());
+                            rae.getClass().getName());
                     continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
@@ -889,23 +888,47 @@ public class Client {
                  * failures. This does not include permissions-related errors,
                  * which would be a UnauthorizedException.
                  */
-                if (retriedException(kvRequest,
-                                     InvalidAuthorizationException.class)) {
+                final boolean oauthProvider =
+                    authProvider instanceof OAuthAccessTokenProvider;
+                if ((oauthProvider &&
+                     retriedOAuthAuthentication(kvRequest)) ||
+                    (!oauthProvider &&
+                     retriedException(
+                         kvRequest,
+                         InvalidAuthorizationException.class))) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
-                    logFine(logger, "Client execute NoSQLException: " +
-                            iae.getMessage());
+                    if (oauthProvider) {
+                        logFine(logger,
+                                "Client OAuth authorization failed with " +
+                                iae.getClass().getName());
+                    } else {
+                        logFine(logger, "Client execute NoSQLException: " +
+                                iae.getMessage());
+                    }
                     throw iae;
                 }
                 /* flush auth cache and do one retry */
-                authProvider.flushCache();
+                if (oauthProvider) {
+                    ((OAuthAccessTokenProvider) authProvider)
+                        .invalidateAuthorizationString(authString);
+                } else {
+                    authProvider.flushCache();
+                }
                 kvRequest.addRetryException(iae.getClass());
                 kvRequest.incrementRetries();
                 exception = iae;
-                logFine(logger,
+                if (oauthProvider) {
+                    logFine(logger,
+                            "Client retrying OAuth authorization after " +
+                            iae.getClass().getName());
+                } else {
+                    logFine(
+                        logger,
                         "Client retrying on InvalidAuthorizationException: " +
                         iae.getMessage());
+                }
                 continue;
             } catch (SecurityInfoNotReadyException sinre) {
                 kvRequest.addRetryException(sinre.getClass());
@@ -1634,6 +1657,12 @@ public class Client {
         return rs.getNumExceptions(exceptionClass) > 0;
     }
 
+    private boolean retriedOAuthAuthentication(Request request) {
+        return retriedException(request, AuthenticationException.class) ||
+               retriedException(
+                   request, InvalidAuthorizationException.class);
+    }
+
     private void throwIfTransportRetryNotAllowed(Request request,
                                                  Throwable cause,
                                                  int rateDelayedMs) {
@@ -1665,8 +1694,15 @@ public class Client {
     private void logRetries(int numRetries, Throwable exception) {
         Level level = Level.FINE;
         if (logger != null) {
+            final String exceptionDetail =
+                exception == null ? "" :
+                ", exception: " +
+                (authProvider instanceof OAuthAccessTokenProvider &&
+                 (exception instanceof AuthenticationException ||
+                  exception instanceof InvalidAuthorizationException) ?
+                    exception.getClass().getName() : exception);
             logger.log(level, "Client, doing retry: " + numRetries +
-                       (exception != null ? ", exception: " + exception : ""));
+                       exceptionDetail);
         }
     }
 

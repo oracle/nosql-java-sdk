@@ -12,10 +12,11 @@ import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 
 import java.net.URL;
 import java.util.Objects;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
@@ -121,7 +122,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     /*
      * Whether this provider is closed
      */
-    private volatile boolean isClosed = false;
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     /*
      *  SslContext used by http client
@@ -141,12 +142,15 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     /*
      * A schedule used to periodically invoke the callback
      */
-    private final ScheduledExecutorService scheduler;
+    private final ScheduledThreadPoolExecutor scheduler;
 
     /*
      * Current scheduled refresh task.
      */
     private ScheduledFuture<?> refreshTask;
+
+    /* Invalidates a scheduled refresh that has already started running. */
+    private final AtomicLong refreshGeneration = new AtomicLong();
 
 
     public OAuthAccessTokenProvider() {
@@ -154,11 +158,12 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         endpoint = null;
         loginPort = 0;
         logger = null;
-        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        scheduler = new ScheduledThreadPoolExecutor(1, r -> {
             Thread t = new Thread(r, "OAuthTokenRefresher");
             t.setDaemon(true);
             return t;
         });
+        scheduler.setRemoveOnCancelPolicy(true);
     }
 
     /**
@@ -170,15 +175,23 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     protected abstract AccessTokenInfo getAccessTokenInfo();
 
-    private synchronized void performLogin(boolean force, Request request) {
+    private synchronized void performLogin(boolean force,
+                                           Request request,
+                                           long expectedGeneration) {
+        final String oldAuthorization = authString.get();
         /* re-check the authString in case of a race */
-        if (isClosed || (!force && authString.get() != null)) {
+        if (loginAborted(force, expectedGeneration)) {
             return;
         }
 
         final AccessTokenInfo newTokenInfo =
             validateAccessTokenInfo(getAccessTokenInfo());
+        if (loginAborted(force, expectedGeneration)) {
+            return;
+        }
         final long accessTokenAcquireTime = System.currentTimeMillis();
+        final long newAccessTokenExpireAt =
+            getAccessTokenExpireAt(newTokenInfo, accessTokenAcquireTime);
         final int timeoutMs =
             (request != null) ? request.getTimeoutInternal() : 0;
 
@@ -186,20 +199,25 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             /*
              * Send request to server for login token
              */
+            if (loginAborted(force, expectedGeneration)) {
+                return;
+            }
             HttpResponse response =
                 sendRequest(BEARER_PREFIX + newTokenInfo.getAccessToken(),
                             LOGIN_SERVICE, timeoutMs);
+
+            if (loginAborted(force, expectedGeneration)) {
+                logoutLoginResponse(response, timeoutMs);
+                return;
+            }
 
             /*
              * login fail
              */
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 throw new InvalidAuthorizationException(
-                    "Fail to login to service: " + response.getOutput());
-            }
-
-            if (isClosed) {
-                return;
+                    "OAuth login failed with HTTP status " +
+                    response.getStatusCode());
             }
 
             /*
@@ -208,6 +226,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             final LoginResult loginResult =
                 parseJsonResult(response.getOutput());
             try {
+                validateLoginTokenExpiration(loginResult);
                 validateAuthenticatedIdentity(
                     loginResult.getAuthenticatedIdentity());
             } catch (InvalidAuthorizationException iae) {
@@ -217,11 +236,16 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 }
                 throw iae;
             }
-            authString.set(BEARER_PREFIX + loginResult.getToken());
+            if (loginAborted(force, expectedGeneration) ||
+                !authString.compareAndSet(
+                    oldAuthorization,
+                    BEARER_PREFIX + loginResult.getToken())) {
+                logoutSession(
+                    BEARER_PREFIX + loginResult.getToken(), timeoutMs);
+                return;
+            }
             tokenInfo = newTokenInfo;
-            accessTokenExpireAt = accessTokenAcquireTime +
-                TimeUnit.SECONDS.toMillis(
-                    newTokenInfo.getExpiresInSeconds());
+            accessTokenExpireAt = newAccessTokenExpireAt;
             loginTokenExpireAt = loginResult.getExpireAt();
             /*
              * Schedule access token refresh thread
@@ -235,6 +259,31 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         }
     }
 
+    private boolean loginAborted(boolean force, long expectedGeneration) {
+        return isClosed.get() ||
+               (expectedGeneration >= 0 &&
+                (expectedGeneration != refreshGeneration.get() ||
+                 !autoRenew)) ||
+               (!force && authString.get() != null);
+    }
+
+    private long getAccessTokenExpireAt(AccessTokenInfo accessTokenInfo,
+                                        long acquireTime) {
+        final long expiresInSeconds =
+            accessTokenInfo.getExpiresInSeconds();
+        if (expiresInSeconds == 0) {
+            return 0;
+        }
+        try {
+            return Math.addExact(
+                acquireTime,
+                Math.multiplyExact(expiresInSeconds, 1000L));
+        } catch (ArithmeticException ae) {
+            throw new IllegalArgumentException(
+                "Access token lifetime is too large", ae);
+        }
+    }
+
     /**
      * @hidden
      */
@@ -244,7 +293,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         /*
          * Already close
          */
-        if (isClosed) {
+        if (isClosed.get()) {
             return null;
         }
 
@@ -253,7 +302,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          * the login token and generate the auth string.
          */
         if (authString.get() == null) {
-            performLogin(false, request);
+            performLogin(false, request, -1);
         }
         return authString.get();
     }
@@ -262,40 +311,33 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * Closes the provider, releasing resources such as a stored login token.
      */
     @Override
-    public synchronized void close() {
+    public void close() {
 
         /*
          * Already closed
          */
-        if (isClosed) {
+        if (!isClosed.compareAndSet(false, true)) {
             return;
         }
 
-        final String logoutAuth = authString.get();
-        isClosed = true;
-        if (!scheduler.isShutdown()) {
-            scheduler.shutdownNow();
-        }
-        if (refreshTask != null) {
-            refreshTask.cancel(false);
-            refreshTask = null;
+        refreshGeneration.incrementAndGet();
+        final String logoutAuth;
+        synchronized (this) {
+            logoutAuth = authString.getAndSet(null);
+            if (!scheduler.isShutdown()) {
+                scheduler.shutdownNow();
+            }
+            cancelRefreshTask();
+
+            tokenInfo = null;
+            accessTokenExpireAt = 0;
+            loginTokenExpireAt = 0;
+            authenticatedIdentity = null;
         }
 
-        /*
-         * Send request for logout
-         */
         if (logoutAuth != null) {
             logoutSession(logoutAuth, 0);
         }
-
-        /*
-         * Clean up
-         */
-        authString.set(null);
-        tokenInfo = null;
-        accessTokenExpireAt = 0;
-        loginTokenExpireAt = 0;
-        authenticatedIdentity = null;
     }
 
     private void logoutSession(String logoutAuth, int timeoutMs) {
@@ -304,12 +346,13 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 sendRequest(logoutAuth, LOGOUT_SERVICE, timeoutMs);
             if (response.getStatusCode() != HttpResponseStatus.OK.code() &&
                 logger != null) {
-                logger.info("Failed to logout OAuth session, response: " +
-                            response.getOutput());
+                logger.info("Failed to logout OAuth session, HTTP status " +
+                            response.getStatusCode());
             }
         } catch (Exception e) {
             if (logger != null) {
-                logger.info("Failed to logout OAuth session, exception: " + e);
+                logger.info("Failed to logout OAuth session, exception type " +
+                            e.getClass().getName());
             }
         }
     }
@@ -319,10 +362,53 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     @Override
     public void flushCache() {
-        if (isClosed) {
-            return;
+        refreshGeneration.incrementAndGet();
+        synchronized (this) {
+            if (isClosed.get()) {
+                return;
+            }
+            authString.set(null);
+            cancelRefreshTask();
+            clearTokenExpirationState();
         }
-        authString.set(null);
+    }
+
+    /**
+     * Invalidates the cached login token only if it was used by the failed
+     * request. A newer token installed by another request is preserved.
+     *
+     * @hidden
+     *
+     * @param failedAuthorization authorization value used by the failed request
+     * @return true if the cached value was invalidated
+     */
+    public boolean invalidateAuthorizationString(String failedAuthorization) {
+        if (isClosed.get() || failedAuthorization == null ||
+            !failedAuthorization.equals(authString.get())) {
+            return false;
+        }
+
+        refreshGeneration.incrementAndGet();
+        synchronized (this) {
+            if (isClosed.get()) {
+                return false;
+            }
+            if (!authString.compareAndSet(failedAuthorization, null)) {
+                if (authString.get() != null && tokenInfo != null) {
+                    scheduleRefresh();
+                }
+                return false;
+            }
+            cancelRefreshTask();
+            clearTokenExpirationState();
+            return true;
+        }
+    }
+
+    private void clearTokenExpirationState() {
+        tokenInfo = null;
+        accessTokenExpireAt = 0;
+        loginTokenExpireAt = 0;
     }
 
     private AccessTokenInfo validateAccessTokenInfo(
@@ -352,6 +438,34 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             mapValue.getString("token"),
             mapValue.getLong("expireAt"),
             parseAuthenticatedIdentity(mapValue));
+    }
+
+    private void validateLoginTokenExpiration(LoginResult loginResult) {
+        final long expireAt = loginResult.getExpireAt();
+        if (expireAt > 0 && expireAt <= System.currentTimeMillis()) {
+            throw new InvalidAuthorizationException(
+                "OAuth login response contains an expired login token");
+        }
+    }
+
+    private void logoutLoginResponse(HttpResponse response, int timeoutMs) {
+        if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
+            return;
+        }
+        try {
+            final MapValue loginResult =
+                JsonUtils.createValueFromJson(
+                    response.getOutput(), null).asMap();
+            final String token = loginResult.getString("token");
+            if (token != null && !token.isEmpty()) {
+                logoutSession(BEARER_PREFIX + token, timeoutMs);
+            }
+        } catch (RuntimeException re) {
+            if (logger != null) {
+                logger.info("Unable to clean up OAuth login response, " +
+                            "exception type " + re.getClass().getName());
+            }
+        }
     }
 
     private OAuthIdentity parseAuthenticatedIdentity(MapValue loginResult) {
@@ -391,11 +505,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
 
     /* Schedule automatic re-login slightly before expiry */
     private synchronized void scheduleRefresh() {
-        if (refreshTask != null) {
-            refreshTask.cancel(false);
-            refreshTask = null;
-        }
-        if (!autoRenew || isClosed || tokenInfo == null ||
+        final long generation = refreshGeneration.incrementAndGet();
+        cancelRefreshTask();
+        if (!autoRenew || isClosed.get() || tokenInfo == null ||
             tokenInfo.getExpiresInSeconds() <= 0 || scheduler.isShutdown()) {
             return;
         }
@@ -410,22 +522,38 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         refreshTask = scheduler.schedule(new Runnable() {
             @Override
             public void run() {
-                refreshLoginToken();
+                refreshLoginToken(generation);
             }
         }, delay, TimeUnit.MILLISECONDS);
     }
 
-    private void refreshLoginToken() {
-        if (!autoRenew || isClosed) {
+    private void refreshLoginToken(long generation) {
+        if (!autoRenew || isClosed.get() ||
+            generation != refreshGeneration.get()) {
             return;
         }
 
         try {
-            performLogin(true, null);
+            performLogin(true, null, generation);
         } catch (Exception e) {
             if (logger != null) {
-                logger.info("Failed to obtain refreshed token: " + e);
+                logger.info("Failed to obtain refreshed token, exception " +
+                            "type " + e.getClass().getName());
             }
+        }
+    }
+
+    private void invalidateRefreshTask() {
+        refreshGeneration.incrementAndGet();
+        synchronized (this) {
+            cancelRefreshTask();
+        }
+    }
+
+    private void cancelRefreshTask() {
+        if (refreshTask != null) {
+            refreshTask.cancel(false);
+            refreshTask = null;
         }
     }
 
@@ -516,7 +644,15 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * @return this
      */
     public OAuthAccessTokenProvider setAutoRenew(boolean autoRenew) {
+        if (this.autoRenew == autoRenew) {
+            return this;
+        }
         this.autoRenew = autoRenew;
+        if (autoRenew) {
+            scheduleRefresh();
+        } else {
+            invalidateRefreshTask();
+        }
         return this;
     }
 
@@ -537,15 +673,15 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                  !disableSSLHook ? sslContext : null,
                  sslHandshakeTimeoutMs,
                  serviceName,
-                 logger);
+                 null);
             if (timeoutMs == 0) {
                 timeoutMs = HTTP_TIMEOUT_MS;
             }
-            return HttpRequestUtil.doGetRequest(
+            return HttpRequestUtil.doGetRequestOnce(
                 client,
                 NoSQLHandleConfig.createURL(endpoint, basePath + serviceName)
                 .toString(),
-                headers, timeoutMs, logger);
+                headers, timeoutMs, null);
         } finally {
             if (client != null) {
                 client.shutdown();
@@ -563,7 +699,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          * Creates access token information.
          *
          * @param accessToken OAuth access token
-         * @param expiresInSeconds token lifetime in seconds
+         * @param expiresInSeconds token lifetime in seconds. A value of zero
+         * disables automatic renewal. A positive value must be small enough to
+         * produce a future expiration time in milliseconds.
          */
         public AccessTokenInfo(String accessToken, long expiresInSeconds) {
             if (expiresInSeconds < 0) {

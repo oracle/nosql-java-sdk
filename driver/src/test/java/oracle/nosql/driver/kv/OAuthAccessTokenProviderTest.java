@@ -10,6 +10,7 @@ package oracle.nosql.driver.kv;
 import static oracle.nosql.driver.util.HttpConstants.AUTHORIZATION;
 import static oracle.nosql.driver.util.HttpConstants.KV_SECURITY_PATH;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -21,9 +22,18 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
@@ -35,6 +45,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -69,6 +80,10 @@ public class OAuthAccessTokenProviderTest {
     private static volatile boolean omitAuthenticatedIdentity;
     private static volatile long loginTokenLifetimeMs = 15_000;
     private static volatile long loginDelayMs;
+    private static volatile int loginStatus = HttpURLConnection.HTTP_OK;
+    private static volatile String loginErrorBody = "";
+    private static volatile int logoutStatus = HttpURLConnection.HTTP_OK;
+    private static volatile String logoutErrorBody = "";
 
     @BeforeClass
     public static void staticSetUp() throws Exception {
@@ -100,6 +115,10 @@ public class OAuthAccessTokenProviderTest {
                         throw new IOException("Login handler interrupted", ie);
                     }
                 }
+                if (loginStatus != HttpURLConnection.HTTP_OK) {
+                    sendResponse(exchange, loginStatus, loginErrorBody);
+                    return;
+                }
                 if (count == 1) {
                     generateLoginToken(
                         loginToken,
@@ -124,8 +143,7 @@ public class OAuthAccessTokenProviderTest {
                 assertTrue(authString.startsWith(authTokenPrefix));
                 lastLogoutToken = readTokenFromAuth(authString);
                 logoutCounter.incrementAndGet();
-                exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
-                exchange.close();
+                sendResponse(exchange, logoutStatus, logoutErrorBody);
             }
         });
     }
@@ -136,6 +154,20 @@ public class OAuthAccessTokenProviderTest {
         if (server != null) {
             server.stop(0);
         }
+    }
+
+    @Before
+    public void resetTestState() {
+        loginCounter.set(0);
+        logoutCounter.set(0);
+        lastLogoutToken = null;
+        resetAuthenticatedIdentity();
+        loginTokenLifetimeMs = 15_000;
+        loginDelayMs = 0;
+        loginStatus = HttpURLConnection.HTTP_OK;
+        loginErrorBody = "";
+        logoutStatus = HttpURLConnection.HTTP_OK;
+        logoutErrorBody = "";
     }
 
     @Test
@@ -380,6 +412,176 @@ public class OAuthAccessTokenProviderTest {
         assertEquals(1, logoutCounter.get());
     }
 
+    @Test
+    public void testCallbackCloseStopsLogin() {
+        ClosingCallbackProvider provider = new ClosingCallbackProvider();
+        provider.setEndpoint(endpoint);
+
+        assertNull(provider.getAuthorizationString(null));
+        assertEquals(0, loginCounter.get());
+        assertEquals(0, logoutCounter.get());
+    }
+
+    @Test
+    public void testAccessTokenLifetimeOverflowRejected() {
+        TestProvider provider = new TestProvider(Long.MAX_VALUE);
+        provider.setEndpoint(endpoint);
+
+        try {
+            provider.getAuthorizationString(null);
+            fail("An overflowing access-token lifetime should be rejected");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("lifetime"));
+        } finally {
+            provider.close();
+        }
+        assertEquals(0, loginCounter.get());
+    }
+
+    @Test
+    public void testExpiredLoginTokenRejectedAndLoggedOut() {
+        loginTokenLifetimeMs = -1_000;
+        TestProvider provider = new TestProvider(60);
+        provider.setEndpoint(endpoint);
+
+        try {
+            provider.getAuthorizationString(null);
+            fail("An expired login token should be rejected");
+        } catch (InvalidAuthorizationException expected) {
+            assertTrue(expected.getMessage().contains("expired login token"));
+        } finally {
+            provider.close();
+        }
+        assertEquals(1, loginCounter.get());
+        assertEquals(1, logoutCounter.get());
+        assertEquals(loginToken, lastLogoutToken);
+    }
+
+    @Test
+    public void testZeroLifetimeDoesNotScheduleRefresh() throws Exception {
+        TestProvider provider = new TestProvider(0);
+        provider.setEndpoint(endpoint);
+
+        try {
+            assertNotNull(provider.getAuthorizationString(null));
+            assertEquals(1, loginCounter.get());
+            assertTrue(getScheduler(provider).getQueue().isEmpty());
+        } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testConditionalCacheInvalidation() {
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
+
+        try {
+            final String first = provider.getAuthorizationString(null);
+            provider.flushCache();
+            final String second = provider.getAuthorizationString(null);
+
+            assertFalse(provider.invalidateAuthorizationString(first));
+            assertEquals(second, provider.getAuthorizationString(null));
+            assertEquals(2, loginCounter.get());
+
+            assertTrue(provider.invalidateAuthorizationString(second));
+            assertNotNull(provider.getAuthorizationString(null));
+            assertEquals(3, loginCounter.get());
+        } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testCancelledRefreshRemovedFromQueue() throws Exception {
+        TestProvider provider = new TestProvider(60);
+        provider.setEndpoint(endpoint);
+
+        try {
+            assertNotNull(provider.getAuthorizationString(null));
+            final ScheduledThreadPoolExecutor scheduler =
+                getScheduler(provider);
+            assertTrue(scheduler.getRemoveOnCancelPolicy());
+            assertEquals(1, scheduler.getQueue().size());
+
+            provider.flushCache();
+            assertTrue(scheduler.getQueue().isEmpty());
+        } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testRunningRefreshCancelledBeforeLogin() throws Exception {
+        BlockingRefreshProvider provider = new BlockingRefreshProvider();
+        provider.setEndpoint(endpoint);
+
+        try {
+            assertNotNull(provider.getAuthorizationString(null));
+            assertTrue(provider.awaitRefreshCallback(5_000));
+
+            final Thread disableRenewal =
+                new Thread(() -> provider.setAutoRenew(false));
+            disableRenewal.start();
+            waitForAutoRenew(provider, false, 5_000);
+            provider.releaseRefreshCallback();
+            disableRenewal.join(5_000);
+
+            assertFalse(disableRenewal.isAlive());
+            assertEquals(1, loginCounter.get());
+        } finally {
+            provider.releaseRefreshCallback();
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testOAuthLogsExcludeSensitiveValues() throws Exception {
+        final TestLogHandler handler = new TestLogHandler();
+        final Logger testLogger = createLogger(handler);
+        final String responseSecret = "REMOTE_RESPONSE_SECRET";
+
+        loginStatus = HttpURLConnection.HTTP_UNAVAILABLE;
+        loginErrorBody = responseSecret;
+        TestProvider failedLogin = new TestProvider();
+        failedLogin.setEndpoint(endpoint).setLogger(testLogger);
+        try {
+            failedLogin.getAuthorizationString(null);
+            fail("The OAuth login should have failed");
+        } catch (InvalidAuthorizationException expected) {
+            assertFalse(expected.getMessage().contains(responseSecret));
+        } finally {
+            failedLogin.close();
+        }
+        assertEquals(1, loginCounter.get());
+        assertLogExcludes(handler, oauthAccessToken, responseSecret);
+
+        resetTestState();
+        logoutStatus = HttpURLConnection.HTTP_INTERNAL_ERROR;
+        logoutErrorBody = responseSecret;
+        TestProvider failedLogout = new TestProvider();
+        failedLogout.setEndpoint(endpoint)
+                    .setLogger(testLogger)
+                    .setAutoRenew(false);
+        assertNotNull(failedLogout.getAuthorizationString(null));
+        failedLogout.close();
+        assertLogExcludes(handler, loginToken, responseSecret);
+
+        resetTestState();
+        final String callbackSecret = "CALLBACK_EXCEPTION_SECRET";
+        FailingRefreshProvider failedRefresh =
+            new FailingRefreshProvider(callbackSecret);
+        failedRefresh.setEndpoint(endpoint).setLogger(testLogger);
+        try {
+            assertNotNull(failedRefresh.getAuthorizationString(null));
+            failedRefresh.waitForRefreshAttempt(5_000);
+        } finally {
+            failedRefresh.close();
+        }
+        assertLogExcludes(handler, oauthAccessToken, callbackSecret);
+    }
+
     private void tryBadEndpoint(String ep) {
         TestProvider provider = new TestProvider();
         try {
@@ -435,6 +637,20 @@ public class OAuthAccessTokenProviderTest {
         }
     }
 
+    private static void sendResponse(HttpExchange exchange,
+                                     int status,
+                                     String body)
+        throws IOException {
+
+        final byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            if (bytes.length > 0) {
+                os.write(bytes);
+            }
+        }
+    }
+
     private static String readTokenFromAuth(String authString) {
         final String authEncoded =
             authString.substring(authTokenPrefix.length());
@@ -468,6 +684,49 @@ public class OAuthAccessTokenProviderTest {
         fail("Timed out waiting for refreshed OAuth login token");
     }
 
+    private static void waitForAutoRenew(OAuthAccessTokenProvider provider,
+                                         boolean expected,
+                                         long timeoutMs)
+        throws InterruptedException {
+
+        final long limit = System.currentTimeMillis() + timeoutMs;
+        while (provider.isAutoRenew() != expected &&
+               System.currentTimeMillis() < limit) {
+            Thread.sleep(10);
+        }
+        assertEquals(expected, provider.isAutoRenew());
+    }
+
+    private static ScheduledThreadPoolExecutor getScheduler(
+        OAuthAccessTokenProvider provider)
+        throws Exception {
+
+        final Field field =
+            OAuthAccessTokenProvider.class.getDeclaredField("scheduler");
+        field.setAccessible(true);
+        return (ScheduledThreadPoolExecutor) field.get(provider);
+    }
+
+    private static Logger createLogger(Handler handler) {
+        final Logger logger = Logger.getLogger(
+            OAuthAccessTokenProviderTest.class.getName() + "." +
+            System.nanoTime());
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.ALL);
+        handler.setLevel(Level.ALL);
+        logger.addHandler(handler);
+        return logger;
+    }
+
+    private static void assertLogExcludes(TestLogHandler handler,
+                                          String... excludedValues) {
+        final String messages = handler.getMessages();
+        for (String value : excludedValues) {
+            assertFalse("Log contains sensitive value: " + value,
+                        messages.contains(value));
+        }
+    }
+
     private static class TestProvider extends OAuthAccessTokenProvider {
 
         private final AtomicInteger tokenCounter = new AtomicInteger();
@@ -491,17 +750,73 @@ public class OAuthAccessTokenProviderTest {
         }
     }
 
+    private static class ClosingCallbackProvider
+        extends OAuthAccessTokenProvider {
+
+        @Override
+        protected AccessTokenInfo getAccessTokenInfo() {
+            close();
+            return new AccessTokenInfo(oauthAccessToken, 60);
+        }
+    }
+
+    private static class BlockingRefreshProvider
+        extends OAuthAccessTokenProvider {
+
+        private final AtomicInteger callbackCount = new AtomicInteger();
+        private final CountDownLatch refreshCallback = new CountDownLatch(1);
+        private final CountDownLatch releaseRefresh = new CountDownLatch(1);
+
+        @Override
+        protected AccessTokenInfo getAccessTokenInfo() {
+            if (callbackCount.incrementAndGet() == 1) {
+                return new AccessTokenInfo(oauthAccessToken, 11);
+            }
+            refreshCallback.countDown();
+            try {
+                if (!releaseRefresh.await(5, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException(
+                        "Timed out waiting to release refresh callback");
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                    "Refresh callback interrupted", ie);
+            }
+            return new AccessTokenInfo(secondOAuthAccessToken, 60);
+        }
+
+        private boolean awaitRefreshCallback(long timeoutMs)
+            throws InterruptedException {
+
+            return refreshCallback.await(timeoutMs, TimeUnit.MILLISECONDS);
+        }
+
+        private void releaseRefreshCallback() {
+            releaseRefresh.countDown();
+        }
+    }
+
     private static class FailingRefreshProvider
         extends OAuthAccessTokenProvider {
 
         private final AtomicInteger tokenCounter = new AtomicInteger();
+        private final String failureMessage;
+
+        FailingRefreshProvider() {
+            this("test refresh failure");
+        }
+
+        FailingRefreshProvider(String failureMessage) {
+            this.failureMessage = failureMessage;
+        }
 
         @Override
         protected AccessTokenInfo getAccessTokenInfo() {
             if (tokenCounter.incrementAndGet() == 1) {
                 return new AccessTokenInfo(oauthAccessToken, 12);
             }
-            throw new IllegalStateException("test refresh failure");
+            throw new IllegalStateException(failureMessage);
         }
 
         private void waitForRefreshAttempt(long timeoutMs)
@@ -514,6 +829,30 @@ public class OAuthAccessTokenProviderTest {
             }
             assertTrue("Timed out waiting for refresh callback",
                        tokenCounter.get() >= 2);
+        }
+    }
+
+    private static class TestLogHandler extends Handler {
+
+        private final StringBuilder messages = new StringBuilder();
+
+        @Override
+        public synchronized void publish(LogRecord record) {
+            if (isLoggable(record)) {
+                messages.append(record.getMessage()).append('\n');
+            }
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+        }
+
+        private synchronized String getMessages() {
+            return messages.toString();
         }
     }
 }
