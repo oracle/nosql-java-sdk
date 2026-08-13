@@ -866,7 +866,8 @@ public class Client {
                     }
                     ((OAuthAccessTokenProvider) authProvider)
                         .invalidateAuthorizationString(authString);
-                    kvRequest.addRetryException(rae.getClass());
+                    kvRequest.addRetryException(
+                        AuthenticationException.class);
                     kvRequest.incrementRetries();
                     exception = rae;
                     logFine(logger,
@@ -916,7 +917,9 @@ public class Client {
                 } else {
                     authProvider.flushCache();
                 }
-                kvRequest.addRetryException(iae.getClass());
+                kvRequest.addRetryException(
+                    oauthProvider ? InvalidAuthorizationException.class :
+                    iae.getClass());
                 kvRequest.incrementRetries();
                 exception = iae;
                 if (oauthProvider) {

@@ -32,9 +32,27 @@ import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.HttpRequestUtil;
 import oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
+import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
 
+/**
+ * On-premises only.
+ *
+ * <p>An authorization provider that exchanges an application-supplied OAuth
+ * access token for a NoSQL login token through an OAuth-enabled proxy. The
+ * NoSQL login token is cached and used to authorize subsequent operations.</p>
+ *
+ * <p>Applications implement {@link #getAccessToken()} and remain responsible
+ * for acquiring and maintaining OAuth tokens. By default, this provider calls
+ * that method again and performs a new login shortly before the current NoSQL
+ * login token expires. The server-returned expiration is bounded by both the
+ * validated OAuth token expiration and the configured store session timeout.
+ * Automatic re-login can be disabled with {@link #setAutoRenew(boolean)}.</p>
+ *
+ * <p>OAuth access tokens and NoSQL login tokens are bearer credentials, so an
+ * HTTPS service endpoint is required.</p>
+ */
 public abstract class OAuthAccessTokenProvider implements AuthorizationProvider {
 
 
@@ -67,17 +85,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         new AtomicReference<String>();
 
     /*
-     * Access token and its lifetime
-     */
-    private AccessTokenInfo tokenInfo;
-
-    /*
-     * Expiration time of the access token, in milliseconds since epoch.
-     */
-    private long accessTokenExpireAt;
-
-    /*
      * Expiration time of the NoSQL login token, in milliseconds since epoch.
+     * The server caps this deadline at the earlier of the validated OAuth
+     * access-token expiration and the configured store session timeout.
      */
     private long loginTokenExpireAt;
 
@@ -86,7 +96,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     private OAuthIdentity authenticatedIdentity;
 
-    /* Default refresh time before effective token expiry, 10 seconds */
+    /* Default refresh time before NoSQL login-token expiry, 10 seconds */
     private static final int REFRESH_AHEAD_SECONDS = 10;
 
     /*
@@ -153,6 +163,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     private final AtomicLong refreshGeneration = new AtomicLong();
 
 
+    /**
+     * Creates a provider with automatic re-login enabled.
+     */
     public OAuthAccessTokenProvider() {
         loginHost = null;
         endpoint = null;
@@ -167,13 +180,19 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     }
 
     /**
-     * Returns an access token and its lifetime.
-     * Implementations decide:
-     *  - How to obtain it (cached, freshly requested, etc.)
-     *  - How to refresh it when expired
-     *  - Whether to store/retrieve refresh tokens
+     * Returns an OAuth access token for a login exchange.
+     *
+     * <p>This method is called for the initial login and each subsequent
+     * re-login. Implementations are responsible for obtaining a token that is
+     * usable when returned, including refreshing or replacing a cached token
+     * when necessary. Implementations should avoid returning a token they know
+     * is expired; the server performs the authoritative token validation. The
+     * SDK schedules re-login from the NoSQL login-token expiration returned by
+     * the server.</p>
+     *
+     * @return an OAuth access token
      */
-    protected abstract AccessTokenInfo getAccessTokenInfo();
+    protected abstract String getAccessToken();
 
     private synchronized void performLogin(boolean force,
                                            Request request,
@@ -184,14 +203,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             return;
         }
 
-        final AccessTokenInfo newTokenInfo =
-            validateAccessTokenInfo(getAccessTokenInfo());
+        final String accessToken = validateAccessToken(getAccessToken());
         if (loginAborted(force, expectedGeneration)) {
             return;
         }
-        final long accessTokenAcquireTime = System.currentTimeMillis();
-        final long newAccessTokenExpireAt =
-            getAccessTokenExpireAt(newTokenInfo, accessTokenAcquireTime);
         final int timeoutMs =
             (request != null) ? request.getTimeoutInternal() : 0;
 
@@ -203,7 +218,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 return;
             }
             HttpResponse response =
-                sendRequest(BEARER_PREFIX + newTokenInfo.getAccessToken(),
+                sendRequest(BEARER_PREFIX + accessToken,
                             LOGIN_SERVICE, timeoutMs);
 
             if (loginAborted(force, expectedGeneration)) {
@@ -223,17 +238,14 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             /*
              * Generate the authentication string using login token
              */
-            final LoginResult loginResult =
-                parseJsonResult(response.getOutput());
+            final LoginResult loginResult;
             try {
+                loginResult = parseJsonResult(response.getOutput());
                 validateLoginTokenExpiration(loginResult);
                 validateAuthenticatedIdentity(
                     loginResult.getAuthenticatedIdentity());
             } catch (InvalidAuthorizationException iae) {
-                final String rejectedToken = loginResult.getToken();
-                if (rejectedToken != null && !rejectedToken.isEmpty()) {
-                    logoutSession(BEARER_PREFIX + rejectedToken, timeoutMs);
-                }
+                logoutLoginResponse(response, timeoutMs);
                 throw iae;
             }
             if (loginAborted(force, expectedGeneration) ||
@@ -244,11 +256,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                     BEARER_PREFIX + loginResult.getToken(), timeoutMs);
                 return;
             }
-            tokenInfo = newTokenInfo;
-            accessTokenExpireAt = newAccessTokenExpireAt;
             loginTokenExpireAt = loginResult.getExpireAt();
             /*
-             * Schedule access token refresh thread
+             * Schedule re-login using the server-authoritative session
+             * expiration.
              */
             scheduleRefresh();
 
@@ -265,23 +276,6 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 (expectedGeneration != refreshGeneration.get() ||
                  !autoRenew)) ||
                (!force && authString.get() != null);
-    }
-
-    private long getAccessTokenExpireAt(AccessTokenInfo accessTokenInfo,
-                                        long acquireTime) {
-        final long expiresInSeconds =
-            accessTokenInfo.getExpiresInSeconds();
-        if (expiresInSeconds == 0) {
-            return 0;
-        }
-        try {
-            return Math.addExact(
-                acquireTime,
-                Math.multiplyExact(expiresInSeconds, 1000L));
-        } catch (ArithmeticException ae) {
-            throw new IllegalArgumentException(
-                "Access token lifetime is too large", ae);
-        }
     }
 
     /**
@@ -329,8 +323,6 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             }
             cancelRefreshTask();
 
-            tokenInfo = null;
-            accessTokenExpireAt = 0;
             loginTokenExpireAt = 0;
             authenticatedIdentity = null;
         }
@@ -369,7 +361,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             }
             authString.set(null);
             cancelRefreshTask();
-            clearTokenExpirationState();
+            clearLoginTokenExpiration();
         }
     }
 
@@ -394,55 +386,67 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 return false;
             }
             if (!authString.compareAndSet(failedAuthorization, null)) {
-                if (authString.get() != null && tokenInfo != null) {
+                if (authString.get() != null && loginTokenExpireAt > 0) {
                     scheduleRefresh();
                 }
                 return false;
             }
             cancelRefreshTask();
-            clearTokenExpirationState();
+            clearLoginTokenExpiration();
             return true;
         }
     }
 
-    private void clearTokenExpirationState() {
-        tokenInfo = null;
-        accessTokenExpireAt = 0;
+    private void clearLoginTokenExpiration() {
         loginTokenExpireAt = 0;
     }
 
-    private AccessTokenInfo validateAccessTokenInfo(
-        AccessTokenInfo accessTokenInfo) {
-
-        if (accessTokenInfo == null ||
-            accessTokenInfo.getAccessToken() == null ||
-            accessTokenInfo.getAccessToken().isEmpty()) {
+    private String validateAccessToken(String accessToken) {
+        if (accessToken == null || accessToken.isEmpty()) {
             throw new IllegalArgumentException(
                 "Invalid access token provided");
         }
-        return accessTokenInfo;
+        return accessToken;
     }
 
     /**
      * Retrieve login token from JSON string.
      */
     private LoginResult parseJsonResult(String jsonResult) {
-        final MapValue mapValue =
-            JsonUtils.createValueFromJson(jsonResult, null).asMap();
+        try {
+            final FieldValue result =
+                JsonUtils.createValueFromJson(jsonResult, null);
+            if (!result.isMap()) {
+                throw new IllegalArgumentException("Expected JSON object");
+            }
+            final MapValue mapValue = result.asMap();
 
-        /*
-         * Extract login token, expiration, and authenticated identity from
-         * JSON result.
-         */
-        return new LoginResult(
-            mapValue.getString("token"),
-            mapValue.getLong("expireAt"),
-            parseAuthenticatedIdentity(mapValue));
+            /*
+             * Extract login token, expiration, and authenticated identity from
+             * JSON result. Do not use the coercive MapValue getters here; the
+             * endpoint contract requires exact JSON types.
+             */
+            final String token = getRequiredString(mapValue, "token");
+            final FieldValue expireAtValue = mapValue.get("expireAt");
+            if (expireAtValue == null ||
+                !(expireAtValue.isLong() || expireAtValue.isInteger())) {
+                throw new IllegalArgumentException("Invalid expireAt");
+            }
+            return new LoginResult(
+                token,
+                expireAtValue.getLong(),
+                parseAuthenticatedIdentity(mapValue));
+        } catch (InvalidAuthorizationException iae) {
+            throw iae;
+        } catch (RuntimeException re) {
+            throw new InvalidAuthorizationException(
+                "Invalid OAuth login response");
+        }
     }
 
     private void validateLoginTokenExpiration(LoginResult loginResult) {
         final long expireAt = loginResult.getExpireAt();
-        if (expireAt > 0 && expireAt <= System.currentTimeMillis()) {
+        if (expireAt <= System.currentTimeMillis()) {
             throw new InvalidAuthorizationException(
                 "OAuth login response contains an expired login token");
         }
@@ -456,8 +460,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             final MapValue loginResult =
                 JsonUtils.createValueFromJson(
                     response.getOutput(), null).asMap();
-            final String token = loginResult.getString("token");
-            if (token != null && !token.isEmpty()) {
+            final FieldValue tokenValue = loginResult.get("token");
+            if (tokenValue != null && tokenValue.isString() &&
+                !tokenValue.getString().trim().isEmpty()) {
+                final String token = tokenValue.getString();
                 logoutSession(BEARER_PREFIX + token, timeoutMs);
             }
         } catch (RuntimeException re) {
@@ -469,22 +475,36 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     }
 
     private OAuthIdentity parseAuthenticatedIdentity(MapValue loginResult) {
-        if (!loginResult.contains("authenticatedIdentity")) {
+        final FieldValue identityValue =
+            loginResult.get("authenticatedIdentity");
+        if (identityValue == null) {
             return null;
         }
         try {
-            final MapValue identity =
-                loginResult.get("authenticatedIdentity").asMap();
+            if (!identityValue.isMap()) {
+                throw new IllegalArgumentException("Expected identity object");
+            }
+            final MapValue identity = identityValue.asMap();
             return new OAuthIdentity(
-                identity.getString("type"),
-                identity.getString("issuer"),
-                identity.getString("subjectType"),
-                identity.getString("subjectId"));
+                getRequiredString(identity, "type"),
+                getRequiredString(identity, "issuer"),
+                getRequiredString(identity, "subjectType"),
+                getRequiredString(identity, "subjectId"));
         } catch (RuntimeException re) {
             throw new InvalidAuthorizationException(
                 "Invalid OAuth login response: authenticated identity is " +
                 "invalid");
         }
+    }
+
+    private static String getRequiredString(MapValue value, String fieldName) {
+        final FieldValue field = value.get(fieldName);
+        if (field == null || !field.isString() ||
+            field.getString().trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "Missing or invalid " + fieldName);
+        }
+        return field.getString();
     }
 
     private void validateAuthenticatedIdentity(OAuthIdentity identity) {
@@ -503,21 +523,18 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         }
     }
 
-    /* Schedule automatic re-login slightly before expiry */
+    /* Schedule automatic re-login slightly before session expiry. */
     private synchronized void scheduleRefresh() {
         final long generation = refreshGeneration.incrementAndGet();
         cancelRefreshTask();
-        if (!autoRenew || isClosed.get() || tokenInfo == null ||
-            tokenInfo.getExpiresInSeconds() <= 0 || scheduler.isShutdown()) {
+        if (!autoRenew || isClosed.get() || authString.get() == null ||
+            loginTokenExpireAt <= 0 || scheduler.isShutdown()) {
             return;
         }
         final long now = System.currentTimeMillis();
-        final long effectiveExpireAt = loginTokenExpireAt > 0 ?
-            Math.min(accessTokenExpireAt, loginTokenExpireAt) :
-            accessTokenExpireAt;
         final long delay = Math.max(
             1000,
-            effectiveExpireAt - now -
+            loginTokenExpireAt - now -
             TimeUnit.SECONDS.toMillis(REFRESH_AHEAD_SECONDS));
         refreshTask = scheduler.schedule(new Runnable() {
             @Override
@@ -607,6 +624,46 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     }
 
     /**
+     * Internal use only.
+     * <p>
+     * Completes handle-dependent configuration while preserving an explicitly
+     * configured OAuth endpoint or SSL context.
+     *
+     * @param config the handle configuration
+     * @return this
+     * @hidden
+     */
+    public OAuthAccessTokenProvider prepare(NoSQLHandleConfig config) {
+        final URL serviceURL = config.getServiceURL();
+        if (serviceURL == null ||
+            !"https".equalsIgnoreCase(serviceURL.getProtocol())) {
+            throw new IllegalArgumentException(
+                "OAuthAccessTokenProvider requires use of https for the " +
+                "service endpoint");
+        }
+
+        if (endpoint == null) {
+            String serviceEndpoint = serviceURL.toString();
+            if (serviceEndpoint.endsWith("/")) {
+                serviceEndpoint = serviceEndpoint.substring(
+                    0, serviceEndpoint.length() - 1);
+            }
+            setEndpoint(serviceEndpoint);
+        }
+        if (sslContext == null) {
+            sslContext = config.getSslContext();
+        }
+        if (sslHandshakeTimeoutMs == 0) {
+            sslHandshakeTimeoutMs = config.getSSLHandshakeTimeout();
+        }
+        if (!disableSSLHook && sslContext == null) {
+            throw new IllegalArgumentException(
+                "OAuthAccessTokenProvider requires an SSL context");
+        }
+        return this;
+    }
+
+    /**
      * Sets the SSL context
      * @param sslCtx the context
      * @return this
@@ -665,6 +722,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                                      int timeoutMs) throws Exception {
         HttpClient client = null;
         try {
+            if (!disableSSLHook && sslContext == null) {
+                throw new IllegalStateException(
+                    "OAuthAccessTokenProvider requires an SSL context");
+            }
             final HttpHeaders headers = new DefaultHttpHeaders();
             headers.set(AUTHORIZATION, authHeader);
             client = HttpClient.createMinimalClient
@@ -687,44 +748,6 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 client.shutdown();
             }
         }
-    }
-
-    /** Nested static class to store the access token and its lifetime */
-    public static final class AccessTokenInfo {
-
-        private final String accessToken;
-        private final long expiresInSeconds;
-
-        /**
-         * Creates access token information.
-         *
-         * @param accessToken OAuth access token
-         * @param expiresInSeconds token lifetime in seconds. A value of zero
-         * disables automatic renewal. A positive value must be small enough to
-         * produce a future expiration time in milliseconds.
-         */
-        public AccessTokenInfo(String accessToken, long expiresInSeconds) {
-            if (expiresInSeconds < 0) {
-                throw new IllegalArgumentException(
-                    "Access token lifetime must be non-negative");
-            }
-            this.accessToken = accessToken;
-            this.expiresInSeconds = expiresInSeconds;
-        }
-
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        /**
-         * Returns the access token lifetime in seconds.
-         *
-         * @return the access token lifetime in seconds
-         */
-        public long getExpiresInSeconds() {
-            return expiresInSeconds;
-        }
-
     }
 
     private static final class LoginResult {

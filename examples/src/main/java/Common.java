@@ -78,9 +78,8 @@ import oracle.nosql.driver.values.MapValue;
  *     BasicTableExample https://localhost:443 -useKVProxy -user driver \
  *     -password Driver.User@01
  *
- * Run against an OAuth-enabled secure proxy and store. The access token and
- * its remaining lifetime are supplied in the NOSQL_OAUTH_ACCESS_TOKEN and
- * NOSQL_OAUTH_EXPIRES_IN_SECONDS environment variables:
+ * Run against an OAuth-enabled secure proxy and store. The access token is
+ * supplied in the NOSQL_OAUTH_ACCESS_TOKEN environment variable:
  *   java -Djavax.net.ssl.trustStorePassword=123456                    \
  *     -Djavax.net.ssl.trustStore=driver.trust -cp .:../lib/nosqldriver.jar \
  *     BasicTableExample https://localhost:443 -useKVProxy -useOAuth
@@ -112,8 +111,6 @@ class Common {
     private static final String OAUTH_FLAG = "-useOAuth";
     private static final String OAUTH_ACCESS_TOKEN_ENV =
         "NOSQL_OAUTH_ACCESS_TOKEN";
-    private static final String OAUTH_EXPIRES_IN_ENV =
-        "NOSQL_OAUTH_EXPIRES_IN_SECONDS";
 
     private String endpoint;
     private final String exampleName;
@@ -307,21 +304,19 @@ class Common {
     private OAuthAccessTokenProvider getOAuthProvider() {
         final String accessToken =
             getRequiredEnvironment(OAUTH_ACCESS_TOKEN_ENV);
-        final long expiresInSeconds = getOAuthExpiresInSeconds();
 
         OAuthAccessTokenProvider provider =
             new OAuthAccessTokenProvider() {
                 @Override
-                protected AccessTokenInfo getAccessTokenInfo() {
-                    return new AccessTokenInfo(accessToken,
-                                               expiresInSeconds);
+                protected String getAccessToken() {
+                    return accessToken;
                 }
             };
 
         /*
          * This example has only one access token. Long-running applications
          * should leave automatic renewal enabled and obtain a fresh token in
-         * getAccessTokenInfo().
+         * getAccessToken().
          */
         provider.setAutoRenew(false);
         return provider;
@@ -334,21 +329,6 @@ class Common {
                 "Environment variable " + name + " must be set");
         }
         return value;
-    }
-
-    private static long getOAuthExpiresInSeconds() {
-        String value = getRequiredEnvironment(OAUTH_EXPIRES_IN_ENV);
-        try {
-            long expiresInSeconds = Long.parseLong(value);
-            if (expiresInSeconds <= 0) {
-                throw new IllegalArgumentException(
-                    OAUTH_EXPIRES_IN_ENV + " must be greater than zero");
-            }
-            return expiresInSeconds;
-        } catch (NumberFormatException nfe) {
-            throw new IllegalArgumentException(
-                OAUTH_EXPIRES_IN_ENV + " must be an integer", nfe);
-        }
     }
 
     /**

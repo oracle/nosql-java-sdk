@@ -111,6 +111,22 @@ public class AuthRetryTest extends DriverTestBase {
             AuthenticationException.class);
     }
 
+    @Test
+    public void testOAuthAuthenticationSubclassRetryIsBounded() {
+        assertOAuthFailureSequence(
+            OAuthFailure.AUTHENTICATION_SUBCLASS,
+            OAuthFailure.INVALID_AUTHORIZATION,
+            InvalidAuthorizationException.class);
+    }
+
+    @Test
+    public void testOAuthAuthorizationSubclassRetryIsBounded() {
+        assertOAuthFailureSequence(
+            OAuthFailure.INVALID_AUTHORIZATION_SUBCLASS,
+            OAuthFailure.AUTHENTICATION,
+            AuthenticationException.class);
+    }
+
     private void assertOAuthFailureSequence(
         OAuthFailure first,
         OAuthFailure second,
@@ -186,11 +202,19 @@ public class AuthRetryTest extends DriverTestBase {
                 final int index = execCount.getAndIncrement();
                 final OAuthFailure failure =
                     oauthFailures[Math.min(index, oauthFailures.length - 1)];
-                if (failure == OAuthFailure.AUTHENTICATION) {
+                if (failure == OAuthFailure.AUTHENTICATION ||
+                    failure == OAuthFailure.AUTHENTICATION_SUBCLASS) {
                     authenticationExceptionCount.incrementAndGet();
+                    if (failure == OAuthFailure.AUTHENTICATION_SUBCLASS) {
+                        throw new TestAuthenticationException("test");
+                    }
                     throw new AuthenticationException("test");
                 }
                 iaeCount.incrementAndGet();
+                if (failure ==
+                    OAuthFailure.INVALID_AUTHORIZATION_SUBCLASS) {
+                    throw new TestInvalidAuthorizationException("test");
+                }
                 throw new InvalidAuthorizationException("test");
             }
 
@@ -254,13 +278,35 @@ public class AuthRetryTest extends DriverTestBase {
         }
 
         @Override
-        protected AccessTokenInfo getAccessTokenInfo() {
-            return new AccessTokenInfo("Test", 60);
+        protected String getAccessToken() {
+            return "Test";
         }
     }
 
     private enum OAuthFailure {
         AUTHENTICATION,
-        INVALID_AUTHORIZATION
+        AUTHENTICATION_SUBCLASS,
+        INVALID_AUTHORIZATION,
+        INVALID_AUTHORIZATION_SUBCLASS
+    }
+
+    private static class TestAuthenticationException
+        extends AuthenticationException {
+
+        private static final long serialVersionUID = 1L;
+
+        private TestAuthenticationException(String message) {
+            super(message);
+        }
+    }
+
+    private static class TestInvalidAuthorizationException
+        extends InvalidAuthorizationException {
+
+        private static final long serialVersionUID = 1L;
+
+        private TestInvalidAuthorizationException(String message) {
+            super(message);
+        }
     }
 }

@@ -36,6 +36,9 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import oracle.nosql.driver.InvalidAuthorizationException;
+import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.NoSQLHandleFactory;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.values.JsonUtils;
@@ -82,6 +85,7 @@ public class OAuthAccessTokenProviderTest {
     private static volatile long loginDelayMs;
     private static volatile int loginStatus = HttpURLConnection.HTTP_OK;
     private static volatile String loginErrorBody = "";
+    private static volatile String loginResponseOverride;
     private static volatile int logoutStatus = HttpURLConnection.HTTP_OK;
     private static volatile String logoutErrorBody = "";
 
@@ -117,6 +121,11 @@ public class OAuthAccessTokenProviderTest {
                 }
                 if (loginStatus != HttpURLConnection.HTTP_OK) {
                     sendResponse(exchange, loginStatus, loginErrorBody);
+                    return;
+                }
+                if (loginResponseOverride != null) {
+                    sendResponse(exchange, HttpURLConnection.HTTP_OK,
+                                 loginResponseOverride);
                     return;
                 }
                 if (count == 1) {
@@ -166,6 +175,7 @@ public class OAuthAccessTokenProviderTest {
         loginDelayMs = 0;
         loginStatus = HttpURLConnection.HTTP_OK;
         loginErrorBody = "";
+        loginResponseOverride = null;
         logoutStatus = HttpURLConnection.HTTP_OK;
         logoutErrorBody = "";
     }
@@ -233,7 +243,7 @@ public class OAuthAccessTokenProviderTest {
         logoutCounter.set(0);
         resetAuthenticatedIdentity();
         loginTokenLifetimeMs = 12_000;
-        TestProvider provider = new TestProvider(60);
+        TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint);
 
         try {
@@ -253,6 +263,7 @@ public class OAuthAccessTokenProviderTest {
         loginCounter.set(0);
         logoutCounter.set(0);
         resetAuthenticatedIdentity();
+        loginTokenLifetimeMs = 12_000;
         FailingRefreshProvider provider = new FailingRefreshProvider();
         provider.setEndpoint(endpoint);
 
@@ -423,15 +434,21 @@ public class OAuthAccessTokenProviderTest {
     }
 
     @Test
-    public void testAccessTokenLifetimeOverflowRejected() {
-        TestProvider provider = new TestProvider(Long.MAX_VALUE);
+    public void testMissingAccessTokenRejectedBeforeLogin() {
+        OAuthAccessTokenProvider provider =
+            new OAuthAccessTokenProvider() {
+                @Override
+                protected String getAccessToken() {
+                    return null;
+                }
+            };
         provider.setEndpoint(endpoint);
 
         try {
             provider.getAuthorizationString(null);
-            fail("An overflowing access-token lifetime should be rejected");
+            fail("A missing access token should be rejected");
         } catch (IllegalArgumentException expected) {
-            assertTrue(expected.getMessage().contains("lifetime"));
+            assertTrue(expected.getMessage().contains("access token"));
         } finally {
             provider.close();
         }
@@ -441,7 +458,7 @@ public class OAuthAccessTokenProviderTest {
     @Test
     public void testExpiredLoginTokenRejectedAndLoggedOut() {
         loginTokenLifetimeMs = -1_000;
-        TestProvider provider = new TestProvider(60);
+        TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint);
 
         try {
@@ -458,16 +475,117 @@ public class OAuthAccessTokenProviderTest {
     }
 
     @Test
-    public void testZeroLifetimeDoesNotScheduleRefresh() throws Exception {
-        TestProvider provider = new TestProvider(0);
-        provider.setEndpoint(endpoint);
+    public void testMalformedIdentityRejectedAndLoggedOut() {
+        final long expireAt = System.currentTimeMillis() + 60_000;
+        final String encodedToken = encodeLoginToken(loginToken, expireAt);
+        loginResponseOverride =
+            "{\"token\":\"" + encodedToken + "\"," +
+            "\"expireAt\":" + expireAt + "," +
+            "\"authenticatedIdentity\":{" +
+            "\"type\":\"oauth\"," +
+            "\"issuer\":\"" + loginIssuer + "\"," +
+            "\"subjectType\":\"user\"}}";
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
 
         try {
-            assertNotNull(provider.getAuthorizationString(null));
-            assertEquals(1, loginCounter.get());
-            assertTrue(getScheduler(provider).getQueue().isEmpty());
+            provider.getAuthorizationString(null);
+            fail("A malformed authenticated identity should be rejected");
+        } catch (InvalidAuthorizationException expected) {
+            assertTrue(expected.getMessage().contains(
+                "authenticated identity is invalid"));
         } finally {
             provider.close();
+        }
+        assertEquals(1, logoutCounter.get());
+        assertEquals(loginToken, lastLogoutToken);
+    }
+
+    @Test
+    public void testNonPositiveLoginExpiryRejectedAndLoggedOut() {
+        final String encodedToken = encodeLoginToken(loginToken, 0);
+        loginResponseOverride = createLoginResponse(
+            encodedToken, 0, loginIssuer, loginSubjectType, loginSubjectId);
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
+
+        try {
+            provider.getAuthorizationString(null);
+            fail("A non-positive login-token expiration should be rejected");
+        } catch (InvalidAuthorizationException expected) {
+            assertTrue(expected.getMessage().contains("expired login token"));
+        } finally {
+            provider.close();
+        }
+        assertEquals(1, logoutCounter.get());
+        assertEquals(loginToken, lastLogoutToken);
+    }
+
+    @Test
+    public void testNullLoginTokenRejected() {
+        final long expireAt = System.currentTimeMillis() + 60_000;
+        loginResponseOverride =
+            "{\"token\":null," +
+            "\"expireAt\":" + expireAt + "," +
+            "\"authenticatedIdentity\":{" +
+            "\"type\":\"oauth\"," +
+            "\"issuer\":\"" + loginIssuer + "\"," +
+            "\"subjectType\":\"user\"," +
+            "\"subjectId\":\"" + loginSubjectId + "\"}}";
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
+
+        try {
+            provider.getAuthorizationString(null);
+            fail("A null login token should be rejected");
+        } catch (InvalidAuthorizationException expected) {
+            assertTrue(expected.getMessage().contains(
+                "Invalid OAuth login response"));
+        } finally {
+            provider.close();
+        }
+        assertEquals(0, logoutCounter.get());
+    }
+
+    @Test
+    public void testPreconfiguredEndpointStillRequiresHttpsHandle() {
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint);
+        final NoSQLHandleConfig config =
+            new NoSQLHandleConfig("http://localhost:8080")
+                .setAuthorizationProvider(provider);
+
+        try {
+            NoSQLHandleFactory.createNoSQLHandle(config);
+            fail("An OAuth handle using HTTP should have been rejected");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("service endpoint"));
+        } finally {
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testPreconfiguredEndpointReceivesHandleSslContext()
+        throws Exception {
+
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint);
+        final NoSQLHandleConfig config =
+            new NoSQLHandleConfig("https://localhost:1445")
+                .setAuthorizationProvider(provider);
+        NoSQLHandle handle = null;
+
+        try {
+            handle = NoSQLHandleFactory.createNoSQLHandle(config);
+            assertNotNull(getProviderField(provider, "sslContext"));
+            assertEquals(endpoint, provider.getEndpoint());
+        } finally {
+            if (handle != null) {
+                handle.close();
+            } else {
+                provider.close();
+            }
         }
     }
 
@@ -495,7 +613,7 @@ public class OAuthAccessTokenProviderTest {
 
     @Test
     public void testCancelledRefreshRemovedFromQueue() throws Exception {
-        TestProvider provider = new TestProvider(60);
+        TestProvider provider = new TestProvider();
         provider.setEndpoint(endpoint);
 
         try {
@@ -514,6 +632,7 @@ public class OAuthAccessTokenProviderTest {
 
     @Test
     public void testRunningRefreshCancelledBeforeLogin() throws Exception {
+        loginTokenLifetimeMs = 11_000;
         BlockingRefreshProvider provider = new BlockingRefreshProvider();
         provider.setEndpoint(endpoint);
 
@@ -569,6 +688,7 @@ public class OAuthAccessTokenProviderTest {
         assertLogExcludes(handler, loginToken, responseSecret);
 
         resetTestState();
+        loginTokenLifetimeMs = 12_000;
         final String callbackSecret = "CALLBACK_EXCEPTION_SECRET";
         FailingRefreshProvider failedRefresh =
             new FailingRefreshProvider(callbackSecret);
@@ -604,29 +724,12 @@ public class OAuthAccessTokenProviderTest {
                                            String subjectType,
                                            String subjectId,
                                            HttpExchange exchange) {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos);
-             OutputStream os = exchange.getResponseBody()) {
-
+        try (OutputStream os = exchange.getResponseBody()) {
             long expireTime =
                 System.currentTimeMillis() + loginTokenLifetimeMs;
-            oos.writeShort(1);
-            oos.writeLong(expireTime);
-            oos.writeBytes(tokenText);
-            oos.flush();
-
-            final String tokenString =
-                JsonUtils.convertBytesToHex(baos.toByteArray());
-            final String jsonString =
-                "{\"token\":\"" + tokenString + "\"," +
-                "\"expireAt\":" + expireTime +
-                (issuer != null ?
-                    ",\"authenticatedIdentity\":{" +
-                    "\"type\":\"oauth\"," +
-                    "\"issuer\":\"" + issuer + "\"," +
-                    "\"subjectType\":\"" + subjectType + "\"," +
-                    "\"subjectId\":\"" + subjectId + "\"}" : "") +
-                "}";
+            final String jsonString = createLoginResponse(
+                encodeLoginToken(tokenText, expireTime), expireTime,
+                issuer, subjectType, subjectId);
 
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK,
                                          jsonString.length());
@@ -635,6 +738,35 @@ public class OAuthAccessTokenProviderTest {
         } catch (IOException ioe) {
             throw new IllegalArgumentException("Unable to encode", ioe);
         }
+    }
+
+    private static String encodeLoginToken(String tokenText, long expireAt) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeShort(1);
+            oos.writeLong(expireAt);
+            oos.writeBytes(tokenText);
+            oos.flush();
+            return JsonUtils.convertBytesToHex(baos.toByteArray());
+        } catch (IOException ioe) {
+            throw new IllegalArgumentException("Unable to encode", ioe);
+        }
+    }
+
+    private static String createLoginResponse(String encodedToken,
+                                              long expireAt,
+                                              String issuer,
+                                              String subjectType,
+                                              String subjectId) {
+        return "{\"token\":\"" + encodedToken + "\"," +
+               "\"expireAt\":" + expireAt +
+               (issuer != null ?
+                   ",\"authenticatedIdentity\":{" +
+                   "\"type\":\"oauth\"," +
+                   "\"issuer\":\"" + issuer + "\"," +
+                   "\"subjectType\":\"" + subjectType + "\"," +
+                   "\"subjectId\":\"" + subjectId + "\"}" : "") +
+               "}";
     }
 
     private static void sendResponse(HttpExchange exchange,
@@ -707,6 +839,16 @@ public class OAuthAccessTokenProviderTest {
         return (ScheduledThreadPoolExecutor) field.get(provider);
     }
 
+    private static Object getProviderField(OAuthAccessTokenProvider provider,
+                                           String fieldName)
+        throws Exception {
+
+        final Field field =
+            OAuthAccessTokenProvider.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(provider);
+    }
+
     private static Logger createLogger(Handler handler) {
         final Logger logger = Logger.getLogger(
             OAuthAccessTokenProviderTest.class.getName() + "." +
@@ -730,23 +872,13 @@ public class OAuthAccessTokenProviderTest {
     private static class TestProvider extends OAuthAccessTokenProvider {
 
         private final AtomicInteger tokenCounter = new AtomicInteger();
-        private final long expiresInSeconds;
-
-        TestProvider() {
-            this(15);
-        }
-
-        TestProvider(long expiresInSeconds) {
-            this.expiresInSeconds = expiresInSeconds;
-        }
 
         @Override
-        protected AccessTokenInfo getAccessTokenInfo() {
+        protected String getAccessToken() {
             if (tokenCounter.incrementAndGet() == 1) {
-                return new AccessTokenInfo(oauthAccessToken, expiresInSeconds);
+                return oauthAccessToken;
             }
-            return new AccessTokenInfo(secondOAuthAccessToken,
-                                       expiresInSeconds);
+            return secondOAuthAccessToken;
         }
     }
 
@@ -754,9 +886,9 @@ public class OAuthAccessTokenProviderTest {
         extends OAuthAccessTokenProvider {
 
         @Override
-        protected AccessTokenInfo getAccessTokenInfo() {
+        protected String getAccessToken() {
             close();
-            return new AccessTokenInfo(oauthAccessToken, 60);
+            return oauthAccessToken;
         }
     }
 
@@ -768,9 +900,9 @@ public class OAuthAccessTokenProviderTest {
         private final CountDownLatch releaseRefresh = new CountDownLatch(1);
 
         @Override
-        protected AccessTokenInfo getAccessTokenInfo() {
+        protected String getAccessToken() {
             if (callbackCount.incrementAndGet() == 1) {
-                return new AccessTokenInfo(oauthAccessToken, 11);
+                return oauthAccessToken;
             }
             refreshCallback.countDown();
             try {
@@ -783,7 +915,7 @@ public class OAuthAccessTokenProviderTest {
                 throw new IllegalStateException(
                     "Refresh callback interrupted", ie);
             }
-            return new AccessTokenInfo(secondOAuthAccessToken, 60);
+            return secondOAuthAccessToken;
         }
 
         private boolean awaitRefreshCallback(long timeoutMs)
@@ -812,9 +944,9 @@ public class OAuthAccessTokenProviderTest {
         }
 
         @Override
-        protected AccessTokenInfo getAccessTokenInfo() {
+        protected String getAccessToken() {
             if (tokenCounter.incrementAndGet() == 1) {
-                return new AccessTokenInfo(oauthAccessToken, 12);
+                return oauthAccessToken;
             }
             throw new IllegalStateException(failureMessage);
         }

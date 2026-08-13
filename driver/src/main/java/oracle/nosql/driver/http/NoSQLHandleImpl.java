@@ -166,12 +166,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
             if (oatProvider.getLogger() == null) {
                 oatProvider.setLogger(logger);
             }
-            if (oatProvider.getEndpoint() == null) {
-                oatProvider.setEndpoint(getAuthEndpoint(config))
-                           .setSslContext(config.getSslContext())
-                           .setSslHandshakeTimeout(
-                               config.getSSLHandshakeTimeout());
-            }
+            oatProvider.prepare(config);
         } else if (ap instanceof SignatureProvider) {
             SignatureProvider sigProvider = (SignatureProvider) ap;
             if (sigProvider.getLogger() == null) {
