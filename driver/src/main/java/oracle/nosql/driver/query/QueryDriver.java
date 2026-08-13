@@ -77,6 +77,7 @@ public class QueryDriver {
 
     private NoSQLException theError;
 
+    @SuppressWarnings("this-escape") // The request retains its execution driver.
     public QueryDriver(QueryRequest req) {
         theRequest = req;
         req.setDriver(this);

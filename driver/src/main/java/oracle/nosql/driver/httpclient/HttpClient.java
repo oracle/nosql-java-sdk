@@ -183,6 +183,7 @@ public class HttpClient {
      * @param name A name to use in logging messages for this client.
      * @param logger A logger to use for logging messages.
      */
+    @SuppressWarnings("this-escape") // Delegates to the initializing constructor.
     public HttpClient(String host,
                       int port,
                       int numThreads,

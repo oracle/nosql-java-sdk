@@ -14,6 +14,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.DefaultHttpHeadersFactory;
 import io.netty.handler.codec.http.HttpHeaders;
 
 public class LogUtilTest {
@@ -76,7 +77,10 @@ public class LogUtilTest {
 
     @Test
     public void testFormatHeadersForLogPreservesNonValidatingBehavior() {
-        final HttpHeaders headers = new DefaultHttpHeaders(false);
+        final HttpHeaders headers =
+            DefaultHttpHeadersFactory.headersFactory()
+                                     .withValidation(false)
+                                     .newHeaders();
         headers.add("Bad Header", "visible");
         headers.add(HttpConstants.AUTHORIZATION, "Bearer secret-token");
 

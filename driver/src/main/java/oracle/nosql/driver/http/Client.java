@@ -245,6 +245,7 @@ public class Client {
      */
     private volatile long numOKResponses;
 
+    @SuppressWarnings("this-escape") // createHttpClient is an extension point.
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
