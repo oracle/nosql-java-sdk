@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.DefaultHttpHeadersFactory;
 import io.netty.handler.codec.http.HttpHeaders;
 
 /**
@@ -134,7 +134,10 @@ public class LogUtil {
             return "null";
         }
 
-        final HttpHeaders formatted = new DefaultHttpHeaders(false);
+        final HttpHeaders formatted =
+            DefaultHttpHeadersFactory.headersFactory()
+                .withValidation(false)
+                .newHeaders();
         for (Map.Entry<String, String> entry : headers) {
             formatted.add(entry.getKey(),
                           formatHeaderValueForLog(entry.getKey(),
@@ -171,6 +174,14 @@ public class LogUtil {
                 return value.substring(0, space + 1) + REDACTED;
             }
         }
+        return REDACTED;
+    }
+
+    /**
+     * Returns a safe representation of a value known to contain credentials,
+     * such as an authentication response body or a security token.
+     */
+    public static String redactSensitiveValue(String value) {
         return REDACTED;
     }
 

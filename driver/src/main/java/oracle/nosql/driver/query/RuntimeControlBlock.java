@@ -30,7 +30,12 @@ public class RuntimeControlBlock {
      */
     private final QueryDriver theQueryDriver;
 
-    private final TopologyInfo theBaseTopo;
+    /*
+     * The topology snapshots used by all requests during this execution.
+     * When per-store topology is enabled, the array contains one snapshot for
+     * each query branch. Otherwise, it contains the single legacy snapshot.
+     */
+    private final TopologyInfo[] theBaseTopos;
 
     /*
      * An array storing the values of the extenrnal variables set for the
@@ -99,7 +104,7 @@ public class RuntimeControlBlock {
         theIteratorStates = new PlanIterState[numIters];
         theRegisters = new FieldValue[numRegs];
         theExternalVars = externalVars;
-        theBaseTopo = getClient().getTopology();
+        theBaseTopos = driver.getBaseTopos();
     }
 
     public int getTraceLevel() {
@@ -139,7 +144,10 @@ public class RuntimeControlBlock {
     }
 
     TopologyInfo getBaseTopo() {
-        return theBaseTopo;
+        if (theBaseTopos.length == 1) {
+            return theBaseTopos[0];
+        }
+        return theBaseTopos[theUnionBranch];
     }
 
     Consistency getConsistency() {
@@ -201,10 +209,6 @@ public class RuntimeControlBlock {
 
     void setUnionBranch(int b) {
         theUnionBranch = b;
-    }
-
-    void incUnionBranch() {
-        ++theUnionBranch;
     }
 
     public void setState(int pos, PlanIterState state) {

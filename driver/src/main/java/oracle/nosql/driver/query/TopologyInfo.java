@@ -8,19 +8,40 @@
 package oracle.nosql.driver.query;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class TopologyInfo {
 
-    private int theSeqNum = -1;
+    private final String theStoreName;
 
-    private int[] theShardIds;
+    private final int theSeqNum;
+
+    private final int[] theShardIds;
 
     public TopologyInfo(int seqNum, int[] shardIds) {
-        if (shardIds == null) {
-            throw new IllegalArgumentException("TopologyInfo shardIds must not be null");
+        this(null, seqNum, shardIds);
+    }
+
+    public TopologyInfo(String storeName, int seqNum, int[] shardIds) {
+        if (storeName != null && storeName.isBlank()) {
+            throw new IllegalArgumentException(
+                "TopologyInfo storeName must not be empty string");
         }
+        if (seqNum < 0) {
+            throw new IllegalArgumentException(
+                "TopologyInfo seqNum must not be negative");
+        }
+        if (shardIds == null || shardIds.length == 0) {
+            throw new IllegalArgumentException(
+                "TopologyInfo shardIds must not be null or empty");
+        }
+        theStoreName = storeName;
         theSeqNum = seqNum;
         theShardIds = shardIds;
+    }
+
+    public String getStoreName() {
+        return theStoreName;
     }
 
     public int getSeqNum() {
@@ -38,19 +59,19 @@ public class TopologyInfo {
     int getLastShardId() {
         return theShardIds[theShardIds.length-1];
     }
-   
-    int[] getShardIds() {
-        return theShardIds;
-    }
 
     @Override
     public boolean equals(Object o) {
 
+        if (!(o instanceof TopologyInfo)) {
+            return false;
+        }
         TopologyInfo other = (TopologyInfo)o;
 
         if (this == other ||
-            theSeqNum == other.theSeqNum ||
-            Arrays.equals(theShardIds, other.theShardIds)) {
+            (Objects.equals(theStoreName, other.theStoreName) &&
+             theSeqNum == other.theSeqNum &&
+             Arrays.equals(theShardIds, other.theShardIds))) {
             return true;
         }
 
@@ -59,13 +80,20 @@ public class TopologyInfo {
 
     @Override
     public int hashCode() {
-        return theSeqNum;
+        int code = 1;
+        code = 31 * code + (theStoreName != null ? theStoreName.hashCode() : 0);
+        code = 31 * code + theSeqNum;
+        code = 31 * code + Arrays.hashCode(theShardIds);
+        return code;
     }
 
     @Override
     public String toString() {
 
         StringBuilder sb = new StringBuilder();
+        if (theStoreName != null) {
+            sb.append("storeName = ").append(theStoreName).append(" ");
+        }
         sb.append("seqNum = ").append(theSeqNum);
         sb.append(" shards ids = [ ");
         for (int sid : theShardIds) {

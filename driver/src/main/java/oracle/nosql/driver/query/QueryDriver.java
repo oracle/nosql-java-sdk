@@ -8,9 +8,12 @@
 package oracle.nosql.driver.query;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.PrepareQueryException;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.RetryableException;
 import oracle.nosql.driver.http.Client;
@@ -58,6 +61,13 @@ public class QueryDriver {
     private RuntimeControlBlock theRCB;
 
     /*
+     * The topology snapshots used by all requests during this execution.
+     * When per-store topology is enabled, the array contains one snapshot for
+     * each query branch. Otherwise, it contains the single legacy snapshot.
+     */
+    private TopologyInfo[] theBaseTopos;
+
+    /*
      * The max number of results the app will receive per NoSQLHandle.query()
      * invocation
      */
@@ -67,6 +77,7 @@ public class QueryDriver {
 
     private NoSQLException theError;
 
+    @SuppressWarnings("this-escape") // The request retains its execution driver.
     public QueryDriver(QueryRequest req) {
         theRequest = req;
         req.setDriver(this);
@@ -85,6 +96,62 @@ public class QueryDriver {
         return theRequest;
     }
 
+    TopologyInfo[] getBaseTopos() {
+        if (theBaseTopos == null) {
+            initializeBaseTopos();
+        }
+        return theBaseTopos;
+    }
+
+    /*
+     * Freezes the topologies used by this query execution and records their
+     * sequence numbers on the request.
+     */
+    private void initializeBaseTopos() {
+        TopologyInfo legacyTopo = theClient.getTopology();
+        Map<String, TopologyInfo> storeTopos = theClient.getStoreTopoSnapshot();
+
+        PreparedStatement prep = theRequest.getPreparedStatement();
+        String branchStoreName = prep.getBranchStoreName(0);
+        if (branchStoreName == null) {
+            if (legacyTopo == null) {
+                throw new PrepareQueryException(
+                    "Missing legacy topology for prepared query. " +
+                    "Prepare the query again.");
+            }
+            theBaseTopos = new TopologyInfo[] { legacyTopo };
+        } else {
+            int numBranches = prep.getNumBranches();
+            theBaseTopos = new TopologyInfo[numBranches];
+            for (int branch = 0; branch < numBranches; ++branch) {
+                branchStoreName = prep.getBranchStoreName(branch);
+                TopologyInfo topo = storeTopos.get(branchStoreName);
+                if (topo == null) {
+                    throw new PrepareQueryException(
+                        "Missing topology for prepared query store " +
+                        branchStoreName + ". Prepare the query again.");
+                }
+                theBaseTopos[branch] = topo;
+            }
+        }
+
+        /*
+         * The initial query request is stamped with the cached topology before
+         * it is sent to the proxy. Its prepare response may then refresh the
+         * client cache. The driver plan above uses the refreshed cache, so
+         * update this request as well. Internal requests copy these fields;
+         * without this update, they could send the old topology while the
+         * driver plan executes with the refreshed topology.
+         */
+        Map<String, Integer> storeTopoSeqs = new HashMap<>();
+        for (Map.Entry<String, TopologyInfo> e : storeTopos.entrySet()) {
+            storeTopoSeqs.put(e.getKey(), e.getValue().getSeqNum());
+        }
+        theRequest.setExecutionTopology(
+            (legacyTopo == null ? -1 : legacyTopo.getSeqNum()),
+            storeTopoSeqs);
+    }
+
     public RuntimeControlBlock getRCB() {
         return theRCB;
     }
@@ -94,7 +161,7 @@ public class QueryDriver {
     }
 
     public int getUnionBranch() {
-        return theRCB.getUnionBranch();
+        return theRCB == null ? 0 : theRCB.getUnionBranch();
     }
 
     /**

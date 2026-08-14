@@ -49,7 +49,7 @@
     <!-- using the netty bom - netty maintainers regularly update the BOM to newer netty-tcnative releases
     <netty.tcnative.version>2.0.79.Final</netty.tcnative.version>
     -->
-    <jackson.version>2.18.7</jackson.version>
+    <jackson.version>2.18.8</jackson.version>
     <!-- by default, skip tests; tests require a profile -->
     <maven.test.skip>true</maven.test.skip>
     <javac>javac</javac>
@@ -150,7 +150,8 @@
           SignatureProviderTest.java, AuthRetryTest.java,
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
-          SessionTokenProviderTest.java, RequestTest.java
+          SessionTokenProviderTest.java, RequestTest.java,
+          RuntimeControlBlockTest.java
         </included.tests>
       </properties>
     </profile>

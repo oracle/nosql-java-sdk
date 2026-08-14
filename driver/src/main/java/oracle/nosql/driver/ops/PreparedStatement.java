@@ -96,6 +96,13 @@ public class PreparedStatement {
     private final ArrayList<String> topTableNames;
 
     /*
+     * The store names returned from a prepared query result. When present,
+     * this is branch-aligned with proxyStatements. Null means legacy plan
+     * metadata without per-store branch identity.
+     */
+    private final ArrayList<String> branchStoreNames;
+
+    /*
      * the operation code for the query.
      */
     private final byte operation;
@@ -136,6 +143,8 @@ public class PreparedStatement {
      * @param operation operation code for the query
      * @param maxParallelism the maximum degree of parallelism possible for the
      * query
+     * @param branchStoreNames optional store names aligned with each proxy
+     * statement. Null means legacy plan metadata.
      * @hidden
      */
     public PreparedStatement(
@@ -150,7 +159,8 @@ public class PreparedStatement {
         ArrayList<String> namespaces,
         ArrayList<String> tableNames,
         byte operation,
-        int maxParallelism) {
+        int maxParallelism,
+        ArrayList<String> branchStoreNames) {
 
         if (proxyStatements == null || proxyStatements.isEmpty()) {
             throw new IllegalArgumentException(
@@ -169,6 +179,7 @@ public class PreparedStatement {
         this.topTableNames = tableNames;
         this.operation = operation;
         this.maxParallelism = maxParallelism;
+        this.branchStoreNames = branchStoreNames;
     }
 
     /**
@@ -191,7 +202,8 @@ public class PreparedStatement {
                                      namespaces,
                                      topTableNames,
                                      operation,
-                                     maxParallelism);
+                                     maxParallelism,
+                                     branchStoreNames);
     }
 
     /**
@@ -330,6 +342,15 @@ public class PreparedStatement {
         return proxyStatements.get(branch).clone();
     }
 
+    /**
+     * Internal use only
+     * @return the number of proxy-side query branches in this statement
+     * @hidden
+     */
+    public int getNumBranches() {
+        return proxyStatements.size();
+    }
+
     private static ArrayList<byte[]> copyProxyStatements(
         ArrayList<byte[]> source) {
 
@@ -432,6 +453,18 @@ public class PreparedStatement {
      */
     public String getTopTableName(int branch) {
         return topTableNames.get(branch);
+    }
+
+    /**
+     * Internal use only
+     * @return store name from prepared statement if any
+     * @hidden
+     */
+    public String getBranchStoreName(int branch) {
+        if (branchStoreNames == null) {
+            return null;
+        }
+        return branchStoreNames.get(branch);
     }
 
     /**

@@ -19,6 +19,7 @@ import oracle.nosql.driver.ops.PreparedStatement;
 import oracle.nosql.driver.ops.QueryRequest;
 import oracle.nosql.driver.ops.SystemRequest;
 import oracle.nosql.driver.ops.SystemResult;
+import oracle.nosql.driver.query.QueryDriver;
 
 import org.junit.Test;
 
@@ -112,7 +113,8 @@ public class RequestTest {
             namespaces,
             tableNames,
             (byte)5,
-            0);
+            0,
+            null);
 
         proxyStatement[0] = 9;
         proxyStatements.set(0, new byte[] {9, 9, 9});
@@ -127,5 +129,37 @@ public class RequestTest {
         returned[0] = 7;
         assertEquals(1, copy.getProxyStatement(0)[0]);
         assertEquals(1, prepared.getProxyStatement(0)[0]);
+    }
+
+    @Test
+    public void testQueryRequestMetadataBeforeDriverComputation() {
+        ArrayList<byte[]> proxyStatements = new ArrayList<byte[]>();
+        proxyStatements.add(new byte[] {1});
+        ArrayList<String> namespaces = new ArrayList<String>();
+        namespaces.add("ns");
+        ArrayList<String> tableNames = new ArrayList<String>();
+        tableNames.add("table");
+
+        PreparedStatement prepared = new PreparedStatement(
+            "select count(*) from table",
+            null,
+            null,
+            proxyStatements,
+            null,
+            0,
+            0,
+            null,
+            namespaces,
+            tableNames,
+            (byte)5,
+            0,
+            null);
+        QueryRequest request =
+            new QueryRequest().setPreparedStatement(prepared);
+
+        new QueryDriver(request);
+
+        assertEquals("ns", request.getNamespace());
+        assertEquals("table", request.getTableName());
     }
 }

@@ -4,6 +4,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unreleased
 
+### Added
+- Added per-store topology tracking so advanced queries routed through a proxy
+  serving multiple stores use the correct store's shard topology.
+- Added latest OCI region codes
+
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
   more secure cyphers/protocols including ML-KEM
@@ -15,6 +20,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Resource-scope header values can inject outbound HTTP headers
 - Extension user-agent can inject outbound HTTP headers
 - Internal query copies drop caller-specified durability for query DML
+- Fixed an NPE during automatic auth refresh when processing the initial prepare
+  response for an advanced query.
 
 ## [5.4.23] 2026-06-26
 
@@ -33,7 +40,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 - Added redaction of sensitive HTTP header values in debug logging by default,
   plus the `com.oracle.nosql.sdk.nosqldriver.log-sensitive-headers` system
   property to allow full header values when needed for debugging.
-  
+
 ### Fixed
 - Fixed bug in handling of empty namespaces in prepared statements.
 

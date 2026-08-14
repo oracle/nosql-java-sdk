@@ -12,6 +12,7 @@ import static oracle.nosql.driver.iam.Utils.logTrace;
 import static oracle.nosql.driver.iam.Utils.parseTokenResponse;
 import static oracle.nosql.driver.iam.SecurityTokenSupplier.SecurityToken;
 import static oracle.nosql.driver.util.HttpRequestUtil.HttpResponse;
+import static oracle.nosql.driver.util.LogUtil.redactSensitiveValue;
 
 import javax.net.ssl.SSLException;
 import java.net.URI;
@@ -207,7 +208,8 @@ abstract class AbstractTokenSupplier
                                     ", status code: %d, output: %s",
                             resourcePrincipalTokenURI.getHost(),
                             resourcePrincipalTokenResponse.getStatusCode(),
-                            resourcePrincipalTokenResponse.getOutput()));
+                            redactSensitiveValue(
+                                resourcePrincipalTokenResponse.getOutput())));
         }
 
         return resourcePrincipalTokenResponse;
@@ -249,7 +251,8 @@ abstract class AbstractTokenSupplier
                                     ", status code: %d, output: %s",
                             federationURI.getHost(),
                             resourcePrincipalSessionTokenResponse.getStatusCode(),
-                            resourcePrincipalSessionTokenResponse.getOutput()));
+                            redactSensitiveValue(
+                                resourcePrincipalSessionTokenResponse.getOutput())));
         }
 
         String resourcePrincipalSessionToken = parseTokenResponse(

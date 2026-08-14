@@ -43,8 +43,11 @@ import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
@@ -230,6 +233,9 @@ public class Client {
 
     private volatile TopologyInfo topology;
 
+    /* Per store topology */
+    private final Map<String, TopologyInfo> storeTopologies;
+
     /* for internal testing */
     private final String prepareFilename;
 
@@ -240,6 +246,7 @@ public class Client {
      */
     private volatile long numOKResponses;
 
+    @SuppressWarnings("this-escape") // createHttpClient is an extension point.
     public Client(Logger logger,
                   NoSQLHandleConfig httpConfig) {
 
@@ -301,6 +308,7 @@ public class Client {
         }
 
         oneTimeMessages = new HashSet<String>();
+        storeTopologies = new ConcurrentHashMap<String, TopologyInfo>();
         statsControl = new StatsControlImpl(config,
             logger, httpClient, httpConfig.getRateLimitingEnabled());
 
@@ -361,6 +369,8 @@ public class Client {
         if (threadPool != null) {
             threadPool.shutdown();
         }
+        topology = null;
+        storeTopologies.clear();
     }
 
     public int getAcquiredChannelCount() {
@@ -447,9 +457,11 @@ public class Client {
 
             QueryRequest qreq = (QueryRequest)kvRequest;
 
-            /* Set the topo seq num in the request, if it has not been set
-             * already */
-            kvRequest.setTopoSeqNum(getTopoSeqNum());
+            /*
+             * Stamp the query request with the cached legacy topology sequence
+             * and the per-store topology sequences.
+             */
+            setRequestTopology(kvRequest);
 
             statsControl.observeQuery(qreq);
 
@@ -661,11 +673,15 @@ public class Client {
                  */
                 kvRequest.setCheckRequestSize(false);
 
-                /* Set the topo seq num in the request, if it has not been set
-                 * already */
+                /*
+                 * Stamp non-query and user query requests with the legacy
+                 * topology sequence and the per-store topology sequences
+                 * before serialization. The request preserves any topology
+                 * captured earlier for a query execution.
+                 */
                 if (!(kvRequest instanceof QueryRequest) ||
                     kvRequest.isQueryRequest()) {
-                    kvRequest.setTopoSeqNum(getTopoSeqNum());
+                    setRequestTopology(kvRequest);
                 }
 
                 /*
@@ -780,7 +796,8 @@ public class Client {
                 long networkLatency =
                     (System.nanoTime() - latencyNanos) / 1_000_000;
 
-                setTopology(res.getTopology());
+                /* Update cached legacy or per-store topology from the response. */
+                updateCachedTopology(res);
 
                 if (serialVersionUsed < 3) {
                     /* so we can emit a one-time message if the app */
@@ -845,8 +862,7 @@ public class Client {
                     kvRequest.incrementRetries();
                     exception = rae;
                     logFine(logger,
-                        "Client re-auth on AuthenticationException: " +
-                            rae.getMessage());
+                        "Client re-auth on AuthenticationException");
                     continue;
                 } else if (authProvider instanceof OAuthAccessTokenProvider) {
                     /*
@@ -878,9 +894,9 @@ public class Client {
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
                 logInfo(logger, "Unexpected authentication exception: " +
-                        rae);
-                throw new NoSQLException("Unexpected exception: " +
-                        rae.getMessage(), rae);
+                        rae.getClass().getSimpleName());
+                throw new NoSQLException("Unexpected authentication exception",
+                                         rae);
             } catch (InvalidAuthorizationException iae) {
                 /*
                  * Allow a single retry for invalid/expired auth
@@ -900,14 +916,8 @@ public class Client {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
-                    if (oauthProvider) {
-                        logFine(logger,
-                                "Client OAuth authorization failed with " +
-                                iae.getClass().getName());
-                    } else {
-                        logFine(logger, "Client execute NoSQLException: " +
-                                iae.getMessage());
-                    }
+                    logFine(logger,
+                        "Client execute InvalidAuthorizationException");
                     throw iae;
                 }
                 /* flush auth cache and do one retry */
@@ -922,16 +932,8 @@ public class Client {
                     iae.getClass());
                 kvRequest.incrementRetries();
                 exception = iae;
-                if (oauthProvider) {
-                    logFine(logger,
-                            "Client retrying OAuth authorization after " +
-                            iae.getClass().getName());
-                } else {
-                    logFine(
-                        logger,
-                        "Client retrying on InvalidAuthorizationException: " +
-                        iae.getMessage());
-                }
+                logFine(logger,
+                        "Client retrying on InvalidAuthorizationException");
                 continue;
             } catch (SecurityInfoNotReadyException sinre) {
                 kvRequest.addRetryException(sinre.getClass());
@@ -1249,8 +1251,8 @@ public class Client {
         int durationSeconds = Integer.getInteger("test.rldurationsecs", 30)
                                      .intValue();
 
-        double RUs = (double)limits.getReadUnits();
-        double WUs = (double)limits.getWriteUnits();
+        double RUs = limits.getReadUnits();
+        double WUs = limits.getWriteUnits();
 
         /* if there's a specified rate limiter percentage, use that */
         double rlPercent = config.getDefaultRateLimitingPercentage();
@@ -1472,7 +1474,6 @@ public class Client {
         if (space <= 0) {
             space = v.length();
         }
-        long val = 0;
         try {
             this.features = Long.parseLong(v, eq+1, space, 16);
         } catch (Exception e) {
@@ -2116,6 +2117,68 @@ public class Client {
 
     public TopologyInfo getTopology() {
         return topology;
+    }
+
+    /**
+     * @hidden
+     * Returns an immutable snapshot of the per-store topology cache.
+     */
+    public Map<String, TopologyInfo> getStoreTopoSnapshot() {
+        return Collections.unmodifiableMap(new HashMap<>(storeTopologies));
+    }
+
+    /*
+     * Sets both the legacy topology sequence and a snapshot of the per-store
+     * topology sequences on the request before serialization. Both are set
+     * because the client cannot determine whether the proxy supports per-store
+     * topology sequences.
+     */
+    private void setRequestTopology(Request kvRequest) {
+        /* legacy topology sequence */
+        kvRequest.setTopoSeqNum(getTopoSeqNum());
+
+        /* per store topology sequence */
+        Map<String, TopologyInfo> topos = getStoreTopoSnapshot();
+        Map<String, Integer> seqNums = new HashMap<>();
+        for (Map.Entry<String, TopologyInfo> e : topos.entrySet()) {
+            seqNums.put(e.getKey(), e.getValue().getSeqNum());
+        }
+        kvRequest.setStoreTopoSeqNums(seqNums);
+    }
+
+    /*
+     * Updates the cached topology information:
+     *   - Updates the per-store cache from a response that carries per-store
+     *     topology information, retaining a newer cached sequence for each
+     *     store.
+     *   - Responses without per-store information update the legacy topology.
+     */
+    private void updateCachedTopology(Result ret) {
+        if (ret.getStoreTopologies() != null) {
+            setPerStoreTopology(ret.getStoreTopologies());
+            return;
+        }
+
+        setTopology(ret.getTopology());
+    }
+
+    private void setPerStoreTopology(List<TopologyInfo> storeTopos) {
+
+        if (storeTopos == null) {
+            return;
+        }
+
+        for (TopologyInfo topo : storeTopos) {
+            storeTopologies.compute(
+                topo.getStoreName(), (storeName, currentTopo) -> {
+                    if (currentTopo == null ||
+                        currentTopo.getSeqNum() < topo.getSeqNum()) {
+                        trace("New store topology: " + topo, 1);
+                        return topo;
+                    }
+                    return currentTopo;
+                });
+        }
     }
 
     private synchronized int getTopoSeqNum() {
