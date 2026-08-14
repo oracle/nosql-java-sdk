@@ -28,6 +28,7 @@ import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.HttpRequestUtil;
@@ -89,7 +90,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * The server caps this deadline at the earlier of the validated OAuth
      * access-token expiration and the configured store session timeout.
      */
-    private long loginTokenExpireAt;
+    private volatile long loginTokenExpireAt;
 
     /*
      * KV-authenticated identity associated with this provider's login token.
@@ -143,6 +144,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * SSL handshake timeout in milliseconds;
      */
     private int sslHandshakeTimeoutMs;
+
+    /* Handle configuration used to propagate HTTP proxy settings. */
+    private NoSQLHandleConfig handleConfig;
+
     /**
      * @hidden
      * This is only used for unit test
@@ -158,6 +163,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * Current scheduled refresh task.
      */
     private ScheduledFuture<?> refreshTask;
+
+    /* Guards auto-renew state transitions and refreshTask. */
+    private final Object refreshLock = new Object();
 
     /* Invalidates a scheduled refresh that has already started running. */
     private final AtomicLong refreshGeneration = new AtomicLong();
@@ -202,13 +210,16 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         if (loginAborted(force, expectedGeneration)) {
             return;
         }
+        String accessToken = getAccessToken();
+        if (accessToken == null || accessToken.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Invalid access token provided");
+        }
 
-        final String accessToken = validateAccessToken(getAccessToken());
         if (loginAborted(force, expectedGeneration)) {
             return;
         }
-        final int timeoutMs =
-            (request != null) ? request.getTimeoutInternal() : 0;
+        final int timeoutMs = getRemainingTimeoutMs(request);
 
         try {
             /*
@@ -241,7 +252,11 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             final LoginResult loginResult;
             try {
                 loginResult = parseJsonResult(response.getOutput());
-                validateLoginTokenExpiration(loginResult);
+                final long expireAt = loginResult.getExpireAt();
+                if (expireAt <= System.currentTimeMillis()) {
+                    throw new InvalidAuthorizationException(
+                        "OAuth login response contains an expired login token");
+                }
                 validateAuthenticatedIdentity(
                     loginResult.getAuthenticatedIdentity());
             } catch (InvalidAuthorizationException iae) {
@@ -276,6 +291,29 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 (expectedGeneration != refreshGeneration.get() ||
                  !autoRenew)) ||
                (!force && authString.get() != null);
+    }
+
+    private int getRemainingTimeoutMs(Request request) {
+        if (request == null) {
+            return 0;
+        }
+
+        final int timeoutMs = request.getTimeoutInternal();
+        final long startNanos = request.getStartNanos();
+        if (timeoutMs <= 0 || startNanos == 0) {
+            return timeoutMs;
+        }
+
+        final long elapsedNanos = System.nanoTime() - startNanos;
+        if (elapsedNanos <= 0) {
+            return timeoutMs;
+        }
+        final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+        if (elapsedMs >= timeoutMs) {
+            throw new RequestTimeoutException(
+                timeoutMs, "OAuth login exceeded the request timeout");
+        }
+        return timeoutMs - (int) elapsedMs;
     }
 
     /**
@@ -318,10 +356,12 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         final String logoutAuth;
         synchronized (this) {
             logoutAuth = authString.getAndSet(null);
-            if (!scheduler.isShutdown()) {
-                scheduler.shutdownNow();
+            synchronized (refreshLock) {
+                if (!scheduler.isShutdown()) {
+                    scheduler.shutdownNow();
+                }
+                cancelRefreshTaskLocked();
             }
-            cancelRefreshTask();
 
             loginTokenExpireAt = 0;
             authenticatedIdentity = null;
@@ -361,7 +401,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             }
             authString.set(null);
             cancelRefreshTask();
-            clearLoginTokenExpiration();
+            loginTokenExpireAt = 0;
         }
     }
 
@@ -392,21 +432,9 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 return false;
             }
             cancelRefreshTask();
-            clearLoginTokenExpiration();
+            loginTokenExpireAt = 0;
             return true;
         }
-    }
-
-    private void clearLoginTokenExpiration() {
-        loginTokenExpireAt = 0;
-    }
-
-    private String validateAccessToken(String accessToken) {
-        if (accessToken == null || accessToken.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Invalid access token provided");
-        }
-        return accessToken;
     }
 
     /**
@@ -441,14 +469,6 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         } catch (RuntimeException re) {
             throw new InvalidAuthorizationException(
                 "Invalid OAuth login response");
-        }
-    }
-
-    private void validateLoginTokenExpiration(LoginResult loginResult) {
-        final long expireAt = loginResult.getExpireAt();
-        if (expireAt <= System.currentTimeMillis()) {
-            throw new InvalidAuthorizationException(
-                "OAuth login response contains an expired login token");
         }
     }
 
@@ -524,9 +544,15 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
     }
 
     /* Schedule automatic re-login slightly before session expiry. */
-    private synchronized void scheduleRefresh() {
+    private void scheduleRefresh() {
+        synchronized (refreshLock) {
+            scheduleRefreshLocked();
+        }
+    }
+
+    private void scheduleRefreshLocked() {
         final long generation = refreshGeneration.incrementAndGet();
-        cancelRefreshTask();
+        cancelRefreshTaskLocked();
         if (!autoRenew || isClosed.get() || authString.get() == null ||
             loginTokenExpireAt <= 0 || scheduler.isShutdown()) {
             return;
@@ -560,14 +586,13 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         }
     }
 
-    private void invalidateRefreshTask() {
-        refreshGeneration.incrementAndGet();
-        synchronized (this) {
-            cancelRefreshTask();
+    private void cancelRefreshTask() {
+        synchronized (refreshLock) {
+            cancelRefreshTaskLocked();
         }
     }
 
-    private void cancelRefreshTask() {
+    private void cancelRefreshTaskLocked() {
         if (refreshTask != null) {
             refreshTask.cancel(false);
             refreshTask = null;
@@ -660,6 +685,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
             throw new IllegalArgumentException(
                 "OAuthAccessTokenProvider requires an SSL context");
         }
+        handleConfig = config;
         return this;
     }
 
@@ -701,14 +727,17 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * @return this
      */
     public OAuthAccessTokenProvider setAutoRenew(boolean autoRenew) {
-        if (this.autoRenew == autoRenew) {
-            return this;
-        }
-        this.autoRenew = autoRenew;
-        if (autoRenew) {
-            scheduleRefresh();
-        } else {
-            invalidateRefreshTask();
+        synchronized (refreshLock) {
+            if (this.autoRenew == autoRenew) {
+                return this;
+            }
+            this.autoRenew = autoRenew;
+            if (autoRenew) {
+                scheduleRefreshLocked();
+            } else {
+                refreshGeneration.incrementAndGet();
+                cancelRefreshTaskLocked();
+            }
         }
         return this;
     }
@@ -735,6 +764,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                  sslHandshakeTimeoutMs,
                  serviceName,
                  null);
+            if (handleConfig != null &&
+                handleConfig.getProxyHost() != null) {
+                client.configureProxy(handleConfig);
+            }
             if (timeoutMs == 0) {
                 timeoutMs = HTTP_TIMEOUT_MS;
             }

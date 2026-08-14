@@ -25,11 +25,14 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -302,6 +305,81 @@ public class OAuthAccessTokenProviderTest {
             Thread.sleep(loginDelayMs + 100);
             loginDelayMs = 0;
             provider.close();
+        }
+    }
+
+    @Test
+    public void testLoginUsesRemainingRequestTimeout() throws Exception {
+        loginDelayMs = 500;
+        TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint).setAutoRenew(false);
+        final GetRequest request = new GetRequest().setTimeout(200);
+        request.setStartNanos(
+            System.nanoTime() - TimeUnit.MILLISECONDS.toNanos(150));
+        final long startNanos = System.nanoTime();
+
+        try {
+            provider.getAuthorizationString(request);
+            fail("OAuth login should have observed the remaining timeout");
+        } catch (NoSQLException expected) {
+            final long elapsedMs =
+                TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - startNanos);
+            assertTrue("OAuth login reused the original timeout: " +
+                       elapsedMs, elapsedMs < 150);
+        } finally {
+            Thread.sleep(loginDelayMs + 100);
+            loginDelayMs = 0;
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testLoginUsesConfiguredHttpProxy() throws Exception {
+        final CountDownLatch proxyAccepted = new CountDownLatch(1);
+        final AtomicReference<Throwable> proxyFailure =
+            new AtomicReference<Throwable>();
+        final TestProvider provider = new TestProvider();
+
+        final ServerSocket proxyServer = new ServerSocket(0);
+        final Thread proxyThread = new Thread(() -> {
+            try {
+                final Socket proxySocket = proxyServer.accept();
+                proxyAccepted.countDown();
+                proxySocket.close();
+            } catch (Throwable t) {
+                proxyFailure.set(t);
+            }
+        }, "OAuthProxyTest");
+        proxyThread.start();
+
+        try {
+            final NoSQLHandleConfig config =
+                new NoSQLHandleConfig(endpoint)
+                    .setProxyHost("localhost")
+                    .setProxyPort(proxyServer.getLocalPort());
+            provider.setEndpoint(endpoint).setAutoRenew(false);
+            provider.prepare(config);
+
+            try {
+                provider.getAuthorizationString(
+                    new GetRequest().setTimeout(1_000));
+                fail("OAuth login should have connected to the test proxy");
+            } catch (NoSQLException expected) {
+                assertTrue(proxyAccepted.await(5, TimeUnit.SECONDS));
+            }
+
+            proxyThread.join(5_000);
+            assertFalse(proxyThread.isAlive());
+            if (proxyFailure.get() != null) {
+                throw new AssertionError(
+                    "Test proxy failed", proxyFailure.get());
+            }
+            assertEquals(0, loginCounter.get());
+        } finally {
+            provider.close();
+            proxyServer.close();
+            proxyThread.join(5_000);
         }
     }
 
@@ -651,6 +729,55 @@ public class OAuthAccessTokenProviderTest {
             assertEquals(1, loginCounter.get());
         } finally {
             provider.releaseRefreshCallback();
+            provider.close();
+        }
+    }
+
+    @Test
+    public void testConcurrentAutoRenewTogglesKeepRefreshScheduled()
+        throws Exception {
+
+        loginTokenLifetimeMs = 120_000;
+        final TestProvider provider = new TestProvider();
+        provider.setEndpoint(endpoint);
+
+        try {
+            assertNotNull(provider.getAuthorizationString(null));
+            final CountDownLatch start = new CountDownLatch(1);
+            final AtomicReference<Throwable> toggleFailure =
+                new AtomicReference<Throwable>();
+            final Runnable toggler = () -> {
+                try {
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException(
+                            "Timed out waiting to start renewal toggles");
+                    }
+                    for (int i = 0; i < 1_000; i++) {
+                        provider.setAutoRenew(false);
+                        Thread.yield();
+                        provider.setAutoRenew(true);
+                    }
+                } catch (Throwable t) {
+                    toggleFailure.compareAndSet(null, t);
+                }
+            };
+            final Thread first = new Thread(toggler, "OAuthToggleOne");
+            final Thread second = new Thread(toggler, "OAuthToggleTwo");
+            first.start();
+            second.start();
+            start.countDown();
+            first.join(15_000);
+            second.join(15_000);
+
+            assertFalse(first.isAlive());
+            assertFalse(second.isAlive());
+            if (toggleFailure.get() != null) {
+                throw new AssertionError(
+                    "Concurrent renewal toggle failed", toggleFailure.get());
+            }
+            assertTrue(provider.isAutoRenew());
+            assertEquals(1, getScheduler(provider).getQueue().size());
+        } finally {
             provider.close();
         }
     }
