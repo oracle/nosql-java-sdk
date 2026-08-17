@@ -123,7 +123,7 @@ Database. In addition, a running proxy service is required. See
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/24.3/admin/proxy.html)
 for proxy configuration information.
 
-On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
+On-premise authorization supports [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html) for store credentials and [OAuthAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/OAuthAccessTokenProvider.html) for OAuth 2.0 access-token authentication.
 See the Quickstart example below for code details for connecting on-premise.
 
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
