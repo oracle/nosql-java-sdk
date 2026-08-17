@@ -43,6 +43,7 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.NoSQLHandleFactory;
 import oracle.nosql.driver.NoSQLException;
+import oracle.nosql.driver.SystemException;
 import oracle.nosql.driver.ops.GetRequest;
 import oracle.nosql.driver.values.JsonUtils;
 
@@ -795,7 +796,7 @@ public class OAuthAccessTokenProviderTest {
         try {
             failedLogin.getAuthorizationString(null);
             fail("The OAuth login should have failed");
-        } catch (InvalidAuthorizationException expected) {
+        } catch (SystemException expected) {
             assertFalse(expected.getMessage().contains(responseSecret));
         } finally {
             failedLogin.close();
