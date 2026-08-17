@@ -23,12 +23,14 @@ import java.util.logging.Logger;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpStatusClass;
 import io.netty.handler.ssl.SslContext;
 import oracle.nosql.driver.AuthorizationProvider;
 import oracle.nosql.driver.InvalidAuthorizationException;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.RequestTimeoutException;
+import oracle.nosql.driver.SystemException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.util.HttpRequestUtil;
@@ -82,8 +84,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      * Authentication string which contain the Bearer prefix and login token's
      * binary representation in hex format.
      */
-    private final AtomicReference<String> authString =
-        new AtomicReference<String>();
+    private final AtomicReference<String> authString = new AtomicReference<>();
 
     /*
      * Expiration time of the NoSQL login token, in milliseconds since epoch.
@@ -202,13 +203,13 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     protected abstract String getAccessToken();
 
-    private synchronized void performLogin(boolean force,
-                                           Request request,
-                                           long expectedGeneration) {
+    private synchronized String performLogin(boolean force,
+                                             Request request,
+                                             long expectedGeneration) {
         final String oldAuthorization = authString.get();
         /* re-check the authString in case of a race */
         if (loginAborted(force, expectedGeneration)) {
-            return;
+            return oldAuthorization;
         }
         String accessToken = getAccessToken();
         if (accessToken == null || accessToken.isEmpty()) {
@@ -217,7 +218,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
         }
 
         if (loginAborted(force, expectedGeneration)) {
-            return;
+            return authString.get();
         }
         final int timeoutMs = getRemainingTimeoutMs(request);
 
@@ -226,7 +227,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
              * Send request to server for login token
              */
             if (loginAborted(force, expectedGeneration)) {
-                return;
+                return authString.get();
             }
             HttpResponse response =
                 sendRequest(BEARER_PREFIX + accessToken,
@@ -234,12 +235,17 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
 
             if (loginAborted(force, expectedGeneration)) {
                 logoutLoginResponse(response, timeoutMs);
-                return;
+                return authString.get();
             }
 
             /*
              * login fail
              */
+            if(HttpStatusClass.SERVER_ERROR.contains(response.getStatusCode())) {
+                throw new SystemException(
+                    "OAuth login failed with HTTP status " +
+                    response.getStatusCode());
+            }
             if (response.getStatusCode() != HttpResponseStatus.OK.code()) {
                 throw new InvalidAuthorizationException(
                     "OAuth login failed with HTTP status " +
@@ -263,13 +269,12 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
                 logoutLoginResponse(response, timeoutMs);
                 throw iae;
             }
+            final String newAuthorization =
+                BEARER_PREFIX + loginResult.getToken();
             if (loginAborted(force, expectedGeneration) ||
-                !authString.compareAndSet(
-                    oldAuthorization,
-                    BEARER_PREFIX + loginResult.getToken())) {
-                logoutSession(
-                    BEARER_PREFIX + loginResult.getToken(), timeoutMs);
-                return;
+                !authString.compareAndSet(oldAuthorization, newAuthorization)) {
+                logoutSession(newAuthorization, timeoutMs);
+                return authString.get();
             }
             loginTokenExpireAt = loginResult.getExpireAt();
             /*
@@ -277,9 +282,10 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
              * expiration.
              */
             scheduleRefresh();
+            return newAuthorization;
 
-        } catch (InvalidAuthorizationException iae) {
-            throw iae;
+        } catch (NoSQLException nse) {
+            throw nse;
         } catch (Exception e) {
             throw new NoSQLException("Login with OAuth token failed", e);
         }
@@ -333,10 +339,11 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
          * If there is no cached auth string, re-authentication to retrieve
          * the login token and generate the auth string.
          */
-        if (authString.get() == null) {
-            performLogin(false, request, -1);
+        final String authorization = authString.get();
+        if (authorization != null) {
+            return authorization;
         }
-        return authString.get();
+        return performLogin(false, request, -1);
     }
 
     /**
@@ -635,7 +642,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     public OAuthAccessTokenProvider setEndpoint(String endpoint) {
         URL url = NoSQLHandleConfig.createURL(endpoint, "");
-        if (!url.getProtocol().toLowerCase().equals("https")) {
+        if (!"https".equalsIgnoreCase(url.getProtocol())) {
             throw new IllegalArgumentException(
                 "OAuthAccessTokenProvider requires use of https");
         }
@@ -748,7 +755,7 @@ public abstract class OAuthAccessTokenProvider implements AuthorizationProvider 
      */
     private HttpResponse sendRequest(String authHeader,
                                      String serviceName,
-                                     int timeoutMs) throws Exception {
+                                     int timeoutMs) {
         HttpClient client = null;
         try {
             if (!disableSSLHook && sslContext == null) {
