@@ -30,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
+import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
@@ -49,6 +50,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 public class HttpRequestUtil {
     private static final Charset utf8 = StandardCharsets.UTF_8;
     private static final int DEFAULT_DELAY_MS = 200;
+    private static final int RETRY_UNTIL_TIMEOUT = -1;
 
     /**
      * Issue HTTP GET request using given HTTP client with retries and general
@@ -83,7 +85,32 @@ public class HttpRequestUtil {
                                             Logger logger) {
 
         return doRequest(httpClient, uri, headers, GET,
-                         null /* no payload */, timeoutMs, logger);
+                         null /* no payload */, timeoutMs, logger,
+                         RETRY_UNTIL_TIMEOUT);
+    }
+
+    /**
+     * Issues one HTTP GET request without retrying transport failures or
+     * server-error responses.
+     *
+     * @hidden
+     *
+     * @param httpClient a HTTP client
+     * @param uri the request URI
+     * @param headers HTTP headers of this request
+     * @param timeoutMs request timeout in milliseconds
+     * @param logger logger
+     * @return HTTP response
+     */
+    public static HttpResponse doGetRequestOnce(HttpClient httpClient,
+                                                String uri,
+                                                HttpHeaders headers,
+                                                int timeoutMs,
+                                                Logger logger) {
+
+        return doRequest(httpClient, uri, headers, GET,
+                         null /* no payload */, timeoutMs, logger,
+                         0 /* no retries */);
     }
 
     /**
@@ -122,7 +149,7 @@ public class HttpRequestUtil {
                                              Logger logger) {
 
         return doRequest(httpClient, uri, headers, POST,
-                         payload, timeoutMs, logger);
+                         payload, timeoutMs, logger, RETRY_UNTIL_TIMEOUT);
     }
 
     /**
@@ -161,7 +188,7 @@ public class HttpRequestUtil {
                                             Logger logger) {
 
         return doRequest(httpClient, uri, headers, PUT,
-                         payload, timeoutMs, logger);
+                         payload, timeoutMs, logger, RETRY_UNTIL_TIMEOUT);
     }
 
     /**
@@ -197,7 +224,7 @@ public class HttpRequestUtil {
                                                Logger logger) {
 
         return doRequest(httpClient, uri, headers, DELETE, null,
-                         timeoutMs, logger);
+                         timeoutMs, logger, RETRY_UNTIL_TIMEOUT);
     }
 
     private static HttpResponse doRequest(HttpClient httpClient,
@@ -206,7 +233,8 @@ public class HttpRequestUtil {
                                           HttpMethod method,
                                           byte[] payload,
                                           int timeoutMs,
-                                          Logger logger) {
+                                          Logger logger,
+                                          int maxRetries) {
 
         final long startTime = System.currentTimeMillis();
         int numRetries = 0;
@@ -253,6 +281,9 @@ public class HttpRequestUtil {
                  * this indicates server internal error.
                  */
                 if (res.getStatusCode() >= 500) {
+                    if (!canRetry(numRetries, maxRetries)) {
+                        return res;
+                    }
                     logFine(logger,
                             "Remote server temporarily unavailable," +
                             " status code " + res.getStatusCode() +
@@ -275,7 +306,6 @@ public class HttpRequestUtil {
                  * disconnected. Retry.
                  */
                 exception = ioe;
-                ++numRetries;
                 if (ioe instanceof SSLException) {
                     /* disconnect the channel to force a new one */
                     if (channel != null) {
@@ -284,8 +314,14 @@ public class HttpRequestUtil {
                         channel.disconnect();
                     }
                 } else {
-                    delay();
+                    if (canRetry(numRetries, maxRetries)) {
+                        delay();
+                    }
                 }
+                if (!canRetry(numRetries, maxRetries)) {
+                    throw requestFailed(ioe);
+                }
+                ++numRetries;
                 continue;
             } catch (InterruptedException ie) {
                 throw new RuntimeException(
@@ -308,6 +344,9 @@ public class HttpRequestUtil {
                         name + "message: " + t.getMessage());
 
                 exception = t;
+                if (!canRetry(numRetries, maxRetries)) {
+                    throw requestFailed(t);
+                }
                 delay();
                 ++numRetries;
                 continue;
@@ -322,6 +361,14 @@ public class HttpRequestUtil {
             "Request timed out after " + numRetries +
             (numRetries == 1 ? " retry." : " retries."),
             exception);
+    }
+
+    private static boolean canRetry(int numRetries, int maxRetries) {
+        return maxRetries == RETRY_UNTIL_TIMEOUT || numRetries < maxRetries;
+    }
+
+    private static NoSQLException requestFailed(Throwable cause) {
+        return new NoSQLException("Unable to execute HTTP request", cause);
     }
 
     private static FullHttpRequest buildRequest(String requestURI,

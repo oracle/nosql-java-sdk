@@ -84,6 +84,7 @@ import oracle.nosql.driver.WriteThrottlingException;
 import oracle.nosql.driver.httpclient.HttpClient;
 import oracle.nosql.driver.httpclient.ResponseHandler;
 import oracle.nosql.driver.kv.AuthenticationException;
+import oracle.nosql.driver.kv.OAuthAccessTokenProvider;
 import oracle.nosql.driver.kv.StoreAccessTokenProvider;
 import oracle.nosql.driver.ops.AddReplicaRequest;
 import oracle.nosql.driver.ops.DeleteRequest;
@@ -292,9 +293,9 @@ public class Client {
                 "Must configure AuthorizationProvider to use HttpClient");
         }
 
-        /* StoreAccessTokenProvider == onprem */
+        /* StoreAccessTokenProvider/OAuthAccessTokenProvider == onprem */
         if (config.getRateLimitingEnabled() &&
-            !(authProvider instanceof StoreAccessTokenProvider)) {
+            !isOnPremAuthProvider()) {
             logFine(logger, "Starting client with rate limiting enabled");
             rateLimiterMap = new RateLimiterMap();
             tableLimitUpdateMap = new ConcurrentHashMap<String, AtomicLong>();
@@ -382,6 +383,11 @@ public class Client {
 
     public int getFreeChannelCount() {
         return httpClient.getFreeChannelCount();
+    }
+
+    private boolean isOnPremAuthProvider() {
+        return authProvider instanceof StoreAccessTokenProvider ||
+               authProvider instanceof OAuthAccessTokenProvider;
     }
 
     /**
@@ -691,12 +697,10 @@ public class Client {
                 kvRequest.setTimeoutInternal(timeoutMs);
 
                 /*
-                 * If on-premises the authProvider will always be a
-                 * StoreAccessTokenProvider. If so, check against
-                 * configurable limit. Otherwise check against internal
-                 * hardcoded cloud limit.
+                 * If on-premises, check against configurable limit.
+                 * Otherwise check against internal hardcoded cloud limit.
                  */
-                if (authProvider instanceof StoreAccessTokenProvider) {
+                if (isOnPremAuthProvider()) {
                     if (buffer.readableBytes() >
                         httpClient.getMaxContentLength()) {
                         throw new RequestSizeLimitException("The request " +
@@ -860,6 +864,32 @@ public class Client {
                     logFine(logger,
                         "Client re-auth on AuthenticationException");
                     continue;
+                } else if (authProvider instanceof OAuthAccessTokenProvider) {
+                    /*
+                     * OAuthAccessTokenProvider obtains a new NoSQL login
+                     * token lazily after the cache is flushed. Retry this
+                     * path only once so repeated RETRY_AUTHENTICATION
+                     * responses are surfaced as authentication failures
+                     * instead of eventually timing out the request.
+                     */
+                    if (retriedOAuthAuthentication(kvRequest)) {
+                        kvRequest.setRateLimitDelayedMs(rateDelayedMs);
+                        statsControl.observeError(kvRequest);
+                        logFine(logger,
+                                "Client OAuth re-auth failed with " +
+                                rae.getClass().getName());
+                        throw rae;
+                    }
+                    ((OAuthAccessTokenProvider) authProvider)
+                        .invalidateAuthorizationString(authString);
+                    kvRequest.addRetryException(
+                        AuthenticationException.class);
+                    kvRequest.incrementRetries();
+                    exception = rae;
+                    logFine(logger,
+                            "Client retrying OAuth re-auth on " +
+                            rae.getClass().getName());
+                    continue;
                 }
                 kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                 statsControl.observeError(kvRequest);
@@ -875,16 +905,31 @@ public class Client {
                  * failures. This does not include permissions-related errors,
                  * which would be a UnauthorizedException.
                  */
-                if (retriedInvalidAuthorizationException(kvRequest)) {
+                final boolean oauthProvider =
+                    authProvider instanceof OAuthAccessTokenProvider;
+                if ((oauthProvider &&
+                     retriedOAuthAuthentication(kvRequest)) ||
+                    (!oauthProvider &&
+                     retriedException(
+                         kvRequest,
+                         InvalidAuthorizationException.class))) {
                     /* same as NoSQLException below */
                     kvRequest.setRateLimitDelayedMs(rateDelayedMs);
                     statsControl.observeError(kvRequest);
-                    logFine(logger, "Client execute InvalidAuthorizationException");
+                    logFine(logger,
+                        "Client execute InvalidAuthorizationException");
                     throw iae;
                 }
                 /* flush auth cache and do one retry */
-                authProvider.flushCache();
-                kvRequest.addRetryException(iae.getClass());
+                if (oauthProvider) {
+                    ((OAuthAccessTokenProvider) authProvider)
+                        .invalidateAuthorizationString(authString);
+                } else {
+                    authProvider.flushCache();
+                }
+                kvRequest.addRetryException(
+                    oauthProvider ? InvalidAuthorizationException.class :
+                    iae.getClass());
                 kvRequest.incrementRetries();
                 exception = iae;
                 logFine(logger,
@@ -1603,20 +1648,29 @@ public class Client {
     }
 
     /**
-     * Returns whether an {@link InvalidAuthorizationException} has been
-     * retried for the given request.
+     * Returns whether an exception type has been retried for the given
+     * request.
      *
      * @param request the request to check
-     * @return true if an {@link InvalidAuthorizationException} has been
-     *         retried for the request, false otherwise
+     * @param exceptionClass the exception class to check
+     * @return true if the exception type has been retried for the request
      */
-    private boolean retriedInvalidAuthorizationException(Request request) {
+    private boolean retriedException(
+        Request request,
+        Class<? extends Throwable> exceptionClass) {
+
         final RetryStats rs = request.getRetryStats();
         if (rs == null || rs.getRetries() <= 0) {
             return false;
         }
 
-        return rs.getNumExceptions(InvalidAuthorizationException.class) > 0;
+        return rs.getNumExceptions(exceptionClass) > 0;
+    }
+
+    private boolean retriedOAuthAuthentication(Request request) {
+        return retriedException(request, AuthenticationException.class) ||
+               retriedException(
+                   request, InvalidAuthorizationException.class);
     }
 
     private void throwIfTransportRetryNotAllowed(Request request,
@@ -1650,8 +1704,15 @@ public class Client {
     private void logRetries(int numRetries, Throwable exception) {
         Level level = Level.FINE;
         if (logger != null) {
+            final String exceptionDetail =
+                exception == null ? "" :
+                ", exception: " +
+                (authProvider instanceof OAuthAccessTokenProvider &&
+                 (exception instanceof AuthenticationException ||
+                  exception instanceof InvalidAuthorizationException) ?
+                    exception.getClass().getName() : exception);
             logger.log(level, "Client, doing retry: " + numRetries +
-                       (exception != null ? ", exception: " + exception : ""));
+                       exceptionDetail);
         }
     }
 
