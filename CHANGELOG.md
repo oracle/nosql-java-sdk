@@ -4,6 +4,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## Unreleased
 
+## [5.4.23] 2026-08-18
+
 ### Added
 - Added per-store topology tracking so advanced queries routed through a proxy
   serving multiple stores use the correct store's shard topology.
@@ -12,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
   more secure cyphers/protocols including ML-KEM
+- Updated Jackson version to 2.18.8
 
 ### Fixed
 - Make prepared-query byte arrays immutable
