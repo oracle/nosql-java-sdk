@@ -123,7 +123,7 @@ Database. In addition, a running proxy service is required. See
 [Information about the proxy](https://docs.oracle.com/en/database/other-databases/nosql-database/24.3/admin/proxy.html)
 for proxy configuration information.
 
-On-premise authorization requires use of [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html)
+On-premise authorization supports [StoreAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/StoreAccessTokenProvider.html) for store credentials and [OAuthAccessTokenProvider](https://oracle.github.io/nosql-java-sdk/oracle/nosql/driver/kv/OAuthAccessTokenProvider.html) for OAuth 2.0 access-token authentication.
 See the Quickstart example below for code details for connecting on-premise.
 
 ### Connecting to the Oracle NoSQL Database Cloud Simulator
@@ -593,6 +593,28 @@ Run the command:
          -Djavax.net.ssl.trustStore=driver.trust -cp .:../lib/nosqldriver.jar \
          BasicTableExample https://localhost:443 -useKVProxy -user driver \
         -password Driver.User@01
+
+##### Run using OAuth 2.0 authorization
+
+The existing examples support exchanging an OAuth access token for a NoSQL
+login token through a secure on-premises proxy by using the `-useOAuth` flag.
+The store and proxy must already be configured for OAuth, and the OAuth
+principal must have the privileges required by the selected example.
+
+The example reads a single access token from an environment variable.
+Supplying the token this way keeps the example independent of the identity
+provider and avoids placing the bearer token in the command line. A production
+application should obtain a usable token in
+`OAuthAccessTokenProvider.getAccessToken()` and leave automatic renewal
+enabled. The SDK schedules re-login from the NoSQL login-token expiration
+returned by the server.
+
+Run the example using an OAuth access token:
+
+    $ export NOSQL_OAUTH_ACCESS_TOKEN='<access-token>'
+    $ java -Djavax.net.ssl.trustStorePassword=123456 \
+         -Djavax.net.ssl.trustStore=driver.trust -cp .:../lib/nosqldriver.jar \
+         BasicTableExample https://localhost:443 -useKVProxy -useOAuth
 
 #### Run using the Oracle NoSQL Database Cloud Simulator
 
