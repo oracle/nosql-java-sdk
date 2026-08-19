@@ -341,7 +341,7 @@
               -->
               <classpathLayoutType>custom</classpathLayoutType>
               <customClasspathLayout>
-                $${artifact.artifactId}.$${artifact.extension}
+                $${artifact.artifactId}-$${artifact.version}$${dashClassifier?}.$${artifact.extension}
               </customClasspathLayout>
               <mainClass>oracle.nosql.driver.DriverMain</mainClass>
             </manifest>
