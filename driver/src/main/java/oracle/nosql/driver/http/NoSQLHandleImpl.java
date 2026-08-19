@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.http;
 
+import static oracle.nosql.driver.util.LogUtil.logFine;
+
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
@@ -56,7 +58,9 @@ import oracle.nosql.driver.values.FieldValue;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapValue;
 
+import io.netty.handler.ssl.OpenSslContextOption;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.JdkLoggerFactory;
 
@@ -82,7 +86,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
          * config SslContext first, on-prem authorization provider
          * will reuse the context in NoSQLHandleConfig
          */
-        configSslContext(config);
+        configSslContext(logger, config);
         client = new Client(logger, config);
         try {
             /* configAuthProvider may use client */
@@ -121,7 +125,7 @@ public class NoSQLHandleImpl implements NoSQLHandle {
         InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
     }
 
-    private void configSslContext(NoSQLHandleConfig config) {
+    private void configSslContext(Logger logger, NoSQLHandleConfig config) {
         if (config.getSslContext() != null) {
             return;
         }
@@ -134,6 +138,14 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                 }
                 if (config.getSSLProtocols() != null) {
                     builder.protocols(config.getSSLProtocols());
+                }
+                String[] sslGroups = config.getSSLGroups();
+                if (sslGroups != null) {
+                    builder.sslProvider(SslProvider.OPENSSL);
+                    builder.option(OpenSslContextOption.GROUPS,
+                                   sslGroups);
+                    logFine(logger, "Using configured OpenSSL groups: " +
+                            String.join(", ", sslGroups));
                 }
                 builder.sessionTimeout(config.getSSLSessionTimeout());
                 builder.sessionCacheSize(config.getSSLSessionCacheSize());
