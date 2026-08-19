@@ -2,9 +2,8 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
 
-## [5.4.23] 2026-08-18
+## [5.4.24] 2026-08-18
 
 ### Added
 - Added per-store topology tracking so advanced queries routed through a proxy
@@ -13,7 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
-  more secure cyphers/protocols including ML-KEM
+  more secure cyphers/protocols including ML-KEM. See examples for ML-KEM usage.
 - Updated Jackson version to 2.18.8
 
 ### Fixed

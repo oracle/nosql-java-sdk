@@ -77,6 +77,7 @@ public class ProxyTestBase {
     protected static String TRUST_STORE_PASSWORD = "test.trust.password";
     protected static String PASSWORD = "test.password";
     protected static String TRACE = "test.trace";
+    protected static String OPENSSL_GROUPS = "test.openssl.groups";
     protected static int DEFAULT_DDL_TIMEOUT = 15000;
     protected static int DEFAULT_DML_TIMEOUT = 5000;
     protected static String TEST_TABLE_NAME = "drivertest";
@@ -443,6 +444,11 @@ public class ProxyTestBase {
 
         /* remove idle connections after this many seconds */
         config.setConnectionPoolInactivityPeriod(INACTIVITY_PERIOD_SECS);
+
+        String sslGroups = System.getProperty(OPENSSL_GROUPS);
+        if (sslGroups != null) {
+            config.setSSLGroups(sslGroups);
+        }
         configAuth(config);
 
         /* allow test cases to add/modify handle config */
