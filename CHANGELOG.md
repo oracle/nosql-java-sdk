@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
   more secure cyphers/protocols including ML-KEM. See examples for ML-KEM usage.
-- Updated Jackson version to 2.18.8
+- Updated Jackson version to 2.18.9
+- Updated Netty version to 4.1.137.Final
 
 ### Fixed
 - Make prepared-query byte arrays immutable
