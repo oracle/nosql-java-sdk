@@ -7,15 +7,15 @@
 
 package oracle.nosql.driver.changestream;
 
-import java.util.List;
 import java.time.Duration;
+import java.util.List;
 
 import oracle.nosql.driver.values.MapValue;
 
 /**
- * One or more Messages returned from a call to Consumer.poll().
+ * One or more events returned from a call to Consumer.poll().
  */
-public class MessageBundle {
+public class EventBundle {
 
     // Internal: the consumer that generated this bundle
     private Consumer consumer;
@@ -24,7 +24,7 @@ public class MessageBundle {
     private byte[] cursor;
 
     private long eventsRemaining;
-    private List<Message> messages;
+    private List<Event> events;
 
     /* internal use */
     private MapValue metadata;
@@ -32,8 +32,8 @@ public class MessageBundle {
     /*
      * @hidden
      */
-    public MessageBundle(List<Message> messages) {
-        this.messages = messages;
+    public EventBundle(List<Event> events) {
+        this.events = events;
     }
 
     /*
@@ -86,29 +86,32 @@ public class MessageBundle {
     }
 
     /*
-     * Return an estimate of the number of change events that are still remaining to
-     * be consumed, not counting the events in this bundle. This can be used to monitor if a reader of
-     * the events consumer is keeping up with change messages for the table.
-     * This value applies to only the table data that this specific consumer can receive in poll() calls,
-     * which may be less than the overall total if this consumer is one in a group of many active consumers.
+     * Return an estimate of the number of change events that are still
+     * remaining to be consumed, not counting the events in this bundle. This
+     * can be used to monitor if an event consumer is keeping up with change
+     * events for the table. This value applies only to the table data that
+     * this specific consumer can receive in poll() calls, which may be less
+     * than the overall total if this consumer is one in a group of many active
+     * consumers.
      */
     public long getEventsRemaining() {
         return eventsRemaining;
     }
 
-    /* Return the list of messages containing change event data. */
-    public List<Message> getMessages() {
-        return messages;
+    /* Return the list of change events. */
+    public List<Event> getEvents() {
+        return events;
     }
 
     /*
-     * Mark the messages in the bundle as committed: all messages have been
-     * fully read and consumed, and the messages should not be read again by any
+     * Mark the events in the bundle as committed: all events have been fully
+     * read and consumed, and the events should not be read again by any
      * current or future consumer in the group.
      *
-     * Note that this commit implies commits on all previously polled messages from the
-     * same consumer (that is, messages that were returned from calls to poll() before
-     * this one). Calling Commit() on a previous MessageBundle will have no effect.
+     * Note that this commit implies commits on all previously polled events
+     * from the same consumer (that is, events that were returned from calls
+     * to poll() before this one). Calling commit() on a previous EventBundle
+     * will have no effect.
      */
     public void commit(Duration timeout) {
         consumer.commit(timeout);
@@ -119,13 +122,13 @@ public class MessageBundle {
      * change data to read in the given timeframe of a poll().
      */
     public boolean isEmpty() {
-        return (messages == null || messages.isEmpty());
+        return (events == null || events.isEmpty());
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("MessageBundle {\n");
+        sb.append("EventBundle {\n");
         sb.append(" consumer: { ").append(consumer).append(" }\n");
         if (cursor == null) {
             sb.append(" cursor: { (null) }\n");
@@ -133,9 +136,8 @@ public class MessageBundle {
             sb.append(" cursor: { (size=").append(cursor.length).append(") }\n");
         }
         sb.append(" eventsRemaining: { ").append(eventsRemaining).append(" }\n");
-        sb.append(" messages: { ").append(messages).append(" }\n");
+        sb.append(" events: { ").append(events).append(" }\n");
         sb.append("}");
         return sb.toString();
     }
 }
-

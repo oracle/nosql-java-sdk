@@ -54,9 +54,8 @@ import oracle.nosql.driver.changestream.ConsumerBuilder;
 import oracle.nosql.driver.changestream.ConsumerRequest;
 import oracle.nosql.driver.changestream.ConsumerResult;
 import oracle.nosql.driver.changestream.Event;
+import oracle.nosql.driver.changestream.EventBundle;
 import oracle.nosql.driver.changestream.Image;
-import oracle.nosql.driver.changestream.Message;
-import oracle.nosql.driver.changestream.MessageBundle;
 import oracle.nosql.driver.changestream.PollRequest;
 import oracle.nosql.driver.changestream.PollResult;
 import oracle.nosql.driver.changestream.Record;
@@ -1011,7 +1010,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(EVENTS_REMAINING)) {
                     result.eventsRemaining = Nson.readNsonLong(in);
                 } else if (name.equals(EVENT_BUNDLE)) {
-                    result.bundle = readNsonMessageBundle(in);
+                    result.bundle = readNsonEventBundle(in);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -1019,7 +1018,7 @@ public class NsonSerializerFactory implements SerializerFactory {
             return result;
         }
 
-        private MessageBundle readNsonMessageBundle(ByteInputStream in)
+        private EventBundle readNsonEventBundle(ByteInputStream in)
             throws IOException {
 
 // EVENT_BUNDLE: [
@@ -1039,39 +1038,57 @@ public class NsonSerializerFactory implements SerializerFactory {
             int t = in.readByte();
             if (t != Nson.TYPE_ARRAY) {
                 throw new IllegalStateException(
-                    "bad type in message bundle: " +
+                    "bad type in event bundle: " +
                     Nson.typeString(t) + ", should be ARRAY");
             }
             // length in bytes: ignored
             in.readInt();
             int numElements = in.readInt();
-            List<Message> messages = new ArrayList<Message>(numElements);
+            List<Event> events = new ArrayList<Event>(numElements);
 
             for (int i=0; i<numElements; i++) {
                 MapWalker walker = getMapWalker(in);
-                Message cm = new Message();
+                List<Event> messageEvents = null;
+                String tableOcid = null;
+                String tableName = null;
+                String compartmentOcid = null;
                 while (walker.hasNext()) {
                     walker.next();
                     String name = walker.getCurrentName();
                     if (name.equals(TABLE_OCID)) {
-                        cm.setTableOcid(Nson.readNsonString(in));
+                        tableOcid = Nson.readNsonString(in);
                     } else if (name.equals(TABLE_NAME)) {
-                        cm.setTableName(Nson.readNsonString(in));
+                        tableName = Nson.readNsonString(in);
                     } else if (name.equals(COMPARTMENT_OCID)) {
-                        cm.setCompartmentOcid(Nson.readNsonString(in));
+                        compartmentOcid = Nson.readNsonString(in);
                     } else if (name.equals(EVENT_EVENTS)) {
-                        cm.setEvents(readNsonEvents(in));
+                        messageEvents = readNsonEvents(in);
                     } else {
                         skipUnknownField(walker, name);
                     }
                 }
-                if (cm.getEvents() == null) {
+                if (messageEvents == null) {
                     throw new IllegalStateException(
-                        "Missing EVENTS in message bundle");
+                        "Missing EVENTS in event bundle");
                 }
-                messages.add(cm);
+                setTableInformation(messageEvents, tableName,
+                                    tableOcid, compartmentOcid);
+                events.addAll(messageEvents);
             }
-            return new MessageBundle(messages);
+            return new EventBundle(events);
+        }
+
+        private void setTableInformation(List<Event> events,
+                                         String tableName,
+                                         String tableOcid,
+                                         String compartmentOcid) {
+            for (Event event : events) {
+                for (Record record : event.getRecords()) {
+                    record.setTableName(tableName);
+                    record.setTableOcid(tableOcid);
+                    record.setCompartmentOcid(compartmentOcid);
+                }
+            }
         }
 
         private List<Event> readNsonEvents(ByteInputStream in)

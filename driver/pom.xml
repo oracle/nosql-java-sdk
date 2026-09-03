@@ -151,7 +151,7 @@
           UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           SessionTokenProviderTest.java, RequestTest.java,
-          RuntimeControlBlockTest.java
+          RuntimeControlBlockTest.java, ChangeStreamProtocolTest.java
         </included.tests>
       </properties>
     </profile>

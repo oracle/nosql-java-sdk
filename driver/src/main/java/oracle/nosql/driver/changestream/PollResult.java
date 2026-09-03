@@ -14,9 +14,8 @@ import oracle.nosql.driver.ops.Result;
  * Internal result for Consumer poll() operations
  */
 public class PollResult extends Result {
-    public MessageBundle bundle;
+    public EventBundle bundle;
     public byte[] cursor;
     public Consumer consumer;
     public long eventsRemaining;
 }
-

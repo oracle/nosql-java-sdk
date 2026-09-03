@@ -21,6 +21,11 @@ import oracle.nosql.driver.values.MapValue;
  * have a non-null beforeImage.
  */
 public class Record {
+
+    private String tableName;
+    private String compartmentOcid;
+    private String tableOcid;
+
 	/* event ID: this is unique within the consumer group */
     private String eventId;
 
@@ -53,7 +58,10 @@ public class Record {
     /*
      * @hidden
      */
-	public Record(String eventId,
+    public Record(String tableName,
+                 String compartmentOcid,
+                 String tableOcid,
+                 String eventId,
                  MapValue recordKey,
                  Image currentImage,
                  Image beforeImage,
@@ -61,7 +69,10 @@ public class Record {
                  long expirationTime,
                  int partitionId,
                  int regionId) {
-	    this.eventId = eventId;
+        this.tableName = tableName;
+        this.compartmentOcid = compartmentOcid;
+        this.tableOcid = tableOcid;
+        this.eventId = eventId;
         this.recordKey = recordKey;
         this.currentImage = currentImage;
         this.beforeImage = beforeImage;
@@ -69,7 +80,26 @@ public class Record {
         this.expirationTime = expirationTime;
         this.partitionId = partitionId;
         this.regionId = regionId;
-	}
+    }
+
+    /* Get the table name for this record. */
+    public String getTableName() {
+        return tableName;
+    }
+
+    /*
+     * Get the compartment Ocid for this record. If this is empty,
+     * the compartment is assumed to be the default compartment
+     * for the tenancy.
+     */
+    public String getCompartmentOcid() {
+        return compartmentOcid;
+    }
+
+    /* Get the table Ocid for this record. */
+    public String getTableOcid() {
+        return tableOcid;
+    }
 
     public String getEventId() {
 		return eventId;
@@ -102,6 +132,27 @@ public class Record {
     public int getRegionId() {
 		return regionId;
 	}
+
+    /*
+     * @hidden
+     */
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setCompartmentOcid(String ocid) {
+        this.compartmentOcid = ocid;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setTableOcid(String ocid) {
+        this.tableOcid = ocid;
+    }
 
     /*
      * @hidden
@@ -163,6 +214,9 @@ public class Record {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("Record {\n");
+        sb.append(" tableName: { ").append(tableName).append(" }\n");
+        sb.append(" compartmentOcid: { ").append(compartmentOcid).append(" }\n");
+        sb.append(" tableOcid: { ").append(tableOcid).append(" }\n");
         sb.append(" eventId: { ").append(eventId).append(" }\n");
         sb.append(" recordKey: { ").append(recordKey).append(" }\n");
         sb.append(" currentImage: { ").append(currentImage).append(" }\n");

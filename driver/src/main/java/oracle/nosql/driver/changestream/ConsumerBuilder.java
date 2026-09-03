@@ -114,7 +114,7 @@ public class ConsumerBuilder {
 
     /*
      * Specify the commit mode for the consumer. If this value is true, the system will not
-     * automatically commit messages consumed by poll(). It is the responsibility of the
+     * automatically commit events consumed by poll(). It is the responsibility of the
      * application to call Commit() on a timely basis after consumed data has been processed.
      * If this value is false (the default), commits will be done automatically: every call
      * to poll() will automatically mark the data returned by the previous poll() as committed.
@@ -287,7 +287,7 @@ public class ConsumerBuilder {
 
     /**
      * Specify manual commit mode for the consumer. The system will not
-     * automatically commit messages consumed by Consumer.poll(). It is
+     * automatically commit events consumed by Consumer.poll(). It is
      * the responsibility of the application to call Consumer.commit()
      * on a timely basis after consumed data has been processed.
      */

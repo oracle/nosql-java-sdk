@@ -17,12 +17,12 @@ public class StartLocation {
         UNINITIALIZED(0),
 
         /*
-         * Start consuming from the earliest (oldest) available message in the
+         * Start consuming from the earliest (oldest) available event in the
          * stream. This is the default.
          */
         EARLIEST(2),
 
-        /* Start consuming messages that were published after the start of the consumer. */
+        /* Start consuming events that were published after the start of the consumer. */
         LATEST(3),
 
         /* Start consuming from a given time. */

@@ -56,8 +56,8 @@ public class Consumer {
      * Calling this method implies that the consumer has completely processed
      * the data and it should be considered "consumed".
      *
-     * Note that this commit implies commits on all previously polled messages
-     * from the same consumer (that is, messages that were returned from calls
+     * Note that this commit implies commits on all previously polled events
+     * from the same consumer (that is, events that were returned from calls
      * to poll() before this one).
      *
      * This method is only necessary when using manual commit mode. Otherwise,
@@ -69,20 +69,20 @@ public class Consumer {
     }
 
     /**
-     * Mark the data from the given MessageBundle as committed.
+     * Mark the data from the given EventBundle as committed.
      *
      * Calling this method implies that the consumer has completely processed
      * the data and it should be considered "consumed".
      *
-     * Note that this commit implies commits on all previously polled messages
-     * from the same consumer (that is, messages that were returned from calls
+     * Note that this commit implies commits on all previously polled events
+     * from the same consumer (that is, events that were returned from calls
      * to poll() before this one).
      *
      * This method is only necessary when using manual commit mode. Otherwise,
      * in auto commit mode, the commit is implied for all previous data every
      * time poll() is called.
      */
-    public void commitBundle(MessageBundle bundle, Duration timeout) {
+    public void commitBundle(EventBundle bundle, Duration timeout) {
         commitInternal(bundle.getCursor(), timeout);
     }
 
@@ -169,7 +169,7 @@ public class Consumer {
     }
 
     /**
-     * Get Change Streaming messages for a consumer.
+     * Get Change Streaming events for a consumer.
      *
      * If this is the first call to poll() for a consumer, this call may trigger
      * a rebalance operation to redistribute change data across this and all other active consumers.
@@ -180,14 +180,14 @@ public class Consumer {
      * This method is not thread-safe. Calling poll() on the same consumer instance
      * from multiple threads will result in undefined behavior.
      *
-     * @param limit non-negative maximum number of change messages to return in
+     * @param limit non-negative maximum number of change events to return in
      * the bundle. This value can be set to zero to specify that this consumer
      * is alive and active in the group without actually returning any change events.
-     * @param waitTime max amount of time to wait for messages. Must be
+     * @param waitTime max amount of time to wait for events. Must be
      * non-negative. It can be null or zero only when {@code limit} is zero.
      * @throws IllegalArgumentException if either parameter is invalid
      */
-    public MessageBundle poll(int limit, Duration waitTime) {
+    public EventBundle poll(int limit, Duration waitTime) {
         /* The default poll interval is 100ms, or the wait time if shorter. */
         Duration defaultPollInterval = Duration.ofMillis(100);
         if (waitTime == null || waitTime.compareTo(defaultPollInterval) < 0) {
@@ -197,7 +197,7 @@ public class Consumer {
     }
 
     /**
-     * Get Change Streaming messages for a consumer.
+     * Get Change Streaming events for a consumer.
      *
      * If this is the first call to poll() for a consumer, this call may trigger
      * a rebalance operation to redistribute change data across this and all other active consumers.
@@ -206,24 +206,24 @@ public class Consumer {
      * usage when many consumers are being added to or removed from a group.
      *
      * If this consumer has data available to read immediately, this method will
-     * return immediately with a nonempty MessageBundle. It will not spend more
-     * time trying to return a "full" MessageBundle with the maximum number of
-     * messages.
+     * return immediately with a nonempty EventBundle. It will not spend more
+     * time trying to return a "full" EventBundle with the maximum number of
+     * events.
      *
      * This method is not thread-safe. Calling poll() on the same consumer instance
      * from multiple threads will result in undefined behavior.
      *
-     * @param limit non-negative maximum number of change messages to return in
+     * @param limit non-negative maximum number of change events to return in
      * the bundle. This value can be set to zero to specify that this consumer
      * is alive and active in the group without actually returning any change events.
-     * @param waitTime max amount of overall time to wait for messages. Must be
+     * @param waitTime max amount of overall time to wait for events. Must be
      * non-negative. It can be null or zero only when {@code limit} is zero.
      * @param pollInterval amount of time to wait between internal poll requests.
      * Must be non-negative and no greater than {@code waitTime}. It can be null
      * only when {@code waitTime} is null or zero.
      * @throws IllegalArgumentException if any parameter is invalid
      */
-    public MessageBundle poll(int limit, Duration waitTime, Duration pollInterval) {
+    public EventBundle poll(int limit, Duration waitTime, Duration pollInterval) {
         if (limit < 0) {
             throw new IllegalArgumentException("limit must be >= 0");
         }
@@ -264,7 +264,7 @@ public class Consumer {
         int pollRequests = 0;
         long requestTimeMs = 0;
         long retryDelayMs = 0;
-        MessageBundle bundle = null;
+        EventBundle bundle = null;
 
         do {
             pollRequests += 1;
@@ -275,7 +275,7 @@ public class Consumer {
             if (!bundle.isEmpty() || waitMs == 0) {
                 break;
             }
-            // if no messages, sleep for a short period and retry
+            // if no events, sleep for a short period and retry
             // if nearing end of waitTime, bail out
             if (((now - startTime) + pollIntervalMs) > waitMs) {
                 break;
@@ -301,29 +301,29 @@ public class Consumer {
     /*
      * @hidden
      */
-    MessageBundle pollOnce(int limit) {
+    EventBundle pollOnce(int limit) {
         PollRequest req = new PollRequest(cursor, limit);
         try {
             PollResult res =
                 (PollResult) handle.getClient().execute(req);
-            MessageBundle mb = res.bundle;
+            EventBundle eb = res.bundle;
             if (res.cursor == null) {
                 /* if there were no errors and no bundle/cursor,
                    return an empty bundle */
-                if (mb == null) {
-                    mb = new MessageBundle(null);
+                if (eb == null) {
+                    eb = new EventBundle(null);
                 } else {
                     throw new NoSQLException("Poll returned invalid cursor");
                 }
             } else {
                 this.cursor = res.cursor;
-                if (mb == null) {
-                    mb = new MessageBundle(null);
+                if (eb == null) {
+                    eb = new EventBundle(null);
                 }
             }
-            mb.setCursor(this.cursor);
-            mb.setConsumer(this);
-            return mb;
+            eb.setCursor(this.cursor);
+            eb.setConsumer(this);
+            return eb;
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
                 throw new OperationNotSupportedException("Change Streaming not supported by server");
