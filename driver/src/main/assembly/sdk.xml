@@ -3,6 +3,7 @@
     xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
   <id>sdk</id>
   <includeBaseDirectory>true</includeBaseDirectory>
+
   <formats>
     <format>zip</format>
     <format>tar.gz</format>
@@ -43,11 +44,23 @@
     </fileSet>
   </fileSets>
 
+  <!-- Put the project jar in lib with an unversioned name -->
+  <files>
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}.jar</source>
+      <outputDirectory>lib</outputDirectory>
+      <destName>nosqldriver.jar</destName>
+    </file>
+  </files>
+
+  <!-- Put dependencies in lib with versioned names -->
   <dependencySets>
     <dependencySet>
       <outputDirectory>lib</outputDirectory>
-      <!-- <outputFileNameMapping>${artifact.artifactId}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>-->
-      <outputFileNameMapping>${artifact.artifactId}-${artifact.version}${dashClassifier?}.${artifact.extension}</outputFileNameMapping>
+      <useProjectArtifact>false</useProjectArtifact>
+      <outputFileNameMapping>
+        ${artifact.artifactId}-${artifact.version}${dashClassifier?}.${artifact.extension}
+      </outputFileNameMapping>
       <excludes>
         <exclude>io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64</exclude>
       </excludes>

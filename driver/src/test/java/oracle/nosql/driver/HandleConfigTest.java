@@ -7,6 +7,7 @@
 
 package oracle.nosql.driver;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -97,6 +98,22 @@ public class HandleConfigTest {
         } catch(IllegalArgumentException expected) {
             // expect a failure
         }
+    }
+
+    @Test
+    public void testSslGroups() {
+        NoSQLHandleConfig config = new NoSQLHandleConfig("http://foo.com");
+        assertNull(config.getSSLGroups());
+
+        config.setSSLGroups("X25519MLKEM768, X25519");
+        assertArrayEquals(new String[] {"X25519MLKEM768", "X25519"},
+                          config.getSSLGroups());
+
+        config.setSSLGroups(null);
+        assertNull(config.getSSLGroups());
+
+        expectIllegalValue(() -> config.setSSLGroups("X25519,"));
+        expectIllegalValue(() -> config.setSSLGroups("  "));
     }
 
     @Test

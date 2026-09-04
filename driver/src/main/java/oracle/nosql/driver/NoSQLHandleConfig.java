@@ -196,6 +196,12 @@ public class NoSQLHandleConfig implements Cloneable {
     private List<String> protocols;
 
     /**
+     * The OpenSSL groups used by the driver, or null if not configured
+     * by the user.
+     */
+    private String[] sslGroups;
+
+    /**
      * The size of cache used for storing SSLSession objects, or 0 if not
      * configured by the user.
      */
@@ -1168,6 +1174,15 @@ public class NoSQLHandleConfig implements Cloneable {
     }
 
     /**
+     * Returns the OpenSSL groups to enable.
+     *
+     * @return OpenSSL groups, or null if they have not been set
+     */
+    public String[] getSSLGroups() {
+        return sslGroups == null ? null : sslGroups.clone();
+    }
+
+    /**
      * Returns the configured SSLSession objects timeout, in seconds.
      *
      * @return the timeout, in seconds, or 0 if it has not been set
@@ -1232,6 +1247,33 @@ public class NoSQLHandleConfig implements Cloneable {
                     VALID_SSL_PROTOCOLS);
             }
         }
+        return this;
+    }
+
+    /**
+     * Sets the OpenSSL groups to enable, in the order of preference. Group
+     * names must be supplied as a comma-separated list. A null value uses
+     * the provider defaults.
+     *
+     * @param groups comma-separated OpenSSL group names
+     * @return this
+     */
+    public NoSQLHandleConfig setSSLGroups(String groups) {
+        if (groups == null) {
+            sslGroups = null;
+            return this;
+        }
+
+        String[] configuredGroups = groups.split(",", -1);
+        for (int i = 0; i < configuredGroups.length; i++) {
+            configuredGroups[i] = configuredGroups[i].trim();
+            if (configuredGroups[i].isEmpty()) {
+                throw new IllegalArgumentException(
+                    "NoSQLHandleConfig.setSSLGroups: group names must not " +
+                    "be empty");
+            }
+        }
+        sslGroups = configuredGroups;
         return this;
     }
 

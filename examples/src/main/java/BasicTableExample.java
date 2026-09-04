@@ -56,6 +56,12 @@ public class BasicTableExample {
         config.setAuthorizationProvider(setup.getAuthProvider());
 
         /*
+         * Uncomment the following line to use the hybrid post-quantum ML-KEM
+         * group, with X25519 as a fallback for TLS connections.
+         */
+        // config.setSSLGroups("X25519MLKEM768, X25519");
+
+        /*
          * Open the handle in a try-with-resources statement to ensure
          * proper closing of resources.
          */

@@ -45,11 +45,11 @@
     <copyright>Copyright (c) 2011, 2026 Oracle and/or its affiliates. All rights reserved.</copyright>
     <java.apidoc>https://docs.oracle.com/en/java/javase/11/docs/api/</java.apidoc>
     <maven.deploy.skip>false</maven.deploy.skip>
-    <netty.version>4.1.135.Final</netty.version>
+    <netty.version>4.1.137.Final</netty.version>
     <!-- using the netty bom - netty maintainers regularly update the BOM to newer netty-tcnative releases
     <netty.tcnative.version>2.0.79.Final</netty.tcnative.version>
     -->
-    <jackson.version>2.18.8</jackson.version>
+    <jackson.version>2.18.9</jackson.version>
     <!-- by default, skip tests; tests require a profile -->
     <maven.test.skip>true</maven.test.skip>
     <javac>javac</javac>
@@ -341,7 +341,7 @@
               -->
               <classpathLayoutType>custom</classpathLayoutType>
               <customClasspathLayout>
-                $${artifact.artifactId}.$${artifact.extension}
+                $${artifact.artifactId}-$${artifact.version}$${dashClassifier?}.$${artifact.extension}
               </customClasspathLayout>
               <mainClass>oracle.nosql.driver.DriverMain</mainClass>
             </manifest>

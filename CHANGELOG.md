@@ -2,9 +2,12 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## Unreleased
+## [Unreleased]
 
-## [5.4.23] 2026-08-18
+### Changed
+- OKE Workload Identity now has TLS hostname verification enabled.
+
+## [5.4.24] 2026-08-18
 
 ### Added
 - Added per-store topology tracking so advanced queries routed through a proxy
@@ -13,8 +16,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - Changed SSL/TLS to use netty-tcnative-boringssl-static to enable
-  more secure cyphers/protocols including ML-KEM
-- Updated Jackson version to 2.18.8
+  more secure cyphers/protocols including ML-KEM. See examples for ML-KEM usage.
+- Updated Jackson version to 2.18.9
+- Updated Netty version to 4.1.137.Final
 
 ### Fixed
 - Make prepared-query byte arrays immutable
