@@ -166,10 +166,7 @@ class OkeWorkloadIdentityProvider
                 "Kubernetes service account ca cert doesn't exist.");
         }
 
-        /*
-         * OKE HttpClient use dedicated ca cert and disable
-         * endpoint identification/verification.
-         */
+        /* OKE HttpClient uses a dedicated CA certificate. */
         final SslContext sslCtx;
         try {
             sslCtx = NettySslContextUtil.newClientContextBuilder()
@@ -184,7 +181,6 @@ class OkeWorkloadIdentityProvider
             tokenURL.getHost(), tokenURL.getPort(),
             sslCtx, config.getSSLHandshakeTimeout(),
             "OkeWorkloadIdentityResourcePrincipalsTokenClient", logger);
-        okeTokenClient.disableEndpointIdentification();
     }
 
     @Override

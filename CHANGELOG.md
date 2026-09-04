@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- OKE Workload Identity now has TLS hostname verification enabled.
 
 ## [5.4.24] 2026-08-18
 
