@@ -47,10 +47,13 @@ public class NsonProtocol {
     public static String EVENT_PARTITION_ID = "pi";
     public static String EVENT_PREV_METADATA = "pm";
     public static String EVENT_PREV_VALUE = "pv";
+    public static String EVENT_RECORDS = "es";
     public static String EVENT_RECORD_KEY = "rk";
     public static String EVENT_RECORD_METADATA = "rm";
     public static String EVENT_RECORD_VALUE = "rv";
     public static String EVENT_REGION_ID = "ri";
+    public static String EVENT_REGION_NAME = "lr";
+    public static String EVENT_TABLE_OCID = "tn";
     public static String EVENT_TYPE = "ty";
     public static String EVENT_VERSION = "vs";
     public static String EVENTS_REMAINING = "er";
@@ -256,10 +259,13 @@ public class NsonProtocol {
         {EVENT_PARTITION_ID,"EVENT_PARTITION_ID"},
         {EVENT_PREV_METADATA,"EVENT_PREV_METADATA"},
         {EVENT_PREV_VALUE,"EVENT_PREV_VALUE"},
+        {EVENT_RECORDS,"EVENT_RECORDS"},
         {EVENT_RECORD_KEY,"EVENT_RECORD_KEY"},
         {EVENT_RECORD_METADATA,"EVENT_RECORD_METADATA"},
         {EVENT_RECORD_VALUE,"EVENT_RECORD_VALUE"},
         {EVENT_REGION_ID,"EVENT_REGION_ID"},
+        {EVENT_REGION_NAME,"EVENT_REGION_NAME"},
+        {EVENT_TABLE_OCID,"EVENT_TABLE_OCID"},
         {EVENT_TYPE,"EVENT_TYPE"},
         {EVENT_VERSION,"EVENT_VERSION"},
         {EVENTS_REMAINING,"EVENTS_REMAINING"},

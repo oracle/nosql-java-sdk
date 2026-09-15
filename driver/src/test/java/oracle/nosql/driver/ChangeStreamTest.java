@@ -23,8 +23,7 @@ import java.util.Map;
 import oracle.nosql.driver.changestream.Consumer;
 import oracle.nosql.driver.changestream.ConsumerBuilder;
 import oracle.nosql.driver.changestream.Event;
-import oracle.nosql.driver.changestream.Message;
-import oracle.nosql.driver.changestream.MessageBundle;
+import oracle.nosql.driver.changestream.EventBundle;
 import oracle.nosql.driver.changestream.Record;
 import oracle.nosql.driver.changestream.StartLocation;
 
@@ -1308,19 +1307,18 @@ public class ChangeStreamTest extends ProxyTestBase {
                                int maxEvents,
                                Map<MapValue, MapValue> records,
                                int waitSeconds) {
-        MessageBundle bundle = consumer.poll(maxEvents, Duration.ofSeconds(waitSeconds));
+        EventBundle bundle = consumer.poll(maxEvents,
+                                           Duration.ofSeconds(waitSeconds));
         if (bundle == null || bundle.isEmpty()) {
             return false;
         }
         if (verbose) System.out.println("Received bundle: " + bundle);
-        for (Message message : bundle.getMessages()) {
-            assertNotNull(message.getEvents());
-            for (Event event : message.getEvents()) {
-                assertNotNull(event.getRecords());
-                for (Record record : event.getRecords()) {
-                    assertNotNull(record.getCurrentImage());
-                    records.put(record.getRecordKey(), record.getCurrentImage().getValue());
-                }
+        for (Event event : bundle.getEvents()) {
+            assertNotNull(event.getRecords());
+            for (Record record : event.getRecords()) {
+                assertNotNull(record.getCurrentImage());
+                records.put(record.getRecordKey(),
+                            record.getCurrentImage().getValue());
             }
         }
         return true;
@@ -1334,28 +1332,17 @@ public class ChangeStreamTest extends ProxyTestBase {
          * Poll until we get this event back, then verify the returned Change Streaming event matches
          * the record that was written.
          */
-        MessageBundle bundle = consumer.poll(1, Duration.ofSeconds(10));
+        EventBundle bundle = consumer.poll(1, Duration.ofSeconds(10));
         if (bundle == null || bundle.isEmpty()) {
             fail("Poll returned no results after 10 seconds");
         }
         if (verbose) System.out.println("Received bundle: " + bundle);
-        int numMessages = bundle.getMessages().size();
-        if (numMessages != 1) {
-            fail("Poll returned " + numMessages + " messages, expected 1");
+        int numEvents = bundle.getEvents().size();
+        if (numEvents != 1) {
+            fail("Poll returned " + numEvents + " events, expected 1");
         }
 
-        Message message = bundle.getMessages().get(0);
-        assertNotNull(message.getEvents());
-        if (message.getEvents().size() != 1) {
-            fail("Poll returned " + message.getEvents().size() + " events, expected 1");
-        }
-        // TODO: check message.TableName against table name (not OCID)
-        // TODO: check message.CompartmentOCID when using a different compartment
-
-        // TODO: check OCID for event, only have table name in SDK
-        //assertEquals(message.getTableOcid(), tableOcid);
-
-        Event event = message.getEvents().get(0);
+        Event event = bundle.getEvents().get(0);
         assertNotNull(event.getRecords());
         if (event.getRecords().size() != 1) {
             fail("Event contained " + event.getRecords().size() + " records, expected 1");
@@ -1392,29 +1379,26 @@ public class ChangeStreamTest extends ProxyTestBase {
             if (pollMax <= 0) {
                 pollMax = expNumRecords - receivedRecords;
             }
-            MessageBundle bundle = consumer.poll(pollMax, Duration.ofSeconds(10));
+            EventBundle bundle = consumer.poll(pollMax,
+                                               Duration.ofSeconds(10));
             if (bundle == null || bundle.isEmpty()) {
                 fail("Poll returned no results after 10 seconds (received records=" + receivedRecords +")");
             }
             if (verbose) System.out.println("Received bundle: " + bundle);
-            int numMessages = bundle.getMessages().size();
-            for (int m=0; m<numMessages; m++) {
-                Message message = bundle.getMessages().get(m);
-                assertNotNull(message.getEvents());
-                int numEvents = message.getEvents().size();
-                for (int e=0; e<numEvents; e++) {
-                    Event event = message.getEvents().get(e);
-                    assertNotNull(event.getRecords());
-                    int numRecords = event.getRecords().size();
-                    for (int r=0; r<numRecords; r++) {
-                        Record record = event.getRecords().get(r);
-                        MapValue key = record.getRecordKey();
-                        int id = key.get("id").getInt();
-                        if (id < minId || id > maxId) {
-                            fail("Expected " + minId + "<=id<=" + maxId + ", got id=" + id);
-                        }
-                        receivedRecords++;
+            int numEvents = bundle.getEvents().size();
+            for (int e=0; e<numEvents; e++) {
+                Event event = bundle.getEvents().get(e);
+                assertNotNull(event.getRecords());
+                int numRecords = event.getRecords().size();
+                for (int r=0; r<numRecords; r++) {
+                    Record record = event.getRecords().get(r);
+                    MapValue key = record.getRecordKey();
+                    int id = key.get("id").getInt();
+                    if (id < minId || id > maxId) {
+                        fail("Expected " + minId + "<=id<=" + maxId +
+                             ", got id=" + id);
                     }
+                    receivedRecords++;
                 }
             }
             if (doCommit) {

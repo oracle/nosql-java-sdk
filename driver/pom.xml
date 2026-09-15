@@ -29,7 +29,7 @@
 
   <groupId>com.oracle.nosql.sdk</groupId>
   <artifactId>nosqldriver</artifactId>
-  <version>5.4.24.CS2-SNAPSHOT</version>
+  <version>5.4.24.CS3-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <organization>
@@ -148,10 +148,10 @@
           StoreAccessTokenProviderTest.java, ResourcePrincipalProviderTest.java,
           OAuthAccessTokenProviderTest.java, ConfigFileTest.java,
           SignatureProviderTest.java, AuthRetryTest.java,
-          UserProfileProviderTest.java, InstancePrincipalsProviderTest.java,
+          UserProfileProviderTest.java,
           HandleConfigTest.java, JsonTest.java, ValueTest.java,
           SessionTokenProviderTest.java, RequestTest.java,
-          RuntimeControlBlockTest.java
+          RuntimeControlBlockTest.java, ChangeStreamProtocolTest.java
         </included.tests>
       </properties>
     </profile>

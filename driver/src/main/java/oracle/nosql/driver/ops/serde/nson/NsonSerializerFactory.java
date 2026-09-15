@@ -54,9 +54,8 @@ import oracle.nosql.driver.changestream.ConsumerBuilder;
 import oracle.nosql.driver.changestream.ConsumerRequest;
 import oracle.nosql.driver.changestream.ConsumerResult;
 import oracle.nosql.driver.changestream.Event;
+import oracle.nosql.driver.changestream.EventBundle;
 import oracle.nosql.driver.changestream.Image;
-import oracle.nosql.driver.changestream.Message;
-import oracle.nosql.driver.changestream.MessageBundle;
 import oracle.nosql.driver.changestream.PollRequest;
 import oracle.nosql.driver.changestream.PollResult;
 import oracle.nosql.driver.changestream.Record;
@@ -1001,17 +1000,21 @@ public class NsonSerializerFactory implements SerializerFactory {
             PollResult result = new PollResult();
 
             MapWalker walker = getMapWalker(in);
+            String regionName = null;
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(ERROR_CODE)) {
                     int code = handleErrorCode(walker);
+                /* region name *should* be before events in NSON payload */
+                } else if (name.equals(EVENT_REGION_NAME)) {
+                    regionName = Nson.readNsonString(in);
                 } else if (name.equals(CURSOR)) {
                     result.cursor = Nson.readNsonBinary(in);
                 } else if (name.equals(EVENTS_REMAINING)) {
                     result.eventsRemaining = Nson.readNsonLong(in);
                 } else if (name.equals(EVENT_BUNDLE)) {
-                    result.bundle = readNsonMessageBundle(in);
+                    result.bundle = readNsonEventBundle(in, regionName);
                 } else {
                     skipUnknownField(walker, name);
                 }
@@ -1019,14 +1022,12 @@ public class NsonSerializerFactory implements SerializerFactory {
             return result;
         }
 
-        private MessageBundle readNsonMessageBundle(ByteInputStream in)
+        private EventBundle readNsonEventBundle(ByteInputStream in,
+                                                String regionName)
             throws IOException {
 
 // EVENT_BUNDLE: [
 //         {
-//           TABLE_OCID: foo,
-//           TABLE_NAME: foo,
-//           COMPARTMENT_OCID: foo,
 //           EVENT_EVENTS: [
 //              binary: event containing one or more records
 //              binary
@@ -1039,43 +1040,39 @@ public class NsonSerializerFactory implements SerializerFactory {
             int t = in.readByte();
             if (t != Nson.TYPE_ARRAY) {
                 throw new IllegalStateException(
-                    "bad type in message bundle: " +
+                    "bad type in event bundle: " +
                     Nson.typeString(t) + ", should be ARRAY");
             }
             // length in bytes: ignored
             in.readInt();
             int numElements = in.readInt();
-            List<Message> messages = new ArrayList<Message>(numElements);
+            List<Event> events = new ArrayList<>();
 
             for (int i=0; i<numElements; i++) {
                 MapWalker walker = getMapWalker(in);
-                Message cm = new Message();
+                List<Event> messageEvents = null;
                 while (walker.hasNext()) {
                     walker.next();
                     String name = walker.getCurrentName();
-                    if (name.equals(TABLE_OCID)) {
-                        cm.setTableOcid(Nson.readNsonString(in));
-                    } else if (name.equals(TABLE_NAME)) {
-                        cm.setTableName(Nson.readNsonString(in));
-                    } else if (name.equals(COMPARTMENT_OCID)) {
-                        cm.setCompartmentOcid(Nson.readNsonString(in));
-                    } else if (name.equals(EVENT_EVENTS)) {
-                        cm.setEvents(readNsonEvents(in));
+                    if (name.equals(EVENT_EVENTS)) {
+                        readNsonEvents(in, events, regionName);
                     } else {
                         skipUnknownField(walker, name);
                     }
                 }
-                if (cm.getEvents() == null) {
-                    throw new IllegalStateException(
-                        "Missing EVENTS in message bundle");
-                }
-                messages.add(cm);
             }
-            return new MessageBundle(messages);
+            return new EventBundle(events);
         }
 
-        private List<Event> readNsonEvents(ByteInputStream in)
+        private void readNsonEvents(ByteInputStream in,
+                                    List<Event> events,
+                                    String regionName)
             throws IOException {
+            String internalRegionName = null;
+            if (regionName != null) {
+                /* to avoid more cpu usage converting lots of ocids below */
+                internalRegionName = regionName.replace("-", "_");
+            }
             int t = in.readByte();
             if (t != Nson.TYPE_ARRAY) {
                 throw new IllegalStateException(
@@ -1085,15 +1082,33 @@ public class NsonSerializerFactory implements SerializerFactory {
             // length in bytes: ignored
             in.readInt();
             int numElements = in.readInt();
-            List<Event> events = new ArrayList<Event>(numElements);
-
             for (int i=0; i<numElements; i++) {
-                events.add(readNsonEvent(in)); // Nson binary
+                events.add(readNsonEvent(in, regionName, internalRegionName));
             }
-            return events;
         }
 
-        private Event readNsonEvent(ByteInputStream in)
+        /*
+         * Map an "internal" ocid to "external" format. Internal
+         * ocids use all underscores, whereas external ocids use
+         * dots, except for the region name which has dashes.
+         */
+        private String mapToExternalOcid(String regionName,
+                                         String internalRegionName,
+                                         String ocid) {
+            if (regionName == null ||
+                internalRegionName == null ||
+                !ocid.contains("_")) {
+                return ocid;
+            }
+            if (ocid.contains(internalRegionName)) {
+                ocid = ocid.replace(internalRegionName, regionName);
+            }
+            return ocid.replace("_", ".");
+        }
+
+        private Event readNsonEvent(ByteInputStream in,
+                                    String regionName,
+                                    String internalRegionName)
             throws IOException {
 
             // TODO: way to read map without copying buffer
@@ -1111,7 +1126,7 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else if (name.equals(EVENT_TYPE)) {
                     // currently ignored: single or group implied by array size below
                     Nson.readNsonInt(bis);
-                } else if (name.equals(EVENT_EVENTS)) {
+                } else if (name.equals(EVENT_RECORDS)) {
                     // expect an array of records
                     int t = bis.readByte();
                     if (t != Nson.TYPE_ARRAY) {
@@ -1124,7 +1139,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                     int numElements = bis.readInt();
                     List<Record> records = new ArrayList<Record>(numElements);
                     for (int i=0; i<numElements; i++) {
-                        records.add(readNsonRecord(bis));
+                        records.add(
+                            readNsonRecord(bis,
+                                           regionName,
+                                           internalRegionName));
                     }
                     event = new Event(records);
                 } else {
@@ -1132,13 +1150,15 @@ public class NsonSerializerFactory implements SerializerFactory {
                 }
             }
             if (event == null) {
-                throw new IllegalStateException("Missing events in message");
+                throw new IllegalStateException("Missing events in event bundle");
             }
             return event;
         }
 
 
-        private Record readNsonRecord(ByteInputStream in)
+        private Record readNsonRecord(ByteInputStream in,
+                                      String regionName,
+                                      String internalRegionName)
             throws IOException {
             MapWalker walker = getMapWalker(in);
             Record rec = new Record();
@@ -1153,6 +1173,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                     rec.setExpirationTime(Nson.readNsonLong(in));
                 } else if (name.equals(EVENT_ID)) {
                     rec.setEventId(Nson.readNsonString(in));
+                } else if (name.equals(EVENT_TABLE_OCID)) {
+                    rec.setTableOcid(
+                        mapToExternalOcid(regionName,
+                                          internalRegionName,
+                                          Nson.readNsonString(in)));
                 } else if (name.equals(EVENT_PARTITION_ID)) {
                     rec.setPartitionId(Nson.readNsonInt(in));
                 } else if (name.equals(EVENT_REGION_ID)) {
@@ -1170,6 +1195,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else {
                     skipUnknownField(walker, name);
                 }
+            }
+            if (rec.getTableOcid() == null) {
+                throw new IllegalStateException(
+                    "Event records missing table OCIDs");
             }
             if (!currentImage.isEmpty()) {
                 rec.setCurrentImage(currentImage);

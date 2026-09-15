@@ -69,7 +69,7 @@ public class Consumer {
     }
 
     /**
-     * Mark the data from the given MessageBundle as committed.
+     * Mark the data from the given EventBundle as committed.
      *
      * Calling this method implies that the consumer has completely processed
      * the data and it should be considered "consumed".
@@ -82,7 +82,7 @@ public class Consumer {
      * in auto commit mode, the commit is implied for all previous data every
      * time poll() is called.
      */
-    public void commitBundle(MessageBundle bundle, Duration timeout) {
+    public void commitBundle(EventBundle bundle, Duration timeout) {
         commitInternal(bundle.getCursor(), timeout);
     }
 
@@ -187,7 +187,7 @@ public class Consumer {
      * non-negative. It can be null or zero only when {@code limit} is zero.
      * @throws IllegalArgumentException if either parameter is invalid
      */
-    public MessageBundle poll(int limit, Duration waitTime) {
+    public EventBundle poll(int limit, Duration waitTime) {
         /* The default poll interval is 100ms, or the wait time if shorter. */
         Duration defaultPollInterval = Duration.ofMillis(100);
         if (waitTime == null || waitTime.compareTo(defaultPollInterval) < 0) {
@@ -206,8 +206,8 @@ public class Consumer {
      * usage when many consumers are being added to or removed from a group.
      *
      * If this consumer has data available to read immediately, this method will
-     * return immediately with a nonempty MessageBundle. It will not spend more
-     * time trying to return a "full" MessageBundle with the maximum number of
+     * return immediately with a nonempty EventBundle. It will not spend more
+     * time trying to return a "full" EventBundle with the maximum number of
      * messages.
      *
      * This method is not thread-safe. Calling poll() on the same consumer instance
@@ -223,7 +223,7 @@ public class Consumer {
      * only when {@code waitTime} is null or zero.
      * @throws IllegalArgumentException if any parameter is invalid
      */
-    public MessageBundle poll(int limit, Duration waitTime, Duration pollInterval) {
+    public EventBundle poll(int limit, Duration waitTime, Duration pollInterval) {
         if (limit < 0) {
             throw new IllegalArgumentException("limit must be >= 0");
         }
@@ -264,7 +264,7 @@ public class Consumer {
         int pollRequests = 0;
         long requestTimeMs = 0;
         long retryDelayMs = 0;
-        MessageBundle bundle = null;
+        EventBundle bundle = null;
 
         do {
             pollRequests += 1;
@@ -301,24 +301,24 @@ public class Consumer {
     /*
      * @hidden
      */
-    MessageBundle pollOnce(int limit) {
+    EventBundle pollOnce(int limit) {
         PollRequest req = new PollRequest(cursor, limit);
         try {
             PollResult res =
                 (PollResult) handle.getClient().execute(req);
-            MessageBundle mb = res.bundle;
+            EventBundle mb = res.bundle;
             if (res.cursor == null) {
                 /* if there were no errors and no bundle/cursor,
                    return an empty bundle */
                 if (mb == null) {
-                    mb = new MessageBundle(null);
+                    mb = new EventBundle(null);
                 } else {
                     throw new NoSQLException("Poll returned invalid cursor");
                 }
             } else {
                 this.cursor = res.cursor;
                 if (mb == null) {
-                    mb = new MessageBundle(null);
+                    mb = new EventBundle(null);
                 }
             }
             mb.setCursor(this.cursor);

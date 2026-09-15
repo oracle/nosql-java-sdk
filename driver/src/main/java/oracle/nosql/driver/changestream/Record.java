@@ -21,11 +21,16 @@ import oracle.nosql.driver.values.MapValue;
  * have a non-null beforeImage.
  */
 public class Record {
-	/* event ID: this is unique within the consumer group */
+    /* event ID: this is unique within the consumer group */
     private String eventId;
 
     /*
-	 * Record key. Note that the key fields are *not* present in
+     * Table OCID: OCI id of the table for this record.
+     */
+    private String tableOcid;
+
+    /*
+     * Record key. Note that the key fields are *not* present in
      * the change images.
      */
     private MapValue recordKey;
@@ -53,7 +58,8 @@ public class Record {
     /*
      * @hidden
      */
-	public Record(String eventId,
+    public Record(String eventId,
+                 String tableOcid,
                  MapValue recordKey,
                  Image currentImage,
                  Image beforeImage,
@@ -61,7 +67,8 @@ public class Record {
                  long expirationTime,
                  int partitionId,
                  int regionId) {
-	    this.eventId = eventId;
+        this.eventId = eventId;
+        this.tableOcid = tableOcid;
         this.recordKey = recordKey;
         this.currentImage = currentImage;
         this.beforeImage = beforeImage;
@@ -69,101 +76,113 @@ public class Record {
         this.expirationTime = expirationTime;
         this.partitionId = partitionId;
         this.regionId = regionId;
-	}
+    }
 
     public String getEventId() {
-		return eventId;
-	}
+        return eventId;
+    }
+
+    public String getTableOcid() {
+        return tableOcid;
+    }
 
     public MapValue getRecordKey() {
-		return recordKey;
-	}
+        return recordKey;
+    }
 
     public Image getCurrentImage() {
-		return currentImage;
-	}
+        return currentImage;
+    }
 
     public Image getBeforeImage() {
-		return beforeImage;
-	}
+        return beforeImage;
+    }
 
     public long getModificationTime() {
-		return modificationTime;
-	}
+        return modificationTime;
+    }
 
     public long getExpirationTime() {
-		return expirationTime;
-	}
+        return expirationTime;
+    }
 
     public int getPartitionId() {
-		return partitionId;
-	}
+        return partitionId;
+    }
 
     public int getRegionId() {
-		return regionId;
-	}
+        return regionId;
+    }
 
     /*
      * @hidden
      */
     public void setEventId(String eventId) {
-		this.eventId = eventId;
-	}
+        this.eventId = eventId;
+    }
+
+    /*
+     * @hidden
+     */
+    public void setTableOcid(String tableOcid) {
+        this.tableOcid = tableOcid;
+    }
 
     /*
      * @hidden
      */
     public void setRecordKey(MapValue recordKey) {
-		this.recordKey = recordKey;
-	}
+        this.recordKey = recordKey;
+    }
 
     /*
      * @hidden
      */
     public void setCurrentImage(Image image) {
-		this.currentImage = image;
-	}
+        this.currentImage = image;
+    }
 
     /*
      * @hidden
      */
     public void setBeforeImage(Image image) {
-		this.beforeImage = image;
-	}
+        this.beforeImage = image;
+    }
 
     /*
      * @hidden
      */
     public void setModificationTime(long time) {
-		this.modificationTime = time;
-	}
+        this.modificationTime = time;
+    }
 
     /*
      * @hidden
      */
     public void setExpirationTime(long time) {
-		this.expirationTime = time;
-	}
+        this.expirationTime = time;
+    }
 
     /*
      * @hidden
      */
     public void setPartitionId(int pid) {
-		this.partitionId = pid;
-	}
+        this.partitionId = pid;
+    }
 
     /*
      * @hidden
      */
     public void setRegionId(int rid) {
-		this.regionId = rid;
-	}
+        this.regionId = rid;
+    }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("Record {\n");
         sb.append(" eventId: { ").append(eventId).append(" }\n");
+        sb.append(" tableOcid: { ").append(tableOcid).append(" }\n");
         sb.append(" recordKey: { ").append(recordKey).append(" }\n");
         sb.append(" currentImage: { ").append(currentImage).append(" }\n");
         sb.append(" beforeImage: { ").append(beforeImage).append(" }\n");
