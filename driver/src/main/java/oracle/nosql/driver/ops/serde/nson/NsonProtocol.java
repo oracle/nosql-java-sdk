@@ -17,6 +17,13 @@ public class NsonProtocol {
     public static int V4_VERSION = 4;
 
     /*
+     * Change Streams protocol version
+     */
+    public static final int CHANGE_STREAMS_PROTOCOL_VERSION_1 = 1;
+    public static final int CHANGE_STREAMS_CURRENT_VERSION =
+        CHANGE_STREAMS_PROTOCOL_VERSION_1;
+
+    /*
      * request fields
      *
      * These are purposely terse to keep message size down. There is a debug
@@ -27,6 +34,7 @@ public class NsonProtocol {
     public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
     public static String CHANGE_STREAM_ENABLED = "ce";
+    public static String CHANGE_STREAM_VERSION = "cv";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
     public static String CONSUMER_METADATA = "cm";
@@ -239,6 +247,7 @@ public class NsonProtocol {
         {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
         {CHANGE_STREAM_ENABLED,"CHANGE_STREAM_ENABLED"},
+        {CHANGE_STREAM_VERSION,"CHANGE_STREAM_VERSION"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
         {CONSUMER_METADATA,"CONSUMER_METADATA"},

@@ -887,6 +887,8 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
+            writeMapField(ns, CHANGE_STREAM_VERSION,
+                          CHANGE_STREAMS_CURRENT_VERSION);
             writeMapField(ns, MODE, rq.mode.ordinal());
             if (rq.cursor != null) {
                 writeMapField(ns, CURSOR, rq.cursor);
@@ -986,6 +988,8 @@ public class NsonSerializerFactory implements SerializerFactory {
 
             // payload
             startMap(ns, PAYLOAD);
+            writeMapField(ns, CHANGE_STREAM_VERSION,
+                          CHANGE_STREAMS_CURRENT_VERSION);
             writeMapField(ns, MAX_EVENTS, rq.limit);
             writeMapField(ns, CURSOR, rq.cursor);
             endMap(ns, PAYLOAD);
