@@ -311,6 +311,9 @@
           <!-- uncomment below to write stdout to files
                in target/surefire-reports -->
           <!-- <redirectTestOutputToFile>true</redirectTestOutputToFile> -->
+          <configuration>
+               <reportsDirectory>${surefire.reportDirectory}</reportsDirectory>
+          </configuration>          
           <workingDirectory>${project.build.directory}/test-run</workingDirectory>
           <systemPropertyVariables>
             <test.serverType>${serverType}</test.serverType>
