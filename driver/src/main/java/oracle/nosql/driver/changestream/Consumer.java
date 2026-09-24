@@ -11,9 +11,11 @@ import java.time.Duration;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.changestream.ConsumerRequest.RequestMode;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
+import oracle.nosql.driver.values.JsonOptions;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -338,6 +340,31 @@ public class Consumer {
      */
     public MapValue getMetaData() {
         return this.metadata;
+    }
+
+    /**
+     * Returns the NSON-encoded cursor contents as formatted JSON for debugging.
+     * This is only for debugging purposes; the internal format
+     * of consumer cursors may change at any time.
+     *
+     * @param cursor cursor bytes returned by the service
+     * @return formatted JSON, or null if cursor is null
+     * @hidden
+     */
+    public static String dumpCursor(byte[] cursor) {
+        return Nson.toJsonString(cursor, JsonOptions.PRETTY);
+    }
+
+    /**
+     * Returns this consumer's current cursor as formatted JSON for debugging.
+     * This is only for debugging purposes; the internal format
+     * of consumer cursors may change at any time.
+     *
+     * @return formatted JSON, or null if no cursor is available
+     * @hidden
+     */
+    public String dumpCursor() {
+        return dumpCursor(cursor);
     }
 
 
