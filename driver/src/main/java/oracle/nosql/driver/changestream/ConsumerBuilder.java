@@ -32,7 +32,7 @@ public class ConsumerBuilder {
 
     /*
      * TableConfig represents the details for a single table in a change
-     * data capture configuration. It is typically created using API calls:
+     * streaming configuration. It is typically created using API calls:
      *
      *    config = new ConsumerBuilder().
      *        addTable("client_info", null, StartLocation.latest());
@@ -79,7 +79,7 @@ public class ConsumerBuilder {
     public List<TableConfig> tables;
 
     /*
-     * The group ID. In NoSQL Change Data Capture, every consumer is part of a "group".
+     * The group ID. In NoSQL Change Streaming, every consumer is part of a "group".
      * The group may be a single consumer, or may have multiple consumers.
      *
      * When multiple consumers use the same group ID, the NoSQL system will attempt
@@ -243,7 +243,7 @@ public class ConsumerBuilder {
 
     /**
      * Specify the group ID.
-     * In NoSQL Change Data Capture, every consumer is part of a "group".
+     * In NoSQL Change Streaming, every consumer is part of a "group".
      * The group may have a single consumer, or may have multiple consumers.
      *
      * When there is only a single consumer in a group, this consumer will
@@ -387,7 +387,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
     }
 
     /**
-     * Create a Change Data Capture consumer based on builder configuration.
+     * Create a Change Streaming consumer based on builder configuration.
      *
      * This will make server-side calls to validate all configuration and
      * establish server-side state for the consumer.

@@ -178,7 +178,7 @@ public class TableRequest extends Request {
     }
 
     /**
-     * Sets Change Data Capture enabled or disabled.
+     * Sets Change Streaming enabled or disabled.
      *
      * Cloud service only.
      * <p>

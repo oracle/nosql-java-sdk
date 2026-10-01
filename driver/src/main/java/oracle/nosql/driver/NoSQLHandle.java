@@ -714,12 +714,12 @@ public interface NoSQLHandle extends AutoCloseable {
     /**
      * Enable or disable Change Streaming on a table.
      * <p>
-     * Cloud srvice only.
+     * Cloud service only.
      * <p>
      *
      * Internally, this operation is similar to {@link doTableRequest}.
-     * It is used specifically for enabling or disabling Change Data
-     * Capture on a table.
+     * It is used specifically for enabling or disabling Change Streaming
+     * on a table.
      * If the operation succeeds within the time given, this method will
      * return a TableResult. All other operation failures will throw an
      * exception.
