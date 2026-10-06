@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ### Changed
 - OKE Workload Identity now has TLS hostname verification enabled.
+- Updated Jackson version to 2.18.11
+- Updated Netty version to 4.1.138.Final
 
 ## [5.4.24] 2026-08-18
 
