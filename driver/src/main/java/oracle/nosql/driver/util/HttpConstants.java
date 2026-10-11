@@ -64,6 +64,12 @@ public class HttpConstants {
     public static final String SERVER_VERSION = "x-nosql-version";
 
     /**
+     * A message supplied by the proxy for the driver to log as a warning.
+     * The driver logs each distinct message only once per handle.
+     */
+    public static final String SERVER_WARNING = "x-nosql-warning";
+
+    /**
      * Headers possibly set by the load balancer service to indicate original
      * IP address
      */
