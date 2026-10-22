@@ -125,6 +125,7 @@ public class ConsumerBuilder {
      * Specify the maximum interval between calls to poll() before the system will
      * consider this consumer as failed, which will trigger a rebalance operation to
      * redirect its change event data to other active consumers.
+     * Background keepalive polls count toward this interval.
      */
     public Duration maxPollInterval;
 
@@ -307,9 +308,9 @@ public class ConsumerBuilder {
      * consumer process dies unexpectedly, or as part of a restart operation.
      * If a consumer process dies, the data that it would be consuming
      * will not be consumed by any other consumers in this consumer's group until
-     * this interval expires. So this value should be reasonably long enough to
-     * support slow consumers that may have significant delays between polls, but
-     * be short enough so that other consumers can take over its data if it dies.
+     * this interval expires. The consumer sends background keepalive polls at
+     * half this interval when the application is not polling, with a minimum
+     * background poll interval of one second.
      *
      * If not specified, the default value for maxPollInterval is 30 seconds.
      */
@@ -396,8 +397,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * the consumer group will be applied immediately after this call succeeds.
      * It is not necessary to call poll() to trigger table changes.
      *
-     * Note that rebalancing operations will not take effect after this call.
-     * Rebalancing does not happen until the first call to poll().
+     * Rebalancing begins with the first application or background keepalive poll.
      */
     public Consumer build() {
         return new Consumer(this);

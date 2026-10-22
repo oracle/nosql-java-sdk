@@ -8,6 +8,9 @@
 package oracle.nosql.driver.changestream;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
@@ -22,11 +25,19 @@ import oracle.nosql.driver.values.MapValue;
  * The main object used for Change Streaming.
  *
  * To get an instance of this class, use {@link ConsumerBuilder}.
+ * A background thread keeps the consumer alive by polling for zero events
+ * when the application is not polling. Call {@link #close()} to stop it.
  */
 public class Consumer {
+    private static final Logger logger =
+        Logger.getLogger(Consumer.class.getName());
+
     private byte[] cursor;
     private NoSQLHandleImpl handle;
     private MapValue metadata;
+    private final Thread keepAliveThread;
+    private long lastPollTimeNanos;
+    private boolean closed;
 
     Consumer(ConsumerBuilder builder) {
         builder.validate();
@@ -50,6 +61,39 @@ public class Consumer {
             }
             throw e;
         }
+
+        long maxPollIntervalMs = builder.maxPollInterval == null ?
+            30000 : builder.maxPollInterval.toMillis();
+        long keepAliveIntervalMs = Math.max(1000, maxPollIntervalMs / 2);
+        lastPollTimeNanos = System.nanoTime();
+        keepAliveThread = new Thread(
+            () -> keepAlive(keepAliveIntervalMs), "ChangeStreamKeepAlive");
+        keepAliveThread.setDaemon(true);
+        keepAliveThread.start();
+    }
+
+    private void keepAlive(long intervalMs) {
+        try {
+            synchronized (this) {
+                while (!closed && handle.getClient() != null) {
+                    long elapsedMs = TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - lastPollTimeNanos);
+                    if (elapsedMs < intervalMs) {
+                        wait(intervalMs - elapsedMs);
+                        continue;
+                    }
+                    try {
+                        pollOnce(0);
+                    } catch (RuntimeException e) {
+                        /* Retry on the next interval after a failed request. */
+                        logger.log(Level.FINE,
+                                   "Change stream keepalive poll failed", e);
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
@@ -66,7 +110,7 @@ public class Consumer {
      * in auto commit mode, the commit is implied for all previous data every
      * time poll() is called.
      */
-    public void commit(Duration timeout) {
+    public synchronized void commit(Duration timeout) {
         commitInternal(this.cursor, timeout);
     }
 
@@ -91,7 +135,7 @@ public class Consumer {
     /*
      * @hidden
      */
-    public void commitInternal(byte[] cursor, Duration timeout) {
+    public synchronized void commitInternal(byte[] cursor, Duration timeout) {
         /* TODO: use timeout */
         ConsumerRequest req = new ConsumerRequest(RequestMode.COMMIT).
                                      setCursor(cursor);
@@ -121,11 +165,13 @@ public class Consumer {
      * If the consumer is in auto-commit mode, calling close() will implicitly call
      * commit() on the most recent events returned from poll().
      *
-     * It is not required to call this method. If a consumer has not called poll()
-     * within the maximum poll period, it will be considered closed by the system and a
-     * rebalance may be triggered at that point.
+     * This method also stops the background keepalive thread. If the consumer
+     * process exits without closing the consumer, the system will consider it
+     * closed after the maximum poll interval and may trigger a rebalance.
      */
-    public void close() {
+    public synchronized void close() {
+        closed = true;
+        keepAliveThread.interrupt();
         ConsumerRequest req = new ConsumerRequest(RequestMode.CLOSE).
                                      setCursor(cursor);
         try {
@@ -152,7 +198,7 @@ public class Consumer {
      * - poll results will not be committed
      * - no redistribution amongst active consumers in the group will take place
      */
-    public void reset() {
+    public synchronized void reset() {
         ConsumerRequest req = new ConsumerRequest(RequestMode.RESET).
                                      setCursor(cursor);
         try {
@@ -303,7 +349,11 @@ public class Consumer {
     /*
      * @hidden
      */
-    EventBundle pollOnce(int limit) {
+    synchronized EventBundle pollOnce(int limit) {
+        if (closed) {
+            throw new IllegalStateException("Consumer has been closed");
+        }
+        lastPollTimeNanos = System.nanoTime();
         PollRequest req = new PollRequest(cursor, limit);
         try {
             PollResult res =
@@ -363,7 +413,7 @@ public class Consumer {
      * @return formatted JSON, or null if no cursor is available
      * @hidden
      */
-    public String dumpCursor() {
+    public synchronized String dumpCursor() {
         return dumpCursor(cursor);
     }
 
@@ -390,9 +440,9 @@ public class Consumer {
      * the existing group (or if this the first consumer in this group), the
      * startLocation specified here will be used.
      */
-    public void addTable(String tableName,
-                         String compartmentOcid,
-                         StartLocation location) {
+    public synchronized void addTable(String tableName,
+                                      String compartmentOcid,
+                                      StartLocation location) {
 
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
             .addTable(tableName, compartmentOcid, location)
@@ -431,8 +481,8 @@ public class Consumer {
      * @param compartmentOcid This is optional. If null, the default compartment Ocid
      * for the tenancy is used.
      */
-    public void removeTable(String tableName,
-                            String compartmentOcid) {
+    public synchronized void removeTable(String tableName,
+                                         String compartmentOcid) {
 
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
             .removeTable(tableName, compartmentOcid)
