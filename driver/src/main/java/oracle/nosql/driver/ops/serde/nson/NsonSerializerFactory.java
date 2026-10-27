@@ -890,6 +890,9 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, CHANGE_STREAM_VERSION,
                           CHANGE_STREAMS_CURRENT_VERSION);
             writeMapField(ns, MODE, rq.mode.ordinal());
+            if (rq.timeframe != null) {
+                writeLongMapField(ns, TIMEFRAME, rq.timeframe.toMillis());
+            }
             if (rq.cursor != null) {
                 writeMapField(ns, CURSOR, rq.cursor);
             }
@@ -956,6 +959,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.cursor = Nson.readNsonBinary(in);
                 } else if (name.equals(CONSUMER_METADATA)) {
                     result.metadata = Nson.readNsonMap(in);
+                } else if (name.equals(MIN_CONSUMERS)) {
+                    result.minimumConsumers = Nson.readNsonInt(in);
                 } else {
                     skipUnknownField(walker, name);
                 }

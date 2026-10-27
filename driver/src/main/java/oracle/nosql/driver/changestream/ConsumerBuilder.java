@@ -12,6 +12,9 @@ import java.util.List;
 import java.time.Duration;
 
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.changestream.ConsumerRequest.RequestMode;
+import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.ops.GetTableRequest;
 import oracle.nosql.driver.ops.TableResult;
 
@@ -268,7 +271,7 @@ public class ConsumerBuilder {
      * location specified in the config is ignored). If a table is not in the
      * existing group (or if this the first consumer in this group), the
      * StartLocation in the table config will be used.
-     * This behavior can be changed by specifying forceResetStartLocation() in the config.
+     * This behavior can be changed by specifying forceResetStartLocation() in the builder.
      */
     public ConsumerBuilder groupId(String groupId) {
         this.groupId = groupId;
@@ -375,7 +378,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
 
     /**
      * Set the cloud compartment ID to use for this consumer.
-     * This is optional. If not compartment is specified, the default
+     * This is optional. If no compartment is specified, the default
      * (root) compartment of the tenancy is used.
      * Tables added to the consumer can be in different compartments,
      * as specified in addTable() and removeTable().
@@ -401,6 +404,42 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      */
     public Consumer build() {
         return new Consumer(this);
+    }
+
+    /**
+     * Get the minimum number of consumers required to completely read all
+     * events in a stream within a specified timeframe.
+     *
+     * Given the Builder configuration (groupID, tables, start modes),
+     * this method will return the minimum number of consumers needed to
+     * read all events within the duration given.
+     * The Builder config must have either a valid current groupID, or
+     * a table name, compartmentId, and startMode.
+     *
+     * Note the returned value is an estimate: application-side
+     * processing time of events may affect the accuracy of this value.
+     *
+     * @param timeframe The desired time to read all events
+     * @return the number of consumers needed to read all events in
+     * the given timeframe.
+     */
+    public int getMinimumConsumers(Duration timeframe) {
+        if (this.handle == null) {
+            throw new IllegalArgumentException(
+                "getMinimumConsumers requires a valid NoSQL handle");
+        }
+        ConsumerRequest req = new ConsumerRequest(RequestMode.MIN_CONSUMERS).
+                                     setBuilder(this).timeframe(timeframe);
+        try {
+            ConsumerResult res =
+                (ConsumerResult) ((NoSQLHandleImpl)this.handle).getClient().execute(req);
+            return res.minimumConsumers;
+        } catch (Exception e) {
+            if (e.getMessage().contains("unknown opcode")) {
+                throw new OperationNotSupportedException("Change Streaming not supported by server");
+            }
+            throw e;
+        }
     }
 
     /*

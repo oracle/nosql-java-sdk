@@ -88,6 +88,7 @@ public class NsonProtocol {
     public static String LIST_MAX_TO_READ = "lx";
     public static String LIST_START_INDEX = "ls";
     public static String MANUAL_COMMIT = "ma";
+    public static String MIN_CONSUMERS = "mc";
     public static String MATCH_VERSION = "mv";
     public static String MAX_EVENTS = "me";
     public static String MAX_POLL_INTERVAL = "mi";
@@ -141,6 +142,7 @@ public class NsonProtocol {
     public static String TABLE_OCID = "to";
     public static String TABLE_USAGE = "u";
     public static String TABLE_USAGE_PERIOD = "pd";
+    public static String TIMEFRAME = "tfr";
     public static String TIMEOUT = "t";
     public static String TOPO_SEQ_NUM = "ts";
     public static String TRACE_AT_LOG_FILES = "tf";
@@ -301,6 +303,7 @@ public class NsonProtocol {
         {LIST_MAX_TO_READ,"LIST_MAX_TO_READ"},
         {LIST_START_INDEX,"LIST_START_INDEX"},
         {MANUAL_COMMIT,"MANUAL_COMMIT"},
+        {MIN_CONSUMERS,"MIN_CONSUMERS"},
         {MATCH_VERSION,"MATCH_VERSION"},
         {MAX_EVENTS,"MAX_EVENTS"},
         {MAX_POLL_INTERVAL,"MAX_POLL_INTERVAL"},
@@ -354,6 +357,7 @@ public class NsonProtocol {
         {TABLE_OCID,"TABLE_OCID"},
         {TABLE_USAGE,"TABLE_USAGE"},
         {TABLE_USAGE_PERIOD,"TABLE_USAGE_PERIOD"},
+        {TIMEFRAME,"TIMEFRAME"},
         {TIMEOUT,"TIMEOUT"},
         {TOPO_SEQ_NUM,"TOPO_SEQ_NUM"},
         {TRACE_AT_LOG_FILES,"TRACE_AT_LOG_FILES"},

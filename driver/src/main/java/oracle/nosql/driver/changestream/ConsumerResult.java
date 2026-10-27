@@ -18,5 +18,6 @@ public class ConsumerResult extends Result {
 
     public byte[] cursor;
     public MapValue metadata;
+    public int minimumConsumers;
 }
 

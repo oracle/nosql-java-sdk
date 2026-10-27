@@ -7,6 +7,8 @@
 
 package oracle.nosql.driver.changestream;
 
+import java.time.Duration;
+
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
@@ -27,7 +29,8 @@ public class ConsumerRequest extends Request {
         CLOSE(3),
         DELETE(4),
         COMMIT(5),
-        RESET(6);
+        RESET(6),
+        MIN_CONSUMERS(7);
 
         RequestMode(int i) {
             //TODO Auto-generated constructor stub
@@ -39,6 +42,9 @@ public class ConsumerRequest extends Request {
 
     // cursor is used when closing a consumer
     public byte[] cursor;
+
+    // Desired time to read all events when estimating minimum consumers
+    public Duration timeframe;
 
     public ConsumerRequest(RequestMode mode) {
         this.mode = mode;
@@ -57,6 +63,14 @@ public class ConsumerRequest extends Request {
      */
     public ConsumerRequest setCursor(byte[] cursor) {
         this.cursor = cursor;
+        return this;
+    }
+
+    /*
+     * @hidden
+     */
+    public ConsumerRequest timeframe(Duration timeframe) {
+        this.timeframe = timeframe;
         return this;
     }
 
