@@ -538,6 +538,27 @@ $ mvn -pl examples exec:java -Dexec.mainClass=BasicTableExample \
   -Dexec.args="us-ashburn-1"
 ```
 
+### Change Streams
+
+[ChangeStreamExample](examples/src/main/java/ChangeStreamExample.java) creates a
+table, enables change streaming, and generates insert, update, and delete
+changes. It polls for one minute, prints the keys and row images, and commits
+each batch after processing it. Empty polls are expected and do not end the
+polling loop.
+
+Run against a cloud service endpoint that supports change streaming, using
+credentials with permissions to create tables and use change streams:
+
+```
+$ mvn -pl examples exec:java -Dexec.mainClass=ChangeStreamExample \
+  -Dexec.args="us-ashburn-1"
+```
+
+The example retains the `examplesChangeStream` table with streaming enabled
+and the `examplesChangeStreamGroup` consumer group. Rerunning it resumes from
+the group's committed position; a new group reads from the earliest available
+change. See Common.java for the `-configFile` option and authentication setup.
+
 ### Compile and Run Examples using a Downloaded Release
 
 Compile Examples:
