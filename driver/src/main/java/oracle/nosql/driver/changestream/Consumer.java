@@ -53,7 +53,7 @@ public class Consumer {
             }
             this.cursor = res.cursor;
             if (res.metadata != null) {
-                this.metadata = metadata;
+                this.metadata = res.metadata;
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
@@ -460,7 +460,7 @@ public class Consumer {
             }
             this.cursor = res.cursor;
             if (res.metadata != null) {
-                this.metadata = metadata;
+                this.metadata = res.metadata;
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
@@ -500,7 +500,7 @@ public class Consumer {
             }
             this.cursor = res.cursor;
             if (res.metadata != null) {
-                this.metadata = metadata;
+                this.metadata = res.metadata;
             }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {

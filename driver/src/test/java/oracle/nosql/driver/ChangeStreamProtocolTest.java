@@ -15,10 +15,26 @@ import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.EVENT_REGION_NAME;
 import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.EVENT_TABLE_OCID;
 import static oracle.nosql.driver.ops.serde.nson.NsonProtocol.TABLE_OCID;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.sun.net.httpserver.HttpServer;
 
 import oracle.nosql.driver.Nson.NsonSerializer;
+import oracle.nosql.driver.changestream.Consumer;
+import oracle.nosql.driver.changestream.ConsumerBuilder;
+import oracle.nosql.driver.changestream.EventBundle;
+import oracle.nosql.driver.changestream.Image;
+import oracle.nosql.driver.changestream.StartLocation;
+import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.changestream.PollRequest;
 import oracle.nosql.driver.changestream.PollResult;
 import oracle.nosql.driver.changestream.Record;
@@ -67,6 +83,163 @@ public class ChangeStreamProtocolTest {
             .getRecords().get(0);
         assertEquals(EXTERNAL_PARENT_OCID, legacyRecord.getTableOcid());
         assertEquals("event-2", legacyRecord.getEventId());
+    }
+
+    @Test
+    public void testImageConstructorRetainsValueAndMetadata() {
+        MapValue value = new MapValue().put("name", "Alice");
+        MapValue metadata = new MapValue().put("version", 1);
+        Image image = new Image(value, metadata);
+
+        assertSame(value, image.getValue());
+        assertSame(metadata, image.getMetadata());
+        assertFalse(image.isEmpty());
+    }
+
+    @Test
+    public void testConsumerRetainsMetadataFromCreateAndTableUpdates()
+        throws Exception {
+
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            Consumer consumer = new ConsumerBuilder()
+                .handle(handle)
+                .groupId("metadata-test")
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                .maxPollInterval(Duration.ofHours(1))
+                .build();
+            try {
+                assertEquals(1, consumer.getMetaData().getInt("revision"));
+                consumer.addTable(EXTERNAL_CHILD_OCID, null,
+                                  StartLocation.earliest());
+                assertEquals(2, consumer.getMetaData().getInt("revision"));
+                consumer.removeTable(EXTERNAL_CHILD_OCID, null);
+                assertEquals(3, consumer.getMetaData().getInt("revision"));
+            } finally {
+                consumer.close();
+            }
+            server.assertHealthy();
+        }
+    }
+
+    @Test
+    public void testBundleCommitUsesItsCursorAfterAnotherPoll()
+        throws Exception {
+
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            Consumer consumer = new ConsumerBuilder()
+                .handle(handle)
+                .groupId("bundle-test")
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                .commitManual()
+                .maxPollInterval(Duration.ofHours(1))
+                .build();
+            try {
+                EventBundle first = consumer.poll(2, Duration.ofSeconds(1));
+                EventBundle second = consumer.poll(2, Duration.ofSeconds(1));
+                assertFalse(Arrays.equals(first.getCursor(), second.getCursor()));
+
+                first.commit(Duration.ofSeconds(1));
+                assertArrayEquals(first.getCursor(), server.committedCursor);
+            } finally {
+                consumer.close();
+            }
+            server.assertHealthy();
+        }
+    }
+
+    /* Exercise the public APIs through HTTP without requiring a CDC server. */
+    private static class ConsumerServer implements AutoCloseable {
+        private final HttpServer server;
+        private final AtomicReference<Throwable> failure = new AtomicReference<>();
+        private int revision;
+        private int pollCount;
+        private volatile byte[] committedCursor;
+
+        ConsumerServer() throws IOException {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/V2/nosql/data", exchange -> {
+                try {
+                    byte[] body = exchange.getRequestBody().readAllBytes();
+                    MapValue request = Nson.readNsonMap(
+                        NettyByteInputStream.createFromBytes(
+                            Arrays.copyOfRange(body, 2, body.length)));
+                    MapValue header = request.get("h").asMap();
+                    MapValue payload = request.get("p").asMap();
+                    MapValue response = new MapValue().put("e", 0);
+                    if (header.getInt("o") == 44) {
+                        response = Nson.readNsonMap(
+                            NettyByteInputStream.createFromBytes(
+                                createPollResponse(
+                                    createEvent("event-1", EXTERNAL_PARENT_OCID),
+                                    createEvent("event-2", EXTERNAL_CHILD_OCID))));
+                        response.put("e", 0);
+                        response.put("cu", new byte[] {(byte)++pollCount});
+                    } else {
+                        int mode = payload.getInt("mm");
+                        if (mode == 1 || mode == 2) {
+                            response.put("cu", new byte[] {0});
+                            response.put("cm", new MapValue()
+                                         .put("revision", ++revision));
+                        } else if (mode == 5) {
+                            committedCursor = payload.getBinary("cu");
+                            response.put("cu", committedCursor);
+                        } else if (mode != 3) {
+                            throw new AssertionError("Unexpected mode: " + mode);
+                        }
+                    }
+                    byte[] bytes;
+                    ByteBuf buffer = Unpooled.buffer();
+                    try {
+                        Nson.writeFieldValue(new NettyByteOutputStream(buffer),
+                                             response);
+                        bytes = copyBytes(buffer);
+                    } finally {
+                        buffer.release();
+                    }
+                    String requestId = exchange.getRequestHeaders()
+                        .getFirst("x-nosql-request-id");
+                    if (requestId != null) {
+                        exchange.getResponseHeaders()
+                            .set("x-nosql-request-id", requestId);
+                    }
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
+                    exchange.sendResponseHeaders(500, -1);
+                } finally {
+                    exchange.close();
+                }
+            });
+            server.start();
+        }
+
+        NoSQLHandle createHandle() {
+            NoSQLHandleConfig config = new NoSQLHandleConfig(
+                "http://127.0.0.1:" + server.getAddress().getPort());
+            config.setAuthorizationProvider(new AuthorizationProvider() {
+                @Override
+                public String getAuthorizationString(Request request) {
+                    return "test";
+                }
+                @Override
+                public void close() {}
+            });
+            return NoSQLHandleFactory.createNoSQLHandle(config);
+        }
+
+        void assertHealthy() {
+            if (failure.get() != null) {
+                throw new AssertionError("Mock server failed", failure.get());
+            }
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
+        }
     }
 
     private static byte[] createEvent(String eventId, String tableOcid)

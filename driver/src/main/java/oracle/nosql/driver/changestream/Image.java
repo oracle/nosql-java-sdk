@@ -26,8 +26,8 @@ public class Image {
      * @hidden
      */
     public Image(MapValue value, MapValue metadata) {
-        value = value;
-        metadata = metadata;
+        this.value = value;
+        this.metadata = metadata;
     }
 
     public MapValue getValue() {

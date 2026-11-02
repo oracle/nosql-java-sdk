@@ -111,7 +111,7 @@ public class EventBundle {
      * this one). Calling Commit() on a previous EventBundle will have no effect.
      */
     public void commit(Duration timeout) {
-        consumer.commit(timeout);
+        consumer.commitBundle(this, timeout);
     }
 
     /*
