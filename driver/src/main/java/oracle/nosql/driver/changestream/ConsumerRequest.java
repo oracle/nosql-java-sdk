@@ -55,6 +55,9 @@ public class ConsumerRequest extends Request {
      */
     public ConsumerRequest setBuilder(ConsumerBuilder builder) {
         this.builder = builder;
+        if (builder != null && builder.compartmentOcid != null) {
+            setCompartment(builder.compartmentOcid);
+        }
         return this;
     }
 

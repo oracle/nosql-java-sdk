@@ -18,11 +18,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.sun.net.httpserver.HttpServer;
@@ -142,6 +147,85 @@ public class ChangeStreamProtocolTest {
 
                 first.commit(Duration.ofSeconds(1));
                 assertArrayEquals(first.getCursor(), server.committedCursor);
+                EventBundle third = consumer.poll(2, Duration.ofSeconds(1));
+                assertArrayEquals(second.getCursor(), server.lastPollCursor);
+                consumer.commit(Duration.ofSeconds(1));
+                assertArrayEquals(third.getCursor(), server.committedCursor);
+            } finally {
+                consumer.close();
+            }
+            server.assertHealthy();
+        }
+    }
+
+    @Test
+    public void testCommitModeSurvivesTableChanges() throws Exception {
+        for (boolean manual : new boolean[] {true, false}) {
+            try (ConsumerServer server = new ConsumerServer();
+                 NoSQLHandle handle = server.createHandle()) {
+                ConsumerBuilder builder = new ConsumerBuilder().handle(handle)
+                    .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                    .maxPollInterval(Duration.ofHours(1));
+                if (manual) {
+                    builder.commitManual();
+                }
+                Consumer consumer = builder.build();
+                try {
+                    consumer.addTable(EXTERNAL_CHILD_OCID, null, StartLocation.earliest());
+                    consumer.removeTable(EXTERNAL_CHILD_OCID, null);
+                    assertEquals(2, server.updates.size());
+                    for (MapValue update : server.updates) {
+                        assertEquals(manual, update.get("ma") != null && update.getBoolean("ma"));
+                    }
+                } finally {
+                    consumer.close();
+                }
+                server.assertHealthy();
+            }
+        }
+    }
+
+    @Test
+    public void testExplicitCompartmentSurvivesAllConsumerOperations() throws Exception {
+        String compartment = "ocid1.compartment.consumer";
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle(compartment)) {
+            Consumer consumer = new ConsumerBuilder().handle(handle)
+                .compartmentOcid(compartment)
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                .maxPollInterval(Duration.ofSeconds(2)).build();
+            try {
+                assertTrue("keepalive did not reach server", server.keepalive.await(5, TimeUnit.SECONDS));
+                consumer.poll(2, Duration.ofSeconds(1)).commit(null);
+                consumer.commit(null);
+                consumer.reset();
+                consumer.addTable(EXTERNAL_CHILD_OCID, "other-compartment", StartLocation.earliest());
+                consumer.removeTable(EXTERNAL_CHILD_OCID, "other-compartment");
+                assertEquals(1, new ConsumerBuilder().handle(handle)
+                    .groupId("g").compartmentOcid(compartment)
+                    .getMinimumConsumers(Duration.ofSeconds(1)));
+            } finally {
+                consumer.close();
+            }
+            Consumer.deleteGroup(handle, "g", compartment, true);
+            server.assertHealthy();
+        }
+    }
+
+    @Test
+    public void testEpochStartTimeIsSerialized() throws Exception {
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            Consumer consumer = new ConsumerBuilder().handle(handle)
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.atTime(0))
+                .build();
+            try {
+                MapValue table = server.created.get("ct").asArray().get(0).asMap();
+                assertEquals(0L, table.getLong("se"));
+                assertEquals(4, table.getInt("so"));
+                byte[] body = server.createBody;
+                String wire = new String(body, java.nio.charset.StandardCharsets.ISO_8859_1);
+                assertTrue(wire.indexOf("se") < wire.indexOf("so"));
             } finally {
                 consumer.close();
             }
@@ -156,6 +240,11 @@ public class ChangeStreamProtocolTest {
         private int revision;
         private int pollCount;
         private volatile byte[] committedCursor;
+        private volatile byte[] lastPollCursor;
+        private volatile MapValue created;
+        private volatile byte[] createBody;
+        private final List<MapValue> updates = new CopyOnWriteArrayList<>();
+        private final CountDownLatch keepalive = new CountDownLatch(1);
 
         ConsumerServer() throws IOException {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -169,6 +258,10 @@ public class ChangeStreamProtocolTest {
                     MapValue payload = request.get("p").asMap();
                     MapValue response = new MapValue().put("e", 0);
                     if (header.getInt("o") == 44) {
+                        lastPollCursor = payload.getBinary("cu");
+                        if (payload.getInt("me") == 0) {
+                            keepalive.countDown();
+                        }
                         response = Nson.readNsonMap(
                             NettyByteInputStream.createFromBytes(
                                 createPollResponse(
@@ -179,13 +272,23 @@ public class ChangeStreamProtocolTest {
                     } else {
                         int mode = payload.getInt("mm");
                         if (mode == 1 || mode == 2) {
+                            if (mode == 1) {
+                                created = payload;
+                                createBody = body;
+                            } else {
+                                updates.add(payload);
+                            }
                             response.put("cu", new byte[] {0});
                             response.put("cm", new MapValue()
                                          .put("revision", ++revision));
                         } else if (mode == 5) {
                             committedCursor = payload.getBinary("cu");
                             response.put("cu", committedCursor);
-                        } else if (mode != 3) {
+                        } else if (mode == 6) {
+                            response.put("cu", new byte[] {0});
+                        } else if (mode == 7) {
+                            response.put("mc", 1);
+                        } else if (mode != 3 && mode != 4) {
                             throw new AssertionError("Unexpected mode: " + mode);
                         }
                     }
@@ -217,11 +320,19 @@ public class ChangeStreamProtocolTest {
         }
 
         NoSQLHandle createHandle() {
+            return createHandle(null);
+        }
+
+        NoSQLHandle createHandle(String expectedCompartment) {
             NoSQLHandleConfig config = new NoSQLHandleConfig(
                 "http://127.0.0.1:" + server.getAddress().getPort());
             config.setAuthorizationProvider(new AuthorizationProvider() {
                 @Override
                 public String getAuthorizationString(Request request) {
+                    if (expectedCompartment != null) {
+                        // Principal authentication requires this request field.
+                        assertEquals(expectedCompartment, request.getCompartment());
+                    }
                     return "test";
                 }
                 @Override

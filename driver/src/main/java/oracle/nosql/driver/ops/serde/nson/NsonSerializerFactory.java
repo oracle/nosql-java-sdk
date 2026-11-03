@@ -59,6 +59,7 @@ import oracle.nosql.driver.changestream.Image;
 import oracle.nosql.driver.changestream.PollRequest;
 import oracle.nosql.driver.changestream.PollResult;
 import oracle.nosql.driver.changestream.Record;
+import oracle.nosql.driver.changestream.StartLocation.LocationType;
 import oracle.nosql.driver.values.JsonUtils;
 import oracle.nosql.driver.values.MapWalker;
 import oracle.nosql.driver.values.TimestampValue;
@@ -923,7 +924,8 @@ public class NsonSerializerFactory implements SerializerFactory {
                         writeMapField(ns, TABLE_OCID, tcfg.tableOcid);
                         if (tcfg.startLocation != null) {
                             /* Note: start time must be first in Nson stream */
-                            if (tcfg.startLocation.startTime > 0) {
+                            if (tcfg.startLocation.location ==
+                                LocationType.AT_TIME) {
                                 writeLongMapField(ns, START_TIME, tcfg.startLocation.startTime);
                             }
                             writeMapField(ns, START_LOCATION,

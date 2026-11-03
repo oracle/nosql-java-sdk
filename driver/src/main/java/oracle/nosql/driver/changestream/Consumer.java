@@ -8,6 +8,7 @@
 package oracle.nosql.driver.changestream;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,6 +36,8 @@ public class Consumer {
     private byte[] cursor;
     private NoSQLHandleImpl handle;
     private MapValue metadata;
+    private final boolean manualCommit;
+    private final String compartmentOcid;
     private final Thread keepAliveThread;
     private long lastPollTimeNanos;
     private boolean closed;
@@ -42,6 +45,8 @@ public class Consumer {
     Consumer(ConsumerBuilder builder) {
         builder.validate();
         this.handle = (NoSQLHandleImpl)builder.handle;
+        this.manualCommit = builder.manualCommit;
+        this.compartmentOcid = builder.compartmentOcid;
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.CREATE).
                                      setBuilder(builder);
@@ -138,6 +143,7 @@ public class Consumer {
     public synchronized void commitInternal(byte[] cursor, Duration timeout) {
         /* TODO: use timeout */
         ConsumerRequest req = new ConsumerRequest(RequestMode.COMMIT).
+                                     setCompartment(compartmentOcid).
                                      setCursor(cursor);
         try {
             ConsumerResult res =
@@ -145,7 +151,10 @@ public class Consumer {
             if (res.cursor == null) {
                 throw new NoSQLException("Consumer not committed on server side");
             }
-            this.cursor = res.cursor;
+            /* Committing an older bundle must not rewind the read position. */
+            if (Arrays.equals(this.cursor, cursor)) {
+                this.cursor = res.cursor;
+            }
         } catch (Exception e) {
             if (e.getMessage().contains("unknown opcode")) {
                 throw new OperationNotSupportedException("Change Streaming not supported by server");
@@ -173,6 +182,7 @@ public class Consumer {
         closed = true;
         keepAliveThread.interrupt();
         ConsumerRequest req = new ConsumerRequest(RequestMode.CLOSE).
+                                     setCompartment(compartmentOcid).
                                      setCursor(cursor);
         try {
             ConsumerResult res =
@@ -200,6 +210,7 @@ public class Consumer {
      */
     public synchronized void reset() {
         ConsumerRequest req = new ConsumerRequest(RequestMode.RESET).
+                                     setCompartment(compartmentOcid).
                                      setCursor(cursor);
         try {
             ConsumerResult res =
@@ -355,6 +366,7 @@ public class Consumer {
         }
         lastPollTimeNanos = System.nanoTime();
         PollRequest req = new PollRequest(cursor, limit);
+        req.setCompartmentInternal(compartmentOcid);
         try {
             PollResult res =
                 (PollResult) handle.getClient().execute(req);
@@ -446,7 +458,9 @@ public class Consumer {
 
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
             .addTable(tableName, compartmentOcid, location)
+            .compartmentOcid(this.compartmentOcid)
             .handle(this.handle);
+        tempBuilder.manualCommit = manualCommit;
         tempBuilder.validate();
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).
@@ -486,7 +500,9 @@ public class Consumer {
 
         ConsumerBuilder tempBuilder = new ConsumerBuilder()
             .removeTable(tableName, compartmentOcid)
+            .compartmentOcid(this.compartmentOcid)
             .handle(this.handle);
+        tempBuilder.manualCommit = manualCommit;
         tempBuilder.validate();
 
         ConsumerRequest req = new ConsumerRequest(RequestMode.UPDATE).

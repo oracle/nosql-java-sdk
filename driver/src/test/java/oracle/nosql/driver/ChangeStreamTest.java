@@ -19,6 +19,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import oracle.nosql.driver.changestream.Consumer;
 import oracle.nosql.driver.changestream.ConsumerBuilder;
@@ -43,6 +45,88 @@ import oracle.nosql.driver.values.MapValue;
 import org.junit.Test;
 
 public class ChangeStreamTest extends ProxyTestBase {
+
+    @Test
+    public void cdcCommitRegressions() throws Exception {
+        assumeFalse(onprem);
+        myBeforeTest();
+        String suffix = Long.toUnsignedString(System.nanoTime());
+        String table = "cdcCommit_" + suffix;
+        String other = "cdcOther_" + suffix;
+        String group = "cdcCommitGroup_" + suffix;
+        String epochGroup = "cdcEpochGroup_" + suffix;
+        List<String> enabled = new ArrayList<>();
+        List<Consumer> consumers = new ArrayList<>();
+        try {
+            for (String name : new String[] {table, other}) {
+                tableOperation(handle, "create table " + name +
+                    "(id integer, name string, primary key(id))",
+                    new TableLimits(500, 500, 1), 20000);
+                enableDisableStreamingWithRateLimiting(handle, name, true);
+                enabled.add(name);
+            }
+            Consumer consumer = new ConsumerBuilder().handle(handle)
+                .groupId(group).commitManual()
+                .addTable(table, null, StartLocation.earliest()).build();
+            consumers.add(consumer);
+            EventBundle first = putAndPollCommitEvent(consumer, table, "first");
+            putAndPollCommitEvent(consumer, table, "second");
+            first.commit(null);
+            assertTrue("old bundle commit rewound polling position",
+                       consumer.poll(100, Duration.ofMillis(200)).isEmpty());
+            consumer.commit(null);
+
+            consumer.addTable(other, null, StartLocation.earliest());
+            putAndPollCommitEvent(consumer, table, "after_add");
+            consumer.poll(0, Duration.ZERO);
+            consumer.reset();
+            pollCommitEvent(consumer, "after_add").commit(null);
+
+            // Updating membership also normalizes TestCDCClient's reset offsets.
+            consumer.removeTable(other, null);
+            putAndPollCommitEvent(consumer, table, "after_remove");
+            consumer.poll(0, Duration.ZERO);
+            consumer.reset();
+            pollCommitEvent(consumer, "after_remove").commit(null);
+            consumer.close();
+            consumers.remove(consumer);
+
+            Consumer epoch = new ConsumerBuilder().handle(handle)
+                .groupId(epochGroup).addTable(table, null, StartLocation.atTime(0))
+                .build();
+            consumers.add(epoch);
+            assertEquals(4, epoch.poll(100, Duration.ofSeconds(10)).getEvents().size());
+        } finally {
+            // Preserve the original test failure while still attempting all cleanup.
+            for (Consumer consumer : consumers) {
+                try { consumer.close(); } catch (Exception e) { e.printStackTrace(); }
+            }
+            for (String id : new String[] {group, epochGroup}) {
+                try { Consumer.deleteGroup(handle, id, null, true); }
+                catch (Exception e) { e.printStackTrace(); }
+            }
+            for (String name : enabled) {
+                enableDisableStreamingWithRateLimiting(handle, name, false);
+            }
+            // ProxyTestBase.afterTest drops tables created by this test.
+        }
+    }
+
+    private EventBundle putAndPollCommitEvent(Consumer consumer, String table, String name) {
+        handle.put(new PutRequest().setTableName(table)
+            .setValue(new MapValue().put("id", 1).put("name", name)));
+        return pollCommitEvent(consumer, name);
+    }
+
+    private EventBundle pollCommitEvent(Consumer consumer, String name) {
+        EventBundle bundle = consumer.poll(100, Duration.ofSeconds(10));
+        assertEquals(1, bundle.getEvents().size());
+        assertEquals(1, bundle.getEvents().get(0).getRecords().size());
+        Record record = bundle.getEvents().get(0).getRecords().get(0);
+        assertEquals(1, record.getRecordKey().getInt("id"));
+        assertEquals(name, record.getCurrentImage().getValue().getString("name"));
+        return bundle;
+    }
 
     @Override
     public void beforeTest() throws Exception {
