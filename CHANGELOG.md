@@ -4,6 +4,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [5.4.25] 2026-11-05
+
 ### Changed
 - OKE Workload Identity now has TLS hostname verification enabled.
 - Updated Jackson version to 2.18.11
