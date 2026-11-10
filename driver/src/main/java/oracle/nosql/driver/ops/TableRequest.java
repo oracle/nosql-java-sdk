@@ -49,6 +49,7 @@ public class TableRequest extends Request {
     private DefinedTags definedTags;
     private String matchETag;
     private Boolean changeStreamEnabled;
+    private boolean groupByHierarchy;
 
     /**
      * Sets the name or id of a compartment to be used for this operation.
@@ -190,6 +191,27 @@ public class TableRequest extends Request {
         /* only create the object if a change in Change Streaming is desired */
         this.changeStreamEnabled = Boolean.valueOf(enabled);
         return this;
+    }
+
+    /**
+     * Selects hierarchy grouping when enabling Change Streaming.
+     * Defaults to false. Ignored when disabling streaming or when this
+     * request does not change streaming enablement.
+     *
+     * @param groupByHierarchy true to group the top-level table and descendants
+     * @return this
+     */
+    public TableRequest setGroupByHierarchy(boolean groupByHierarchy) {
+        this.groupByHierarchy = groupByHierarchy;
+        return this;
+    }
+
+    /**
+     * Returns the requested hierarchy grouping mode.
+     * @return true if hierarchy grouping was requested
+     */
+    public boolean isGroupByHierarchy() {
+        return groupByHierarchy;
     }
 
     /*

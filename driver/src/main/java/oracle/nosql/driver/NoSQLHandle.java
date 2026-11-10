@@ -719,7 +719,7 @@ public interface NoSQLHandle extends AutoCloseable {
      *
      * Internally, this operation is similar to {@link doTableRequest}.
      * It is used specifically for enabling or disabling Change Streaming
-     * on a table.
+     * on a table. Hierarchy grouping defaults to false.
      * If the operation succeeds within the time given, this method will
      * return a TableResult. All other operation failures will throw an
      * exception.
@@ -742,6 +742,30 @@ public interface NoSQLHandle extends AutoCloseable {
     TableResult enableChangeStreaming(String tableName,
                                       String compartmentId,
                                       boolean enabled,
+                                      int timeoutMs,
+                                      int pollIntervalMs);
+
+    /**
+     * Enables or disables Change Streaming with optional hierarchy grouping.
+     * Cloud service only. Hierarchy grouping includes the top-level table
+     * and its descendant tables. It can only be enabled on a top-level table.
+     *
+     * @param tableName the name of the table
+     * @param compartmentId optional compartment ID (OCID)
+     * @param enabled true to enable streaming, false to disable it
+     * @param isGroupByHierarchy true to enable hierarchy grouping;
+     * ignored when disabling streaming
+     * @param timeoutMs the completion timeout in milliseconds
+     * @param pollIntervalMs the polling interval in milliseconds
+     * @return the table result after completion
+     * @throws IllegalArgumentException if parameters are invalid
+     * @throws NoSQLException if the operation cannot be performed
+     * @since 5.4.25
+     */
+    TableResult enableChangeStreaming(String tableName,
+                                      String compartmentId,
+                                      boolean enabled,
+                                      boolean isGroupByHierarchy,
                                       int timeoutMs,
                                       int pollIntervalMs);
 

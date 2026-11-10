@@ -427,6 +427,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             if (rq.getChangeStreamingEnablement() != null) {
                 writeMapField(ns, CHANGE_STREAM_ENABLED,
                               rq.getChangeStreamingEnablement().booleanValue());
+                if (rq.getChangeStreamingEnablement().booleanValue()) {
+                    writeMapField(ns, CHANGE_STREAM_GROUP_BY_HIERARCHY,
+                                  rq.isGroupByHierarchy());
+                }
             }
             endMap(ns, PAYLOAD);
 
@@ -3645,6 +3649,10 @@ public class NsonSerializerFactory implements SerializerFactory {
                     result.setTableLimits(new TableLimits(
                                               ru, wu, sg,
                                               getCapacityMode(mode)));
+                } else if (name.equals(CHANGE_STREAM_ENABLED)) {
+                    result.setChangeStreamingEnabled(Nson.readNsonBoolean(in));
+                } else if (name.equals(CHANGE_STREAM_GROUP_BY_HIERARCHY)) {
+                    result.setGroupByHierarchy(Nson.readNsonBoolean(in));
                 } else if (name.equals(SCHEMA_FROZEN)) {
                     result.setIsFrozen(Nson.readNsonBoolean(in));
                 } else if (name.equals(INITIALIZED)) {

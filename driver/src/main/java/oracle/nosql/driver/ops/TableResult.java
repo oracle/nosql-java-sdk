@@ -50,6 +50,8 @@ public class TableResult extends Result {
     private String matchETag;
 
     private boolean isFrozen;
+    private boolean changeStreamingEnabled;
+    private boolean groupByHierarchy;
     private boolean isLocalReplicaInitialized;
     private Replica[] replicas;
 
@@ -80,6 +82,37 @@ public class TableResult extends Result {
          * while the table is in this state.
          */
         UPDATING
+    }
+
+    /**
+     * Returns whether Change Streaming is enabled for the table.
+     * Returns false if the server does not supply stream metadata.
+     * @return true if Change Streaming is enabled
+     */
+    public boolean isChangeStreamingEnabled() {
+        return changeStreamingEnabled;
+    }
+
+    /**
+     * Returns the stream session's hierarchy grouping mode, including after
+     * streaming is disabled. Returns false if the server omits this field.
+     * Use {@link #isChangeStreamingEnabled} to check whether streaming is active.
+     * @return true if the session uses hierarchy grouping
+     */
+    public boolean isGroupByHierarchy() {
+        return groupByHierarchy;
+    }
+
+    /** @hidden */
+    public TableResult setChangeStreamingEnabled(boolean enabled) {
+        changeStreamingEnabled = enabled;
+        return this;
+    }
+
+    /** @hidden */
+    public TableResult setGroupByHierarchy(boolean grouped) {
+        groupByHierarchy = grouped;
+        return this;
     }
 
     /**
@@ -777,6 +810,8 @@ public class TableResult extends Result {
                 isFrozen = res.isFrozen();
                 isLocalReplicaInitialized = res.isLocalReplicaInitialized();
                 replicas = res.getReplicas();
+                changeStreamingEnabled = res.isChangeStreamingEnabled();
+                groupByHierarchy = res.isGroupByHierarchy();
             } catch (InterruptedException ie) {
                 throw new NoSQLException("waitForCompletion interrupted: " +
                                          ie.getMessage());

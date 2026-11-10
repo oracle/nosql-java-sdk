@@ -451,9 +451,21 @@ public class NoSQLHandleImpl implements NoSQLHandle {
                                              boolean enabled,
                                              int timeoutMs,
                                              int pollIntervalMs) {
+        return enableChangeStreaming(tableName, compartmentId, enabled,
+                                     false, timeoutMs, pollIntervalMs);
+    }
+
+    @Override
+    public TableResult enableChangeStreaming(String tableName,
+                                             String compartmentId,
+                                             boolean enabled,
+                                             boolean isGroupByHierarchy,
+                                             int timeoutMs,
+                                             int pollIntervalMs) {
         TableRequest req = new TableRequest()
             .setTableName(tableName)
-            .setChangeStreamingEnabled(enabled);
+            .setChangeStreamingEnabled(enabled)
+            .setGroupByHierarchy(isGroupByHierarchy);
         if (compartmentId != null) {
             req.setCompartment(compartmentId);
         }

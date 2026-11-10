@@ -39,6 +39,12 @@ import oracle.nosql.driver.changestream.EventBundle;
 import oracle.nosql.driver.changestream.Image;
 import oracle.nosql.driver.changestream.StartLocation;
 import oracle.nosql.driver.ops.Request;
+import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.TableRequest;
+import oracle.nosql.driver.ops.TableResult;
+import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory.TableRequestSerializer;
+import oracle.nosql.driver.util.BinaryProtocol;
+import oracle.nosql.driver.util.BinaryProtocol.OpCode;
 import oracle.nosql.driver.values.MapValue;
 import oracle.nosql.driver.changestream.PollRequest;
 import oracle.nosql.driver.changestream.PollResult;
@@ -234,9 +240,87 @@ public class ChangeStreamProtocolTest {
     }
 
     /* Exercise the public APIs through HTTP without requiring a CDC server. */
+    /* Exercise both handle overloads, NSON fields, and completion polling. */
+    @Test
+    public void testTableHierarchyEnablement() throws Exception {
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            for (boolean grouped : new boolean[] {true, false}) {
+                TableResult result = handle.enableChangeStreaming(
+                    "table1", null, true, grouped, 5000, 500);
+                assertTrue(result.isChangeStreamingEnabled());
+                assertEquals(grouped, result.isGroupByHierarchy());
+                assertEquals(grouped, server.tableRequest.getBoolean("cgh"));
+                result = handle.getTable(new GetTableRequest()
+                    .setTableName("table1"));
+                assertTrue(result.isChangeStreamingEnabled());
+                assertEquals(grouped, result.isGroupByHierarchy());
+            }
+            TableResult result = handle.enableChangeStreaming(
+                "table1", null, true, true, 5000, 500);
+            result = handle.enableChangeStreaming(
+                "table1", null, false, false, 5000, 500);
+            assertFalse(result.isChangeStreamingEnabled());
+            assertTrue(result.isGroupByHierarchy());
+            assertFalse(server.tableRequest.contains("cgh"));
+
+            result = handle.enableChangeStreaming(
+                "table1", null, true, 5000, 500);
+            assertTrue(result.isChangeStreamingEnabled());
+            assertFalse(result.isGroupByHierarchy());
+            assertFalse(server.tableRequest.getBoolean("cgh"));
+            server.assertHealthy();
+        }
+    }
+
+    /* Servers predating the hierarchy field default to ungrouped results. */
+    @Test
+    public void testTableStreamMetadataCompatibility() throws Exception {
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            server.streaming = true;
+            server.grouped = true;
+            server.hierarchyMetadata = false;
+            TableResult result = handle.getTable(new GetTableRequest()
+                .setTableName("table1"));
+            assertTrue(result.isChangeStreamingEnabled());
+            assertFalse(result.isGroupByHierarchy());
+            server.streamMetadata = false;
+            result = handle.getTable(new GetTableRequest()
+                .setTableName("table1"));
+            assertFalse(result.isChangeStreamingEnabled());
+            assertFalse(result.isGroupByHierarchy());
+            server.assertHealthy();
+        }
+    }
+
+    /* A grouping option alone must not turn an ordinary DDL into CDC DDL. */
+    @Test
+    public void testHierarchyOptionOnOrdinaryTableRequest() throws Exception {
+        TableRequest request = new TableRequest()
+            .setStatement("create table t(id integer, primary key(id))")
+            .setGroupByHierarchy(true);
+        ByteBuf buffer = Unpooled.buffer();
+        try {
+            new TableRequestSerializer().serialize(request, (short) 4,
+                new NettyByteOutputStream(buffer));
+            MapValue payload = Nson.readNsonMap(new NettyByteInputStream(buffer))
+                .get("p").asMap();
+            assertFalse(payload.contains("ce"));
+            assertFalse(payload.contains("cgh"));
+        } finally {
+            buffer.release();
+        }
+    }
+
     private static class ConsumerServer implements AutoCloseable {
         private final HttpServer server;
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
+        private volatile boolean streaming;
+        private volatile boolean grouped;
+        private volatile boolean streamMetadata = true;
+        private volatile boolean hierarchyMetadata = true;
+        private volatile MapValue tableRequest;
         private int revision;
         private int pollCount;
         private volatile byte[] committedCursor;
@@ -257,7 +341,27 @@ public class ChangeStreamProtocolTest {
                     MapValue header = request.get("h").asMap();
                     MapValue payload = request.get("p").asMap();
                     MapValue response = new MapValue().put("e", 0);
-                    if (header.getInt("o") == 44) {
+                    if (header.getInt("o") == OpCode.TABLE_REQUEST.ordinal()) {
+                        tableRequest = payload;
+                        streaming = payload.getBoolean("ce");
+                        if (streaming) {
+                            grouped = payload.getBoolean("cgh");
+                        }
+                        // Return stale flags until getTable completes the DDL.
+                        response.put("n", "table1")
+                            .put("as", BinaryProtocol.UPDATING)
+                            .put("od", "operation1")
+                            .put("ce", false).put("cgh", false);
+                    } else if (header.getInt("o") == OpCode.GET_TABLE.ordinal()) {
+                        response.put("n", "table1")
+                            .put("as", BinaryProtocol.ACTIVE);
+                        if (streamMetadata) {
+                            response.put("ce", streaming);
+                            if (hierarchyMetadata) {
+                                response.put("cgh", grouped);
+                            }
+                        }
+                    } else if (header.getInt("o") == 44) {
                         lastPollCursor = payload.getBinary("cu");
                         if (payload.getInt("me") == 0) {
                             keepalive.countDown();

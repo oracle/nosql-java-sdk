@@ -34,6 +34,7 @@ public class NsonProtocol {
     public static String BATCH_COUNTER = "bc";
     public static String BIND_VARIABLES = "bv";
     public static String CHANGE_STREAM_ENABLED = "ce";
+    public static String CHANGE_STREAM_GROUP_BY_HIERARCHY = "cgh";
     public static String CHANGE_STREAM_VERSION = "cv";
     public static String COMPARTMENT_OCID = "cc";
     public static String CONSISTENCY = "co";
@@ -249,6 +250,7 @@ public class NsonProtocol {
         {BATCH_COUNTER,"BATCH_COUNTER"},
         {BIND_VARIABLES,"BIND_VARIABLES"},
         {CHANGE_STREAM_ENABLED,"CHANGE_STREAM_ENABLED"},
+        {CHANGE_STREAM_GROUP_BY_HIERARCHY,"CHANGE_STREAM_GROUP_BY_HIERARCHY"},
         {CHANGE_STREAM_VERSION,"CHANGE_STREAM_VERSION"},
         {COMPARTMENT_OCID,"COMPARTMENT_OCID"},
         {CONSISTENCY,"CONSISTENCY"},
