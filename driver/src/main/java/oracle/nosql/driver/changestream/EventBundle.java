@@ -23,7 +23,6 @@ public class EventBundle {
     // Internal: cursor data from the poll() that created this bundle
     private byte[] cursor;
 
-    private long eventsRemaining;
     private List<Event> events;
 
     /* internal use */
@@ -78,24 +77,6 @@ public class EventBundle {
         this.cursor = cursor;
     }
 
-    /*
-     * @hidden
-     */
-    public void setEventsRemaining(long remaining) {
-        this.eventsRemaining = remaining;
-    }
-
-    /*
-     * Return an estimate of the number of change events that are still remaining to
-     * be consumed, not counting the events in this bundle. This can be used to monitor if a reader of
-     * the events consumer is keeping up with change events for the table.
-     * This value applies to only the table data that this specific consumer can receive in poll() calls,
-     * which may be less than the overall total if this consumer is one in a group of many active consumers.
-     */
-    public long getEventsRemaining() {
-        return eventsRemaining;
-    }
-
     /* Return the list of events containing change event data. */
     public List<Event> getEvents() {
         return events;
@@ -132,7 +113,6 @@ public class EventBundle {
         } else {
             sb.append(" cursor: { (size=").append(cursor.length).append(") }\n");
         }
-        sb.append(" eventsRemaining: { ").append(eventsRemaining).append(" }\n");
         sb.append(" events: { ").append(events).append(" }\n");
         sb.append("}");
         return sb.toString();

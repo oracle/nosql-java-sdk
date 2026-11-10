@@ -17,5 +17,4 @@ public class PollResult extends Result {
     public EventBundle bundle;
     public byte[] cursor;
     public Consumer consumer;
-    public long eventsRemaining;
 }

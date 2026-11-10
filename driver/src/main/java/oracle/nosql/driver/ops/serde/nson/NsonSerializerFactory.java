@@ -1022,8 +1022,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                     regionName = Nson.readNsonString(in);
                 } else if (name.equals(CURSOR)) {
                     result.cursor = Nson.readNsonBinary(in);
-                } else if (name.equals(EVENTS_REMAINING)) {
-                    result.eventsRemaining = Nson.readNsonLong(in);
+                /*
+                 * This has been moved to a FUTURE release
+                 * } else if (name.equals(EVENTS_REMAINING)) {
+                 *   result.eventsRemaining = Nson.readNsonLong(in);
+                 */
                 } else if (name.equals(EVENT_BUNDLE)) {
                     result.bundle = readNsonEventBundle(in, regionName);
                 } else {
