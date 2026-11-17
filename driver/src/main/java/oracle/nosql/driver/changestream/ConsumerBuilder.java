@@ -381,7 +381,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * This is optional. If no compartment is specified, the default
      * (root) compartment of the tenancy is used.
      * Tables added to the consumer can be in different compartments,
-     * as specified in addTable() and removeTable().
+     * as specified in addTable().
      *
      * @param compartmentOcid The OCID of the compartment to use
      */
