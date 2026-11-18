@@ -24,8 +24,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,7 +106,7 @@ public class ChangeStreamProtocolTest {
     }
 
     @Test
-    public void testConsumerRetainsMetadataFromCreateAndTableUpdates()
+    public void testConsumerRetainsMetadataFromCreate()
         throws Exception {
 
         try (ConsumerServer server = new ConsumerServer();
@@ -121,11 +119,6 @@ public class ChangeStreamProtocolTest {
                 .build();
             try {
                 assertEquals(1, consumer.getMetaData().getInt("revision"));
-                consumer.addTable(EXTERNAL_CHILD_OCID, null,
-                                  StartLocation.earliest());
-                assertEquals(2, consumer.getMetaData().getInt("revision"));
-                consumer.removeTable(EXTERNAL_CHILD_OCID, null);
-                assertEquals(3, consumer.getMetaData().getInt("revision"));
             } finally {
                 consumer.close();
             }
@@ -165,7 +158,7 @@ public class ChangeStreamProtocolTest {
     }
 
     @Test
-    public void testCommitModeSurvivesTableChanges() throws Exception {
+    public void testConsumerCreateCommitMode() throws Exception {
         for (boolean manual : new boolean[] {true, false}) {
             try (ConsumerServer server = new ConsumerServer();
                  NoSQLHandle handle = server.createHandle()) {
@@ -177,12 +170,8 @@ public class ChangeStreamProtocolTest {
                 }
                 Consumer consumer = builder.build();
                 try {
-                    consumer.addTable(EXTERNAL_CHILD_OCID, null, StartLocation.earliest());
-                    consumer.removeTable(EXTERNAL_CHILD_OCID, null);
-                    assertEquals(2, server.updates.size());
-                    for (MapValue update : server.updates) {
-                        assertEquals(manual, update.get("ma") != null && update.getBoolean("ma"));
-                    }
+                    assertEquals(manual, server.created.get("ma") != null &&
+                                 server.created.getBoolean("ma"));
                 } finally {
                     consumer.close();
                 }
@@ -205,8 +194,6 @@ public class ChangeStreamProtocolTest {
                 consumer.poll(2, Duration.ofSeconds(1)).commit(null);
                 consumer.commit(null);
                 consumer.reset();
-                consumer.addTable(EXTERNAL_CHILD_OCID, "other-compartment", StartLocation.earliest());
-                consumer.removeTable(EXTERNAL_CHILD_OCID, "other-compartment");
                 assertEquals(1, new ConsumerBuilder().handle(handle)
                     .groupId("g").compartmentOcid(compartment)
                     .getMinimumConsumers(Duration.ofSeconds(1)));
@@ -327,7 +314,6 @@ public class ChangeStreamProtocolTest {
         private volatile byte[] lastPollCursor;
         private volatile MapValue created;
         private volatile byte[] createBody;
-        private final List<MapValue> updates = new CopyOnWriteArrayList<>();
         private final CountDownLatch keepalive = new CountDownLatch(1);
 
         ConsumerServer() throws IOException {
@@ -375,13 +361,9 @@ public class ChangeStreamProtocolTest {
                         response.put("cu", new byte[] {(byte)++pollCount});
                     } else {
                         int mode = payload.getInt("mm");
-                        if (mode == 1 || mode == 2) {
-                            if (mode == 1) {
-                                created = payload;
-                                createBody = body;
-                            } else {
-                                updates.add(payload);
-                            }
+                        if (mode == 1) {
+                            created = payload;
+                            createBody = body;
                             response.put("cu", new byte[] {0});
                             response.put("cm", new MapValue()
                                          .put("revision", ++revision));

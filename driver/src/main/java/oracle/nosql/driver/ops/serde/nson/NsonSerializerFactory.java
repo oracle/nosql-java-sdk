@@ -935,9 +935,9 @@ public class NsonSerializerFactory implements SerializerFactory {
                             writeMapField(ns, START_LOCATION,
                                           tcfg.startLocation.location.getValue());
                         }
-                        if (tcfg.isRemove) {
-                            writeMapField(ns, IS_REMOVE, true);
-                        }
+                        //if (tcfg.isRemove) {
+                            //writeMapField(ns, IS_REMOVE, true);
+                        //}
                         ns.endMap(0);
                         ns.endArrayField(0);
                     }

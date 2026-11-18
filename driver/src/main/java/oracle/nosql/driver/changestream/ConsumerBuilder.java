@@ -25,7 +25,6 @@ import oracle.nosql.driver.ops.TableResult;
  *
  *    consumer = new ConsumerBuilder()
  *        .addTable("client_info", null, StartLocation.latest())
- *        .addTable("location_data", null, StartLocation.latest())
  *        .groupId("test_group")
  *        .commitAutomatic()
  *        .handle(handle)
@@ -54,9 +53,6 @@ public class ConsumerBuilder {
         /* Table Ocid. One of tableName or tableOcid are required. */
         public String tableOcid;
 
-        /* if this is set, this table should be removed instead of added */
-        public boolean isRemove;
-
         TableConfig(String tableName,
                     String compartmentOcid,
                     StartLocation startLocation) {
@@ -78,7 +74,7 @@ public class ConsumerBuilder {
     }
 
 
-    /* Tables to consume from. This list must have at least one table config defined. */
+    /* The single table to consume from, represented as a list for the protocol. */
     public List<TableConfig> tables;
 
     /*
@@ -86,19 +82,17 @@ public class ConsumerBuilder {
      * The group may be a single consumer, or may have multiple consumers.
      *
      * When multiple consumers use the same group ID, the NoSQL system will attempt
-     * to evenly distribute data for the specified tables evenly across all consumers in
+     * to evenly distribute data for the specified table across all consumers in
      * the group. Data to any one consumer will be consistently ordered for records using
      * the same shard key. That is, different consumers will not get data for the same shard key.
      * Any group ID used should be sufficiently unique to avoid unintended alterations to
      * existing groups.
      *
      * If there is only one consumer in a group, this consumer will
-     * always get all of the data for all of the tables specified in the group.
+     * always get all of the data for the table specified in the group.
      *
-     * NOTE: The Tables in this config will override any previous tables that other
-     * existing consumers in this group have specified. Any tables that are being
-     * currently consumed by this group that are not in the specified Tables list will
-     * have their consumption stopped.
+     * Each consumer group consumes exactly one table. All consumers in the
+     * group must specify the same table.
      *
      * If a table is already being consumed by other consumers in this group,
      * this consumer starts from the group's existing position (the start
@@ -151,31 +145,6 @@ public class ConsumerBuilder {
 
     public ConsumerBuilder() {}
 
-    private int tableIndex(String tableName, String compartmentOcid) {
-        if (tables == null) {
-            return -1;
-        }
-        int x = 0;
-        for (TableConfig tcfg : tables) {
-            if (tcfg.tableName.equalsIgnoreCase(tableName) ||
-                (tcfg.tableOcid != null &&
-                 tcfg.tableOcid.equalsIgnoreCase(tableName))) {
-                if (compartmentOcid == null) {
-                    if (tcfg.compartmentOcid == null) {
-                        return x;
-                    }
-                } else {
-                    if (tcfg.compartmentOcid != null &&
-                        tcfg.compartmentOcid.equalsIgnoreCase(compartmentOcid)) {
-                        return x;
-                    }
-                }
-            }
-            x++;
-        }
-        return -1;
-    }
-
     /**
      * Specify the NoSQL handle to use for all consumer operations.
      *
@@ -187,7 +156,8 @@ public class ConsumerBuilder {
     }
 
     /**
-     * Adds a table to the consumer config.
+     * Specifies the single table for the consumer group.
+     * Only one table may be configured per group.
      *
      * The table must have already have Change Streaming enabled via the OCI console or
      * a NoSQL SDK {@link NoSQLHandle#enableChangeStreaming} request.
@@ -205,39 +175,19 @@ public class ConsumerBuilder {
      * startLocation specified here will be used.
      *
      * If location is null, StartLocation.EARLIEST is the default.
+     *
+     * @throws IllegalArgumentException if a table is already specified
      */
     public ConsumerBuilder addTable(String tableName,
                                     String compartmentOcid,
                                     StartLocation location) {
-        /* check if table already in config */
-        if (tableIndex(tableName, compartmentOcid) >= 0) {
-            return this;
+        if (tables != null && !tables.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Only one table may be specified per consumer group");
         }
         TableConfig tc = new TableConfig(tableName,
                                          compartmentOcid,
                                          location);
-        if (tables == null) {
-            tables = new ArrayList<TableConfig>();
-        }
-        tables.add(tc);
-        return this;
-    }
-
-    /*
-     * @hidden
-     * Removes a table from the consumer config.
-     * This is used internally when removing a table from
-     * an existing consumer.
-     *
-     * tableName: required. This may be the Ocid of the table, if available.
-     *
-     * compartmentOcid: This is optional. If null, the default compartment Ocid
-     * for the tenancy is used.
-     */
-    public ConsumerBuilder removeTable(String tableName,
-                                       String compartmentOcid) {
-        TableConfig tc = new TableConfig(tableName, compartmentOcid, null);
-        tc.isRemove = true;
         if (tables == null) {
             tables = new ArrayList<TableConfig>();
         }
@@ -251,20 +201,17 @@ public class ConsumerBuilder {
      * The group may have a single consumer, or may have multiple consumers.
      *
      * When there is only a single consumer in a group, this consumer will
-     * always get all of the data for all of the tables specified in the group.
+     * always get all of the data for the table specified in the group.
      *
      * When multiple consumers use the same group ID, the NoSQL system will attempt
-     * to evenly distribute data for the specified tables evenly across all consumers in
+     * to evenly distribute data for the specified table across all consumers in
      * the group. Data to any one consumer will be consistently ordered for records using
      * the same shard key. That is, different consumers will not get data for the same shard key.
      * Any group ID used should be sufficiently unique to avoid unintended alterations to
      * existing groups.
      *
-     * NOTE: The Tables in this config will override any previous tables that other
-     * existing consumers in this group have specified. Any tables that are being
-     * currently consumed by this group that are not in the specified Tables list will
-     * have their consumption stopped: calls to [Consumer.poll] from existing consumers will
-     * no longer contain data for tables not specified in this config.
+     * Each consumer group consumes exactly one table. All consumers in the
+     * group must specify the same table.
      *
      * If a table is already being consumed by other consumers in this group,
      * this consumer starts from the group's existing position (the start
@@ -380,8 +327,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * Set the cloud compartment ID to use for this consumer.
      * This is optional. If no compartment is specified, the default
      * (root) compartment of the tenancy is used.
-     * Tables added to the consumer can be in different compartments,
-     * as specified in addTable().
+     * The table may be in a different compartment, as specified in addTable().
      *
      * @param compartmentOcid The OCID of the compartment to use
      */
@@ -396,10 +342,6 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * This will make server-side calls to validate all configuration and
      * establish server-side state for the consumer.
      *
-     * Any table changes (added tables, removed tables, start locations) for
-     * the consumer group will be applied immediately after this call succeeds.
-     * It is not necessary to call poll() to trigger table changes.
-     *
      * Rebalancing begins with the first application or background keepalive poll.
      */
     public Consumer build() {
@@ -410,7 +352,7 @@ System.out.println("Using ocid='" + tcfg.tableOcid + "' for table='" + tcfg.tabl
      * Get the minimum number of consumers required to completely read all
      * events in a stream within a specified timeframe.
      *
-     * Given the Builder configuration (groupID, tables, start modes),
+     * Given the Builder configuration (groupID, table, start mode),
      * this method will return the minimum number of consumers needed to
      * read all events within the duration given.
      * The Builder config must have either a valid current groupID, or

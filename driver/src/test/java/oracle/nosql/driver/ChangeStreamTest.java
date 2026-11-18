@@ -52,19 +52,16 @@ public class ChangeStreamTest extends ProxyTestBase {
         myBeforeTest();
         String suffix = Long.toUnsignedString(System.nanoTime());
         String table = "cdcCommit_" + suffix;
-        String other = "cdcOther_" + suffix;
         String group = "cdcCommitGroup_" + suffix;
         String epochGroup = "cdcEpochGroup_" + suffix;
         List<String> enabled = new ArrayList<>();
         List<Consumer> consumers = new ArrayList<>();
         try {
-            for (String name : new String[] {table, other}) {
-                tableOperation(handle, "create table " + name +
-                    "(id integer, name string, primary key(id))",
-                    new TableLimits(500, 500, 1), 20000);
-                enableDisableStreamingWithRateLimiting(handle, name, true);
-                enabled.add(name);
-            }
+            tableOperation(handle, "create table " + table +
+                "(id integer, name string, primary key(id))",
+                new TableLimits(500, 500, 1), 20000);
+            enableDisableStreamingWithRateLimiting(handle, table, true);
+            enabled.add(table);
             Consumer consumer = new ConsumerBuilder().handle(handle)
                 .groupId(group).commitManual()
                 .addTable(table, null, StartLocation.earliest()).build();
@@ -76,18 +73,8 @@ public class ChangeStreamTest extends ProxyTestBase {
                        consumer.poll(100, Duration.ofMillis(200)).isEmpty());
             consumer.commit(null);
 
-            consumer.addTable(other, null, StartLocation.earliest());
-            putAndPollCommitEvent(consumer, table, "after_add");
-            consumer.poll(0, Duration.ZERO);
-            consumer.reset();
-            pollCommitEvent(consumer, "after_add").commit(null);
-
-            // Updating membership also normalizes TestCDCClient's reset offsets.
-            consumer.removeTable(other, null);
-            putAndPollCommitEvent(consumer, table, "after_remove");
-            consumer.poll(0, Duration.ZERO);
-            consumer.reset();
-            pollCommitEvent(consumer, "after_remove").commit(null);
+            putAndPollCommitEvent(consumer, table, "after_commit");
+            consumer.commit(null);
             consumer.close();
             consumers.remove(consumer);
 
@@ -95,7 +82,7 @@ public class ChangeStreamTest extends ProxyTestBase {
                 .groupId(epochGroup).addTable(table, null, StartLocation.atTime(0))
                 .build();
             consumers.add(epoch);
-            assertEquals(4, epoch.poll(100, Duration.ofSeconds(10)).getEvents().size());
+            assertEquals(3, epoch.poll(100, Duration.ofSeconds(10)).getEvents().size());
         } finally {
             // Preserve the original test failure while still attempting all cleanup.
             for (Consumer consumer : consumers) {
@@ -893,299 +880,13 @@ public class ChangeStreamTest extends ProxyTestBase {
     }
 
     @Test
-    public void multipleTablesTest() throws Exception {
-
-        assumeFalse(onprem);
-        myBeforeTest();
-
-        Consumer consumer = null;
-
-        String tableName1 = "changestreamMultiTable1";
-        String tableName2 = "changestreamMultiTable2";
-
-        try {
-            /* Create table1 */
-            TableResult tres1 = tableOperation(
-                handle,
-                "create table if not exists " + tableName1 +
-                "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 5),
-                20000);
-            assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
-
-            /* Enable Change Streaming on table1 */
-            enableDisableStreamingWithRateLimiting(handle, tableName1, true);
-
-            /* Create table2 */
-            TableResult tres2 = tableOperation(
-                handle,
-                "create table if not exists " + tableName2 +
-                "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 5),
-                20000);
-            assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
-
-            /* Enable Change Streaming on table2 */
-            enableDisableStreamingWithRateLimiting(handle, tableName2, true);
-
-            /* create Change Streaming consumer for both tables */
-            consumer = new ConsumerBuilder()
-                .addTable(tableName1, null, StartLocation.earliest())
-                .addTable(tableName2, null, StartLocation.earliest())
-                .groupId("multiTable1")
-                .commitAutomatic()
-                .handle(handle)
-                .build();
-
-            /* Put 50 records to table1 */
-            for (int i=0; i<50; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName1);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            /* Put 50 records to table2 */
-            for (int i=50; i<100; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName2);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            // poll from both tables. Expect to get 100 total
-            Map<MapValue, MapValue> records = new HashMap<>();
-            // wait up to 20 seconds for all records
-            long startTime = System.currentTimeMillis();
-            do {
-                pollEvents(consumer, 5, records, 5);
-                if (records.size() == 100) {
-                    break;
-                }
-                long now = System.currentTimeMillis();
-                if ((now - startTime) > 200000) {
-                    System.out.println("Giving up looking for 100 records " +
-                            "after 200 seconds");
-                    break;
-                }
-            } while(true);
-
-            if (records.size() != 100) {
-                fail("Expected 100 records total, got " + records.size());
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            fail("Exception in test: " + e.getMessage());
-        } finally {
-            if (consumer != null) {
-                consumer.close();
-            }
-            /* disable Change Streaming on tables */
-            enableDisableStreamingWithRateLimiting(handle, tableName1, false);
-            enableDisableStreamingWithRateLimiting(handle, tableName2, false);
-        }
-    }
-
-    @Test
-    public void addRemoveTablesTest() throws Exception {
-
-        assumeFalse(onprem);
-        myBeforeTest();
-
-        Consumer consumer = null;
-
-        String tableName1 = "changestreamAddRemoveTable1";
-        String tableName2 = "changestreamAddRemoveTable2";
-        String tableName3 = "changestreamAddRemoveTable3";
-
-        boolean table1Enabled = false;
-        boolean table2Enabled = false;
-        boolean table3Enabled = false;
-
-        try {
-            /* Create table1 */
-            TableResult tres1 = tableOperation(
-                handle,
-                "create table if not exists " + tableName1 +
-                "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 5),
-                20000);
-            assertEquals(TableResult.State.ACTIVE, tres1.getTableState());
-
-            /* Enable Change Streaming on table1 */
-            enableDisableStreamingWithRateLimiting(handle, tableName1, true);
-            table1Enabled = true;
-
-            /* Create table2 */
-            TableResult tres2 = tableOperation(
-                handle,
-                "create table if not exists " + tableName2 +
-                "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 5),
-                20000);
-            assertEquals(TableResult.State.ACTIVE, tres2.getTableState());
-
-            /* Enable Change Streaming on table2 */
-            enableDisableStreamingWithRateLimiting(handle, tableName2, true);
-            table2Enabled = true;
-
-            /* Create table3 */
-            TableResult tres3 = tableOperation(
-                handle,
-                "create table if not exists " + tableName3 +
-                "(id integer, name string, primary key(id))",
-                new TableLimits(500, 500, 5),
-                20000);
-            assertEquals(TableResult.State.ACTIVE, tres3.getTableState());
-
-            /* Enable Change Streaming on table3 */
-            enableDisableStreamingWithRateLimiting(handle, tableName3, true);
-            table3Enabled = true;
-
-            /* create Change Streaming consumer for table1 */
-            consumer = new ConsumerBuilder()
-                .addTable(tableName1, null, StartLocation.earliest())
-                .groupId("addRemoveTable1")
-                .commitAutomatic()
-                .handle(handle)
-                .build();
-
-            /* Put 50 records to table1 */
-            for (int i=0; i<50; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName1);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            /* Put 50 records to table2 */
-            for (int i=50; i<100; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName2);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            // poll. Expect to get 50 total
-            Map<MapValue, MapValue> records = new HashMap<>();
-            // wait up to 30 seconds for all records
-            long startTime = System.currentTimeMillis();
-            do {
-                pollEvents(consumer, 5, records, 5);
-                if (records.size() == 50) {
-                    break;
-                }
-                long now = System.currentTimeMillis();
-                if ((now - startTime) > 30000) {
-                    System.out.println("Giving up looking for 50 records " +
-                            "after 30 seconds");
-                    break;
-                }
-            } while(true);
-
-            if (records.size() != 50) {
-                fail("Expected 50 records from table1, got " + records.size());
-            }
-
-            /* Add table2 to consumer group */
-            consumer.addTable(tableName2, null, StartLocation.earliest());
-
-            // poll. Expect to get 50 total (all from table2).
-            records.clear();
-            // wait up to 30 seconds for all records
-            startTime = System.currentTimeMillis();
-            do {
-                pollEvents(consumer, 5, records, 5);
-                if (records.size() == 50) {
-                    break;
-                }
-                long now = System.currentTimeMillis();
-                if ((now - startTime) > 30000) {
-                    System.out.println("Giving up looking for 50 records " +
-                            "after 30 seconds");
-                    break;
-                }
-            } while(true);
-
-            if (records.size() != 50) {
-                fail("Expected 50 records from table2, got " + records.size());
-            }
-
-            /* Add table3, remove table1 */
-            consumer.addTable(tableName3, null, StartLocation.earliest());
-            consumer.removeTable(tableName1, null);
-
-            /* Put 50 records to table1 */
-            for (int i=100; i<150; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName1);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            /* Put 50 records to table3 */
-            for (int i=200; i<250; i++) {
-                MapValue value = new MapValue().put("id", i).put("name", "jane");
-                PutRequest putRequest = new PutRequest()
-                    .setValue(value)
-                    .setTableName(tableName3);
-                PutResult res = handle.put(putRequest);
-                assertNotNull(res.getVersion());
-            }
-
-            // poll. Expect to get 50 total (all from table3).
-            records.clear();
-            // wait up to 30 seconds for all records
-            startTime = System.currentTimeMillis();
-            do {
-                pollEvents(consumer, 5, records, 5);
-                if (records.size() == 50) {
-                    break;
-                }
-                long now = System.currentTimeMillis();
-                if ((now - startTime) > 30000) {
-                    System.out.println("Giving up looking for 50 records " +
-                            "after 30 seconds");
-                    break;
-                }
-            } while(true);
-
-            if (records.size() != 50) {
-                fail("Expected 50 records from table3, got " + records.size());
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            fail("Exception in test: " + e.getMessage());
-        } finally {
-            if (consumer != null) {
-                consumer.close();
-            }
-            /* disable Change Streaming on tables */
-            if (table1Enabled) enableDisableStreamingWithRateLimiting(handle, tableName1, false);
-            if (table2Enabled) enableDisableStreamingWithRateLimiting(handle, tableName2, false);
-            if (table3Enabled) enableDisableStreamingWithRateLimiting(handle, tableName3, false);
-        }
-    }
-
-    @Test
     public void childTablesTest() throws Exception {
 
         assumeFalse(onprem);
         myBeforeTest();
 
         Consumer consumer = null;
+        Consumer childConsumer = null;
 
         String parentTableName = "changestreamParent1";
         String childTableName = "changestreamParent1.child";
@@ -1216,11 +917,16 @@ public class ChangeStreamTest extends ProxyTestBase {
             /* Enable Change Streaming on child */
             enableDisableStreamingWithRateLimiting(handle, childTableName, true);
 
-            /* create Change Streaming consumer for both tables */
+            /* Create one consumer group per table. */
             consumer = new ConsumerBuilder()
                 .addTable(parentTableName, null, StartLocation.earliest())
-                .addTable(childTableName, null, StartLocation.earliest())
                 .groupId("parentChild1")
+                .commitAutomatic()
+                .handle(handle)
+                .build();
+            childConsumer = new ConsumerBuilder()
+                .addTable(childTableName, null, StartLocation.earliest())
+                .groupId("parentChildChild1")
                 .commitAutomatic()
                 .handle(handle)
                 .build();
@@ -1253,6 +959,7 @@ public class ChangeStreamTest extends ProxyTestBase {
             long startTime = System.currentTimeMillis();
             do {
                 pollEvents(consumer, 5, records, 5);
+                pollEvents(childConsumer, 5, records, 5);
                 if (records.size() == 100) {
                     break;
                 }
@@ -1274,6 +981,9 @@ public class ChangeStreamTest extends ProxyTestBase {
         } finally {
             if (consumer != null) {
                 consumer.close();
+            }
+            if (childConsumer != null) {
+                childConsumer.close();
             }
             /* disable Change Streaming on tables */
             enableDisableStreamingWithRateLimiting(handle, childTableName, false);
