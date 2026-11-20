@@ -10,6 +10,7 @@ package oracle.nosql.driver.changestream;
 import java.util.List;
 import java.time.Duration;
 
+import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.values.MapValue;
 
 /**
@@ -82,7 +83,7 @@ public class EventBundle {
         return events;
     }
 
-    /*
+    /**
      * Mark the events in the bundle as committed: all events have been
      * fully read and consumed, and the events should not be read again by any
      * current or future consumer in the group.
@@ -90,6 +91,10 @@ public class EventBundle {
      * Note that this commit implies commits on all previously polled events from the
      * same consumer (that is, events that were returned from calls to poll() before
      * this one). Calling Commit() on a previous EventBundle will have no effect.
+     *
+     * @param timeout the timeout for this commit. If null, the default handle
+     * request timeout is used; see
+     * {@link NoSQLHandleConfig#setRequestTimeout(int)}.
      */
     public void commit(Duration timeout) {
         consumer.commitBundle(this, timeout);

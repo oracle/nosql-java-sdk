@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.NoSQLHandle;
+import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.changestream.ConsumerRequest.RequestMode;
@@ -114,6 +115,10 @@ public class Consumer {
      * This method is only necessary when using manual commit mode. Otherwise,
      * in auto commit mode, the commit is implied for all previous data every
      * time poll() is called.
+     *
+     * @param timeout the timeout for this commit. If null, the default handle
+     * request timeout is used; see
+     * {@link NoSQLHandleConfig#setRequestTimeout(int)}.
      */
     public synchronized void commit(Duration timeout) {
         commitInternal(this.cursor, timeout);
@@ -141,10 +146,12 @@ public class Consumer {
      * @hidden
      */
     public synchronized void commitInternal(byte[] cursor, Duration timeout) {
-        /* TODO: use timeout */
         ConsumerRequest req = new ConsumerRequest(RequestMode.COMMIT).
                                      setCompartment(compartmentOcid).
                                      setCursor(cursor);
+        if (timeout != null) {
+            req.setTimeout(Math.toIntExact(timeout.toMillis()));
+        }
         try {
             ConsumerResult res =
                 (ConsumerResult) handle.getClient().execute(req);
