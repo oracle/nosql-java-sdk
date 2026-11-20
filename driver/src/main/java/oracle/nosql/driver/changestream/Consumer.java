@@ -10,6 +10,8 @@ package oracle.nosql.driver.changestream;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,6 +20,7 @@ import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
 import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.OperationNotSupportedException;
+import oracle.nosql.driver.RequestTimeoutException;
 import oracle.nosql.driver.changestream.ConsumerRequest.RequestMode;
 import oracle.nosql.driver.http.NoSQLHandleImpl;
 import oracle.nosql.driver.values.JsonOptions;
@@ -34,6 +37,8 @@ public class Consumer {
     private static final Logger logger =
         Logger.getLogger(Consumer.class.getName());
 
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition keepAliveDelay = lock.newCondition();
     private byte[] cursor;
     private NoSQLHandleImpl handle;
     private MapValue metadata;
@@ -79,26 +84,28 @@ public class Consumer {
     }
 
     private void keepAlive(long intervalMs) {
+        lock.lock();
         try {
-            synchronized (this) {
-                while (!closed && handle.getClient() != null) {
-                    long elapsedMs = TimeUnit.NANOSECONDS.toMillis(
-                        System.nanoTime() - lastPollTimeNanos);
-                    if (elapsedMs < intervalMs) {
-                        wait(intervalMs - elapsedMs);
-                        continue;
-                    }
-                    try {
-                        pollOnce(0);
-                    } catch (RuntimeException e) {
-                        /* Retry on the next interval after a failed request. */
-                        logger.log(Level.FINE,
-                                   "Change stream keepalive poll failed", e);
-                    }
+            while (!closed && handle.getClient() != null) {
+                long elapsedMs = TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - lastPollTimeNanos);
+                if (elapsedMs < intervalMs) {
+                    keepAliveDelay.await(intervalMs - elapsedMs,
+                                         TimeUnit.MILLISECONDS);
+                    continue;
+                }
+                try {
+                    pollOnce(0, 0);
+                } catch (RuntimeException e) {
+                    /* Retry on the next interval after a failed request. */
+                    logger.log(Level.FINE,
+                               "Change stream keepalive poll failed", e);
                 }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -120,8 +127,13 @@ public class Consumer {
      * request timeout is used; see
      * {@link NoSQLHandleConfig#setRequestTimeout(int)}.
      */
-    public synchronized void commit(Duration timeout) {
-        commitInternal(this.cursor, timeout);
+    public void commit(Duration timeout) {
+        lock.lock();
+        try {
+            commitLocked(this.cursor, timeout);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -145,7 +157,16 @@ public class Consumer {
     /*
      * @hidden
      */
-    public synchronized void commitInternal(byte[] cursor, Duration timeout) {
+    public void commitInternal(byte[] cursor, Duration timeout) {
+        lock.lock();
+        try {
+            commitLocked(cursor, timeout);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void commitLocked(byte[] cursor, Duration timeout) {
         ConsumerRequest req = new ConsumerRequest(RequestMode.COMMIT).
                                      setCompartment(compartmentOcid).
                                      setCursor(cursor);
@@ -185,13 +206,14 @@ public class Consumer {
      * process exits without closing the consumer, the system will consider it
      * closed after the maximum poll interval and may trigger a rebalance.
      */
-    public synchronized void close() {
-        closed = true;
-        keepAliveThread.interrupt();
-        ConsumerRequest req = new ConsumerRequest(RequestMode.CLOSE).
-                                     setCompartment(compartmentOcid).
-                                     setCursor(cursor);
+    public void close() {
+        lock.lock();
         try {
+            closed = true;
+            keepAliveThread.interrupt();
+            ConsumerRequest req = new ConsumerRequest(RequestMode.CLOSE).
+                                         setCompartment(compartmentOcid).
+                                         setCursor(cursor);
             ConsumerResult res =
                 (ConsumerResult) handle.getClient().execute(req);
             if (res.cursor != null) {
@@ -202,6 +224,8 @@ public class Consumer {
                 throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -215,11 +239,12 @@ public class Consumer {
      * - poll results will not be committed
      * - no redistribution amongst active consumers in the group will take place
      */
-    public synchronized void reset() {
-        ConsumerRequest req = new ConsumerRequest(RequestMode.RESET).
-                                     setCompartment(compartmentOcid).
-                                     setCursor(cursor);
+    public void reset() {
+        lock.lock();
         try {
+            ConsumerRequest req = new ConsumerRequest(RequestMode.RESET).
+                                         setCompartment(compartmentOcid).
+                                         setCursor(cursor);
             ConsumerResult res =
                 (ConsumerResult) handle.getClient().execute(req);
             if (res.cursor == null) {
@@ -231,6 +256,8 @@ public class Consumer {
                 throw new OperationNotSupportedException("Change Streaming not supported by server");
             }
             throw e;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -250,7 +277,11 @@ public class Consumer {
      * the bundle. This value can be set to zero to specify that this consumer
      * is alive and active in the group without actually returning any change events.
      * @param waitTime max amount of time to wait for messages. Must be
-     * non-negative. It can be null or zero only when {@code limit} is zero.
+     * non-negative. With a zero limit, a null or zero wait sends one heartbeat
+     * using the handle's request timeout if the consumer lock is available
+     * immediately. A positive limit requires a positive wait.
+     * @throws RequestTimeoutException if the deadline expires before a request
+     * can be made or a request times out
      * @throws IllegalArgumentException if either parameter is invalid
      */
     public EventBundle poll(int limit, Duration waitTime) {
@@ -283,10 +314,14 @@ public class Consumer {
      * the bundle. This value can be set to zero to specify that this consumer
      * is alive and active in the group without actually returning any change events.
      * @param waitTime max amount of overall time to wait for messages. Must be
-     * non-negative. It can be null or zero only when {@code limit} is zero.
+     * non-negative. With a zero limit, a null or zero wait sends one heartbeat
+     * using the handle's request timeout if the consumer lock is available
+     * immediately. A positive limit requires a positive wait.
      * @param pollInterval amount of time to wait between internal poll requests.
      * Must be non-negative and no greater than {@code waitTime}. It can be null
      * only when {@code waitTime} is null or zero.
+     * @throws RequestTimeoutException if the deadline expires before a request
+     * can be made or a request times out
      * @throws IllegalArgumentException if any parameter is invalid
      */
     public EventBundle poll(int limit, Duration waitTime, Duration pollInterval) {
@@ -317,62 +352,82 @@ public class Consumer {
                 "pollInterval can be null only when waitTime is null or zero");
         }
 
-        long waitMs = waitTime == null ? 0 : waitTime.toMillis();
-        long pollIntervalMs =
-            pollInterval == null ? 0 : pollInterval.toMillis();
-        if (waitMs > 0 && pollIntervalMs == 0) {
-            /* do not retry immediately */
-            pollIntervalMs = 1;
-        }
-
-        long startTime = System.currentTimeMillis();
-
+        boolean singleRequest = effectiveWaitTime.isZero();
+        long deadline = System.nanoTime() +
+            TimeUnit.NANOSECONDS.convert(effectiveWaitTime);
+        long intervalNanos = Math.max(TimeUnit.MILLISECONDS.toNanos(1),
+            TimeUnit.NANOSECONDS.convert(effectivePollInterval));
         int pollRequests = 0;
-        long requestTimeMs = 0;
-        long retryDelayMs = 0;
+        long requestTimeNanos = 0;
+        long retryDelayNanos = 0;
         EventBundle bundle = null;
 
-        do {
-            pollRequests += 1;
-            long start = System.currentTimeMillis();
-            bundle = pollOnce(limit);
-            long now = System.currentTimeMillis();
-            requestTimeMs += (now - start);
-            if (!bundle.isEmpty() || waitMs == 0) {
-                break;
+        try {
+            while (true) {
+                long start = System.nanoTime();
+                if (!lock.tryLock(singleRequest ? 0 : deadline - start,
+                                  TimeUnit.NANOSECONDS)) {
+                    break;
+                }
+                try {
+                    int timeoutMs = 0;
+                    if (!singleRequest) {
+                        long remainingMs = TimeUnit.NANOSECONDS.toMillis(
+                            deadline - System.nanoTime());
+                        if (remainingMs <= 0) {
+                            break;
+                        }
+                        timeoutMs = (int)Math.min(Integer.MAX_VALUE, remainingMs);
+                    }
+                    bundle = pollOnce(limit, timeoutMs);
+                    pollRequests++;
+                } finally {
+                    lock.unlock();
+                }
+                long now = System.nanoTime();
+                requestTimeNanos += now - start;
+                if (!bundle.isEmpty() || singleRequest ||
+                    deadline - now <= intervalNanos) {
+                    break;
+                }
+                TimeUnit.NANOSECONDS.sleep(intervalNanos);
+                retryDelayNanos += System.nanoTime() - now;
             }
-            // if no messages, sleep for a short period and retry
-            // if nearing end of waitTime, bail out
-            if (((now - startTime) + pollIntervalMs) > waitMs) {
-                break;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (bundle == null) {
+                throw new NoSQLException("Interrupted waiting to poll", e);
             }
-            try {
-                Thread.sleep(pollIntervalMs);
-                retryDelayMs += pollIntervalMs;
-            } catch (Exception e) {
-                break;
-            }
-        } while(true);
+        }
+        if (bundle == null) {
+            throw new RequestTimeoutException("Poll timed out before request");
+        }
         MapValue metadata = bundle.getMetadata();
         if (metadata == null) {
             metadata = new MapValue();
             bundle.setMetadata(metadata);
         }
         metadata.put("pollRequests", pollRequests);
-        metadata.put("requestTimeMs", requestTimeMs);
-        metadata.put("retryDelayMs", retryDelayMs);
+        metadata.put("requestTimeMs",
+                     TimeUnit.NANOSECONDS.toMillis(requestTimeNanos));
+        metadata.put("retryDelayMs",
+                     TimeUnit.NANOSECONDS.toMillis(retryDelayNanos));
         return bundle;
     }
 
     /*
      * @hidden
      */
-    synchronized EventBundle pollOnce(int limit) {
+    private EventBundle pollOnce(int limit, int timeoutMs) {
         if (closed) {
             throw new IllegalStateException("Consumer has been closed");
         }
         lastPollTimeNanos = System.nanoTime();
         PollRequest req = new PollRequest(cursor, limit);
+        if (timeoutMs > 0) {
+            req.setTimeout(Math.min(timeoutMs,
+                handle.getClient().getDefaultRequestTimeout()));
+        }
         req.setCompartmentInternal(compartmentOcid);
         try {
             PollResult res =
@@ -432,8 +487,13 @@ public class Consumer {
      * @return formatted JSON, or null if no cursor is available
      * @hidden
      */
-    public synchronized String dumpCursor() {
-        return dumpCursor(cursor);
+    public String dumpCursor() {
+        lock.lock();
+        try {
+            return dumpCursor(cursor);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

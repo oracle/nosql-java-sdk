@@ -373,6 +373,10 @@ public class Client {
         storeTopologies.clear();
     }
 
+    public int getDefaultRequestTimeout() {
+        return config.getDefaultRequestTimeout();
+    }
+
     public int getAcquiredChannelCount() {
         return httpClient.getAcquiredChannelCount();
     }

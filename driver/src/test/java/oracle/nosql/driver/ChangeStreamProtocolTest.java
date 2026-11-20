@@ -19,12 +19,16 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThrows;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -158,6 +162,59 @@ public class ChangeStreamProtocolTest {
     }
 
     @Test
+    public void testPollRetryUsesRemainingTimeout() throws Exception {
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            Consumer consumer = new ConsumerBuilder().handle(handle)
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                .maxPollInterval(Duration.ofHours(1)).build();
+            try {
+                server.emptyFirstPoll = true;
+                EventBundle bundle = consumer.poll(2, Duration.ofSeconds(2),
+                                                    Duration.ofMillis(300));
+                assertFalse(bundle.isEmpty());
+                assertEquals(2, bundle.getMetadata().getInt("pollRequests"));
+                assertEquals(2, server.pollTimeouts.size());
+                assertTrue(server.pollTimeouts.get(0) <= 2000);
+                assertTrue(server.pollTimeouts.get(1) <= 1700);
+            } finally {
+                consumer.close();
+            }
+            server.assertHealthy();
+        }
+    }
+
+    @Test
+    public void testPollTimesOutWhileCommitHoldsLock() throws Exception {
+        try (ConsumerServer server = new ConsumerServer();
+             NoSQLHandle handle = server.createHandle()) {
+            Consumer consumer = new ConsumerBuilder().handle(handle)
+                .addTable(EXTERNAL_PARENT_OCID, null, StartLocation.earliest())
+                .commitManual().maxPollInterval(Duration.ofHours(1)).build();
+            server.releaseCommit = new CountDownLatch(1);
+            FutureTask<Void> commit = new FutureTask<>(() -> {
+                consumer.commit(null);
+                return null;
+            });
+            new Thread(commit).start();
+            try {
+                assertTrue(server.commitStarted.await(2, TimeUnit.SECONDS));
+                assertThrows(RequestTimeoutException.class,
+                             () -> consumer.poll(1, Duration.ofMillis(50)));
+                assertTrue(server.pollTimeouts.isEmpty());
+            } finally {
+                server.releaseCommit.countDown();
+                try {
+                    commit.get(5, TimeUnit.SECONDS);
+                } finally {
+                    consumer.close();
+                }
+            }
+            server.assertHealthy();
+        }
+    }
+
+    @Test
     public void testConsumerCreateCommitMode() throws Exception {
         for (boolean manual : new boolean[] {true, false}) {
             try (ConsumerServer server = new ConsumerServer();
@@ -236,6 +293,10 @@ public class ChangeStreamProtocolTest {
         private volatile MapValue tableRequest;
         private int revision;
         private int pollCount;
+        private final List<Integer> pollTimeouts = new CopyOnWriteArrayList<>();
+        private volatile boolean emptyFirstPoll;
+        private final CountDownLatch commitStarted = new CountDownLatch(1);
+        private volatile CountDownLatch releaseCommit;
         private volatile byte[] committedCursor;
         private volatile byte[] lastPollCursor;
         private volatile MapValue created;
@@ -278,11 +339,14 @@ public class ChangeStreamProtocolTest {
                         if (payload.getInt("me") == 0) {
                             keepalive.countDown();
                         }
-                        response = Nson.readNsonMap(
-                            NettyByteInputStream.createFromBytes(
-                                createPollResponse(
-                                    createEvent("event-1", EXTERNAL_PARENT_OCID),
-                                    createEvent("event-2", EXTERNAL_CHILD_OCID))));
+                        pollTimeouts.add(header.getInt("t"));
+                        if (!emptyFirstPoll || pollCount > 0) {
+                            response = Nson.readNsonMap(
+                                NettyByteInputStream.createFromBytes(
+                                    createPollResponse(
+                                        createEvent("event-1", EXTERNAL_PARENT_OCID),
+                                        createEvent("event-2", EXTERNAL_CHILD_OCID))));
+                        }
                         response.put("e", 0);
                         response.put("cu", new byte[] {(byte)++pollCount});
                     } else {
@@ -294,6 +358,10 @@ public class ChangeStreamProtocolTest {
                             response.put("cm", new MapValue()
                                          .put("revision", ++revision));
                         } else if (mode == 5) {
+                            if (releaseCommit != null) {
+                                commitStarted.countDown();
+                                assertTrue(releaseCommit.await(3, TimeUnit.SECONDS));
+                            }
                             committedCursor = payload.getBinary("cu");
                             response.put("cu", committedCursor);
                         } else if (mode == 6) {
