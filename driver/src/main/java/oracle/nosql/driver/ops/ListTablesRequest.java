@@ -9,6 +9,7 @@ package oracle.nosql.driver.ops;
 
 import oracle.nosql.driver.NoSQLHandle;
 import oracle.nosql.driver.NoSQLHandleConfig;
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.iam.SignatureProvider;
 import oracle.nosql.driver.ops.serde.Serializer;
 import oracle.nosql.driver.ops.serde.SerializerFactory;
@@ -26,6 +27,33 @@ public class ListTablesRequest extends Request {
     private int startIndex;
     private int limit;
     private String namespace;
+    private Boolean changeStreamingEnabled;
+
+    /**
+     * Filters the list by whether Change Streaming is enabled for each table.
+     * Cloud service only. The start index and limit apply to the filtered list.
+     * Use the same filter when requesting subsequent pages.
+     * If the service does not support filtering, executing a filtered request
+     * throws {@link OperationNotSupportedException}.
+     *
+     * @param enabled true for enabled tables, false for disabled tables,
+     * or null to list both (the default)
+     * @return this
+     */
+    public ListTablesRequest setChangeStreamingEnabled(Boolean enabled) {
+        this.changeStreamingEnabled = enabled;
+        return this;
+    }
+
+    /**
+     * Returns the requested Change Streaming filter.
+     *
+     * @return true for enabled tables, false for disabled tables, or null
+     * if the request includes both
+     */
+    public Boolean getChangeStreamingEnablement() {
+        return changeStreamingEnabled;
+    }
 
     /**
      * Cloud service only.

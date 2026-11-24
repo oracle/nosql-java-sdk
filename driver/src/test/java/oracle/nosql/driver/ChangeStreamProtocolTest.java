@@ -42,6 +42,10 @@ import oracle.nosql.driver.changestream.Image;
 import oracle.nosql.driver.changestream.StartLocation;
 import oracle.nosql.driver.ops.Request;
 import oracle.nosql.driver.ops.GetTableRequest;
+import oracle.nosql.driver.ops.ListTablesRequest;
+import oracle.nosql.driver.ops.ListTablesResult;
+import oracle.nosql.driver.ops.serde.BinarySerializerFactory;
+import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory.ListTablesRequestSerializer;
 import oracle.nosql.driver.ops.TableRequest;
 import oracle.nosql.driver.ops.TableResult;
 import oracle.nosql.driver.ops.serde.nson.NsonSerializerFactory.TableRequestSerializer;
@@ -71,6 +75,68 @@ public class ChangeStreamProtocolTest {
     private static final String EXTERNAL_CHILD_OCID =
         "ocid1.nosqltable.oc1.us-phoenix-1.child";
     private static final String EXTERNAL_REGION_NAME = "us-phoenix-1";
+
+    @Test
+    public void testListTablesChangeStreamingFilter() throws IOException {
+        ListTablesRequest request = new ListTablesRequest().setStartIndex(2)
+            .setLimit(1);
+        ListTablesRequestSerializer serializer =
+            new ListTablesRequestSerializer();
+        ByteBuf buffer = Unpooled.buffer();
+        try {
+            NettyByteOutputStream out = new NettyByteOutputStream(buffer);
+            for (Boolean enabled : new Boolean[] {true, false, null}) {
+                request.setChangeStreamingEnabled(enabled);
+                buffer.clear();
+                serializer.serialize(request, (short) 4, out);
+                MapValue payload = Nson.readNsonMap(
+                    new NettyByteInputStream(buffer)).get("p").asMap();
+                assertEquals(2, payload.getInt("ls"));
+                assertEquals(1, payload.getInt("lx"));
+                if (enabled == null) {
+                    assertFalse(payload.contains("ce"));
+                    continue;
+                }
+                assertEquals(enabled.booleanValue(), payload.getBoolean("ce"));
+                assertThrows(OperationNotSupportedException.class, () ->
+                    request.createSerializer(new BinarySerializerFactory())
+                        .serialize(request, (short) 3, out));
+            }
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
+    public void testListTablesRequiresAppliedFilter() throws IOException {
+        ListTablesRequest request = new ListTablesRequest();
+        MapValue response = new MapValue().put("e", 0).put("li", 3);
+        assertEquals(3, readListTablesResult(request, response)
+                     .getLastReturnedIndex());
+
+        request.setChangeStreamingEnabled(false);
+        assertThrows(OperationNotSupportedException.class, () ->
+            readListTablesResult(request, response));
+        response.put("ce", true);
+        assertThrows(OperationNotSupportedException.class, () ->
+            readListTablesResult(request, response));
+        response.put("ce", false);
+        assertEquals(3, readListTablesResult(request, response)
+                     .getLastReturnedIndex());
+    }
+
+    private static ListTablesResult readListTablesResult(
+        ListTablesRequest request, MapValue response) throws IOException {
+
+        ByteBuf buffer = Unpooled.buffer();
+        try {
+            Nson.writeFieldValue(new NettyByteOutputStream(buffer), response);
+            return (ListTablesResult) new ListTablesRequestSerializer()
+                .deserialize(request, new NettyByteInputStream(buffer), (short) 4);
+        } finally {
+            buffer.release();
+        }
+    }
 
     @Test
     public void testInternalRecordTableOcidIsConvertedToExternalFormat()

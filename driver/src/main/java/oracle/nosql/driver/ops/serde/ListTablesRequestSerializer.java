@@ -9,6 +9,7 @@ package oracle.nosql.driver.ops.serde;
 
 import java.io.IOException;
 
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.ops.ListTablesRequest;
 import oracle.nosql.driver.ops.ListTablesResult;
 import oracle.nosql.driver.ops.Request;
@@ -25,6 +26,11 @@ class ListTablesRequestSerializer extends BinaryProtocol implements Serializer {
         throws IOException {
 
         ListTablesRequest listRq = (ListTablesRequest) request;
+
+        if (listRq.getChangeStreamingEnablement() != null) {
+            throw new OperationNotSupportedException(
+                "Filtering tables by Change Streaming requires NSON support");
+        }
 
         writeOpCode(out, OpCode.LIST_TABLES);
         serializeRequest(listRq, out);

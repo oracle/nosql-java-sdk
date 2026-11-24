@@ -48,6 +48,7 @@ import oracle.nosql.driver.Nson;
 import oracle.nosql.driver.Nson.NsonSerializer;
 import oracle.nosql.driver.NoSQLException;
 import oracle.nosql.driver.ThrottlingException;
+import oracle.nosql.driver.OperationNotSupportedException;
 import oracle.nosql.driver.UnsupportedProtocolException;
 import oracle.nosql.driver.Version;
 import oracle.nosql.driver.changestream.ConsumerBuilder;
@@ -2216,10 +2217,12 @@ public class NsonSerializerFactory implements SerializerFactory {
      *    start index (int)
      *    limit (int)
      *    namespace (string, on-prem only)
+     *    change stream enabled (optional boolean, cloud only)
      *
      * List tables result:
      *  array of table names (string)
      *  last index returned (int)
+     *  change stream enabled (boolean, echoed when the filter was applied)
      *
      *  if no tables, the result is empty and this code should create an
      *  empty array for the API
@@ -2248,6 +2251,10 @@ public class NsonSerializerFactory implements SerializerFactory {
             writeMapField(ns, LIST_START_INDEX, rq.getStartIndex());
             writeMapField(ns, LIST_MAX_TO_READ, rq.getLimit());
             writeMapField(ns, NAMESPACE, rq.getNamespace());
+            Boolean enabled = rq.getChangeStreamingEnablement();
+            if (enabled != null) {
+                writeMapField(ns, CHANGE_STREAM_ENABLED, enabled);
+            }
             endMap(ns, PAYLOAD);
 
             ns.endMap(0); // top level object
@@ -2257,13 +2264,18 @@ public class NsonSerializerFactory implements SerializerFactory {
         public Result deserialize(Request request,
                                   ByteInputStream in,
                                   short serialVersion) throws IOException {
-            ListTablesResult  result = new ListTablesResult();
+            Boolean requested = ((ListTablesRequest) request)
+                .getChangeStreamingEnablement();
+            Boolean applied = null;
+            ListTablesResult result = new ListTablesResult();
             MapWalker walker = getMapWalker(in);
             while (walker.hasNext()) {
                 walker.next();
                 String name = walker.getCurrentName();
                 if (name.equals(ERROR_CODE)) {
                     handleErrorCode(walker);
+                } else if (name.equals(CHANGE_STREAM_ENABLED)) {
+                    applied = Nson.readNsonBoolean(in);
                 } else if (name.equals(TABLES)) {
                     /* array of table names */
                     int t = in.readByte();
@@ -2284,6 +2296,11 @@ public class NsonSerializerFactory implements SerializerFactory {
                 } else {
                     skipUnknownField(walker, name);
                 }
+            }
+            /* Older proxies skip unknown request fields. */
+            if (requested != null && !requested.equals(applied)) {
+                throw new OperationNotSupportedException(
+                    "Server did not confirm the requested Change Streaming filter");
             }
             /*
              * The result API guarantees non-null, even if empty
